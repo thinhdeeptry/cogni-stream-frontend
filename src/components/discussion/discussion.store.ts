@@ -8,6 +8,7 @@ import {
   removeReaction,
   getThread,
   getPosts,
+  findReplies,
 } from "./discussion.action";
 
 interface DiscussionState {
@@ -18,10 +19,12 @@ interface DiscussionState {
   currentUserId?: string;
   currentPage: number;
   currentThreadId: string | null;
+  replyPages: Record<string, number>;
   setCurrentUserId: (userId: string) => void;
   setCurrentThreadId: (threadId: string) => void;
   fetchThread: () => Promise<void>;
   fetchPosts: (page?: number) => Promise<void>;
+  fetchReplies: (postId: string, page?: number) => Promise<void>;
   addReply: (
     parentId: string | null,
     content: string,
@@ -34,6 +37,7 @@ interface DiscussionState {
 }
 
 const POSTS_PER_PAGE = 5;
+const REPLIES_PER_PAGE = 3;
 
 export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
   thread: null,
@@ -43,6 +47,7 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
   currentUserId: undefined,
   currentPage: 1,
   currentThreadId: null,
+  replyPages: {},
 
   setCurrentUserId: (userId) => set({ currentUserId: userId }),
   setCurrentThreadId: (threadId) => set({ currentThreadId: threadId }),
@@ -96,6 +101,46 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "An unexpected error occurred";
+      set({ error: errorMessage, isLoading: false });
+    }
+  },
+
+  fetchReplies: async (postId: string, page?: number) => {
+    try {
+      set({ isLoading: true, error: null });
+      const currentPage = page || 1;
+      const replies = await findReplies(postId, currentPage, REPLIES_PER_PAGE);
+
+      set((state) => {
+        const posts = state.posts.map((post) => {
+          if (post.id === postId) {
+            return {
+              ...post,
+              replies:
+                currentPage === 1
+                  ? replies
+                  : [...(post.replies || []), ...replies],
+              _count: {
+                ...post._count,
+                replies: post._count?.replies || replies.length,
+              },
+            };
+          }
+          return post;
+        });
+
+        return {
+          posts,
+          replyPages: {
+            ...state.replyPages,
+            [postId]: currentPage,
+          },
+          isLoading: false,
+        };
+      });
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to load replies";
       set({ error: errorMessage, isLoading: false });
     }
   },

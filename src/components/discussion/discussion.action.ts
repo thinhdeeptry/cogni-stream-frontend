@@ -79,3 +79,14 @@ export async function addReaction(
 export async function removeReaction(reactionId: string): Promise<void> {
   await axiosInstance.delete(`/reactions/${reactionId}`);
 }
+
+export async function findReplies(
+  postId: string,
+  page?: number,
+  limit?: number,
+): Promise<Post[]> {
+  const { data } = await axiosInstance.get(
+    `/posts/${postId}/replies${page ? `?page=${page}&limit=${limit}` : ""}`,
+  );
+  return data;
+}
