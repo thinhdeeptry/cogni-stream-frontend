@@ -15,20 +15,22 @@ const reactionEmojis: Record<ReactionType, { emoji: string; label: string }> = {
   [ReactionType.ANGRY]: { emoji: "😠", label: "Angry" },
 };
 
+interface ReactionData {
+  id: string;
+  type: ReactionType;
+  userId: string;
+}
+
 interface ReactionButtonProps {
   postId: string;
-  reactions: Array<{
-    id: string;
-    type: ReactionType;
-    userId: string;
-  }>;
+  reactions?: ReactionData[];
   onReact: (type: ReactionType) => void;
   onRemoveReaction: () => void;
   currentUserId: string;
 }
 
 export function ReactionButton({
-  reactions,
+  reactions = [],
   onReact,
   onRemoveReaction,
   currentUserId,

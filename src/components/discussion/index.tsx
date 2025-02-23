@@ -3,7 +3,8 @@
 import type React from "react";
 import dynamic from "next/dynamic";
 import { useEffect, useState, useRef } from "react";
-import type { Post } from "./type";
+import type { Thread, ThreadWithPostCount, PostWithReplyCount } from "./type";
+import { DiscussionType } from "./type";
 import { useDiscussionStore } from "./discussion.store";
 import { ReactionButton } from "./ReactionButton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -11,6 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { formatDistanceToNow } from "date-fns";
 import {
+  Star,
+  StarOff,
   MoreHorizontal,
   Trash2,
   Send,
@@ -39,6 +42,7 @@ import {
 } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import data from "@emoji-mart/data";
+import { Rating } from "@/components/ui/rating";
 
 // Dynamically import EmojiPicker to avoid SSR issues
 const EmojiPicker = dynamic(() => import("@emoji-mart/react"), { ssr: false });
@@ -46,6 +50,7 @@ const EmojiPicker = dynamic(() => import("@emoji-mart/react"), { ssr: false });
 interface DiscussionProps {
   threadId: string;
   currentUserId?: string;
+  thread: ThreadWithPostCount;
 }
 
 interface EmojiData {
@@ -55,20 +60,50 @@ interface EmojiData {
   keywords: string[];
 }
 
+function RatingInput({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (rating: number) => void;
+}) {
+  return (
+    <div className="flex items-center gap-1 mb-2">
+      {[1, 2, 3, 4, 5].map((rating) => (
+        <button
+          key={rating}
+          type="button"
+          className="text-yellow-400 hover:text-yellow-500 transition-colors"
+          onClick={() => onChange(rating)}
+        >
+          {rating <= value ? (
+            <Star className="h-5 w-5 fill-current" />
+          ) : (
+            <StarOff className="h-5 w-5" />
+          )}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function PostCard({
   post,
   currentUserId,
   level = 0,
+  thread,
 }: {
-  post: Post;
+  post: PostWithReplyCount;
   currentUserId?: string;
   level?: number;
+  thread: Thread;
 }) {
   const [isReplying, setIsReplying] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [showDeletePopover, setShowDeletePopover] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [content, setContent] = useState(post.content);
+  const [rating, setRating] = useState(post.rating || 5);
   const { addReply, editPost, deletePost, addReaction, removeReaction, error } =
     useDiscussionStore();
   const replyInputRef = useRef<HTMLTextAreaElement>(null);
@@ -99,7 +134,11 @@ function PostCard({
       toast.error("Please log in to edit");
       return;
     }
-    await editPost(post.id, content);
+    await editPost(
+      post.id,
+      content,
+      thread.type === DiscussionType.COURSE_REVIEW ? rating : undefined,
+    );
     setIsEditing(false);
   };
 
@@ -148,6 +187,20 @@ function PostCard({
               <div className="font-semibold text-xs">
                 {post.authorId ? post.authorId.slice(0, 8) : "Anonymous"}
               </div>
+              {thread.type === DiscussionType.COURSE_REVIEW &&
+                !post.parentId && (
+                  <div className="mt-1">
+                    {isEditing ? (
+                      <Rating
+                        value={rating}
+                        onChange={setRating}
+                        className="mb-2"
+                      />
+                    ) : post.rating ? (
+                      <Rating value={post.rating} disabled className="mb-2" />
+                    ) : null}
+                  </div>
+                )}
               {isEditing ? (
                 <form onSubmit={handleSubmitEdit} className="mt-2">
                   <div className="bg-white rounded-lg border">
@@ -216,10 +269,13 @@ function PostCard({
               <Button
                 variant="ghost"
                 size="sm"
-                className="text-xs p-0 h-auto"
+                className="text-xs p-0 h-auto flex items-center gap-1"
                 onClick={() => setIsReplying(!isReplying)}
               >
                 <Reply className="h-4 w-4" />
+                {post._count?.replies > 0 && (
+                  <span className="text-xs">({post._count.replies})</span>
+                )}
               </Button>
 
               <span>
@@ -353,12 +409,13 @@ function PostCard({
 
             {post.replies?.length > 0 && (
               <div className="mt-2">
-                {post.replies.map((reply) => (
+                {post.replies.map((reply: PostWithReplyCount) => (
                   <PostCard
                     key={reply.id}
                     post={reply}
                     currentUserId={currentUserId}
                     level={level + 1}
+                    thread={thread}
                   />
                 ))}
               </div>
@@ -373,19 +430,37 @@ function PostCard({
 export default function DiscussionSection({
   threadId,
   currentUserId,
-}: DiscussionProps) {
-  const { posts, isLoading, error, fetchPosts, addReply, setCurrentUserId } =
-    useDiscussionStore();
+}: Omit<DiscussionProps, "thread">) {
+  const {
+    thread,
+    posts,
+    isLoading,
+    error,
+    fetchThread,
+    fetchPosts,
+    addReply,
+    setCurrentUserId,
+    setCurrentThreadId,
+    currentPage,
+  } = useDiscussionStore();
   const [newPostContent, setNewPostContent] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [rating, setRating] = useState(5);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const newPostInputRef = useRef<HTMLTextAreaElement>(null);
 
+  // Initialize thread
+  useEffect(() => {
+    setCurrentThreadId(threadId);
+    fetchThread();
+  }, [threadId, setCurrentThreadId, fetchThread]);
+
+  // Set currentUserId when it changes
   useEffect(() => {
     if (currentUserId) {
       setCurrentUserId(currentUserId);
     }
-    fetchPosts(threadId);
-  }, [threadId, currentUserId, fetchPosts, setCurrentUserId]);
+  }, [currentUserId, setCurrentUserId]);
 
   useEffect(() => {
     if (error) {
@@ -393,15 +468,34 @@ export default function DiscussionSection({
     }
   }, [error]);
 
+  const handleLoadMore = async () => {
+    if (isLoadingMore) return;
+    setIsLoadingMore(true);
+    try {
+      await fetchPosts(currentPage + 1);
+    } catch (err) {
+      toast.error("Failed to load more posts: " + err);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
+
   const handleSubmitNewPost = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!currentUserId) {
       toast.error("Please log in to post");
       return;
     }
+    if (!thread) {
+      toast.error("Thread not found");
+      return;
+    }
     if (newPostContent.trim()) {
-      await addReply(null, newPostContent);
+      const postRating =
+        thread.type === DiscussionType.COURSE_REVIEW ? rating : undefined;
+      await addReply(null, newPostContent, postRating);
       setNewPostContent("");
+      setRating(5);
       if (newPostInputRef.current) {
         newPostInputRef.current.style.height = "auto";
       }
@@ -424,9 +518,16 @@ export default function DiscussionSection({
     setNewPostContent(newContent);
   };
 
-  if (isLoading) {
+  if (isLoading && !isLoadingMore) {
     return <div>Loading discussions...</div>;
   }
+
+  if (!thread) {
+    return <div>Thread not found</div>;
+  }
+
+  const totalPosts = thread._count?.posts || 0;
+  const hasMorePosts = totalPosts > posts.length;
 
   return (
     <div className="space-y-6">
@@ -445,12 +546,20 @@ export default function DiscussionSection({
           </Avatar>
           <div className="flex-1">
             <div className="bg-white rounded-lg border">
-              <div className="relative">
+              <div className="relative p-2">
+                {thread.type === DiscussionType.COURSE_REVIEW &&
+                  posts.length === 0 && (
+                    <RatingInput value={rating} onChange={setRating} />
+                  )}
                 <Textarea
                   ref={newPostInputRef}
                   value={newPostContent}
                   onChange={handleTextareaChange}
-                  placeholder="Write a comment..."
+                  placeholder={
+                    thread.type === DiscussionType.COURSE_REVIEW
+                      ? "Write your course review..."
+                      : "Write a comment..."
+                  }
                   className="min-h-[45px] max-h-[200px] border-0 focus-visible:ring-0 resize-none rounded-lg pr-24 py-2.5 text-sm"
                 />
                 <div className="absolute right-2 bottom-2 flex items-center gap-0.5">
@@ -508,9 +617,50 @@ export default function DiscussionSection({
       )}
 
       <div className="space-y-4">
-        {posts.map((post) => (
-          <PostCard key={post.id} post={post} currentUserId={currentUserId} />
-        ))}
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">
+            Discussion ({totalPosts} {totalPosts === 1 ? "post" : "posts"})
+          </h2>
+        </div>
+
+        {posts.length > 0 ? (
+          <>
+            <div className="space-y-4">
+              {posts.map((post) => (
+                <PostCard
+                  key={post.id}
+                  post={post}
+                  currentUserId={currentUserId}
+                  thread={thread}
+                />
+              ))}
+            </div>
+
+            {hasMorePosts && (
+              <div className="flex justify-center pt-4">
+                <Button
+                  variant="outline"
+                  onClick={handleLoadMore}
+                  disabled={isLoadingMore}
+                  className="w-full max-w-xs"
+                >
+                  {isLoadingMore ? (
+                    <div className="flex items-center gap-2">
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                      Loading...
+                    </div>
+                  ) : (
+                    `Show More (${totalPosts - posts.length} remaining)`
+                  )}
+                </Button>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="text-center text-gray-500 py-8">
+            No posts yet. Be the first to start the discussion!
+          </div>
+        )}
       </div>
     </div>
   );

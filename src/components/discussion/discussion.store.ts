@@ -1,51 +1,105 @@
 import { create } from "zustand";
-import { Post, ReactionType, Reaction } from "./type";
+import type { Post, ReactionType, Reaction, ThreadWithPostCount } from "./type";
 import {
-  getPosts,
   createPost,
   updatePost,
   deletePost,
   addReaction,
   removeReaction,
+  getThread,
+  getPosts,
 } from "./discussion.action";
 
 interface DiscussionState {
+  thread: ThreadWithPostCount | null;
   posts: Post[];
   isLoading: boolean;
   error: string | null;
-  currentUserId: string | null;
-  threadId: string | null;
-  setPosts: (posts: Post[]) => void;
+  currentUserId?: string;
+  currentPage: number;
+  currentThreadId: string | null;
   setCurrentUserId: (userId: string) => void;
-  setThreadId: (threadId: string) => void;
-  fetchPosts: (threadId: string) => Promise<void>;
-  addReaction: (postId: string, reactionType: ReactionType) => Promise<void>;
-  removeReaction: (postId: string) => Promise<void>;
-  addReply: (parentId: string | null, content: string) => Promise<void>;
-  editPost: (postId: string, content: string) => Promise<void>;
+  setCurrentThreadId: (threadId: string) => void;
+  fetchThread: () => Promise<void>;
+  fetchPosts: (page?: number) => Promise<void>;
+  addReply: (
+    parentId: string | null,
+    content: string,
+    rating?: number,
+  ) => Promise<void>;
+  editPost: (postId: string, content: string, rating?: number) => Promise<void>;
   deletePost: (postId: string) => Promise<void>;
+  addReaction: (postId: string, reactionType: ReactionType) => Promise<void>;
+  removeReaction: (reactionId: string) => Promise<void>;
 }
 
-export const useDiscussionStore = create<DiscussionState>((set, get) => ({
+const POSTS_PER_PAGE = 5;
+
+export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
+  thread: null,
   posts: [],
   isLoading: false,
   error: null,
-  currentUserId: null,
-  threadId: null,
-  setPosts: (posts) => set({ posts }),
+  currentUserId: undefined,
+  currentPage: 1,
+  currentThreadId: null,
+
   setCurrentUserId: (userId) => set({ currentUserId: userId }),
-  setThreadId: (threadId) => set({ threadId }),
-  fetchPosts: async (threadId) => {
-    set({ isLoading: true, error: null, threadId });
+  setCurrentThreadId: (threadId) => set({ currentThreadId: threadId }),
+
+  fetchThread: async () => {
+    const { currentThreadId } = get();
+    if (!currentThreadId) return;
+
     try {
-      const posts = await getPosts(threadId);
-      set({ posts, isLoading: false });
+      set({ isLoading: true, error: null });
+      const thread = await getThread(currentThreadId);
+      set({
+        thread,
+        posts: thread.posts || [],
+        currentPage: 1,
+        isLoading: false,
+      });
     } catch (err) {
       const errorMessage =
-        err instanceof Error ? err.message : "Failed to fetch posts";
+        err instanceof Error ? err.message : "An unexpected error occurred";
       set({ error: errorMessage, isLoading: false });
     }
   },
+
+  fetchPosts: async (page?: number) => {
+    const { currentThreadId } = get();
+    if (!currentThreadId) return;
+
+    try {
+      set({ isLoading: true, error: null });
+      const currentPage = page || 1;
+      const posts = await getPosts(
+        currentThreadId,
+        currentPage,
+        POSTS_PER_PAGE,
+      );
+
+      if (page && page > 1) {
+        set((state) => ({
+          posts: [...state.posts, ...posts],
+          currentPage,
+          isLoading: false,
+        }));
+      } else {
+        set({
+          posts,
+          currentPage: 1,
+          isLoading: false,
+        });
+      }
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "An unexpected error occurred";
+      set({ error: errorMessage, isLoading: false });
+    }
+  },
+
   addReaction: async (postId, reactionType) => {
     const { currentUserId } = get();
     if (!currentUserId) {
@@ -105,6 +159,7 @@ export const useDiscussionStore = create<DiscussionState>((set, get) => ({
       set({ error: errorMessage });
     }
   },
+
   removeReaction: async (reactionId) => {
     const { currentUserId } = get();
     if (!currentUserId) {
@@ -148,23 +203,25 @@ export const useDiscussionStore = create<DiscussionState>((set, get) => ({
       set({ error: errorMessage });
     }
   },
-  addReply: async (parentId, content) => {
-    const { currentUserId, threadId } = get();
+
+  addReply: async (parentId, content, rating) => {
+    const { currentUserId, thread } = get();
     if (!currentUserId) {
       set({ error: "Please log in to post replies" });
       return;
     }
-    if (!threadId) {
-      set({ error: "Thread ID not found" });
+    if (!thread) {
+      set({ error: "Thread not found" });
       return;
     }
 
     try {
       const newPost = await createPost(
-        threadId,
+        thread.id,
         currentUserId,
         content,
         parentId || undefined,
+        rating,
       );
 
       set((state) => ({
@@ -176,6 +233,15 @@ export const useDiscussionStore = create<DiscussionState>((set, get) => ({
               return post;
             })
           : [newPost, ...state.posts],
+        thread: state.thread
+          ? {
+              ...state.thread,
+              _count: {
+                ...state.thread._count,
+                posts: state.thread._count.posts + 1,
+              },
+            }
+          : null,
         error: null,
       }));
     } catch (err) {
@@ -184,7 +250,8 @@ export const useDiscussionStore = create<DiscussionState>((set, get) => ({
       set({ error: errorMessage });
     }
   },
-  editPost: async (postId, content) => {
+
+  editPost: async (postId, content, rating) => {
     const { currentUserId } = get();
     if (!currentUserId) {
       set({ error: "Please log in to edit posts" });
@@ -192,7 +259,12 @@ export const useDiscussionStore = create<DiscussionState>((set, get) => ({
     }
 
     try {
-      const updatedPost = await updatePost(postId, content, currentUserId);
+      const updatedPost = await updatePost(
+        postId,
+        content,
+        currentUserId,
+        rating,
+      );
       set((state) => ({
         posts: state.posts.map((post) => {
           if (post.id === postId) {
@@ -216,6 +288,7 @@ export const useDiscussionStore = create<DiscussionState>((set, get) => ({
       set({ error: errorMessage });
     }
   },
+
   deletePost: async (postId) => {
     const { currentUserId } = get();
     if (!currentUserId) {

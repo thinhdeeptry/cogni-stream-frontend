@@ -1,14 +1,27 @@
 // "use server"
 
 import axios from "axios";
-import { Post, ReactionType } from "./type";
+import { Post, ReactionType, ThreadWithPostCount } from "./type";
 
 const axiosInstance = axios.create({
   baseURL: process.env.NEXT_PUBLIC_DISCUSSION_API_URL,
 });
 
-export async function getPosts(threadId: string): Promise<Post[]> {
-  const { data } = await axiosInstance.get(`/threads/${threadId}/posts`);
+export async function getThread(
+  threadId: string,
+): Promise<ThreadWithPostCount> {
+  const { data } = await axiosInstance.get(`/threads/${threadId}`);
+  return data;
+}
+
+export async function getPosts(
+  threadId: string,
+  page?: number,
+  limit?: number,
+): Promise<Post[]> {
+  const { data } = await axiosInstance.get(
+    `/threads/${threadId}/posts${page ? `?page=${page}&limit=${limit}` : ""}`,
+  );
   return data;
 }
 
@@ -32,11 +45,13 @@ export async function updatePost(
   postId: string,
   content: string,
   authorId: string,
+  rating?: number,
 ): Promise<Post> {
   const { data } = await axiosInstance.patch(
     `/posts/${postId}?authorId=${authorId}`,
     {
       content,
+      rating,
     },
   );
   return data;
