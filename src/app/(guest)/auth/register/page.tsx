@@ -1,4 +1,5 @@
+import GuestRegister from "@/components/auth/guest.register";
 const Register = () => {
-  return <div>register page</div>;
+  return <GuestRegister />;
 };
 export default Register;

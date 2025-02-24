@@ -1,4 +1,6 @@
+import GuestLogin from "@/components/auth/guest.login";
+
 const LoginPage = () => {
-  return <div>login page</div>;
+  return <GuestLogin />;
 };
 export default LoginPage;
