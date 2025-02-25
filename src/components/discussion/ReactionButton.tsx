@@ -25,8 +25,8 @@ interface ReactionButtonProps {
   postId: string;
   reactions?: ReactionData[];
   reactionCounts?: ReactionCounts;
-  onReact: (type: ReactionType) => void;
-  onRemoveReaction: () => void;
+  onReact: (type: ReactionType, existingReactionId?: string) => void;
+  onRemoveReaction: (reactionId: string, reactionType: ReactionType) => void;
   currentUserId: string;
 }
 
@@ -73,8 +73,8 @@ export function ReactionButton({
   };
 
   const handleMainButtonClick = () => {
-    if (selectedEmoji) {
-      onRemoveReaction();
+    if (selectedEmoji && userReaction) {
+      onRemoveReaction(userReaction.id, userReaction.type);
       setSelectedEmoji(null);
     } else {
       setShowReactions(true);
@@ -82,17 +82,18 @@ export function ReactionButton({
   };
 
   const handleReact = (type: ReactionType) => {
-    if (selectedEmoji === type) {
-      // Nếu click vào reaction hiện tại -> un-react
-      onRemoveReaction();
+    if (selectedEmoji === type && userReaction) {
+      // If clicking the same reaction -> remove it
+      onRemoveReaction(userReaction.id, userReaction.type);
       setSelectedEmoji(null);
-    } else if (selectedEmoji !== null) {
-      // Nếu đã có reaction và chọn reaction khác -> update reaction
-      onRemoveReaction();
-      onReact(type);
+    } else if (selectedEmoji !== null && userReaction) {
+      // If changing to a different reaction -> update existing reaction
+      onReact(type, userReaction.id);
+      setSelectedEmoji(type);
     } else {
-      // Nếu chưa có reaction -> thêm mới
+      // If no existing reaction -> add new reaction
       onReact(type);
+      setSelectedEmoji(type);
     }
     setShowReactions(false);
   };

@@ -90,3 +90,14 @@ export async function findReplies(
   );
   return data;
 }
+
+export async function updateReaction(
+  reactionId: string,
+  reactionType: ReactionType,
+) {
+  const { data } = await axiosInstance.patch(`/reactions/${reactionId}`, {
+    reactionType,
+  });
+
+  return data;
+}

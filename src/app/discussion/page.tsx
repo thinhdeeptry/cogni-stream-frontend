@@ -39,7 +39,7 @@ export default function DiscussionTest() {
       <div className="max-w-[500px] ml-auto">
         <DiscussionSection
           threadId={currentThreadId}
-          currentUserId="97017806-520f-45ef-9fe9-90e7daf39e54"
+          currentUserId="97017806-520f-45ef-9fe9-90e7daf39e22"
         />
       </div>
     </div>

@@ -240,9 +240,21 @@ export function PostCard({
                   </div>
                 )}
 
-              <p className="mt-1 text-sm">{post.content}</p>
+              <p className="mt-1 text-sm break-all">{post.content}</p>
 
               <div className="mt-2 text-xs text-gray-500 flex items-center justify-between">
+                <ReactionButton
+                  postId={post.id}
+                  reactions={post.reactions}
+                  reactionCounts={post.reactionCounts}
+                  currentUserId={currentUserId || ""}
+                  onReact={(type, existingReactionId) => {
+                    addReaction(post.id, type, existingReactionId);
+                  }}
+                  onRemoveReaction={(reactionId, reactionType) =>
+                    removeReaction(reactionId, reactionType)
+                  }
+                />
                 <div className="flex items-center">
                   <span className="text-xs text-gray-400 mr-3">
                     {formatDistanceToNow(new Date(post.createdAt), {
@@ -252,17 +264,6 @@ export function PostCard({
                   </span>
                   {renderReactionSummary()}
                 </div>
-
-                <ReactionButton
-                  postId={post.id}
-                  reactions={post.reactions}
-                  reactionCounts={post.reactionCounts}
-                  currentUserId={currentUserId || ""}
-                  onReact={(type) => addReaction(post.id, type)}
-                  onRemoveReaction={() =>
-                    removeReaction(post.reactions?.[0]?.id || "")
-                  }
-                />
               </div>
             </div>
           )}

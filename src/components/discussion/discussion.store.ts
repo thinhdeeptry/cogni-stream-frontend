@@ -6,6 +6,7 @@ import {
   deletePost,
   addReaction,
   removeReaction,
+  updateReaction,
   getThread,
   getPosts,
   findReplies,
@@ -33,8 +34,15 @@ interface DiscussionState {
   ) => Promise<void>;
   editPost: (postId: string, content: string, rating?: number) => Promise<void>;
   deletePost: (postId: string) => Promise<void>;
-  addReaction: (postId: string, reactionType: ReactionType) => Promise<void>;
-  removeReaction: (reactionId: string) => Promise<void>;
+  addReaction: (
+    postId: string,
+    reactionType: ReactionType,
+    existingReactionId?: string,
+  ) => Promise<void>;
+  removeReaction: (
+    reactionId: string,
+    reactionType: ReactionType,
+  ) => Promise<void>;
 }
 
 const POSTS_PER_PAGE = 5;
@@ -177,7 +185,7 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
     }
   },
 
-  addReaction: async (postId, reactionType) => {
+  addReaction: async (postId, reactionType, existingReactionId) => {
     const { currentUserId } = get();
     if (!currentUserId) {
       set({ error: "Please log in to react to posts" });
@@ -185,12 +193,18 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
     }
 
     try {
-      await addReaction(postId, currentUserId, reactionType);
+      // Update UI immediately for better UX
       set((state) => ({
         posts: state.posts.map((post) => {
           if (post.id === postId) {
+            // Check if user already has a reaction
+            const existingReaction = post.reactions.find(
+              (r) => r.userId === currentUserId,
+            );
+
+            // Create a new reaction object
             const newReaction: Reaction = {
-              id: Date.now().toString(),
+              id: Date.now().toString(), // Temporary ID until server response
               postId,
               userId: currentUserId,
               type: reactionType,
@@ -198,46 +212,207 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
               updatedAt: new Date(),
               post,
             };
+
+            // Create a safe copy of reactionCounts with default values
+            const updatedReactionCounts = {
+              LIKE: post.reactionCounts?.LIKE || 0,
+              LOVE: post.reactionCounts?.LOVE || 0,
+              CARE: post.reactionCounts?.CARE || 0,
+              HAHA: post.reactionCounts?.HAHA || 0,
+              WOW: post.reactionCounts?.WOW || 0,
+              SAD: post.reactionCounts?.SAD || 0,
+              ANGRY: post.reactionCounts?.ANGRY || 0,
+              total: post.reactionCounts?.total || 0,
+            };
+
+            // If there's an existing reaction, decrement its count first
+            if (existingReaction) {
+              updatedReactionCounts[existingReaction.type] = Math.max(
+                0,
+                updatedReactionCounts[existingReaction.type] - 1,
+              );
+            } else {
+              // Only increment total if we're not replacing an existing reaction
+              updatedReactionCounts.total += 1;
+            }
+
+            // Increment the new reaction type count
+            updatedReactionCounts[reactionType] += 1;
+
             return {
               ...post,
-              reactions: [...post.reactions, newReaction],
+              reactions: [
+                ...post.reactions.filter((r) => r.userId !== currentUserId),
+                newReaction,
+              ],
+              reactionCounts: updatedReactionCounts,
             };
           }
+
           if (post.replies) {
             return {
               ...post,
-              replies: post.replies.map((reply) =>
-                reply.id === postId
-                  ? {
-                      ...reply,
-                      reactions: [
-                        ...reply.reactions,
-                        {
-                          id: Date.now().toString(),
-                          postId,
-                          userId: currentUserId,
-                          type: reactionType,
-                          createdAt: new Date(),
-                          updatedAt: new Date(),
-                          post: reply,
-                        },
-                      ],
-                    }
-                  : reply,
-              ),
+              replies: post.replies.map((reply) => {
+                if (reply.id === postId) {
+                  // Check if user already has a reaction
+                  const existingReaction = reply.reactions.find(
+                    (r) => r.userId === currentUserId,
+                  );
+
+                  // Create a new reaction for reply
+                  const newReaction: Reaction = {
+                    id: Date.now().toString(),
+                    postId,
+                    userId: currentUserId,
+                    type: reactionType,
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                    post: reply,
+                  };
+
+                  // Create a safe copy of reactionCounts with default values
+                  const updatedReactionCounts = {
+                    LIKE: reply.reactionCounts?.LIKE || 0,
+                    LOVE: reply.reactionCounts?.LOVE || 0,
+                    CARE: reply.reactionCounts?.CARE || 0,
+                    HAHA: reply.reactionCounts?.HAHA || 0,
+                    WOW: reply.reactionCounts?.WOW || 0,
+                    SAD: reply.reactionCounts?.SAD || 0,
+                    ANGRY: reply.reactionCounts?.ANGRY || 0,
+                    total: reply.reactionCounts?.total || 0,
+                  };
+
+                  // If there's an existing reaction, decrement its count first
+                  if (existingReaction) {
+                    updatedReactionCounts[existingReaction.type] = Math.max(
+                      0,
+                      updatedReactionCounts[existingReaction.type] - 1,
+                    );
+                  } else {
+                    // Only increment total if we're not replacing an existing reaction
+                    updatedReactionCounts.total += 1;
+                  }
+
+                  // Increment the new reaction type count
+                  updatedReactionCounts[reactionType] += 1;
+
+                  return {
+                    ...reply,
+                    reactions: [
+                      ...reply.reactions.filter(
+                        (r) => r.userId !== currentUserId,
+                      ),
+                      newReaction,
+                    ],
+                    reactionCounts: updatedReactionCounts,
+                  };
+                }
+                return reply;
+              }),
             };
           }
           return post;
         }),
       }));
+
+      // Send request to server in the background
+      if (existingReactionId) {
+        console.log(existingReactionId);
+        await updateReaction(existingReactionId, reactionType);
+      } else {
+        await addReaction(postId, currentUserId, reactionType);
+      }
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to add reaction";
       set({ error: errorMessage });
+
+      // If the server request fails, revert the optimistic update
+      set((state) => ({
+        posts: state.posts.map((post) => {
+          if (post.id === postId) {
+            const filteredReactions = post.reactions.filter(
+              (r) => !(r.userId === currentUserId && r.type === reactionType),
+            );
+
+            // Create a safe copy of reactionCounts with default values
+            const updatedReactionCounts = {
+              LIKE: post.reactionCounts?.LIKE || 0,
+              LOVE: post.reactionCounts?.LOVE || 0,
+              CARE: post.reactionCounts?.CARE || 0,
+              HAHA: post.reactionCounts?.HAHA || 0,
+              WOW: post.reactionCounts?.WOW || 0,
+              SAD: post.reactionCounts?.SAD || 0,
+              ANGRY: post.reactionCounts?.ANGRY || 0,
+              total: post.reactionCounts?.total || 0,
+            };
+
+            // Decrement the specific reaction count if needed
+            if (updatedReactionCounts[reactionType] > 0) {
+              updatedReactionCounts[reactionType] -= 1;
+            }
+
+            // Update the total count
+            if (updatedReactionCounts.total > 0) {
+              updatedReactionCounts.total -= 1;
+            }
+
+            return {
+              ...post,
+              reactions: filteredReactions,
+              reactionCounts: updatedReactionCounts,
+            };
+          }
+
+          if (post.replies) {
+            return {
+              ...post,
+              replies: post.replies.map((reply) => {
+                if (reply.id === postId) {
+                  const filteredReactions = reply.reactions.filter(
+                    (r) =>
+                      !(r.userId === currentUserId && r.type === reactionType),
+                  );
+
+                  // Create a safe copy of reactionCounts with default values
+                  const updatedReactionCounts = {
+                    LIKE: reply.reactionCounts?.LIKE || 0,
+                    LOVE: reply.reactionCounts?.LOVE || 0,
+                    CARE: reply.reactionCounts?.CARE || 0,
+                    HAHA: reply.reactionCounts?.HAHA || 0,
+                    WOW: reply.reactionCounts?.WOW || 0,
+                    SAD: reply.reactionCounts?.SAD || 0,
+                    ANGRY: reply.reactionCounts?.ANGRY || 0,
+                    total: reply.reactionCounts?.total || 0,
+                  };
+
+                  // Decrement the specific reaction count if needed
+                  if (updatedReactionCounts[reactionType] > 0) {
+                    updatedReactionCounts[reactionType] -= 1;
+                  }
+
+                  // Update the total count
+                  if (updatedReactionCounts.total > 0) {
+                    updatedReactionCounts.total -= 1;
+                  }
+
+                  return {
+                    ...reply,
+                    reactions: filteredReactions,
+                    reactionCounts: updatedReactionCounts,
+                  };
+                }
+                return reply;
+              }),
+            };
+          }
+          return post;
+        }),
+      }));
     }
   },
 
-  removeReaction: async (reactionId) => {
+  removeReaction: async (reactionId: string, reactionType: ReactionType) => {
     const { currentUserId } = get();
     if (!currentUserId) {
       set({ error: "Please log in to remove reactions" });
@@ -245,39 +420,114 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
     }
 
     try {
-      await removeReaction(reactionId);
+      // Update UI immediately for better UX
       set((state) => ({
         posts: state.posts.map((post) => {
-          if (post.reactions) {
+          // Update top-level post reactions
+          if (
+            post.reactions &&
+            post.reactions.some((r) => r.id === reactionId)
+          ) {
+            // Get the reaction to determine its type if possible
+            const reactionToRemove = post.reactions.find(
+              (r) => r.id === reactionId,
+            );
+            const typeToRemove = reactionToRemove?.type || reactionType;
+
+            // Create a safe copy of reactionCounts with default values
+            const updatedReactionCounts = {
+              LIKE: post.reactionCounts?.LIKE || 0,
+              LOVE: post.reactionCounts?.LOVE || 0,
+              CARE: post.reactionCounts?.CARE || 0,
+              HAHA: post.reactionCounts?.HAHA || 0,
+              WOW: post.reactionCounts?.WOW || 0,
+              SAD: post.reactionCounts?.SAD || 0,
+              ANGRY: post.reactionCounts?.ANGRY || 0,
+              total: post.reactionCounts?.total || 0,
+            };
+
+            // Decrement the specific reaction count (ensure it doesn't go below 0)
+            if (updatedReactionCounts[typeToRemove] > 0) {
+              updatedReactionCounts[typeToRemove] -= 1;
+            }
+
+            // Update the total count
+            if (updatedReactionCounts.total > 0) {
+              updatedReactionCounts.total -= 1;
+            }
+
             return {
               ...post,
-              reactions: post.reactions.filter(
-                (r) => r.userId !== currentUserId,
-              ),
+              reactions: post.reactions.filter((r) => r.id !== reactionId),
+              reactionCounts: updatedReactionCounts,
             };
           }
+
+          // Check for reactions in replies
           if (post.replies) {
             return {
               ...post,
-              replies: post.replies.map((reply) =>
-                reply.reactions
-                  ? {
-                      ...reply,
-                      reactions: reply.reactions.filter(
-                        (r) => r.userId !== currentUserId,
-                      ),
-                    }
-                  : reply,
-              ),
+              replies: post.replies.map((reply) => {
+                if (
+                  reply.reactions &&
+                  reply.reactions.some((r) => r.id === reactionId)
+                ) {
+                  // Get the reaction to determine its type if possible
+                  const reactionToRemove = reply.reactions.find(
+                    (r) => r.id === reactionId,
+                  );
+                  const typeToRemove = reactionToRemove?.type || reactionType;
+
+                  // Create a safe copy of reactionCounts with default values
+                  const updatedReactionCounts = {
+                    LIKE: reply.reactionCounts?.LIKE || 0,
+                    LOVE: reply.reactionCounts?.LOVE || 0,
+                    CARE: reply.reactionCounts?.CARE || 0,
+                    HAHA: reply.reactionCounts?.HAHA || 0,
+                    WOW: reply.reactionCounts?.WOW || 0,
+                    SAD: reply.reactionCounts?.SAD || 0,
+                    ANGRY: reply.reactionCounts?.ANGRY || 0,
+                    total: reply.reactionCounts?.total || 0,
+                  };
+
+                  // Decrement the specific reaction count (ensure it doesn't go below 0)
+                  if (updatedReactionCounts[typeToRemove] > 0) {
+                    updatedReactionCounts[typeToRemove] -= 1;
+                  }
+
+                  // Update the total count
+                  if (updatedReactionCounts.total > 0) {
+                    updatedReactionCounts.total -= 1;
+                  }
+
+                  return {
+                    ...reply,
+                    reactions: reply.reactions.filter(
+                      (r) => r.id !== reactionId,
+                    ),
+                    reactionCounts: updatedReactionCounts,
+                  };
+                }
+                return reply;
+              }),
             };
           }
           return post;
         }),
       }));
+
+      // Send request to server in the background
+      await removeReaction(reactionId);
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to remove reaction";
       set({ error: errorMessage });
+
+      // If the server request fails, we would need to reload the data
+      const { currentThreadId } = get();
+      if (currentThreadId) {
+        get().fetchPosts();
+      }
     }
   },
 
@@ -305,6 +555,16 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
       const enhancedPost = {
         ...newPost,
         reactions: [],
+        reactionCounts: {
+          LIKE: 0,
+          LOVE: 0,
+          CARE: 0,
+          HAHA: 0,
+          WOW: 0,
+          SAD: 0,
+          ANGRY: 0,
+          total: 0,
+        },
         _count: { replies: 0 },
         isEdited: false,
         createdAt: new Date(),
