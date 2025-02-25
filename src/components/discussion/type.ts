@@ -13,6 +13,17 @@ export enum ReactionType {
   ANGRY = "ANGRY", // 😠
 }
 
+export interface ReactionCounts {
+  LIKE: number;
+  LOVE: number;
+  CARE: number;
+  HAHA: number;
+  WOW: number;
+  SAD: number;
+  ANGRY: number;
+  total: number;
+}
+
 export interface Thread {
   id: string;
   type: DiscussionType;
@@ -39,6 +50,7 @@ export interface Post {
   updatedAt: Date;
   deletedAt?: Date;
   reactions: Reaction[];
+  reactionCounts?: ReactionCounts;
   _count: {
     replies: number;
   };

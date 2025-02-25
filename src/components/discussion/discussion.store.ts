@@ -20,6 +20,7 @@ interface DiscussionState {
   currentPage: number;
   currentThreadId: string | null;
   replyPages: Record<string, number>;
+  repliesMap: Record<string, Post[]>;
   setCurrentUserId: (userId: string) => void;
   setCurrentThreadId: (threadId: string) => void;
   fetchThread: () => Promise<void>;
@@ -48,6 +49,7 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
   currentPage: 1,
   currentThreadId: null,
   replyPages: {},
+  repliesMap: {},
 
   setCurrentUserId: (userId) => set({ currentUserId: userId }),
   setCurrentThreadId: (threadId) => set({ currentThreadId: threadId }),
@@ -112,25 +114,55 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
       const replies = await findReplies(postId, currentPage, REPLIES_PER_PAGE);
 
       set((state) => {
-        const posts = state.posts.map((post) => {
-          if (post.id === postId) {
-            return {
-              ...post,
-              replies:
-                currentPage === 1
-                  ? replies
-                  : [...(post.replies || []), ...replies],
-              _count: {
-                ...post._count,
-                replies: post._count?.replies || replies.length,
-              },
-            };
-          }
-          return post;
-        });
+        // Helper function to update replies in the tree
+        const updateRepliesInTree = (
+          posts: Post[],
+          targetId: string,
+          newReplies: Post[],
+          page: number,
+        ): Post[] => {
+          return posts.map((post) => {
+            if (post.id === targetId) {
+              const existingReplies = state.repliesMap[targetId] || [];
+              const updatedReplies =
+                page === 1 ? newReplies : [...existingReplies, ...newReplies];
+              return {
+                ...post,
+                replies: updatedReplies,
+              };
+            }
+            if (post.replies && post.replies.length > 0) {
+              return {
+                ...post,
+                replies: updateRepliesInTree(
+                  post.replies,
+                  targetId,
+                  newReplies,
+                  page,
+                ),
+              };
+            }
+            return post;
+          });
+        };
+
+        // Update replies in both posts and repliesMap
+        const updatedPosts = updateRepliesInTree(
+          state.posts,
+          postId,
+          replies,
+          currentPage,
+        );
+        const existingReplies = state.repliesMap[postId] || [];
+        const updatedRepliesMap = {
+          ...state.repliesMap,
+          [postId]:
+            currentPage === 1 ? replies : [...existingReplies, ...replies],
+        };
 
         return {
-          posts,
+          posts: updatedPosts,
+          repliesMap: updatedRepliesMap,
           replyPages: {
             ...state.replyPages,
             [postId]: currentPage,
@@ -269,26 +301,89 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
         rating,
       );
 
-      set((state) => ({
-        posts: parentId
-          ? state.posts.map((post) => {
-              if (post.id === parentId) {
-                return { ...post, replies: [...(post.replies || []), newPost] };
-              }
-              return post;
-            })
-          : [newPost, ...state.posts],
-        thread: state.thread
-          ? {
-              ...state.thread,
-              _count: {
-                ...state.thread._count,
-                posts: state.thread._count.posts + 1,
-              },
+      // Enhance the new post with required fields for UI
+      const enhancedPost = {
+        ...newPost,
+        reactions: [],
+        _count: { replies: 0 },
+        isEdited: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as Post;
+
+      set((state) => {
+        // Helper function to update replies in the tree
+        const updateRepliesInTree = (
+          posts: Post[],
+          targetId: string,
+          newReply: Post,
+        ): Post[] => {
+          return posts.map((post) => {
+            // If this is the parent post, add the reply directly
+            if (post.id === targetId) {
+              return {
+                ...post,
+                _count: {
+                  ...post._count,
+                  replies: (post._count?.replies || 0) + 1,
+                },
+                replies: [...(post.replies || []), newReply],
+              };
             }
-          : null,
-        error: null,
-      }));
+
+            // If this post has replies, recursively search in them
+            if (post.replies && post.replies.length > 0) {
+              const updatedReplies = updateRepliesInTree(
+                post.replies,
+                targetId,
+                newReply,
+              );
+
+              // Only update if something changed in the replies
+              if (
+                JSON.stringify(updatedReplies) !== JSON.stringify(post.replies)
+              ) {
+                return {
+                  ...post,
+                  replies: updatedReplies,
+                };
+              }
+            }
+
+            return post;
+          });
+        };
+
+        // For top-level posts, add to the beginning of the list
+        // For replies, update the tree structure
+        const updatedPosts = parentId
+          ? updateRepliesInTree(state.posts, parentId, enhancedPost)
+          : [enhancedPost, ...state.posts];
+
+        // Update repliesMap to ensure UI consistency
+        const updatedRepliesMap = { ...state.repliesMap };
+        if (parentId) {
+          updatedRepliesMap[parentId] = [
+            ...(state.repliesMap[parentId] || []),
+            enhancedPost,
+          ];
+        }
+
+        return {
+          posts: updatedPosts,
+          repliesMap: updatedRepliesMap,
+          thread: state.thread
+            ? {
+                ...state.thread,
+                _count: {
+                  ...state.thread._count,
+                  posts: state.thread._count.posts + 1,
+                },
+              }
+            : null,
+          error: null,
+        };
+      });
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to add reply";

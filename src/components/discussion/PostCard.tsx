@@ -1,62 +1,29 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import type { Thread, PostWithReplyCount } from "./type";
 import { DiscussionType } from "./type";
 import { useDiscussionStore } from "./discussion.store";
 import { ReactionButton } from "./ReactionButton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { formatDistanceToNow } from "date-fns";
-import {
-  MoreHorizontal,
-  Trash2,
-  Send,
-  X,
-  Save,
-  Reply,
-  Pencil,
-  Smile,
-  ChevronDown,
-} from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Trash2, Pencil } from "lucide-react";
+import { Popover, PopoverContent } from "@/components/ui/popover";
 import { toast } from "sonner";
-import dynamic from "next/dynamic";
-import { Rating } from "@/components/ui/rating";
-import data from "@emoji-mart/data";
-
-// Dynamically import EmojiPicker to avoid SSR issues
-const EmojiPicker = dynamic(() => import("@emoji-mart/react"), { ssr: false });
+import { Rating } from "@/components/rating";
+import { UserInput } from "./UserInput";
 
 interface PostCardProps {
   post: PostWithReplyCount;
   currentUserId?: string;
   level?: number;
   thread: Thread;
-}
-
-interface EmojiData {
-  native: string;
-  id: string;
-  unified: string;
-  keywords: string[];
+  replies?: PostWithReplyCount[];
+  onToggleReplies?: (postId: string) => void;
+  onLoadMoreReplies?: (postId: string) => void;
+  isLoadingReplies?: boolean;
+  showReplies?: boolean;
 }
 
 export function PostCard({
@@ -64,25 +31,27 @@ export function PostCard({
   currentUserId,
   level = 0,
   thread,
+  replies = [],
+  onToggleReplies,
+  onLoadMoreReplies,
+  isLoadingReplies = false,
+  showReplies = false,
 }: PostCardProps) {
   const [isReplying, setIsReplying] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [showDeletePopover, setShowDeletePopover] = useState(false);
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [content, setContent] = useState(post.content);
-  const [rating, setRating] = useState(post.rating || 5);
-  const [isLoadingReplies, setIsLoadingReplies] = useState(false);
-  const {
-    addReply,
-    editPost,
-    deletePost,
-    addReaction,
-    removeReaction,
-    error,
-    fetchReplies,
-    replyPages,
-  } = useDiscussionStore();
-  const replyInputRef = useRef<HTMLTextAreaElement>(null);
+  const { editPost, deletePost, addReaction, removeReaction, error } =
+    useDiscussionStore();
+  const MAX_REPLY_DEPTH = 3;
+
+  // Get the effective parent ID for replies
+  // If we're at max depth - 1, use the parent's ID instead of this post's ID
+  const getEffectiveParentId = () => {
+    if (level >= MAX_REPLY_DEPTH - 1 && post.parentId) {
+      return post.parentId; // Use grandparent ID for level 3 posts
+    }
+    return post.id; // Use this post's ID normally
+  };
 
   useEffect(() => {
     if (error) {
@@ -90,31 +59,18 @@ export function PostCard({
     }
   }, [error]);
 
-  const handleSubmitReply = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!currentUserId) {
-      toast.error("Please log in to reply");
-      return;
-    }
-    const replyContent = replyInputRef.current?.value;
-    if (replyContent) {
-      await addReply(post.id, replyContent);
-      setIsReplying(false);
-      if (replyInputRef.current) replyInputRef.current.value = "";
-    }
-  };
-
-  const handleSubmitEdit = async (event: React.FormEvent) => {
-    event.preventDefault();
+  const handleEditSuccess = async (content: string, rating?: number) => {
     if (!currentUserId) {
       toast.error("Please log in to edit");
       return;
     }
+
     await editPost(
       post.id,
       content,
       thread.type === DiscussionType.COURSE_REVIEW ? rating : undefined,
     );
+
     setIsEditing(false);
   };
 
@@ -127,322 +83,372 @@ export function PostCard({
     setShowDeletePopover(false);
   };
 
-  const handleLoadMoreReplies = async () => {
-    if (isLoadingReplies) return;
-    setIsLoadingReplies(true);
-    try {
-      const currentPage = replyPages[post.id] || 1;
-      await fetchReplies(post.id, currentPage + 1);
-    } catch (err) {
-      toast.error("Failed to load more replies: " + err);
-    } finally {
-      setIsLoadingReplies(false);
-    }
-  };
-
-  const handleEmojiSelect = (emoji: EmojiData) => {
-    if (replyInputRef.current) {
-      const start = replyInputRef.current.selectionStart;
-      const end = replyInputRef.current.selectionEnd;
-      const text = replyInputRef.current.value;
-      const before = text.substring(0, start);
-      const after = text.substring(end);
-
-      replyInputRef.current.value = before + emoji.native + after;
-      replyInputRef.current.selectionStart =
-        replyInputRef.current.selectionEnd = start + emoji.native.length;
-      replyInputRef.current.focus();
-    }
-    setShowEmojiPicker(false);
-  };
-
   const getInitials = (id: string) => {
     return id ? id.slice(0, 2).toUpperCase() : "??";
   };
 
-  const hasMoreReplies =
-    post._count?.replies && post.replies
-      ? post._count.replies > post.replies.length
-      : false;
+  const handleReplySuccess = (parentId: string) => {
+    setIsReplying(false);
+
+    // Always ensure replies are shown after adding a new reply
+    if (!showReplies && onToggleReplies) {
+      onToggleReplies(parentId);
+    }
+
+    // If this is a level 3 post and we're using the parent's ID
+    if (level >= MAX_REPLY_DEPTH - 1 && post.parentId) {
+      // Make sure the parent's replies are visible
+      if (onToggleReplies) {
+        onToggleReplies(post.parentId);
+      }
+      // Show a notification to the user
+      toast.success(
+        "Your reply was added to the parent thread to maintain readability",
+      );
+    }
+    // For normal nested replies
+    else if (level > 0 && post.parentId && onToggleReplies) {
+      onToggleReplies(post.parentId);
+    }
+  };
+
+  // Helper function to render reaction summary in Facebook style
+  const renderReactionSummary = () => {
+    if (!post.reactionCounts || post.reactionCounts.total === 0) {
+      return null;
+    }
+
+    // Get the top 2 reactions by count (excluding 0 counts)
+    const topReactions = Object.entries(post.reactionCounts)
+      .filter(([key, count]) => key !== "total" && count > 0)
+      .sort(([, countA], [, countB]) => (countB as number) - (countA as number))
+      .slice(0, 2);
+
+    if (topReactions.length === 0) return null;
+
+    // Map of reaction types to emojis
+    const reactionEmojis: Record<string, string> = {
+      LIKE: "👍",
+      LOVE: "❤️",
+      CARE: "🤗",
+      HAHA: "😄",
+      WOW: "😮",
+      SAD: "😢",
+      ANGRY: "😠",
+    };
+
+    return (
+      <div className="flex items-center mr-2">
+        <div className="flex -space-x-1 mr-1">
+          {topReactions.map(([type]) => (
+            <div
+              key={type}
+              className="w-4 h-4 rounded-full bg-white flex items-center justify-center shadow-sm border border-gray-200"
+            >
+              <span className="text-[10px]">{reactionEmojis[type]}</span>
+            </div>
+          ))}
+        </div>
+        <span className="text-xs text-gray-500">
+          {post.reactionCounts.total}
+        </span>
+      </div>
+    );
+  };
 
   return (
-    <>
-      <div className={`mb-4 w-fit ${level > 0 ? "ml-12" : ""}`}>
-        <div className="flex items-start gap-2">
-          <Avatar className="w-8 h-8">
-            <AvatarImage
-              src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${post.authorId}`}
-            />
-            <AvatarFallback>{getInitials(post.authorId)}</AvatarFallback>
-          </Avatar>
+    <div className={`mb-3 w-full max-w-xl ${level > 0 ? "ml-6" : ""}`}>
+      <div className="flex items-start gap-2">
+        {level > 0 && (
+          <div className="relative -ml-6 mr-1">
+            <div className="absolute top-4 -left-6 w-6 h-6 border-l-2 border-b-2 border-gray-200 rounded-bl-xl" />
+          </div>
+        )}
+        <Avatar className="w-8 h-8">
+          <AvatarImage
+            src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${post.authorId}`}
+          />
+          <AvatarFallback>{getInitials(post.authorId)}</AvatarFallback>
+        </Avatar>
 
-          <div className="flex-1">
-            <div className="bg-gray-100 rounded-2xl p-3">
-              <div className="font-semibold text-xs">
-                {post.authorId ? post.authorId.slice(0, 8) : "Anonymous"}
+        <div className="flex-1">
+          {isEditing ? (
+            <div className="mb-2">
+              <div className="flex items-center justify-between mb-1">
+                <div className="font-semibold text-xs flex items-center gap-1">
+                  <span className="text-blue-600">Edit post</span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-1 text-xs text-gray-500"
+                  onClick={() => setIsEditing(false)}
+                >
+                  Cancel
+                </Button>
               </div>
-              {thread.type === DiscussionType.COURSE_REVIEW &&
-                !post.parentId && (
-                  <div className="mt-1">
-                    {isEditing ? (
-                      <Rating
-                        value={rating}
-                        onChange={setRating}
-                        className="mb-2"
-                      />
-                    ) : post.rating ? (
-                      <Rating value={post.rating} disabled className="mb-2" />
-                    ) : null}
+              <EditInput
+                currentUserId={currentUserId}
+                thread={thread}
+                initialContent={post.content}
+                initialRating={post.rating || 5}
+                onSubmitSuccess={handleEditSuccess}
+                showAvatar={false}
+              />
+            </div>
+          ) : (
+            <div className="bg-white border border-gray-200 rounded-lg p-3">
+              <div className="flex items-center justify-between">
+                <div className="font-semibold text-xs flex items-center gap-1">
+                  {post.authorId ? post.authorId.slice(0, 8) : "Anonymous"}
+                  {post.authorId === currentUserId && (
+                    <span className="text-[10px] text-blue-500">· You</span>
+                  )}
+                </div>
+                {currentUserId && post.authorId === currentUserId && (
+                  <div className="flex items-center gap-0">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-1 text-xs text-gray-500"
+                      onClick={() => setIsEditing(!isEditing)}
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-1 text-xs text-gray-500"
+                      onClick={() => setShowDeletePopover(true)}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
                   </div>
                 )}
-              {isEditing ? (
-                <form onSubmit={handleSubmitEdit} className="mt-2">
-                  <div className="bg-white rounded-lg border">
-                    <Textarea
-                      value={content}
-                      onChange={(e) => setContent(e.target.value)}
-                      className="min-h-[100px] border-0 focus-visible:ring-0 resize-none rounded-t-lg"
+              </div>
+
+              {thread.type === DiscussionType.COURSE_REVIEW &&
+                !post.parentId &&
+                post.rating && (
+                  <div className="mt-1">
+                    <Rating
+                      value={post.rating}
+                      disabled
+                      className="mb-2"
+                      size="sm"
                     />
-                    <div className="flex items-center justify-between p-2 border-t bg-gray-50">
-                      <div className="flex gap-2">
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                type="submit"
-                                size="sm"
-                                variant="ghost"
-                                className="p-2 h-auto"
-                              >
-                                <Save className="h-4 w-4" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>Save changes</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setIsEditing(false)}
-                                className="p-2 h-auto text-red-500 hover:text-red-600"
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>Cancel editing</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      </div>
-                    </div>
                   </div>
-                </form>
-              ) : (
-                <p className="mt-1 text-sm">{post.content}</p>
-              )}
+                )}
+
+              <p className="mt-1 text-sm">{post.content}</p>
+
+              <div className="mt-2 text-xs text-gray-500 flex items-center justify-between">
+                <div className="flex items-center">
+                  <span className="text-xs text-gray-400 mr-3">
+                    {formatDistanceToNow(new Date(post.createdAt), {
+                      addSuffix: true,
+                    })}
+                    {post.isEdited && " (edited)"}
+                  </span>
+                  {renderReactionSummary()}
+                </div>
+
+                <ReactionButton
+                  postId={post.id}
+                  reactions={post.reactions}
+                  reactionCounts={post.reactionCounts}
+                  currentUserId={currentUserId || ""}
+                  onReact={(type) => addReaction(post.id, type)}
+                  onRemoveReaction={() =>
+                    removeReaction(post.reactions?.[0]?.id || "")
+                  }
+                />
+              </div>
             </div>
+          )}
 
-            <div className="mt-1 flex items-center gap-4 text-xs text-gray-500">
-              <ReactionButton
-                postId={post.id}
-                reactions={post.reactions}
-                currentUserId={currentUserId || ""}
-                onReact={(type) => addReaction(post.id, type)}
-                onRemoveReaction={() =>
-                  removeReaction(post.reactions?.[0]?.id || "")
-                }
-              />
+          <div className="mt-1 ml-2 flex items-center gap-3 text-xs text-gray-500">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs p-0 h-6 flex items-center gap-1 hover:bg-transparent hover:text-blue-600"
+              onClick={() => setIsReplying(!isReplying)}
+              disabled={level >= MAX_REPLY_DEPTH}
+              title={
+                level >= MAX_REPLY_DEPTH ? "Maximum reply depth reached" : ""
+              }
+            >
+              Reply
+            </Button>
 
+            {post._count?.replies > 0 && (
               <Button
                 variant="ghost"
                 size="sm"
-                className="text-xs p-0 h-auto flex items-center gap-1"
-                onClick={() => setIsReplying(!isReplying)}
+                className="text-xs p-0 h-6 flex items-center gap-1 hover:bg-transparent hover:text-blue-600"
+                onClick={() => onToggleReplies?.(post.id)}
+                disabled={isLoadingReplies}
               >
-                <Reply className="h-4 w-4" />
-                {post._count?.replies > 0 && (
-                  <span className="text-xs">({post._count.replies})</span>
+                {isLoadingReplies ? (
+                  <div className="flex items-center gap-2">
+                    <div className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                    Loading...
+                  </div>
+                ) : (
+                  <>
+                    {showReplies
+                      ? "Hide"
+                      : `View ${post._count.replies} ${post._count.replies === 1 ? "reply" : "replies"}`}
+                  </>
                 )}
               </Button>
-
-              <span>
-                {formatDistanceToNow(new Date(post.createdAt), {
-                  addSuffix: true,
-                })}
-                {post.isEdited && " (edited)"}
-              </span>
-
-              {currentUserId && post.authorId === currentUserId && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="p-0 h-auto">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem
-                      onClick={() => setIsEditing(!isEditing)}
-                      className="gap-2"
-                    >
-                      <Pencil className="h-4 w-4" />
-                      Edit
-                    </DropdownMenuItem>
-                    <Popover
-                      open={showDeletePopover}
-                      onOpenChange={setShowDeletePopover}
-                    >
-                      <PopoverTrigger asChild>
-                        <DropdownMenuItem
-                          className="text-red-600 gap-2"
-                          onSelect={(e) => {
-                            e.preventDefault();
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          Delete
-                        </DropdownMenuItem>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-80">
-                        <div className="grid gap-4">
-                          <div className="space-y-2">
-                            <h4 className="font-medium leading-none">
-                              Delete Comment
-                            </h4>
-                            <p className="text-sm text-muted-foreground">
-                              Are you sure you want to delete this comment? This
-                              action cannot be undone.
-                            </p>
-                          </div>
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setShowDeletePopover(false)}
-                            >
-                              Cancel
-                            </Button>
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={handleDelete}
-                            >
-                              Delete
-                            </Button>
-                          </div>
-                        </div>
-                      </PopoverContent>
-                    </Popover>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-            </div>
-
-            {isReplying && (
-              <form onSubmit={handleSubmitReply} className="mt-2">
-                <div className="bg-white rounded-lg border">
-                  <div className="relative">
-                    <Textarea
-                      ref={replyInputRef}
-                      placeholder="Write a reply..."
-                      className="min-h-[45px] max-h-[200px] border-0 focus-visible:ring-0 resize-none rounded-lg pr-24 py-2.5 text-sm"
-                    />
-                    <div className="absolute right-2 bottom-2 flex items-center gap-0.5">
-                      <Popover
-                        open={showEmojiPicker}
-                        onOpenChange={setShowEmojiPicker}
-                      >
-                        <PopoverTrigger asChild>
-                          <Button
-                            type="button"
-                            size="icon"
-                            variant="ghost"
-                            className="h-7 w-7"
-                          >
-                            <Smile className="h-4 w-4 text-gray-500" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-full p-0" align="end">
-                          <EmojiPicker
-                            data={data}
-                            onEmojiSelect={handleEmojiSelect}
-                            theme="light"
-                            previewPosition="none"
-                            skinTonePosition="none"
-                          />
-                        </PopoverContent>
-                      </Popover>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              type="submit"
-                              size="icon"
-                              variant="ghost"
-                              className="h-7 w-7"
-                            >
-                              <Send className="h-4 w-4 text-primary" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Send reply</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </div>
-                  </div>
-                </div>
-              </form>
             )}
 
-            {post.replies?.length > 0 && (
-              <div className="mt-2">
-                {post.replies.map((reply: PostWithReplyCount) => (
+            <Popover
+              open={showDeletePopover}
+              onOpenChange={setShowDeletePopover}
+            >
+              <PopoverContent className="w-80">
+                <div className="grid gap-4">
+                  <div className="space-y-2">
+                    <h4 className="font-medium leading-none">Delete Comment</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Are you sure you want to delete this comment? This action
+                      cannot be undone.
+                    </p>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowDeletePopover(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={handleDelete}
+                    >
+                      Delete
+                    </Button>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          {isReplying && level < MAX_REPLY_DEPTH && (
+            <div className="mt-2 ml-2">
+              <UserInput
+                currentUserId={currentUserId}
+                thread={thread}
+                parentId={getEffectiveParentId()}
+                onSubmitSuccess={() =>
+                  handleReplySuccess(getEffectiveParentId())
+                }
+                placeholder={
+                  level >= MAX_REPLY_DEPTH - 1
+                    ? "Write a reply (will be added to parent thread)..."
+                    : "Write a reply..."
+                }
+                showAvatar={false}
+              />
+            </div>
+          )}
+
+          {showReplies && replies.length > 0 && (
+            <div className="mt-2 ml-1 space-y-2">
+              <div className="space-y-2">
+                {replies.map((reply) => (
                   <PostCard
                     key={reply.id}
                     post={reply}
                     currentUserId={currentUserId}
                     level={level + 1}
                     thread={thread}
+                    onToggleReplies={onToggleReplies}
+                    onLoadMoreReplies={onLoadMoreReplies}
+                    isLoadingReplies={isLoadingReplies}
+                    showReplies={showReplies}
+                    replies={reply.replies || []}
                   />
                 ))}
 
-                {hasMoreReplies && (
-                  <div className="flex justify-center mt-2">
+                {post._count?.replies > replies.length && (
+                  <div className="flex justify-start ml-7 mt-1">
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={handleLoadMoreReplies}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        onLoadMoreReplies?.(post.id);
+                      }}
                       disabled={isLoadingReplies}
-                      className="text-xs flex items-center gap-1"
+                      className="text-xs flex items-center gap-1 text-blue-500 hover:bg-transparent"
                     >
                       {isLoadingReplies ? (
                         <div className="flex items-center gap-2">
                           <div className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                          Loading...
+                          Loading replies...
                         </div>
                       ) : (
                         <>
-                          <ChevronDown className="h-3 w-3" />
-                          Show more replies (
-                          {post._count?.replies - post.replies.length}{" "}
-                          remaining)
+                          Load {post._count?.replies - replies.length} more{" "}
+                          {post._count?.replies - replies.length === 1
+                            ? "reply"
+                            : "replies"}
                         </>
                       )}
                     </Button>
                   </div>
                 )}
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
-    </>
+    </div>
+  );
+}
+
+// A specialized version of UserInput specifically for editing posts
+function EditInput({
+  currentUserId,
+  thread,
+  initialContent,
+  initialRating,
+  onSubmitSuccess,
+  showAvatar = false,
+}: {
+  currentUserId?: string;
+  thread: Thread;
+  initialContent: string;
+  initialRating?: number;
+  onSubmitSuccess: (content: string, rating?: number) => Promise<void>;
+  showAvatar?: boolean;
+}) {
+  const [content, setContent] = useState(initialContent);
+  const [rating, setRating] = useState(initialRating || 5);
+
+  return (
+    <div className="flex-1">
+      {thread.type === DiscussionType.COURSE_REVIEW && (
+        <div className="mb-2 ml-2">
+          <Rating value={rating} onChange={setRating} size="sm" />
+        </div>
+      )}
+      <UserInput
+        currentUserId={currentUserId}
+        thread={thread}
+        initialContent={initialContent}
+        onContentChange={setContent}
+        onSubmitSuccess={() => onSubmitSuccess(content, rating)}
+        placeholder="Edit your comment..."
+        showAvatar={showAvatar}
+        submitButtonText="Save"
+      />
+    </div>
   );
 }

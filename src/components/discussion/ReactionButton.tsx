@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { ReactionType } from "./type";
+import { ReactionType, ReactionCounts } from "./type";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -24,6 +24,7 @@ interface ReactionData {
 interface ReactionButtonProps {
   postId: string;
   reactions?: ReactionData[];
+  reactionCounts?: ReactionCounts;
   onReact: (type: ReactionType) => void;
   onRemoveReaction: () => void;
   currentUserId: string;
@@ -31,6 +32,7 @@ interface ReactionButtonProps {
 
 export function ReactionButton({
   reactions = [],
+  reactionCounts,
   onReact,
   onRemoveReaction,
   currentUserId,
@@ -41,13 +43,17 @@ export function ReactionButton({
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const userReaction = reactions.find((r) => r.userId === currentUserId);
-  const reactionCounts = reactions.reduce(
-    (acc, reaction) => {
-      acc[reaction.type] = (acc[reaction.type] || 0) + 1;
-      return acc;
-    },
-    {} as Record<ReactionType, number>,
-  );
+
+  // Use provided reactionCounts if available, otherwise calculate from reactions array
+  const effectiveReactionCounts =
+    reactionCounts ||
+    reactions.reduce(
+      (acc, reaction) => {
+        acc[reaction.type] = (acc[reaction.type] || 0) + 1;
+        return acc;
+      },
+      {} as Record<ReactionType, number>,
+    );
 
   useEffect(() => {
     if (userReaction) {
@@ -129,7 +135,7 @@ export function ReactionButton({
           >
             {Object.entries(reactionEmojis).map(([type, { emoji, label }]) => {
               const reactionType = type as ReactionType;
-              const count = reactionCounts[reactionType] || 0;
+              const count = effectiveReactionCounts[reactionType] || 0;
               const isSelected = selectedEmoji === reactionType;
 
               return (

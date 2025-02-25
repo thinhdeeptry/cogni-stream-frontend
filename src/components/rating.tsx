@@ -79,7 +79,7 @@ const Rating = React.forwardRef<HTMLDivElement, RatingProps>(
                 type="button"
                 disabled={disabled}
                 className={cn(
-                  "relative focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 rounded",
+                  "relative focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-1 rounded",
                   sizeClasses[size],
                   !disabled && !readonly && "cursor-pointer",
                 )}
@@ -94,7 +94,7 @@ const Rating = React.forwardRef<HTMLDivElement, RatingProps>(
                     "transition-all duration-150",
                     sizeClasses[size],
                     isActive
-                      ? "fill-blue-600 text-blue-600"
+                      ? "fill-yellow-400 text-yellow-400"
                       : "fill-gray-200 text-gray-300",
                     !disabled && !readonly && "hover:scale-110",
                   )}
@@ -102,11 +102,6 @@ const Rating = React.forwardRef<HTMLDivElement, RatingProps>(
               </button>
             );
           })}
-          {controlledValue > 0 && (
-            <span className="ml-2 text-sm text-gray-600">
-              {controlledValue} / {count}
-            </span>
-          )}
         </div>
         {error && <span className="text-sm text-red-600">{error}</span>}
       </div>
