@@ -204,11 +204,14 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
 
             // Create a new reaction object
             const newReaction: Reaction = {
-              id: Date.now().toString(), // Temporary ID until server response
+              id:
+                existingReactionId ||
+                existingReaction?.id ||
+                Date.now().toString(), // Keep existing ID if updating
               postId,
               userId: currentUserId,
               type: reactionType,
-              createdAt: new Date(),
+              createdAt: existingReaction?.createdAt || new Date(),
               updatedAt: new Date(),
               post,
             };
@@ -261,11 +264,14 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
 
                   // Create a new reaction for reply
                   const newReaction: Reaction = {
-                    id: Date.now().toString(),
+                    id:
+                      existingReactionId ||
+                      existingReaction?.id ||
+                      Date.now().toString(), // Keep existing ID if updating
                     postId,
                     userId: currentUserId,
                     type: reactionType,
-                    createdAt: new Date(),
+                    createdAt: existingReaction?.createdAt || new Date(),
                     updatedAt: new Date(),
                     post: reply,
                   };
@@ -317,7 +323,6 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
 
       // Send request to server in the background
       if (existingReactionId) {
-        console.log(existingReactionId);
         await updateReaction(existingReactionId, reactionType);
       } else {
         await addReaction(postId, currentUserId, reactionType);
