@@ -79,3 +79,8 @@ export interface ThreadWithPostCount extends Thread {
     posts: number;
   };
 }
+
+export interface TypingUser {
+  userId: string;
+  userName: string;
+}

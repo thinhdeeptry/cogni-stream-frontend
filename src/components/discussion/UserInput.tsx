@@ -36,6 +36,7 @@ interface UserInputProps {
   onContentChange?: (content: string) => void;
   submitButtonText?: string;
   onSubmit: (content: string, rating?: number) => Promise<void>;
+  hideRating?: boolean;
 }
 
 interface EmojiData {
@@ -57,6 +58,7 @@ export default function UserInput({
   onContentChange,
   submitButtonText = "Post",
   onSubmit,
+  hideRating = false,
 }: UserInputProps) {
   const [newPostContent, setNewPostContent] = useState(initialContent);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -89,6 +91,18 @@ export default function UserInput({
       toast.error("Thread not found");
       return;
     }
+
+    // For course reviews, first post must include a rating
+    if (
+      !parentId &&
+      thread.type === DiscussionType.COURSE_REVIEW &&
+      !hideRating &&
+      rating === undefined
+    ) {
+      toast.error("Please provide a rating for your course review");
+      return;
+    }
+
     if (newPostContent.trim()) {
       // If editing (using onContentChange), don't submit directly
       if (onContentChange) {
@@ -98,7 +112,7 @@ export default function UserInput({
 
       // Normal post/reply submission
       const postRating =
-        !parentId && thread.type === DiscussionType.COURSE_REVIEW
+        !parentId && thread.type === DiscussionType.COURSE_REVIEW && !hideRating
           ? rating
           : undefined;
       setIsSubmitting(true);
@@ -113,6 +127,11 @@ export default function UserInput({
         handleTyping(false);
       } catch (error) {
         console.error("Failed to submit:", error);
+        if (error instanceof Error) {
+          toast.error(error.message);
+        } else {
+          toast.error("Failed to submit post");
+        }
       } finally {
         setIsSubmitting(false);
       }
@@ -162,16 +181,20 @@ export default function UserInput({
       <div className="flex-1">
         <div className="bg-white rounded-lg border">
           <div className="relative p-2">
-            {!parentId && thread.type === DiscussionType.COURSE_REVIEW && (
-              <Rating value={rating} onChange={setRating} className="ml-2" />
-            )}
+            {!parentId &&
+              thread.type === DiscussionType.COURSE_REVIEW &&
+              !hideRating && (
+                <Rating value={rating} onChange={setRating} className="ml-2" />
+              )}
             <Textarea
               ref={newPostInputRef}
               value={newPostContent}
               onChange={handleTextareaChange}
               placeholder={
                 placeholder ||
-                (thread.type === DiscussionType.COURSE_REVIEW && !parentId
+                (thread.type === DiscussionType.COURSE_REVIEW &&
+                !parentId &&
+                !hideRating
                   ? "Write your course review..."
                   : "Write a comment...")
               }

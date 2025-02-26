@@ -8,6 +8,8 @@ import { PostCard } from "./PostCard";
 import UserInput from "./UserInput";
 import { Loader2, Users } from "lucide-react";
 import { ConnectionStatus } from "./ConnectionStatus";
+import { DiscussionType } from "./type";
+import { checkUserReview } from "./discussion.action";
 
 export default function Discussion({
   threadId,
@@ -24,6 +26,7 @@ export default function Discussion({
     isLoading,
     error,
     typingUsers,
+    threadUsers,
     isConnected,
     connectionError,
     isReconnecting,
@@ -44,6 +47,19 @@ export default function Discussion({
     {},
   );
   const [showReplies, setShowReplies] = useState<Record<string, boolean>>({});
+  const [hasReviewed, setHasReviewed] = useState(false);
+
+  // Add effect to watch repliesMap changes
+  useEffect(() => {
+    Object.keys(repliesMap).forEach((postId) => {
+      if (repliesMap[postId]?.length > 0) {
+        setShowReplies((prev) => ({
+          ...prev,
+          [postId]: true,
+        }));
+      }
+    });
+  }, [repliesMap]);
 
   useEffect(() => {
     setCurrentUserId(userId);
@@ -71,6 +87,27 @@ export default function Discussion({
       fetchPosts();
     }
   }, [threadId, fetchThread, fetchPosts]);
+
+  // Check if user has already reviewed when thread loads
+  useEffect(() => {
+    const checkReviewStatus = async () => {
+      if (thread?.type === DiscussionType.COURSE_REVIEW && userId) {
+        try {
+          const { hasReviewed: userHasReviewed } = await checkUserReview(
+            thread.resourceId,
+            userId,
+          );
+          setHasReviewed(userHasReviewed);
+        } catch (err) {
+          console.error("Failed to check review status:", err);
+        }
+      }
+    };
+
+    if (thread) {
+      checkReviewStatus();
+    }
+  }, [thread, userId]);
 
   useEffect(() => {
     if (error) {
@@ -180,13 +217,17 @@ export default function Discussion({
         isConnected={isConnected}
         connectionError={connectionError}
         isReconnecting={isReconnecting}
+        threadUsers={threadUsers}
+        currentUserId={userId}
       />
 
       <div className="border-b pb-4 space-y-2">
-        <h1 className="text-2xl font-semibold">{thread.title}</h1>
+        <h1 className="text-2xl font-semibold">{thread?.title}</h1>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Users className="h-4 w-4" />
-          <span>{posts.length} posts</span>
+          <span>{totalPosts} posts</span>
+          <span className="text-gray-300">•</span>
+          <span>{threadUsers.length} viewing</span>
           {isConnected && <span className="text-green-500">•</span>}
           {isReconnecting && (
             <span className="flex items-center gap-1 text-yellow-500">
@@ -197,13 +238,40 @@ export default function Discussion({
         </div>
       </div>
 
+      {thread?.type === DiscussionType.COURSE_REVIEW && hasReviewed ? (
+        <div className="text-sm text-muted-foreground mb-2">
+          You have already reviewed this course. You can still participate in
+          the discussion without adding a rating.
+        </div>
+      ) : null}
+
       <UserInput
         currentUserId={userId}
         thread={thread}
         parentId={undefined}
-        placeholder="Start a discussion..."
+        placeholder={
+          thread?.type === DiscussionType.COURSE_REVIEW && !hasReviewed
+            ? "Write your course review (rating required)..."
+            : "Start a discussion..."
+        }
+        hideRating={hasReviewed}
         onSubmit={async (content, rating) => {
+          if (
+            thread?.type === DiscussionType.COURSE_REVIEW &&
+            !hasReviewed &&
+            !rating
+          ) {
+            throw new Error(
+              "You must provide a rating with your first course review",
+            );
+          }
           await addReply(null, content, rating);
+          if (
+            thread?.type === DiscussionType.COURSE_REVIEW &&
+            rating !== undefined
+          ) {
+            setHasReviewed(true);
+          }
         }}
       />
 

@@ -11,6 +11,11 @@ interface TypingEvent {
   typingUsers: TypingUser[];
 }
 
+interface ThreadUsers {
+  threadId: string;
+  users: TypingUser[];
+}
+
 class DiscussionSocketService {
   private socket: Socket | null = null;
   private typingTimeout: NodeJS.Timeout | null = null;
@@ -185,6 +190,24 @@ class DiscussionSocketService {
     }
   }
 
+  onThreadUsers(callback: (data: ThreadUsers) => void) {
+    if (this.socket) {
+      this.socket.on("thread-users", callback);
+    }
+  }
+
+  onUserJoined(callback: (user: TypingUser) => void) {
+    if (this.socket) {
+      this.socket.on("user-joined", callback);
+    }
+  }
+
+  onUserLeft(callback: (user: TypingUser) => void) {
+    if (this.socket) {
+      this.socket.on("user-left", callback);
+    }
+  }
+
   debounceTyping(
     threadId: string,
     userId: string,
@@ -194,15 +217,18 @@ class DiscussionSocketService {
   ) {
     if (this.typingTimeout) {
       clearTimeout(this.typingTimeout);
+      this.typingTimeout = null;
     }
 
-    this.sendTyping(threadId, userId, userName, isTyping);
-
-    if (isTyping) {
-      this.typingTimeout = setTimeout(() => {
-        this.sendTyping(threadId, userId, userName, false);
-      }, delay);
+    if (!isTyping) {
+      this.sendTyping(threadId, userId, userName, false);
+      return;
     }
+
+    this.sendTyping(threadId, userId, userName, true);
+    this.typingTimeout = setTimeout(() => {
+      this.sendTyping(threadId, userId, userName, false);
+    }, delay);
   }
 
   removeAllListeners() {

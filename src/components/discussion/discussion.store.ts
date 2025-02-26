@@ -39,6 +39,7 @@ interface DiscussionState {
   hasReviewed: boolean;
   reviewId?: string;
   typingUsers: TypingUser[];
+  threadUsers: TypingUser[];
   isConnected: boolean;
   connectionError: string | null;
   isReconnecting: boolean;
@@ -68,6 +69,7 @@ interface DiscussionState {
     reactionType: ReactionType,
   ) => Promise<void>;
   checkUserReview: (courseId: string) => Promise<void>;
+  onNewReply: (postId: string) => void;
 }
 
 const POSTS_PER_PAGE = 5;
@@ -87,6 +89,7 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
   hasReviewed: false,
   reviewId: undefined,
   typingUsers: [],
+  threadUsers: [],
   isConnected: false,
   connectionError: null,
   isReconnecting: false,
@@ -848,6 +851,14 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
     }
   },
 
+  onNewReply: (postId: string) => {
+    // Fetch replies for the parent post if they haven't been loaded yet
+    const state = get();
+    if (!state.repliesMap[postId]) {
+      get().fetchReplies(postId);
+    }
+  },
+
   initializeSocket: () => {
     const { currentThreadId, currentUserId } = get();
     if (!currentThreadId || !currentUserId) return;
@@ -911,19 +922,47 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
     // Set up socket event listeners
     socketService.onNewPost((post) => {
       set((state) => {
-        // Check if post already exists in the state
-        const postExists = state.posts.some((p) => p.id === post.id);
-        if (postExists) {
-          return state; // Return current state without changes if post exists
+        // Skip if the post is from the current user - it's already been added locally
+        if (post.authorId === state.currentUserId) {
+          return state;
         }
 
+        // If this is a reply, trigger the onNewReply action
         if (post.parentId) {
-          // Update replies in the tree
+          get().onNewReply(post.parentId);
+        }
+
+        // Helper function to find a post anywhere in the tree
+        const findPost = (posts: Post[], targetId: string): Post | null => {
+          for (const p of posts) {
+            if (p.id === targetId) return p;
+            if (p.replies) {
+              const found = findPost(p.replies, targetId);
+              if (found) return found;
+            }
+          }
+          return null;
+        };
+
+        // Check if post exists anywhere
+        const existingPost = findPost(state.posts, post.id);
+        if (existingPost) {
+          return state;
+        }
+
+        // Handle reply posts
+        if (post.parentId) {
+          const parentPost = findPost(state.posts, post.parentId);
+          if (!parentPost) {
+            return state; // Ignore replies without a parent
+          }
+
+          // Create a new posts array with the reply added
           const updatedPosts = state.posts.map((p) => {
             if (p.id === post.parentId) {
-              // Check for duplicate replies
-              const replyExists = p.replies?.some((r) => r.id === post.id);
-              if (replyExists) {
+              const replies = p.replies || [];
+              // Check if reply already exists
+              if (replies.some((r) => r.id === post.id)) {
                 return p;
               }
               return {
@@ -932,53 +971,84 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
                   ...p._count,
                   replies: (p._count?.replies || 0) + 1,
                 },
-                replies: [...(p.replies || []), post],
+                replies: [...replies, { ...post, replies: [] }],
               };
             }
             return p;
           });
 
+          // Update repliesMap
+          const updatedRepliesMap = { ...state.repliesMap };
+          if (
+            !updatedRepliesMap[post.parentId]?.some((r) => r.id === post.id)
+          ) {
+            updatedRepliesMap[post.parentId] = [
+              ...(updatedRepliesMap[post.parentId] || []),
+              { ...post, replies: [] },
+            ];
+          }
+
           return {
             ...state,
             posts: updatedPosts,
-            repliesMap: {
-              ...state.repliesMap,
-              [post.parentId]: [
-                ...(state.repliesMap[post.parentId] || []).filter(
-                  (r) => r.id !== post.id,
-                ),
-                post,
-              ],
-            },
+            repliesMap: updatedRepliesMap,
           };
         }
 
-        // Add new top-level post if it doesn't exist
+        // Handle top-level posts
         return {
           ...state,
-          posts: [post, ...state.posts],
+          posts: [{ ...post, replies: [] }, ...state.posts],
+          thread: state.thread
+            ? {
+                ...state.thread,
+                _count: {
+                  ...state.thread._count,
+                  posts: state.thread._count.posts + 1,
+                },
+              }
+            : null,
         };
       });
     });
 
     socketService.onUpdatePost((post) => {
-      set((state) => ({
-        ...state,
-        posts: state.posts.map((p) => {
+      set((state) => {
+        const updatedPosts = state.posts.map((p) => {
           if (p.id === post.id) {
-            return { ...p, ...post };
+            return { ...p, ...post, replies: p.replies || [] };
           }
           if (p.replies) {
             return {
               ...p,
               replies: p.replies.map((reply) =>
-                reply.id === post.id ? { ...reply, ...post } : reply,
+                reply.id === post.id
+                  ? { ...reply, ...post, replies: reply.replies || [] }
+                  : reply,
               ),
             };
           }
           return p;
-        }),
-      }));
+        });
+
+        // Update repliesMap if needed
+        const updatedRepliesMap = { ...state.repliesMap };
+        if (post.parentId && updatedRepliesMap[post.parentId]) {
+          updatedRepliesMap[post.parentId] = updatedRepliesMap[
+            post.parentId
+          ].map((reply) =>
+            reply.id === post.id
+              ? { ...reply, ...post, replies: reply.replies || [] }
+              : reply,
+          );
+        }
+
+        return {
+          ...state,
+          posts: updatedPosts,
+          repliesMap: updatedRepliesMap,
+        };
+      });
     });
 
     socketService.onDeletePost(({ postId }) => {
@@ -1254,8 +1324,42 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
 
     socketService.onUserTyping(({ threadId, typingUsers }) => {
       if (threadId === currentThreadId) {
-        set({ typingUsers });
+        // Filter out duplicate users and ensure we only show each user once
+        const uniqueTypingUsers = typingUsers.reduce(
+          (acc: TypingUser[], user) => {
+            const exists = acc.some((u) => u.userId === user.userId);
+            if (!exists) {
+              acc.push(user);
+            }
+            return acc;
+          },
+          [],
+        );
+
+        set({ typingUsers: uniqueTypingUsers });
       }
+    });
+
+    // Set up thread users handlers
+    socketService.onThreadUsers((data) => {
+      if (data.threadId === currentThreadId) {
+        set({ threadUsers: data.users });
+      }
+    });
+
+    socketService.onUserJoined((user) => {
+      set((state) => ({
+        threadUsers: [
+          ...state.threadUsers.filter((u) => u.userId !== user.userId),
+          user,
+        ],
+      }));
+    });
+
+    socketService.onUserLeft((user) => {
+      set((state) => ({
+        threadUsers: state.threadUsers.filter((u) => u.userId !== user.userId),
+      }));
     });
   },
 
@@ -1277,11 +1381,25 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
     const { currentThreadId, currentUserId, currentUserName } = get();
     if (!currentThreadId || !currentUserId || !currentUserName) return;
 
+    // Immediately stop typing status if not typing (empty input or unfocused)
+    if (!isTyping) {
+      socketService.debounceTyping(
+        currentThreadId,
+        currentUserId,
+        currentUserName,
+        false,
+        0, // No delay when stopping typing
+      );
+      return;
+    }
+
+    // Debounce typing events when actively typing
     socketService.debounceTyping(
       currentThreadId,
       currentUserId,
       currentUserName,
-      isTyping,
+      true,
+      1000, // 1 second debounce while typing
     );
   },
 }));
