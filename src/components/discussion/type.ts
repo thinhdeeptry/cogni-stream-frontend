@@ -28,6 +28,7 @@ export interface Thread {
   id: string;
   type: DiscussionType;
   resourceId: string;
+  title: string;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;

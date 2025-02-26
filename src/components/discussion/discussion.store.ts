@@ -1,5 +1,11 @@
 import { create } from "zustand";
-import type { Post, ReactionType, Reaction, ThreadWithPostCount } from "./type";
+import type {
+  Post,
+  ReactionType,
+  Reaction,
+  ThreadWithPostCount,
+  ReactionCounts,
+} from "./type";
 import {
   createPost,
   updatePost,
@@ -12,6 +18,12 @@ import {
   findReplies,
   checkUserReview,
 } from "./discussion.action";
+import socketService from "./socket";
+
+interface TypingUser {
+  userId: string;
+  userName: string;
+}
 
 interface DiscussionState {
   thread: ThreadWithPostCount | null;
@@ -19,14 +31,23 @@ interface DiscussionState {
   isLoading: boolean;
   error: string | null;
   currentUserId?: string;
+  currentUserName?: string;
   currentPage: number;
   currentThreadId: string | null;
   replyPages: Record<string, number>;
   repliesMap: Record<string, Post[]>;
   hasReviewed: boolean;
   reviewId?: string;
+  typingUsers: TypingUser[];
+  isConnected: boolean;
+  connectionError: string | null;
+  isReconnecting: boolean;
   setCurrentUserId: (userId: string) => void;
+  setCurrentUserName: (userName: string) => void;
   setCurrentThreadId: (threadId: string) => void;
+  initializeSocket: () => void;
+  cleanupSocket: () => void;
+  handleTyping: (isTyping: boolean) => void;
   fetchThread: () => Promise<void>;
   fetchPosts: (page?: number) => Promise<void>;
   fetchReplies: (postId: string, page?: number) => Promise<void>;
@@ -58,14 +79,20 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
   isLoading: false,
   error: null,
   currentUserId: undefined,
+  currentUserName: undefined,
   currentPage: 1,
   currentThreadId: null,
   replyPages: {},
   repliesMap: {},
   hasReviewed: false,
   reviewId: undefined,
+  typingUsers: [],
+  isConnected: false,
+  connectionError: null,
+  isReconnecting: false,
 
   setCurrentUserId: (userId) => set({ currentUserId: userId }),
+  setCurrentUserName: (userName) => set({ currentUserName: userName }),
   setCurrentThreadId: (threadId) => set({ currentThreadId: threadId }),
 
   checkUserReview: async (courseId) => {
@@ -819,5 +846,442 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
         await get().fetchPosts();
       }
     }
+  },
+
+  initializeSocket: () => {
+    const { currentThreadId, currentUserId } = get();
+    if (!currentThreadId || !currentUserId) return;
+
+    set({ isReconnecting: false });
+
+    // Initialize socket connection
+    const socket = socketService.connect();
+
+    socket.on("connect", () => {
+      set({
+        isConnected: true,
+        connectionError: null,
+        isReconnecting: false,
+      });
+      socketService.joinThread(currentThreadId);
+    });
+
+    socket.on("connect_error", (error) => {
+      let errorMessage =
+        error.message || "Failed to connect to discussion server";
+
+      if (error.message.includes("Invalid namespace")) {
+        errorMessage =
+          "Discussion service is not available. Please try again later.";
+      }
+
+      set({
+        isConnected: false,
+        isReconnecting: !error.message.includes("Invalid namespace"),
+        connectionError: errorMessage,
+      });
+    });
+
+    socket.on("disconnect", (reason) => {
+      // Handle different types of disconnections
+      const isManualDisconnect =
+        reason === "io server disconnect" || reason === "io client disconnect";
+      const isServiceError =
+        reason === "transport error" || reason === "transport close";
+
+      set({
+        isConnected: false,
+        isReconnecting: !isManualDisconnect,
+        connectionError: isServiceError
+          ? "Discussion service disconnected. Please refresh the page."
+          : `Disconnected: ${reason}`,
+      });
+    });
+
+    socket.on("reconnect_failed", () => {
+      set({
+        connectionError: "Failed to reconnect. Please refresh the page.",
+        isReconnecting: false,
+      });
+    });
+
+    // Join thread room
+    socketService.joinThread(currentThreadId);
+
+    // Set up socket event listeners
+    socketService.onNewPost((post) => {
+      set((state) => {
+        // Check if post already exists in the state
+        const postExists = state.posts.some((p) => p.id === post.id);
+        if (postExists) {
+          return state; // Return current state without changes if post exists
+        }
+
+        if (post.parentId) {
+          // Update replies in the tree
+          const updatedPosts = state.posts.map((p) => {
+            if (p.id === post.parentId) {
+              // Check for duplicate replies
+              const replyExists = p.replies?.some((r) => r.id === post.id);
+              if (replyExists) {
+                return p;
+              }
+              return {
+                ...p,
+                _count: {
+                  ...p._count,
+                  replies: (p._count?.replies || 0) + 1,
+                },
+                replies: [...(p.replies || []), post],
+              };
+            }
+            return p;
+          });
+
+          return {
+            ...state,
+            posts: updatedPosts,
+            repliesMap: {
+              ...state.repliesMap,
+              [post.parentId]: [
+                ...(state.repliesMap[post.parentId] || []).filter(
+                  (r) => r.id !== post.id,
+                ),
+                post,
+              ],
+            },
+          };
+        }
+
+        // Add new top-level post if it doesn't exist
+        return {
+          ...state,
+          posts: [post, ...state.posts],
+        };
+      });
+    });
+
+    socketService.onUpdatePost((post) => {
+      set((state) => ({
+        ...state,
+        posts: state.posts.map((p) => {
+          if (p.id === post.id) {
+            return { ...p, ...post };
+          }
+          if (p.replies) {
+            return {
+              ...p,
+              replies: p.replies.map((reply) =>
+                reply.id === post.id ? { ...reply, ...post } : reply,
+              ),
+            };
+          }
+          return p;
+        }),
+      }));
+    });
+
+    socketService.onDeletePost(({ postId }) => {
+      set((state) => {
+        const removePostFromArray = (posts: Post[]): Post[] => {
+          return posts.filter((post) => {
+            if (post.id === postId) {
+              return false;
+            }
+            if (post.replies) {
+              const filteredReplies = removePostFromArray(post.replies);
+              if (filteredReplies.length !== post.replies.length) {
+                post.replies = filteredReplies;
+                post._count = {
+                  ...post._count,
+                  replies: Math.max(0, (post._count?.replies || 0) - 1),
+                };
+              }
+            }
+            return true;
+          });
+        };
+
+        const updatedPosts = removePostFromArray(state.posts);
+        const updatedRepliesMap = { ...state.repliesMap };
+        delete updatedRepliesMap[postId];
+
+        return {
+          ...state,
+          posts: updatedPosts,
+          repliesMap: updatedRepliesMap,
+          thread: state.thread
+            ? {
+                ...state.thread,
+                _count: {
+                  ...state.thread._count,
+                  posts: Math.max(0, state.thread._count.posts - 1),
+                },
+              }
+            : null,
+        };
+      });
+    });
+
+    socketService.onNewReaction((reaction) => {
+      set((state) => {
+        const updatedPosts = state.posts.map((post) => {
+          if (post.id === reaction.postId) {
+            const updatedReactionCounts: ReactionCounts = {
+              LIKE: post.reactionCounts?.LIKE || 0,
+              LOVE: post.reactionCounts?.LOVE || 0,
+              CARE: post.reactionCounts?.CARE || 0,
+              HAHA: post.reactionCounts?.HAHA || 0,
+              WOW: post.reactionCounts?.WOW || 0,
+              SAD: post.reactionCounts?.SAD || 0,
+              ANGRY: post.reactionCounts?.ANGRY || 0,
+              total: post.reactionCounts?.total || 0,
+            };
+            updatedReactionCounts[reaction.type] += 1;
+            updatedReactionCounts.total += 1;
+
+            return {
+              ...post,
+              reactions: [...post.reactions, reaction],
+              reactionCounts: updatedReactionCounts,
+            };
+          }
+          if (post.replies) {
+            return {
+              ...post,
+              replies: post.replies.map((reply) => {
+                if (reply.id === reaction.postId) {
+                  const updatedReactionCounts: ReactionCounts = {
+                    LIKE: reply.reactionCounts?.LIKE || 0,
+                    LOVE: reply.reactionCounts?.LOVE || 0,
+                    CARE: reply.reactionCounts?.CARE || 0,
+                    HAHA: reply.reactionCounts?.HAHA || 0,
+                    WOW: reply.reactionCounts?.WOW || 0,
+                    SAD: reply.reactionCounts?.SAD || 0,
+                    ANGRY: reply.reactionCounts?.ANGRY || 0,
+                    total: reply.reactionCounts?.total || 0,
+                  };
+                  updatedReactionCounts[reaction.type] += 1;
+                  updatedReactionCounts.total += 1;
+
+                  return {
+                    ...reply,
+                    reactions: [...reply.reactions, reaction],
+                    reactionCounts: updatedReactionCounts,
+                  };
+                }
+                return reply;
+              }),
+            };
+          }
+          return post;
+        });
+
+        return {
+          ...state,
+          posts: updatedPosts,
+        };
+      });
+    });
+
+    socketService.onUpdateReaction((reaction) => {
+      set((state) => {
+        const updatedPosts = state.posts.map((post) => {
+          if (post.id === reaction.postId) {
+            const oldReaction = post.reactions.find(
+              (r) => r.id === reaction.id,
+            );
+            const updatedReactionCounts: ReactionCounts = {
+              LIKE: post.reactionCounts?.LIKE || 0,
+              LOVE: post.reactionCounts?.LOVE || 0,
+              CARE: post.reactionCounts?.CARE || 0,
+              HAHA: post.reactionCounts?.HAHA || 0,
+              WOW: post.reactionCounts?.WOW || 0,
+              SAD: post.reactionCounts?.SAD || 0,
+              ANGRY: post.reactionCounts?.ANGRY || 0,
+              total: post.reactionCounts?.total || 0,
+            };
+
+            if (oldReaction) {
+              updatedReactionCounts[oldReaction.type] = Math.max(
+                0,
+                updatedReactionCounts[oldReaction.type] - 1,
+              );
+            }
+            updatedReactionCounts[reaction.type] += 1;
+
+            return {
+              ...post,
+              reactions: [
+                ...post.reactions.filter((r) => r.id !== reaction.id),
+                reaction,
+              ],
+              reactionCounts: updatedReactionCounts,
+            };
+          }
+          if (post.replies) {
+            return {
+              ...post,
+              replies: post.replies.map((reply) => {
+                if (reply.id === reaction.postId) {
+                  const oldReaction = reply.reactions.find(
+                    (r) => r.id === reaction.id,
+                  );
+                  const updatedReactionCounts: ReactionCounts = {
+                    LIKE: reply.reactionCounts?.LIKE || 0,
+                    LOVE: reply.reactionCounts?.LOVE || 0,
+                    CARE: reply.reactionCounts?.CARE || 0,
+                    HAHA: reply.reactionCounts?.HAHA || 0,
+                    WOW: reply.reactionCounts?.WOW || 0,
+                    SAD: reply.reactionCounts?.SAD || 0,
+                    ANGRY: reply.reactionCounts?.ANGRY || 0,
+                    total: reply.reactionCounts?.total || 0,
+                  };
+
+                  if (oldReaction) {
+                    updatedReactionCounts[oldReaction.type] = Math.max(
+                      0,
+                      updatedReactionCounts[oldReaction.type] - 1,
+                    );
+                  }
+                  updatedReactionCounts[reaction.type] += 1;
+
+                  return {
+                    ...reply,
+                    reactions: [
+                      ...reply.reactions.filter((r) => r.id !== reaction.id),
+                      reaction,
+                    ],
+                    reactionCounts: updatedReactionCounts,
+                  };
+                }
+                return reply;
+              }),
+            };
+          }
+          return post;
+        });
+
+        return {
+          ...state,
+          posts: updatedPosts,
+        };
+      });
+    });
+
+    socketService.onDeleteReaction(({ reactionId }) => {
+      set((state) => {
+        const updatedPosts = state.posts.map((post) => {
+          const reactionToRemove = post.reactions.find(
+            (r) => r.id === reactionId,
+          );
+          if (reactionToRemove) {
+            const updatedReactionCounts: ReactionCounts = {
+              LIKE: post.reactionCounts?.LIKE || 0,
+              LOVE: post.reactionCounts?.LOVE || 0,
+              CARE: post.reactionCounts?.CARE || 0,
+              HAHA: post.reactionCounts?.HAHA || 0,
+              WOW: post.reactionCounts?.WOW || 0,
+              SAD: post.reactionCounts?.SAD || 0,
+              ANGRY: post.reactionCounts?.ANGRY || 0,
+              total: post.reactionCounts?.total || 0,
+            };
+
+            updatedReactionCounts[reactionToRemove.type] = Math.max(
+              0,
+              updatedReactionCounts[reactionToRemove.type] - 1,
+            );
+            updatedReactionCounts.total = Math.max(
+              0,
+              updatedReactionCounts.total - 1,
+            );
+
+            return {
+              ...post,
+              reactions: post.reactions.filter((r) => r.id !== reactionId),
+              reactionCounts: updatedReactionCounts,
+            };
+          }
+          if (post.replies) {
+            return {
+              ...post,
+              replies: post.replies.map((reply) => {
+                const reactionToRemove = reply.reactions.find(
+                  (r) => r.id === reactionId,
+                );
+                if (reactionToRemove) {
+                  const updatedReactionCounts: ReactionCounts = {
+                    LIKE: reply.reactionCounts?.LIKE || 0,
+                    LOVE: reply.reactionCounts?.LOVE || 0,
+                    CARE: reply.reactionCounts?.CARE || 0,
+                    HAHA: reply.reactionCounts?.HAHA || 0,
+                    WOW: reply.reactionCounts?.WOW || 0,
+                    SAD: reply.reactionCounts?.SAD || 0,
+                    ANGRY: reply.reactionCounts?.ANGRY || 0,
+                    total: reply.reactionCounts?.total || 0,
+                  };
+
+                  updatedReactionCounts[reactionToRemove.type] = Math.max(
+                    0,
+                    updatedReactionCounts[reactionToRemove.type] - 1,
+                  );
+                  updatedReactionCounts.total = Math.max(
+                    0,
+                    updatedReactionCounts.total - 1,
+                  );
+
+                  return {
+                    ...reply,
+                    reactions: reply.reactions.filter(
+                      (r) => r.id !== reactionId,
+                    ),
+                    reactionCounts: updatedReactionCounts,
+                  };
+                }
+                return reply;
+              }),
+            };
+          }
+          return post;
+        });
+
+        return {
+          ...state,
+          posts: updatedPosts,
+        };
+      });
+    });
+
+    socketService.onUserTyping(({ threadId, typingUsers }) => {
+      if (threadId === currentThreadId) {
+        set({ typingUsers });
+      }
+    });
+  },
+
+  cleanupSocket: () => {
+    const { currentThreadId } = get();
+    if (currentThreadId) {
+      socketService.leaveThread(currentThreadId);
+    }
+    socketService.removeAllListeners();
+    socketService.disconnect();
+    set({
+      isConnected: false,
+      connectionError: null,
+      isReconnecting: false,
+    });
+  },
+
+  handleTyping: (isTyping) => {
+    const { currentThreadId, currentUserId, currentUserName } = get();
+    if (!currentThreadId || !currentUserId || !currentUserName) return;
+
+    socketService.debounceTyping(
+      currentThreadId,
+      currentUserId,
+      currentUserName,
+      isTyping,
+    );
   },
 }));

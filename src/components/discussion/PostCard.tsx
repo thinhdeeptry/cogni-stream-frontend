@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { Rating } from "@/components/rating";
-import { UserInput } from "./UserInput";
+import UserInput from "./UserInput";
 
 interface PostCardProps {
   post: PostWithReplyCount;
@@ -49,7 +49,7 @@ export function PostCard({
 }: PostCardProps) {
   const [isReplying, setIsReplying] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const { editPost, deletePost, addReaction, removeReaction, error } =
+  const { editPost, deletePost, addReaction, removeReaction, error, addReply } =
     useDiscussionStore();
   const MAX_REPLY_DEPTH = 1;
 
@@ -327,6 +327,9 @@ export function PostCard({
                 onSubmitSuccess={() => setIsReplying(false)}
                 placeholder="Write a reply..."
                 showAvatar={false}
+                onSubmit={async (content) => {
+                  await addReply(getEffectiveParentId() || null, content);
+                }}
               />
             </div>
           )}
@@ -414,6 +417,9 @@ function EditInput({
         placeholder="Edit your comment..."
         showAvatar={showAvatar}
         submitButtonText="Save"
+        onSubmit={async (content) => {
+          await onSubmitSuccess(content);
+        }}
       />
     </div>
   );

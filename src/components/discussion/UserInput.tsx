@@ -35,6 +35,7 @@ interface UserInputProps {
   initialContent?: string;
   onContentChange?: (content: string) => void;
   submitButtonText?: string;
+  onSubmit: (content: string, rating?: number) => Promise<void>;
 }
 
 interface EmojiData {
@@ -44,23 +45,25 @@ interface EmojiData {
   keywords: string[];
 }
 
-export function UserInput({
+export default function UserInput({
   currentUserId,
   thread,
   parentId,
   onSubmitSuccess,
-  placeholder,
+  placeholder = "Write a comment...",
   showAvatar = true,
   className = "",
   initialContent = "",
   onContentChange,
   submitButtonText = "Post",
+  onSubmit,
 }: UserInputProps) {
   const [newPostContent, setNewPostContent] = useState(initialContent);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [rating, setRating] = useState(5);
+  const [rating, setRating] = useState<number | undefined>(5);
   const newPostInputRef = useRef<HTMLTextAreaElement>(null);
-  const { addReply } = useDiscussionStore();
+  const { handleTyping } = useDiscussionStore();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Update content if initialContent changes (for edit mode)
   useEffect(() => {
@@ -98,13 +101,21 @@ export function UserInput({
         !parentId && thread.type === DiscussionType.COURSE_REVIEW
           ? rating
           : undefined;
-      await addReply(parentId || null, newPostContent, postRating);
-      setNewPostContent("");
-      setRating(5);
-      if (newPostInputRef.current) {
-        newPostInputRef.current.style.height = "auto";
+      setIsSubmitting(true);
+      try {
+        await onSubmit(newPostContent, postRating);
+        setNewPostContent("");
+        setRating(5);
+        if (newPostInputRef.current) {
+          newPostInputRef.current.style.height = "auto";
+        }
+        onSubmitSuccess?.();
+        handleTyping(false);
+      } catch (error) {
+        console.error("Failed to submit:", error);
+      } finally {
+        setIsSubmitting(false);
       }
-      onSubmitSuccess?.();
     }
   };
 
@@ -112,6 +123,7 @@ export function UserInput({
     setNewPostContent(e.target.value);
     e.target.style.height = "auto";
     e.target.style.height = `${e.target.scrollHeight}px`;
+    handleTyping(e.target.value.length > 0);
   };
 
   const handleEmojiSelect = (emoji: EmojiData) => {
@@ -150,11 +162,9 @@ export function UserInput({
       <div className="flex-1">
         <div className="bg-white rounded-lg border">
           <div className="relative p-2">
-            {!parentId &&
-              thread.type === DiscussionType.COURSE_REVIEW &&
-              !onContentChange && (
-                <Rating value={rating} onChange={setRating} className="ml-2" />
-              )}
+            {!parentId && thread.type === DiscussionType.COURSE_REVIEW && (
+              <Rating value={rating} onChange={setRating} className="ml-2" />
+            )}
             <Textarea
               ref={newPostInputRef}
               value={newPostContent}
@@ -165,7 +175,8 @@ export function UserInput({
                   ? "Write your course review..."
                   : "Write a comment...")
               }
-              className="min-h-[45px] max-h-[200px] border-0 focus-visible:ring-0 shadow-none resize-none rounded-lg pr-8 py-2.5 text-sm"
+              className={`min-h-[45px] max-h-[200px] border-0 focus-visible:ring-0 shadow-none resize-none rounded-lg pr-8 py-2.5 text-sm ${isSubmitting ? "opacity-50" : ""}`}
+              disabled={isSubmitting}
             />
             <div className="absolute right-2 bottom-2 flex items-center gap-0.5">
               <Popover open={showEmojiPicker} onOpenChange={setShowEmojiPicker}>
@@ -175,6 +186,7 @@ export function UserInput({
                     size="icon"
                     variant="ghost"
                     className="h-7 w-7"
+                    disabled={isSubmitting}
                   >
                     <Smile className="h-4 w-4 text-gray-500" />
                   </Button>
@@ -196,7 +208,7 @@ export function UserInput({
                       type="submit"
                       size="icon"
                       variant="ghost"
-                      disabled={!newPostContent.trim()}
+                      disabled={!newPostContent.trim() || isSubmitting}
                       className="h-7 w-7"
                     >
                       <Send className="h-4 w-4 text-blue-500" />
