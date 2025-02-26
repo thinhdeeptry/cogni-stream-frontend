@@ -150,16 +150,18 @@ export function UserInput({
       <div className="flex-1">
         <div className="bg-white rounded-lg border">
           <div className="relative p-2">
-            {!parentId && thread.type === DiscussionType.COURSE_REVIEW && (
-              <Rating value={rating} onChange={setRating} className="ml-2" />
-            )}
+            {!parentId &&
+              thread.type === DiscussionType.COURSE_REVIEW &&
+              !onContentChange && (
+                <Rating value={rating} onChange={setRating} className="ml-2" />
+              )}
             <Textarea
               ref={newPostInputRef}
               value={newPostContent}
               onChange={handleTextareaChange}
               placeholder={
                 placeholder ||
-                (thread.type === DiscussionType.COURSE_REVIEW
+                (thread.type === DiscussionType.COURSE_REVIEW && !parentId
                   ? "Write your course review..."
                   : "Write a comment...")
               }

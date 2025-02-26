@@ -10,6 +10,7 @@ import {
   getThread,
   getPosts,
   findReplies,
+  checkUserReview,
 } from "./discussion.action";
 
 interface DiscussionState {
@@ -22,6 +23,8 @@ interface DiscussionState {
   currentThreadId: string | null;
   replyPages: Record<string, number>;
   repliesMap: Record<string, Post[]>;
+  hasReviewed: boolean;
+  reviewId?: string;
   setCurrentUserId: (userId: string) => void;
   setCurrentThreadId: (threadId: string) => void;
   fetchThread: () => Promise<void>;
@@ -43,6 +46,7 @@ interface DiscussionState {
     reactionId: string,
     reactionType: ReactionType,
   ) => Promise<void>;
+  checkUserReview: (courseId: string) => Promise<void>;
 }
 
 const POSTS_PER_PAGE = 5;
@@ -58,23 +62,59 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
   currentThreadId: null,
   replyPages: {},
   repliesMap: {},
+  hasReviewed: false,
+  reviewId: undefined,
 
   setCurrentUserId: (userId) => set({ currentUserId: userId }),
   setCurrentThreadId: (threadId) => set({ currentThreadId: threadId }),
 
+  checkUserReview: async (courseId) => {
+    const { currentUserId } = get();
+    if (!currentUserId || !courseId) return;
+
+    try {
+      const { hasReviewed, reviewId } = await checkUserReview(
+        courseId,
+        currentUserId,
+      );
+      set({ hasReviewed, reviewId });
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to check review status";
+      set({ error: errorMessage });
+    }
+  },
+
   fetchThread: async () => {
-    const { currentThreadId } = get();
+    const { currentThreadId, currentUserId } = get();
     if (!currentThreadId) return;
 
     try {
       set({ isLoading: true, error: null });
       const thread = await getThread(currentThreadId);
-      set({
-        thread,
-        posts: thread.posts || [],
-        currentPage: 1,
-        isLoading: false,
-      });
+
+      // Check for user review if it's a course review thread
+      if (thread.type === "COURSE_REVIEW" && currentUserId) {
+        const { hasReviewed, reviewId } = await checkUserReview(
+          currentThreadId,
+          currentUserId,
+        );
+        set({
+          thread,
+          posts: thread.posts || [],
+          currentPage: 1,
+          isLoading: false,
+          hasReviewed,
+          reviewId,
+        });
+      } else {
+        set({
+          thread,
+          posts: thread.posts || [],
+          currentPage: 1,
+          isLoading: false,
+        });
+      }
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "An unexpected error occurred";
@@ -193,7 +233,22 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
     }
 
     try {
-      // Update UI immediately for better UX
+      // Send request to server first
+      let reactionResponse;
+      if (existingReactionId) {
+        reactionResponse = await updateReaction(
+          existingReactionId,
+          reactionType,
+        );
+      } else {
+        reactionResponse = await addReaction(
+          postId,
+          currentUserId,
+          reactionType,
+        );
+      }
+
+      // Update UI after successful server response
       set((state) => ({
         posts: state.posts.map((post) => {
           if (post.id === postId) {
@@ -202,17 +257,14 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
               (r) => r.userId === currentUserId,
             );
 
-            // Create a new reaction object
+            // Create a new reaction object using the server response
             const newReaction: Reaction = {
-              id:
-                existingReactionId ||
-                existingReaction?.id ||
-                Date.now().toString(), // Keep existing ID if updating
+              id: reactionResponse.id,
               postId,
               userId: currentUserId,
               type: reactionType,
-              createdAt: existingReaction?.createdAt || new Date(),
-              updatedAt: new Date(),
+              createdAt: reactionResponse.createdAt,
+              updatedAt: reactionResponse.updatedAt,
               post,
             };
 
@@ -262,17 +314,14 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
                     (r) => r.userId === currentUserId,
                   );
 
-                  // Create a new reaction for reply
+                  // Create a new reaction using the server response
                   const newReaction: Reaction = {
-                    id:
-                      existingReactionId ||
-                      existingReaction?.id ||
-                      Date.now().toString(), // Keep existing ID if updating
+                    id: reactionResponse.id,
                     postId,
                     userId: currentUserId,
                     type: reactionType,
-                    createdAt: existingReaction?.createdAt || new Date(),
-                    updatedAt: new Date(),
+                    createdAt: reactionResponse.createdAt,
+                    updatedAt: reactionResponse.updatedAt,
                     post: reply,
                   };
 
@@ -320,13 +369,6 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
           return post;
         }),
       }));
-
-      // Send request to server in the background
-      if (existingReactionId) {
-        await updateReaction(existingReactionId, reactionType);
-      } else {
-        await addReaction(postId, currentUserId, reactionType);
-      }
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to add reaction";
@@ -718,7 +760,7 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
     }
 
     try {
-      await deletePost(postId, currentUserId);
+      // Optimistically update UI first
       set((state) => {
         // Helper function to remove post and update counts
         const removePostFromArray = (posts: Post[]): Post[] => {
@@ -733,7 +775,7 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
                 post.replies = filteredReplies;
                 post._count = {
                   ...post._count,
-                  replies: (post._count?.replies || 0) - 1,
+                  replies: Math.max(0, (post._count?.replies || 0) - 1),
                 };
               }
             }
@@ -748,7 +790,7 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
           ...state.thread,
           _count: {
             ...state.thread._count,
-            posts: state.thread._count.posts - 1,
+            posts: Math.max(0, state.thread._count.posts - 1),
           },
         };
 
@@ -763,10 +805,19 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
           error: null,
         };
       });
+
+      // Then send request to server
+      await deletePost(postId, currentUserId);
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to delete post";
       set({ error: errorMessage });
+
+      // If deletion fails, refresh the posts to restore state
+      const { currentThreadId } = get();
+      if (currentThreadId) {
+        await get().fetchPosts();
+      }
     }
   },
 }));

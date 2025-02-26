@@ -61,7 +61,12 @@ export async function deletePost(
   postId: string,
   authorId: string,
 ): Promise<void> {
-  await axiosInstance.delete(`/posts/${postId}?authorId=${authorId}`);
+  const response = await axiosInstance.delete(
+    `/posts/${postId}?authorId=${authorId}`,
+  );
+  if (!response.status || response.status >= 400) {
+    throw new Error("Failed to delete post");
+  }
 }
 
 export async function addReaction(
@@ -99,5 +104,15 @@ export async function updateReaction(
     type: reactionType,
   });
 
+  return data;
+}
+
+export async function checkUserReview(
+  courseId: string,
+  authorId: string,
+): Promise<{ hasReviewed: boolean; reviewId?: string }> {
+  const { data } = await axiosInstance.get(
+    `/posts/check-review?courseId=${courseId}&authorId=${authorId}`,
+  );
   return data;
 }

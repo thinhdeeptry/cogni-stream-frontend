@@ -9,7 +9,17 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { formatDistanceToNow } from "date-fns";
 import { Trash2, Pencil } from "lucide-react";
-import { Popover, PopoverContent } from "@/components/ui/popover";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { Rating } from "@/components/rating";
 import { UserInput } from "./UserInput";
@@ -39,18 +49,17 @@ export function PostCard({
 }: PostCardProps) {
   const [isReplying, setIsReplying] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [showDeletePopover, setShowDeletePopover] = useState(false);
   const { editPost, deletePost, addReaction, removeReaction, error } =
     useDiscussionStore();
-  const MAX_REPLY_DEPTH = 3;
+  const MAX_REPLY_DEPTH = 1;
 
   // Get the effective parent ID for replies
-  // If we're at max depth - 1, use the parent's ID instead of this post's ID
   const getEffectiveParentId = () => {
-    if (level >= MAX_REPLY_DEPTH - 1 && post.parentId) {
-      return post.parentId; // Use grandparent ID for level 3 posts
+    // Only allow replies to top-level posts
+    if (level >= MAX_REPLY_DEPTH) {
+      return undefined; // Return undefined to prevent replying
     }
-    return post.id; // Use this post's ID normally
+    return post.id;
   };
 
   useEffect(() => {
@@ -59,18 +68,13 @@ export function PostCard({
     }
   }, [error]);
 
-  const handleEditSuccess = async (content: string, rating?: number) => {
+  const handleEditSuccess = async (content: string) => {
     if (!currentUserId) {
       toast.error("Please log in to edit");
       return;
     }
 
-    await editPost(
-      post.id,
-      content,
-      thread.type === DiscussionType.COURSE_REVIEW ? rating : undefined,
-    );
-
+    await editPost(post.id, content);
     setIsEditing(false);
   };
 
@@ -79,37 +83,22 @@ export function PostCard({
       toast.error("Please log in to delete");
       return;
     }
-    await deletePost(post.id);
-    setShowDeletePopover(false);
+
+    try {
+      await toast.promise(deletePost(post.id), {
+        loading: "Deleting post...",
+        success: "Post deleted successfully",
+        error: "Failed to delete post",
+      });
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to delete post";
+      toast.error(errorMessage);
+    }
   };
 
   const getInitials = (id: string) => {
     return id ? id.slice(0, 2).toUpperCase() : "??";
-  };
-
-  const handleReplySuccess = (parentId: string) => {
-    setIsReplying(false);
-
-    // Always ensure replies are shown after adding a new reply
-    if (!showReplies && onToggleReplies) {
-      onToggleReplies(parentId);
-    }
-
-    // If this is a level 3 post and we're using the parent's ID
-    if (level >= MAX_REPLY_DEPTH - 1 && post.parentId) {
-      // Make sure the parent's replies are visible
-      if (onToggleReplies) {
-        onToggleReplies(post.parentId);
-      }
-      // Show a notification to the user
-      toast.success(
-        "Your reply was added to the parent thread to maintain readability",
-      );
-    }
-    // For normal nested replies
-    else if (level > 0 && post.parentId && onToggleReplies) {
-      onToggleReplies(post.parentId);
-    }
   };
 
   // Helper function to render reaction summary in Facebook style
@@ -191,7 +180,6 @@ export function PostCard({
                 currentUserId={currentUserId}
                 thread={thread}
                 initialContent={post.content}
-                initialRating={post.rating || 5}
                 onSubmitSuccess={handleEditSuccess}
                 showAvatar={false}
               />
@@ -215,14 +203,38 @@ export function PostCard({
                     >
                       <Pencil className="h-3 w-3" />
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 px-1 text-xs text-gray-500"
-                      onClick={() => setShowDeletePopover(true)}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-1 text-xs text-gray-500"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This action cannot be undone. This will permanently
+                            delete your post
+                            {post._count?.replies > 0 &&
+                              ` and all its ${post._count.replies} replies`}
+                            .
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={handleDelete}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 )}
               </div>
@@ -269,20 +281,18 @@ export function PostCard({
           )}
 
           <div className="mt-1 ml-2 flex items-center gap-3 text-xs text-gray-500">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-xs p-0 h-6 flex items-center gap-1 hover:bg-transparent hover:text-blue-600"
-              onClick={() => setIsReplying(!isReplying)}
-              disabled={level >= MAX_REPLY_DEPTH}
-              title={
-                level >= MAX_REPLY_DEPTH ? "Maximum reply depth reached" : ""
-              }
-            >
-              Reply
-            </Button>
+            {level < MAX_REPLY_DEPTH && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs p-0 h-6 flex items-center gap-1 hover:bg-transparent hover:text-blue-600"
+                onClick={() => setIsReplying(!isReplying)}
+              >
+                Reply
+              </Button>
+            )}
 
-            {post._count?.replies > 0 && (
+            {post._count?.replies > 0 && level < MAX_REPLY_DEPTH && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -299,44 +309,13 @@ export function PostCard({
                   <>
                     {showReplies
                       ? "Hide"
-                      : `View ${post._count.replies} ${post._count.replies === 1 ? "reply" : "replies"}`}
+                      : `View ${post._count.replies} ${
+                          post._count.replies === 1 ? "reply" : "replies"
+                        }`}
                   </>
                 )}
               </Button>
             )}
-
-            <Popover
-              open={showDeletePopover}
-              onOpenChange={setShowDeletePopover}
-            >
-              <PopoverContent className="w-80">
-                <div className="grid gap-4">
-                  <div className="space-y-2">
-                    <h4 className="font-medium leading-none">Delete Comment</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Are you sure you want to delete this comment? This action
-                      cannot be undone.
-                    </p>
-                  </div>
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowDeletePopover(false)}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={handleDelete}
-                    >
-                      Delete
-                    </Button>
-                  </div>
-                </div>
-              </PopoverContent>
-            </Popover>
           </div>
 
           {isReplying && level < MAX_REPLY_DEPTH && (
@@ -345,20 +324,14 @@ export function PostCard({
                 currentUserId={currentUserId}
                 thread={thread}
                 parentId={getEffectiveParentId()}
-                onSubmitSuccess={() =>
-                  handleReplySuccess(getEffectiveParentId())
-                }
-                placeholder={
-                  level >= MAX_REPLY_DEPTH - 1
-                    ? "Write a reply (will be added to parent thread)..."
-                    : "Write a reply..."
-                }
+                onSubmitSuccess={() => setIsReplying(false)}
+                placeholder="Write a reply..."
                 showAvatar={false}
               />
             </div>
           )}
 
-          {showReplies && replies.length > 0 && (
+          {showReplies && replies.length > 0 && level < MAX_REPLY_DEPTH && (
             <div className="mt-2 ml-1 space-y-2">
               <div className="space-y-2">
                 {replies.map((reply) => (
@@ -372,7 +345,7 @@ export function PostCard({
                     onLoadMoreReplies={onLoadMoreReplies}
                     isLoadingReplies={isLoadingReplies}
                     showReplies={showReplies}
-                    replies={reply.replies || []}
+                    replies={[]}
                   />
                 ))}
 
@@ -419,33 +392,25 @@ function EditInput({
   currentUserId,
   thread,
   initialContent,
-  initialRating,
   onSubmitSuccess,
   showAvatar = false,
 }: {
   currentUserId?: string;
   thread: Thread;
   initialContent: string;
-  initialRating?: number;
-  onSubmitSuccess: (content: string, rating?: number) => Promise<void>;
+  onSubmitSuccess: (content: string) => Promise<void>;
   showAvatar?: boolean;
 }) {
   const [content, setContent] = useState(initialContent);
-  const [rating, setRating] = useState(initialRating || 5);
 
   return (
     <div className="flex-1">
-      {thread.type === DiscussionType.COURSE_REVIEW && (
-        <div className="mb-2 ml-2">
-          <Rating value={rating} onChange={setRating} size="sm" />
-        </div>
-      )}
       <UserInput
         currentUserId={currentUserId}
         thread={thread}
         initialContent={initialContent}
         onContentChange={setContent}
-        onSubmitSuccess={() => onSubmitSuccess(content, rating)}
+        onSubmitSuccess={() => onSubmitSuccess(content)}
         placeholder="Edit your comment..."
         showAvatar={showAvatar}
         submitButtonText="Save"
