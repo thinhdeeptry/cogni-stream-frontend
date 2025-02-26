@@ -96,7 +96,7 @@ export async function updateReaction(
   reactionType: ReactionType,
 ) {
   const { data } = await axiosInstance.patch(`/reactions/${reactionId}`, {
-    reactionType,
+    type: reactionType,
   });
 
   return data;

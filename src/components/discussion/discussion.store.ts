@@ -542,6 +542,22 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
       return;
     }
 
+    // Check if this is a course review (top-level post with rating)
+    if (thread.type === "COURSE_REVIEW" && !parentId && rating !== undefined) {
+      // Check if user already has a review for this course
+      const existingReview = get().posts.find(
+        (post) =>
+          post.authorId === currentUserId &&
+          !post.parentId &&
+          post.rating !== undefined,
+      );
+
+      if (existingReview) {
+        set({ error: "You have already reviewed this course" });
+        return;
+      }
+    }
+
     try {
       const newPost = await createPost(
         thread.id,
@@ -698,16 +714,50 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
 
     try {
       await deletePost(postId, currentUserId);
-      set((state) => ({
-        posts: state.posts.filter((post) => {
-          if (post.id === postId) return false;
-          if (post.replies) {
-            post.replies = post.replies.filter((reply) => reply.id !== postId);
-          }
-          return true;
-        }),
-        error: null,
-      }));
+      set((state) => {
+        // Helper function to remove post and update counts
+        const removePostFromArray = (posts: Post[]): Post[] => {
+          return posts.filter((post) => {
+            if (post.id === postId) {
+              return false; // Remove this post
+            }
+            if (post.replies) {
+              // Update replies array and _count
+              const filteredReplies = removePostFromArray(post.replies);
+              if (filteredReplies.length !== post.replies.length) {
+                post.replies = filteredReplies;
+                post._count = {
+                  ...post._count,
+                  replies: (post._count?.replies || 0) - 1,
+                };
+              }
+            }
+            return true;
+          });
+        };
+
+        const updatedPosts = removePostFromArray(state.posts);
+
+        // Update thread post count if needed
+        const threadUpdate = state.thread && {
+          ...state.thread,
+          _count: {
+            ...state.thread._count,
+            posts: state.thread._count.posts - 1,
+          },
+        };
+
+        // Clean up repliesMap if needed
+        const updatedRepliesMap = { ...state.repliesMap };
+        delete updatedRepliesMap[postId];
+
+        return {
+          posts: updatedPosts,
+          thread: threadUpdate || null,
+          repliesMap: updatedRepliesMap,
+          error: null,
+        };
+      });
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to delete post";
