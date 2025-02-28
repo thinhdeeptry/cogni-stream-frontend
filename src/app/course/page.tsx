@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/carousel";
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import axios from "axios";
 
 const bannerImages = [
   "https://res.cloudinary.com/dxxsudprj/image/upload/v1740664494/Screenshot_2025-02-27_at_20.53.58_wgkc7i.png",
@@ -19,87 +20,39 @@ const bannerImages = [
   "https://res.cloudinary.com/dxxsudprj/image/upload/v1740664063/Screenshot_2025-02-27_at_20.39.05_wvgzaw.png",
 ];
 
-const proCourses = [
-  {
-    id: "1",
-    title: "Advanced Web Development",
-    price: 200000,
-    currency: "VND",
-    promotionPrice: 100000,
-    totalLessons: 40,
-    enrollmentCount: 1000,
-    thumbnailUrl:
-      "https://res.cloudinary.com/dxxsudprj/image/upload/v1740496946/clockscreen_diavzb.jpg",
-    ownerAvatarUrl:
-      "https://res.cloudinary.com/dxxsudprj/image/upload/v1733839978/Anime_Characters_cnkjji.jpg",
-  },
-  {
-    id: "2",
-    title: "Professional UI/UX Design",
-    price: 150000,
-    currency: "VND",
-    totalLessons: 35,
-    enrollmentCount: 800,
-    thumbnailUrl:
-      "https://res.cloudinary.com/dxxsudprj/image/upload/v1740496946/clockscreen_diavzb.jpg",
-    ownerAvatarUrl:
-      "https://res.cloudinary.com/dxxsudprj/image/upload/v1733839978/Anime_Characters_cnkjji.jpg",
-  },
-  {
-    id: "3",
-    title: "Mobile App Development",
-    price: 100,
-    currency: "USD",
-    promotionPrice: 50,
-    totalLessons: 45,
-    enrollmentCount: 1200,
-    thumbnailUrl:
-      "https://res.cloudinary.com/dxxsudprj/image/upload/v1740496946/clockscreen_diavzb.jpg",
-    ownerAvatarUrl:
-      "https://res.cloudinary.com/dxxsudprj/image/upload/v1733839978/Anime_Characters_cnkjji.jpg",
-  },
-];
-
-const freeCourses = [
-  {
-    id: "4",
-    title: "Introduction to Programming",
-    price: 0,
-    totalLessons: 20,
-    enrollmentCount: 2000,
-    thumbnailUrl:
-      "https://res.cloudinary.com/dxxsudprj/image/upload/v1740496946/clockscreen_diavzb.jpg",
-    ownerAvatarUrl:
-      "https://res.cloudinary.com/dxxsudprj/image/upload/v1733839978/Anime_Characters_cnkjji.jpg",
-  },
-  {
-    id: "5",
-    title: "Basic Web Development",
-    price: 0,
-    totalLessons: 25,
-    enrollmentCount: 1500,
-    thumbnailUrl:
-      "https://res.cloudinary.com/dxxsudprj/image/upload/v1740496946/clockscreen_diavzb.jpg",
-    ownerAvatarUrl:
-      "https://res.cloudinary.com/dxxsudprj/image/upload/v1733839978/Anime_Characters_cnkjji.jpg",
-  },
-  {
-    id: "6",
-    title: "Git Basics",
-    price: 0,
-    totalLessons: 15,
-    enrollmentCount: 3000,
-    thumbnailUrl:
-      "https://res.cloudinary.com/dxxsudprj/image/upload/v1740496946/clockscreen_diavzb.jpg",
-    ownerAvatarUrl:
-      "https://res.cloudinary.com/dxxsudprj/image/upload/v1733839978/Anime_Characters_cnkjji.jpg",
-  },
-];
+interface Course {
+  id: string;
+  title: string;
+  price: number;
+  currency: string;
+  promotionPrice?: number;
+  totalLessons: number;
+  thumbnailUrl?: string;
+}
 
 export default function Home() {
   const [api, setApi] = useState<CarouselApi>();
   const [current, setCurrent] = useState(0);
   const [count, setCount] = useState(0);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        const { data } = await axios.get("http://localhost:3002/courses");
+        console.log(data);
+        setCourses(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "An error occurred");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchCourses();
+  }, []);
 
   useEffect(() => {
     if (!api) {
@@ -131,6 +84,25 @@ export default function Home() {
       api.scrollTo(index);
     }
   };
+
+  const proCourses = courses.filter((course) => course.price > 0);
+  const freeCourses = courses.filter((course) => course.price === 0);
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        Loading...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex justify-center items-center min-h-screen text-red-500">
+        {error}
+      </div>
+    );
+  }
 
   return (
     <div className="p-5 flex-1 flex flex-col items-center w-full justify-start min-h-screen gap-12">
@@ -178,7 +150,13 @@ export default function Home() {
         <h2 className="text-2xl font-semibold">Khoá học Pro</h2>
         <div className="flex gap-6 overflow-x-auto pb-4">
           {proCourses.map((course) => (
-            <CourseItem key={course.id} {...course} />
+            <CourseItem
+              key={course.id}
+              {...course}
+              enrollmentCount={0}
+              totalLessons={course.totalLessons}
+              ownerAvatarUrl="https://res.cloudinary.com/dxxsudprj/image/upload/v1733839978/Anime_Characters_cnkjji.jpg"
+            />
           ))}
         </div>
       </div>
@@ -187,7 +165,13 @@ export default function Home() {
         <h2 className="text-2xl font-semibold">Khoá học miễn phí</h2>
         <div className="flex gap-6 overflow-x-auto pb-4">
           {freeCourses.map((course) => (
-            <CourseItem key={course.id} {...course} />
+            <CourseItem
+              key={course.id}
+              {...course}
+              enrollmentCount={0}
+              totalLessons={course.totalLessons}
+              ownerAvatarUrl="https://res.cloudinary.com/dxxsudprj/image/upload/v1733839978/Anime_Characters_cnkjji.jpg"
+            />
           ))}
         </div>
       </div>
