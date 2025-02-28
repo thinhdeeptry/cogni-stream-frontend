@@ -1,3 +1,4 @@
+"use client";
 import {
   BookOpen,
   GraduationCap,
@@ -27,7 +28,7 @@ const items = [
   },
   {
     title: "Lộ trình",
-    url: "/",
+    url: "/roadmap",
     icon: GraduationCap,
   },
   {
@@ -44,7 +45,7 @@ const items = [
 
 export function AppSidebar() {
   return (
-    <Sidebar className="w-22 z-9999">
+    <Sidebar className="w-22">
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupContent>

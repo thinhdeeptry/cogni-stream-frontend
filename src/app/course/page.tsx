@@ -12,11 +12,11 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 
 const bannerImages = [
-  "https://res.cloudinary.com/dxxsudprj/image/upload/v1740496946/clockscreen_diavzb.jpg",
-  "https://res.cloudinary.com/dxxsudprj/image/upload/v1740496946/clockscreen_diavzb.jpg",
-  "https://res.cloudinary.com/dxxsudprj/image/upload/v1740496946/clockscreen_diavzb.jpg",
-  "https://res.cloudinary.com/dxxsudprj/image/upload/v1740496946/clockscreen_diavzb.jpg",
-  "https://res.cloudinary.com/dxxsudprj/image/upload/v1740496946/clockscreen_diavzb.jpg",
+  "https://res.cloudinary.com/dxxsudprj/image/upload/v1740664494/Screenshot_2025-02-27_at_20.53.58_wgkc7i.png",
+  "https://res.cloudinary.com/dxxsudprj/image/upload/v1740663732/Screenshot_2025-02-27_at_20.37.42_apjhxh.png",
+  "https://res.cloudinary.com/dxxsudprj/image/upload/v1740663732/Screenshot_2025-02-27_at_20.38.14_jgjenf.png",
+  "https://res.cloudinary.com/dxxsudprj/image/upload/v1740664494/Screenshot_2025-02-27_at_20.54.08_f0jal5.png",
+  "https://res.cloudinary.com/dxxsudprj/image/upload/v1740664063/Screenshot_2025-02-27_at_20.39.05_wvgzaw.png",
 ];
 
 const proCourses = [
@@ -151,7 +151,7 @@ export default function Home() {
                     src={image}
                     alt={`Banner ${index + 1}`}
                     fill
-                    className="object-cover"
+                    className="w-full h-[280px]"
                     priority={index === 0}
                   />
                 </div>
