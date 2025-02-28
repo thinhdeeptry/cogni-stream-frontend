@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
+import { signIn } from "@/auth";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -18,6 +19,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
+import { loginUser } from "@/actions/login";
 
 const formSchema = z.object({
   email: z.string().email({
@@ -42,15 +44,16 @@ export default function LoginForm() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
-
+    const { email, password } = values;
     try {
-      // Ở đây bạn sẽ gọi API đăng nhập của bạn
-      console.log(values);
+      //trigger login
+      const result = await loginUser(email, password, "/dasboard"); // Gọi Server Action
+      console.log("result login: ", result);
 
       // Giả lập đăng nhập thành công
-      setTimeout(() => {
-        router.push("/dashboard");
-      }, 1000);
+      // setTimeout(() => {
+      //   router.push("/dashboard");
+      // }, 1000);
     } catch (error) {
       console.error(error);
     } finally {

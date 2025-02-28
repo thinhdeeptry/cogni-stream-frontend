@@ -12,7 +12,8 @@
 
 # testing
 /coverage
-
+#local env files
+.env
 # next.js
 /.next/
 /out/
