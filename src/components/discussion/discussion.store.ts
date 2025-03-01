@@ -1,11 +1,5 @@
 import { create } from "zustand";
-import type {
-  Post,
-  ReactionType,
-  Reaction,
-  ThreadWithPostCount,
-  ReactionCounts,
-} from "./type";
+import type { Post, ReactionType, Reaction, ThreadWithPostCount } from "./type";
 import {
   createPost,
   updatePost,
@@ -20,7 +14,7 @@ import {
 } from "./discussion.action";
 import socketService from "./socket";
 
-interface TypingUser {
+interface ThreadUser {
   userId: string;
   userName: string;
 }
@@ -38,8 +32,7 @@ interface DiscussionState {
   repliesMap: Record<string, Post[]>;
   hasReviewed: boolean;
   reviewId?: string;
-  typingUsers: TypingUser[];
-  threadUsers: TypingUser[];
+  threadUsers: ThreadUser[];
   isConnected: boolean;
   connectionError: string | null;
   isReconnecting: boolean;
@@ -48,7 +41,6 @@ interface DiscussionState {
   setCurrentThreadId: (threadId: string) => void;
   initializeSocket: () => void;
   cleanupSocket: () => void;
-  handleTyping: (isTyping: boolean) => void;
   fetchThread: () => Promise<void>;
   fetchPosts: (page?: number) => Promise<void>;
   fetchReplies: (postId: string, page?: number) => Promise<void>;
@@ -88,7 +80,6 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
   repliesMap: {},
   hasReviewed: false,
   reviewId: undefined,
-  typingUsers: [],
   threadUsers: [],
   isConnected: false,
   connectionError: null,
@@ -860,12 +851,13 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
   },
 
   initializeSocket: () => {
-    const { currentThreadId, currentUserId } = get();
-    if (!currentThreadId || !currentUserId) return;
+    const { currentThreadId, currentUserId, currentUserName } = get();
+    if (!currentThreadId || !currentUserId || !currentUserName) return;
 
+    // Clean up existing socket connection before initializing a new one
+    get().cleanupSocket();
     set({ isReconnecting: false });
 
-    // Initialize socket connection
     const socket = socketService.connect();
 
     socket.on("connect", () => {
@@ -874,18 +866,12 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
         connectionError: null,
         isReconnecting: false,
       });
-      socketService.joinThread(currentThreadId);
+      socketService.joinThread(currentThreadId, currentUserId, currentUserName);
     });
 
     socket.on("connect_error", (error) => {
-      let errorMessage =
+      const errorMessage =
         error.message || "Failed to connect to discussion server";
-
-      if (error.message.includes("Invalid namespace")) {
-        errorMessage =
-          "Discussion service is not available. Please try again later.";
-      }
-
       set({
         isConnected: false,
         isReconnecting: !error.message.includes("Invalid namespace"),
@@ -894,45 +880,23 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
     });
 
     socket.on("disconnect", (reason) => {
-      // Handle different types of disconnections
       const isManualDisconnect =
         reason === "io server disconnect" || reason === "io client disconnect";
-      const isServiceError =
-        reason === "transport error" || reason === "transport close";
-
       set({
         isConnected: false,
         isReconnecting: !isManualDisconnect,
-        connectionError: isServiceError
-          ? "Discussion service disconnected. Please refresh the page."
-          : `Disconnected: ${reason}`,
+        connectionError: `Disconnected: ${reason}`,
       });
     });
 
-    socket.on("reconnect_failed", () => {
-      set({
-        connectionError: "Failed to reconnect. Please refresh the page.",
-        isReconnecting: false,
-      });
-    });
+    socketService.joinThread(currentThreadId, currentUserId, currentUserName);
 
-    // Join thread room
-    socketService.joinThread(currentThreadId);
-
-    // Set up socket event listeners
+    // Post event listeners
     socketService.onNewPost((post) => {
       set((state) => {
-        // Skip if the post is from the current user - it's already been added locally
-        if (post.authorId === state.currentUserId) {
-          return state;
-        }
+        if (post.authorId === state.currentUserId) return state;
+        if (post.parentId) get().onNewReply(post.parentId);
 
-        // If this is a reply, trigger the onNewReply action
-        if (post.parentId) {
-          get().onNewReply(post.parentId);
-        }
-
-        // Helper function to find a post anywhere in the tree
         const findPost = (posts: Post[], targetId: string): Post | null => {
           for (const p of posts) {
             if (p.id === targetId) return p;
@@ -944,27 +908,17 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
           return null;
         };
 
-        // Check if post exists anywhere
         const existingPost = findPost(state.posts, post.id);
-        if (existingPost) {
-          return state;
-        }
+        if (existingPost) return state;
 
-        // Handle reply posts
         if (post.parentId) {
           const parentPost = findPost(state.posts, post.parentId);
-          if (!parentPost) {
-            return state; // Ignore replies without a parent
-          }
+          if (!parentPost) return state;
 
-          // Create a new posts array with the reply added
           const updatedPosts = state.posts.map((p) => {
             if (p.id === post.parentId) {
               const replies = p.replies || [];
-              // Check if reply already exists
-              if (replies.some((r) => r.id === post.id)) {
-                return p;
-              }
+              if (replies.some((r) => r.id === post.id)) return p;
               return {
                 ...p,
                 _count: {
@@ -977,7 +931,6 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
             return p;
           });
 
-          // Update repliesMap
           const updatedRepliesMap = { ...state.repliesMap };
           if (
             !updatedRepliesMap[post.parentId]?.some((r) => r.id === post.id)
@@ -995,7 +948,6 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
           };
         }
 
-        // Handle top-level posts
         return {
           ...state,
           posts: [{ ...post, replies: [] }, ...state.posts],
@@ -1031,7 +983,6 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
           return p;
         });
 
-        // Update repliesMap if needed
         const updatedRepliesMap = { ...state.repliesMap };
         if (post.parentId && updatedRepliesMap[post.parentId]) {
           updatedRepliesMap[post.parentId] = updatedRepliesMap[
@@ -1055,9 +1006,7 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
       set((state) => {
         const removePostFromArray = (posts: Post[]): Post[] => {
           return posts.filter((post) => {
-            if (post.id === postId) {
-              return false;
-            }
+            if (post.id === postId) return false;
             if (post.replies) {
               const filteredReplies = removePostFromArray(post.replies);
               if (filteredReplies.length !== post.replies.length) {
@@ -1093,254 +1042,7 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
       });
     });
 
-    socketService.onNewReaction((reaction) => {
-      set((state) => {
-        const updatedPosts = state.posts.map((post) => {
-          if (post.id === reaction.postId) {
-            const updatedReactionCounts: ReactionCounts = {
-              LIKE: post.reactionCounts?.LIKE || 0,
-              LOVE: post.reactionCounts?.LOVE || 0,
-              CARE: post.reactionCounts?.CARE || 0,
-              HAHA: post.reactionCounts?.HAHA || 0,
-              WOW: post.reactionCounts?.WOW || 0,
-              SAD: post.reactionCounts?.SAD || 0,
-              ANGRY: post.reactionCounts?.ANGRY || 0,
-              total: post.reactionCounts?.total || 0,
-            };
-            updatedReactionCounts[reaction.type] += 1;
-            updatedReactionCounts.total += 1;
-
-            return {
-              ...post,
-              reactions: [...post.reactions, reaction],
-              reactionCounts: updatedReactionCounts,
-            };
-          }
-          if (post.replies) {
-            return {
-              ...post,
-              replies: post.replies.map((reply) => {
-                if (reply.id === reaction.postId) {
-                  const updatedReactionCounts: ReactionCounts = {
-                    LIKE: reply.reactionCounts?.LIKE || 0,
-                    LOVE: reply.reactionCounts?.LOVE || 0,
-                    CARE: reply.reactionCounts?.CARE || 0,
-                    HAHA: reply.reactionCounts?.HAHA || 0,
-                    WOW: reply.reactionCounts?.WOW || 0,
-                    SAD: reply.reactionCounts?.SAD || 0,
-                    ANGRY: reply.reactionCounts?.ANGRY || 0,
-                    total: reply.reactionCounts?.total || 0,
-                  };
-                  updatedReactionCounts[reaction.type] += 1;
-                  updatedReactionCounts.total += 1;
-
-                  return {
-                    ...reply,
-                    reactions: [...reply.reactions, reaction],
-                    reactionCounts: updatedReactionCounts,
-                  };
-                }
-                return reply;
-              }),
-            };
-          }
-          return post;
-        });
-
-        return {
-          ...state,
-          posts: updatedPosts,
-        };
-      });
-    });
-
-    socketService.onUpdateReaction((reaction) => {
-      set((state) => {
-        const updatedPosts = state.posts.map((post) => {
-          if (post.id === reaction.postId) {
-            const oldReaction = post.reactions.find(
-              (r) => r.id === reaction.id,
-            );
-            const updatedReactionCounts: ReactionCounts = {
-              LIKE: post.reactionCounts?.LIKE || 0,
-              LOVE: post.reactionCounts?.LOVE || 0,
-              CARE: post.reactionCounts?.CARE || 0,
-              HAHA: post.reactionCounts?.HAHA || 0,
-              WOW: post.reactionCounts?.WOW || 0,
-              SAD: post.reactionCounts?.SAD || 0,
-              ANGRY: post.reactionCounts?.ANGRY || 0,
-              total: post.reactionCounts?.total || 0,
-            };
-
-            if (oldReaction) {
-              updatedReactionCounts[oldReaction.type] = Math.max(
-                0,
-                updatedReactionCounts[oldReaction.type] - 1,
-              );
-            }
-            updatedReactionCounts[reaction.type] += 1;
-
-            return {
-              ...post,
-              reactions: [
-                ...post.reactions.filter((r) => r.id !== reaction.id),
-                reaction,
-              ],
-              reactionCounts: updatedReactionCounts,
-            };
-          }
-          if (post.replies) {
-            return {
-              ...post,
-              replies: post.replies.map((reply) => {
-                if (reply.id === reaction.postId) {
-                  const oldReaction = reply.reactions.find(
-                    (r) => r.id === reaction.id,
-                  );
-                  const updatedReactionCounts: ReactionCounts = {
-                    LIKE: reply.reactionCounts?.LIKE || 0,
-                    LOVE: reply.reactionCounts?.LOVE || 0,
-                    CARE: reply.reactionCounts?.CARE || 0,
-                    HAHA: reply.reactionCounts?.HAHA || 0,
-                    WOW: reply.reactionCounts?.WOW || 0,
-                    SAD: reply.reactionCounts?.SAD || 0,
-                    ANGRY: reply.reactionCounts?.ANGRY || 0,
-                    total: reply.reactionCounts?.total || 0,
-                  };
-
-                  if (oldReaction) {
-                    updatedReactionCounts[oldReaction.type] = Math.max(
-                      0,
-                      updatedReactionCounts[oldReaction.type] - 1,
-                    );
-                  }
-                  updatedReactionCounts[reaction.type] += 1;
-
-                  return {
-                    ...reply,
-                    reactions: [
-                      ...reply.reactions.filter((r) => r.id !== reaction.id),
-                      reaction,
-                    ],
-                    reactionCounts: updatedReactionCounts,
-                  };
-                }
-                return reply;
-              }),
-            };
-          }
-          return post;
-        });
-
-        return {
-          ...state,
-          posts: updatedPosts,
-        };
-      });
-    });
-
-    socketService.onDeleteReaction(({ reactionId }) => {
-      set((state) => {
-        const updatedPosts = state.posts.map((post) => {
-          const reactionToRemove = post.reactions.find(
-            (r) => r.id === reactionId,
-          );
-          if (reactionToRemove) {
-            const updatedReactionCounts: ReactionCounts = {
-              LIKE: post.reactionCounts?.LIKE || 0,
-              LOVE: post.reactionCounts?.LOVE || 0,
-              CARE: post.reactionCounts?.CARE || 0,
-              HAHA: post.reactionCounts?.HAHA || 0,
-              WOW: post.reactionCounts?.WOW || 0,
-              SAD: post.reactionCounts?.SAD || 0,
-              ANGRY: post.reactionCounts?.ANGRY || 0,
-              total: post.reactionCounts?.total || 0,
-            };
-
-            updatedReactionCounts[reactionToRemove.type] = Math.max(
-              0,
-              updatedReactionCounts[reactionToRemove.type] - 1,
-            );
-            updatedReactionCounts.total = Math.max(
-              0,
-              updatedReactionCounts.total - 1,
-            );
-
-            return {
-              ...post,
-              reactions: post.reactions.filter((r) => r.id !== reactionId),
-              reactionCounts: updatedReactionCounts,
-            };
-          }
-          if (post.replies) {
-            return {
-              ...post,
-              replies: post.replies.map((reply) => {
-                const reactionToRemove = reply.reactions.find(
-                  (r) => r.id === reactionId,
-                );
-                if (reactionToRemove) {
-                  const updatedReactionCounts: ReactionCounts = {
-                    LIKE: reply.reactionCounts?.LIKE || 0,
-                    LOVE: reply.reactionCounts?.LOVE || 0,
-                    CARE: reply.reactionCounts?.CARE || 0,
-                    HAHA: reply.reactionCounts?.HAHA || 0,
-                    WOW: reply.reactionCounts?.WOW || 0,
-                    SAD: reply.reactionCounts?.SAD || 0,
-                    ANGRY: reply.reactionCounts?.ANGRY || 0,
-                    total: reply.reactionCounts?.total || 0,
-                  };
-
-                  updatedReactionCounts[reactionToRemove.type] = Math.max(
-                    0,
-                    updatedReactionCounts[reactionToRemove.type] - 1,
-                  );
-                  updatedReactionCounts.total = Math.max(
-                    0,
-                    updatedReactionCounts.total - 1,
-                  );
-
-                  return {
-                    ...reply,
-                    reactions: reply.reactions.filter(
-                      (r) => r.id !== reactionId,
-                    ),
-                    reactionCounts: updatedReactionCounts,
-                  };
-                }
-                return reply;
-              }),
-            };
-          }
-          return post;
-        });
-
-        return {
-          ...state,
-          posts: updatedPosts,
-        };
-      });
-    });
-
-    socketService.onUserTyping(({ threadId, typingUsers }) => {
-      if (threadId === currentThreadId) {
-        // Filter out duplicate users and ensure we only show each user once
-        const uniqueTypingUsers = typingUsers.reduce(
-          (acc: TypingUser[], user) => {
-            const exists = acc.some((u) => u.userId === user.userId);
-            if (!exists) {
-              acc.push(user);
-            }
-            return acc;
-          },
-          [],
-        );
-
-        set({ typingUsers: uniqueTypingUsers });
-      }
-    });
-
-    // Set up thread users handlers
+    // Thread users handlers
     socketService.onThreadUsers((data) => {
       if (data.threadId === currentThreadId) {
         set({ threadUsers: data.users });
@@ -1355,51 +1057,26 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
         ],
       }));
     });
-
-    socketService.onUserLeft((user) => {
-      set((state) => ({
-        threadUsers: state.threadUsers.filter((u) => u.userId !== user.userId),
-      }));
-    });
   },
 
   cleanupSocket: () => {
-    const { currentThreadId } = get();
-    if (currentThreadId) {
-      socketService.leaveThread(currentThreadId);
+    const { currentThreadId, currentUserId } = get();
+    if (currentThreadId && currentUserId) {
+      socketService.leaveThread(currentThreadId, currentUserId);
     }
+    // Remove all socket event listeners first
     socketService.removeAllListeners();
+    // Then disconnect the socket
     socketService.disconnect();
+    // Reset all socket-related state
     set({
       isConnected: false,
       connectionError: null,
       isReconnecting: false,
+      threadUsers: [],
+      posts: [],
+      repliesMap: {},
+      currentPage: 1,
     });
-  },
-
-  handleTyping: (isTyping) => {
-    const { currentThreadId, currentUserId, currentUserName } = get();
-    if (!currentThreadId || !currentUserId || !currentUserName) return;
-
-    // Immediately stop typing status if not typing (empty input or unfocused)
-    if (!isTyping) {
-      socketService.debounceTyping(
-        currentThreadId,
-        currentUserId,
-        currentUserName,
-        false,
-        0, // No delay when stopping typing
-      );
-      return;
-    }
-
-    // Debounce typing events when actively typing
-    socketService.debounceTyping(
-      currentThreadId,
-      currentUserId,
-      currentUserName,
-      true,
-      1000, // 1 second debounce while typing
-    );
   },
 }));

@@ -18,7 +18,6 @@ import { toast } from "sonner";
 import dynamic from "next/dynamic";
 import { Rating } from "@/components/rating";
 import { DiscussionType, Thread } from "./type";
-import { useDiscussionStore } from "./discussion.store";
 import data from "@emoji-mart/data";
 
 // Dynamically import EmojiPicker to avoid SSR issues
@@ -64,7 +63,6 @@ export default function UserInput({
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [rating, setRating] = useState<number | undefined>(5);
   const newPostInputRef = useRef<HTMLTextAreaElement>(null);
-  const { handleTyping } = useDiscussionStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Update content if initialContent changes (for edit mode)
@@ -124,7 +122,6 @@ export default function UserInput({
           newPostInputRef.current.style.height = "auto";
         }
         onSubmitSuccess?.();
-        handleTyping(false);
       } catch (error) {
         console.error("Failed to submit:", error);
         if (error instanceof Error) {
@@ -142,7 +139,6 @@ export default function UserInput({
     setNewPostContent(e.target.value);
     e.target.style.height = "auto";
     e.target.style.height = `${e.target.scrollHeight}px`;
-    handleTyping(e.target.value.length > 0);
   };
 
   const handleEmojiSelect = (emoji: EmojiData) => {

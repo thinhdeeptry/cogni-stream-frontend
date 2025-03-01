@@ -25,7 +25,6 @@ export default function Discussion({
     thread,
     isLoading,
     error,
-    typingUsers,
     threadUsers,
     isConnected,
     connectionError,
@@ -48,18 +47,6 @@ export default function Discussion({
   );
   const [showReplies, setShowReplies] = useState<Record<string, boolean>>({});
   const [hasReviewed, setHasReviewed] = useState(false);
-
-  // Add effect to watch repliesMap changes
-  useEffect(() => {
-    Object.keys(repliesMap).forEach((postId) => {
-      if (repliesMap[postId]?.length > 0) {
-        setShowReplies((prev) => ({
-          ...prev,
-          [postId]: true,
-        }));
-      }
-    });
-  }, [repliesMap]);
 
   useEffect(() => {
     setCurrentUserId(userId);
@@ -161,37 +148,6 @@ export default function Discussion({
     }
   };
 
-  // Render typing indicator with improved UI
-  const renderTypingIndicator = () => {
-    const typingUsersExceptCurrent = typingUsers.filter(
-      (user) => user.userId !== userId,
-    );
-
-    if (typingUsersExceptCurrent.length === 0) return null;
-
-    const names = typingUsersExceptCurrent.map((user) => user.userName);
-    let message = "";
-
-    if (names.length === 1) {
-      message = `${names[0]} is typing...`;
-    } else if (names.length === 2) {
-      message = `${names[0]} and ${names[1]} are typing...`;
-    } else {
-      message = `${names[0]} and ${names.length - 1} others are typing...`;
-    }
-
-    return (
-      <div className="flex items-center gap-2 text-sm text-muted-foreground animate-pulse">
-        <div className="flex gap-1">
-          <span className="animate-bounce">•</span>
-          <span className="animate-bounce delay-100">•</span>
-          <span className="animate-bounce delay-200">•</span>
-        </div>
-        {message}
-      </div>
-    );
-  };
-
   if (isLoading && !posts.length) {
     return (
       <div className="flex justify-center items-center py-8">
@@ -274,8 +230,6 @@ export default function Discussion({
           }
         }}
       />
-
-      {renderTypingIndicator()}
 
       <div className="space-y-4">
         {posts.map((post) => (
