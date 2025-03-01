@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { signIn } from "@/auth";
-
+import { loginUser } from "@/actions/login";
+import { Toaster, toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -19,7 +19,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
-import { loginUser } from "@/actions/login";
 
 const formSchema = z.object({
   email: z.string().email({
@@ -33,6 +32,14 @@ const formSchema = z.object({
 export default function LoginForm() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setIsLoading(false);
+      setError(null);
+    }
+  }, []);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -44,18 +51,25 @@ export default function LoginForm() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
+    setError(null);
+
     const { email, password } = values;
     try {
-      //trigger login
-      const result = await loginUser(email, password, "/dasboard"); // Gọi Server Action
-      console.log("result login: ", result);
+      const result = await loginUser(email, password, "/dashboard");
+      console.log("Login result>>> ", result);
 
-      // Giả lập đăng nhập thành công
-      // setTimeout(() => {
-      //   router.push("/dashboard");
-      // }, 1000);
+      if (result.error) {
+        console.log("Login error>>> ", result.message);
+        toast.error(result.message);
+        setError(result.message);
+      } else if (result.success) {
+        if (result.redirectTo) {
+          router.push(result.redirectTo);
+        }
+      }
     } catch (error) {
-      console.error(error);
+      console.error("Unexpected error:", error);
+      setError("Đã xảy ra lỗi không xác định. Vui lòng thử lại sau.");
     } finally {
       setIsLoading(false);
     }
@@ -63,6 +77,7 @@ export default function LoginForm() {
 
   return (
     <Card>
+      <Toaster position="top-right" />
       <CardContent className="pt-6">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -96,6 +111,7 @@ export default function LoginForm() {
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Đăng nhập
             </Button>
+            {error && <p className="text-red-500 text-sm">{error}</p>}
           </form>
         </Form>
       </CardContent>
