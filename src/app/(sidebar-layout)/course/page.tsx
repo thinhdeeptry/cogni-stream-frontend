@@ -1,4 +1,10 @@
 "use client";
+
+import Image from "next/image";
+import { useEffect, useState } from "react";
+
+import axios from "axios";
+
 import CourseItem from "@/components/courseItem";
 import {
   Carousel,
@@ -8,9 +14,6 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "@/components/ui/carousel";
-import Image from "next/image";
-import { useEffect, useState } from "react";
-import axios from "axios";
 
 const bannerImages = [
   "https://res.cloudinary.com/dxxsudprj/image/upload/v1740664494/Screenshot_2025-02-27_at_20.53.58_wgkc7i.png",

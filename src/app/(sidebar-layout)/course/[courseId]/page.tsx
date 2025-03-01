@@ -1,17 +1,20 @@
 "use client";
-import { Card, CardContent } from "@/components/ui/card";
-import { Book, Crown, Users } from "lucide-react";
+
 import Image from "next/image";
+import { useParams } from "next/navigation";
+import { useEffect, useState } from "react";
+
+import axios from "axios";
+import { Book, Crown, Users } from "lucide-react";
+import { ChevronDown } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Button } from "@/components/ui/button";
-import { ChevronDown } from "lucide-react";
-import { useEffect, useState } from "react";
-import axios from "axios";
-import { useParams } from "next/navigation";
 
 interface Course {
   id: string;
