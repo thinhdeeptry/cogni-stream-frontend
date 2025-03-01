@@ -1,5 +1,6 @@
 import Image from "next/image";
 
+import { auth } from "@/auth";
 import { ChevronRight, ChevronRightSquare } from "lucide-react";
 import { Metadata } from "next";
 
@@ -12,9 +13,13 @@ export const metadata: Metadata = {
     "EduForge is a platform for educators and students to collaborate and learn together.",
 };
 
-export default function Home() {
+export default async function Home() {
+  const session = await auth();
+  //use session to get data https://www.youtube.com/watch?v=nwn2lwYZG2M&ab_channel=H%E1%BB%8FiD%C3%A2nIT
+  // 30:00
   return (
     <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
+      <div>{JSON.stringify(session)}</div>
       <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
         <TrueFocus
           sentence="Edu Forge"

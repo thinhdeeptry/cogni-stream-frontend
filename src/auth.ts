@@ -52,16 +52,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             accessToken: response.access_token,
           };
           return user;
-          // }
-
-          return null; // Trả về null nếu không hợp lệ
-          // } catch (error) {
-          //   console.error("Authorize error:", error);
-          //   if (error instanceof AccountNotActivatedError) {
-          //     return { error: true, success: false, message: "Tài khoản chưa được kích hoạt", status: 400 };
-          //   }
-          //   throw new Error("Đã xảy ra lỗi không xác định. Vui lòng thử lại sau.");
         }
+        return null;
       },
     }),
   ],
@@ -71,23 +63,41 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   session: {
     strategy: "jwt",
   },
-  // callbacks: {
-  //   async jwt({ token, user }) {
-  //     if (user) {
-  //       token.id = user.id;
-  //       token.email = user.email;
-  //       token.name = user.name;
-  //       token.accessToken = user.accessToken;
-  //     }
-  //     return token;
-  //   },
-  // async session({ session, token }) {
-  //   session.user.id = token.id;
-  //   session.user.email = token.email;
-  //   session.user.name = token.name;
-  //   session.accessToken = token.accessToken;
-  //   return session;
-  // },
-  // },
+  callbacks: {
+    async jwt({ token, user }: { token: any; user: any }) {
+      if (user) {
+        // Cập nhật token với thông tin user theo interface IUser
+        token.id = user.id;
+        token.email = user.email;
+        token.name = user.name;
+        token.role = user.role;
+        token.accountType = user.accountType;
+        token.isActive = user.isActive;
+        token.phone = user.phone;
+        token.address = user.address;
+        token.image = user.image;
+        // Lưu accessToken riêng, không nằm trong interface IUser
+        token.accessToken = user.accessToken;
+      }
+      return token;
+    },
+    async session({ session, token }: { session: any; token: any }) {
+      // Cập nhật session.user theo interface IUser
+      session.user = {
+        id: token.id,
+        email: token.email,
+        name: token.name,
+        role: token.role,
+        accountType: token.accountType,
+        isActive: token.isActive,
+        phone: token.phone,
+        address: token.address,
+        image: token.image,
+      };
+      // Lưu accessToken ở cấp session, không phải trong user
+      session.accessToken = token.accessToken;
+      return session;
+    },
+  },
   secret: process.env.NEXTAUTH_SECRET,
 });
