@@ -6,17 +6,14 @@ import { AuthError } from "next-auth";
 
 // actions/login.ts
 
-export async function loginUser(
-  email: string,
-  password: string,
-  redirectTo?: string | undefined,
-) {
+// actions/login.ts
+
+export async function loginUser(email: string, password: string) {
   try {
     const result = await signIn("credentials", {
       email,
       password,
       redirect: false, // Không redirect tự động, xử lý bằng FE
-      redirectTo: redirectTo,
     });
 
     // Nếu thành công, trả về thông tin để FE xử lý chuyển hướng
@@ -24,7 +21,7 @@ export async function loginUser(
       error: false,
       success: true,
       message: "",
-      redirectTo: redirectTo || "/dashboard",
+      redirectTo: "/",
       status: 200,
     };
   } catch (error) {
