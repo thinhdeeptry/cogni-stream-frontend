@@ -1,6 +1,6 @@
 import { Socket, io } from "socket.io-client";
 
-import type { Post } from "./type";
+import type { Post, Reaction, ReactionType } from "./type";
 
 interface ThreadUser {
   userId: string;
@@ -85,6 +85,27 @@ class DiscussionSocketService {
   onDeletePost(callback: (data: { postId: string }) => void) {
     if (this.socket) {
       this.socket.on("delete-post", callback);
+    }
+  }
+
+  // Reaction event listeners
+  onNewReaction(callback: (reaction: Reaction) => void) {
+    if (this.socket) {
+      this.socket.on("new-reaction", callback);
+    }
+  }
+
+  onUpdateReaction(callback: (reaction: Reaction) => void) {
+    if (this.socket) {
+      this.socket.on("update-reaction", callback);
+    }
+  }
+
+  onDeleteReaction(
+    callback: (data: { reactionId: string; postId: string }) => void,
+  ) {
+    if (this.socket) {
+      this.socket.on("delete-reaction", callback);
     }
   }
 

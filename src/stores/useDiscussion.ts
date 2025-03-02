@@ -13,7 +13,7 @@ import {
   updatePost,
   updateReaction,
 } from "../actions/discussion.action";
-import socketService from "../components/discussion/socket";
+import socketService from "../components/discussion/discussion.socket";
 import type {
   Post,
   Reaction,
@@ -1255,6 +1255,358 @@ export const useDiscussionStore = create<DiscussionState>()(
                     },
                   }
                 : null,
+            };
+          });
+        });
+
+        // Handle real-time reaction events
+        socketService.onNewReaction((reaction) => {
+          // Ignore reactions from the current user (already handled)
+          if (reaction.userId === currentUserId) return;
+
+          set((state) => {
+            // Update posts tree to add the new reaction
+            const updatedPosts = updatePostsTree(state.posts, (post) => {
+              if (post.id === reaction.postId) {
+                // Create a safe copy of reactionCounts with default values
+                const reactionCounts =
+                  post.reactionCounts || createDefaultReactionCounts();
+                const updatedReactionCounts = {
+                  ...reactionCounts,
+                  [reaction.type]: reactionCounts[reaction.type] + 1,
+                  total: reactionCounts.total + 1,
+                };
+
+                return {
+                  ...post,
+                  reactions: [...post.reactions, reaction],
+                  reactionCounts: updatedReactionCounts,
+                };
+              }
+
+              // Check if this is a reply
+              if (post.replies) {
+                let hasUpdatedReply = false;
+                const updatedReplies = post.replies.map((reply) => {
+                  if (reply.id === reaction.postId) {
+                    hasUpdatedReply = true;
+                    // Create a safe copy of reactionCounts with default values
+                    const reactionCounts =
+                      reply.reactionCounts || createDefaultReactionCounts();
+                    const updatedReactionCounts = {
+                      ...reactionCounts,
+                      [reaction.type]: reactionCounts[reaction.type] + 1,
+                      total: reactionCounts.total + 1,
+                    };
+
+                    return {
+                      ...reply,
+                      reactions: [...reply.reactions, reaction],
+                      reactionCounts: updatedReactionCounts,
+                    };
+                  }
+                  return reply;
+                });
+
+                if (hasUpdatedReply) {
+                  return {
+                    ...post,
+                    replies: updatedReplies,
+                  };
+                }
+              }
+
+              return post;
+            });
+
+            // Update repliesMap if needed
+            const updatedRepliesMap = { ...state.repliesMap };
+            Object.keys(updatedRepliesMap).forEach((parentId) => {
+              if (
+                updatedRepliesMap[parentId].some(
+                  (reply) => reply.id === reaction.postId,
+                )
+              ) {
+                updatedRepliesMap[parentId] = updatedRepliesMap[parentId].map(
+                  (reply) => {
+                    if (reply.id === reaction.postId) {
+                      // Create a safe copy of reactionCounts with default values
+                      const reactionCounts =
+                        reply.reactionCounts || createDefaultReactionCounts();
+                      const updatedReactionCounts = {
+                        ...reactionCounts,
+                        [reaction.type]: reactionCounts[reaction.type] + 1,
+                        total: reactionCounts.total + 1,
+                      };
+
+                      return {
+                        ...reply,
+                        reactions: [...reply.reactions, reaction],
+                        reactionCounts: updatedReactionCounts,
+                      };
+                    }
+                    return reply;
+                  },
+                );
+              }
+            });
+
+            return {
+              ...state,
+              posts: updatedPosts,
+              repliesMap: updatedRepliesMap,
+            };
+          });
+        });
+
+        socketService.onUpdateReaction((reaction) => {
+          // Ignore reactions from the current user (already handled)
+          if (reaction.userId === currentUserId) return;
+
+          set((state) => {
+            // Update posts tree to update the reaction
+            const updatedPosts = updatePostsTree(state.posts, (post) => {
+              if (post.id === reaction.postId) {
+                // Find the old reaction to determine type
+                const oldReaction = post.reactions.find(
+                  (r) => r.id === reaction.id,
+                );
+
+                if (oldReaction) {
+                  const oldType = oldReaction.type;
+                  // Update reaction counts
+                  const reactionCounts =
+                    post.reactionCounts || createDefaultReactionCounts();
+                  const updatedReactionCounts = {
+                    ...reactionCounts,
+                    [oldType]: Math.max(0, reactionCounts[oldType] - 1),
+                    [reaction.type]: reactionCounts[reaction.type] + 1,
+                  };
+
+                  return {
+                    ...post,
+                    reactions: post.reactions.map((r) =>
+                      r.id === reaction.id ? reaction : r,
+                    ),
+                    reactionCounts: updatedReactionCounts,
+                  };
+                }
+              }
+
+              // Check if this is a reply
+              if (post.replies) {
+                let hasUpdatedReply = false;
+                const updatedReplies = post.replies.map((reply) => {
+                  if (reply.id === reaction.postId) {
+                    // Find the old reaction to determine type
+                    const oldReaction = reply.reactions.find(
+                      (r) => r.id === reaction.id,
+                    );
+
+                    if (oldReaction) {
+                      const oldType = oldReaction.type;
+                      // Update reaction counts
+                      const reactionCounts =
+                        reply.reactionCounts || createDefaultReactionCounts();
+                      const updatedReactionCounts = {
+                        ...reactionCounts,
+                        [oldType]: Math.max(0, reactionCounts[oldType] - 1),
+                        [reaction.type]: reactionCounts[reaction.type] + 1,
+                      };
+
+                      hasUpdatedReply = true;
+                      return {
+                        ...reply,
+                        reactions: reply.reactions.map((r) =>
+                          r.id === reaction.id ? reaction : r,
+                        ),
+                        reactionCounts: updatedReactionCounts,
+                      };
+                    }
+                  }
+                  return reply;
+                });
+
+                if (hasUpdatedReply) {
+                  return {
+                    ...post,
+                    replies: updatedReplies,
+                  };
+                }
+              }
+
+              return post;
+            });
+
+            // Update repliesMap if needed
+            const updatedRepliesMap = { ...state.repliesMap };
+            Object.keys(updatedRepliesMap).forEach((parentId) => {
+              if (
+                updatedRepliesMap[parentId].some(
+                  (reply) => reply.id === reaction.postId,
+                )
+              ) {
+                updatedRepliesMap[parentId] = updatedRepliesMap[parentId].map(
+                  (reply) => {
+                    if (reply.id === reaction.postId) {
+                      // Find the old reaction to determine type
+                      const oldReaction = reply.reactions.find(
+                        (r) => r.id === reaction.id,
+                      );
+
+                      if (oldReaction) {
+                        const oldType = oldReaction.type;
+                        // Update reaction counts
+                        const reactionCounts =
+                          reply.reactionCounts || createDefaultReactionCounts();
+                        const updatedReactionCounts = {
+                          ...reactionCounts,
+                          [oldType]: Math.max(0, reactionCounts[oldType] - 1),
+                          [reaction.type]: reactionCounts[reaction.type] + 1,
+                        };
+
+                        return {
+                          ...reply,
+                          reactions: reply.reactions.map((r) =>
+                            r.id === reaction.id ? reaction : r,
+                          ),
+                          reactionCounts: updatedReactionCounts,
+                        };
+                      }
+                    }
+                    return reply;
+                  },
+                );
+              }
+            });
+
+            return {
+              ...state,
+              posts: updatedPosts,
+              repliesMap: updatedRepliesMap,
+            };
+          });
+        });
+
+        socketService.onDeleteReaction(({ reactionId, postId }) => {
+          set((state) => {
+            // Update posts tree to remove the reaction
+            const updatedPosts = updatePostsTree(state.posts, (post) => {
+              if (post.id === postId) {
+                // Find the reaction to determine its type
+                const reactionToRemove = post.reactions.find(
+                  (r) => r.id === reactionId,
+                );
+
+                if (reactionToRemove) {
+                  const typeToRemove = reactionToRemove.type;
+                  // Update reaction counts
+                  const reactionCounts =
+                    post.reactionCounts || createDefaultReactionCounts();
+                  const updatedReactionCounts = updateReactionCountsForRemove(
+                    reactionCounts,
+                    typeToRemove,
+                  );
+
+                  return {
+                    ...post,
+                    reactions: post.reactions.filter(
+                      (r) => r.id !== reactionId,
+                    ),
+                    reactionCounts: updatedReactionCounts,
+                  };
+                }
+              }
+
+              // Check if this is a reply
+              if (post.replies) {
+                let hasUpdatedReply = false;
+                const updatedReplies = post.replies.map((reply) => {
+                  if (reply.id === postId) {
+                    // Find the reaction to determine its type
+                    const reactionToRemove = reply.reactions.find(
+                      (r) => r.id === reactionId,
+                    );
+
+                    if (reactionToRemove) {
+                      const typeToRemove = reactionToRemove.type;
+                      // Update reaction counts
+                      const reactionCounts =
+                        reply.reactionCounts || createDefaultReactionCounts();
+                      const updatedReactionCounts =
+                        updateReactionCountsForRemove(
+                          reactionCounts,
+                          typeToRemove,
+                        );
+
+                      hasUpdatedReply = true;
+                      return {
+                        ...reply,
+                        reactions: reply.reactions.filter(
+                          (r) => r.id !== reactionId,
+                        ),
+                        reactionCounts: updatedReactionCounts,
+                      };
+                    }
+                  }
+                  return reply;
+                });
+
+                if (hasUpdatedReply) {
+                  return {
+                    ...post,
+                    replies: updatedReplies,
+                  };
+                }
+              }
+
+              return post;
+            });
+
+            // Update repliesMap if needed
+            const updatedRepliesMap = { ...state.repliesMap };
+            Object.keys(updatedRepliesMap).forEach((parentId) => {
+              if (
+                updatedRepliesMap[parentId].some((reply) => reply.id === postId)
+              ) {
+                updatedRepliesMap[parentId] = updatedRepliesMap[parentId].map(
+                  (reply) => {
+                    if (reply.id === postId) {
+                      // Find the reaction to determine its type
+                      const reactionToRemove = reply.reactions.find(
+                        (r) => r.id === reactionId,
+                      );
+
+                      if (reactionToRemove) {
+                        const typeToRemove = reactionToRemove.type;
+                        // Update reaction counts
+                        const reactionCounts =
+                          reply.reactionCounts || createDefaultReactionCounts();
+                        const updatedReactionCounts =
+                          updateReactionCountsForRemove(
+                            reactionCounts,
+                            typeToRemove,
+                          );
+
+                        return {
+                          ...reply,
+                          reactions: reply.reactions.filter(
+                            (r) => r.id !== reactionId,
+                          ),
+                          reactionCounts: updatedReactionCounts,
+                        };
+                      }
+                    }
+                    return reply;
+                  },
+                );
+              }
+            });
+
+            return {
+              ...state,
+              posts: updatedPosts,
+              repliesMap: updatedRepliesMap,
             };
           });
         });
