@@ -183,7 +183,7 @@ export default function UserInput({
             {!parentId &&
               thread.type === DiscussionType.COURSE_REVIEW &&
               !hideRating && (
-                <Rating value={rating} onChange={setRating} className="ml-2" />
+                <Rating value={rating} onChange={setRating} className="mb-2" />
               )}
             <Textarea
               ref={newPostInputRef}

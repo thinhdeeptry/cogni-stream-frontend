@@ -1,4 +1,5 @@
 import { Socket, io } from "socket.io-client";
+
 import type { Post } from "./type";
 
 interface ThreadUser {
@@ -20,7 +21,7 @@ class DiscussionSocketService {
     if (!this.socket) {
       const baseUrl =
         process.env.NEXT_PUBLIC_DISCUSSION_GATEWAY_URL ||
-        "http://localhost:3005";
+        "http://localhost:3008";
 
       this.socket = io(baseUrl + this.namespace, {
         withCredentials: true,

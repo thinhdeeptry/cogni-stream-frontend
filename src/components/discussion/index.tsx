@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 
-import { Loader2, MessageCircle, Users, X } from "lucide-react";
+import { Loader2, MessageCircle, Star, Users, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Sheet,
   SheetClose,
@@ -217,10 +218,10 @@ export default function Discussion({
       <Sheet open={isOpen} onOpenChange={setIsOpen}>
         <SheetContent className="flex flex-col p-0 w-full sm:max-w-md md:max-w-lg lg:max-w-2xl">
           {/* Sticky Header */}
-          <div className="sticky top-0 z-10 bg-background border-b">
+          <div className="sticky top-0 z-10 bg-background">
             <SheetHeader className="p-4">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-8">
+                <div className="flex items-center gap-4">
                   <SheetTitle>
                     {thread?.type === DiscussionType.COURSE_REVIEW
                       ? "Đánh giá khóa học"
@@ -231,6 +232,8 @@ export default function Discussion({
                   {thread && (
                     <div>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <span>{Math.round(thread?.overallRating || 0)}</span>
+                        <Star className="size-3" />
                         <span>{totalPosts} bình luận</span>
                         <span>Hiện {threadUsers.length} người đang xem</span>
                         {isConnected && (
@@ -251,17 +254,17 @@ export default function Discussion({
                 </SheetClose>
               </div>
 
-              {thread?.type === DiscussionType.COURSE_REVIEW && hasReviewed && (
+              {/* {thread?.type === DiscussionType.COURSE_REVIEW && hasReviewed && (
                 <div className="text-xs text-muted-foreground mt-2">
                   Bạn đã đánh giá khóa học này. Bạn vẫn có thể tham gia thảo
                   luận mà không cần thêm điểm đánh giá.
                 </div>
-              )}
+              )} */}
             </SheetHeader>
           </div>
 
           {/* Scrollable Content Area */}
-          <div className="flex-1 overflow-y-auto p-4 px-12">
+          <ScrollArea className="flex-1 overflow-y-auto p-4 px-12">
             {isOpen && (
               <DiscussionContent
                 threadId={threadId}
@@ -283,10 +286,10 @@ export default function Discussion({
                 loadMorePosts={loadMorePosts}
               />
             )}
-          </div>
+          </ScrollArea>
 
           {/* Sticky Footer with UserInput */}
-          <div className="sticky bottom-0 bg-background border-t p-2">
+          <div className="sticky bottom-0 bg-background p-2">
             {isOpen && thread && (
               <UserInput
                 currentUserId={userId}

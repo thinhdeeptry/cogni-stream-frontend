@@ -229,7 +229,7 @@ export function PostCard({
                 {currentUserId &&
                   post.authorId === currentUserId &&
                   (isHovering || isDropdownOpen) && (
-                    <div className="flex items-center gap-0">
+                    <div className="flex items-center gap-0 absolute right-2 top-2">
                       <DropdownMenu
                         open={isDropdownOpen}
                         onOpenChange={setIsDropdownOpen}
