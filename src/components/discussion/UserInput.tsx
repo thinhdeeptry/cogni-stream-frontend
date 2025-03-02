@@ -178,7 +178,7 @@ export default function UserInput({
         </Avatar>
       )}
       <div className="flex-1 ">
-        <div className="bg-white border rounded-2xl  w-fit min-w-[300px] max-w-full">
+        <div className="bg-white border rounded-2xl w-full min-w-[300px] max-w-full">
           <div className="relative p-3">
             {!parentId &&
               thread.type === DiscussionType.COURSE_REVIEW &&

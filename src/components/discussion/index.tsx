@@ -216,7 +216,7 @@ export default function Discussion({
 
       {/* Sheet component */}
       <Sheet open={isOpen} onOpenChange={setIsOpen}>
-        <SheetContent className="flex flex-col p-0 w-full sm:max-w-2xl md:max-w-2xl lg:max-w-3xl">
+        <SheetContent className="flex flex-col p-0 w-full sm:max-w-2xl md:max-w-2xl lg:max-w-2xl">
           {/* Sticky Header */}
           <div className="sticky top-0 z-10 bg-background">
             <SheetHeader className="p-4">
@@ -289,7 +289,7 @@ export default function Discussion({
           </ScrollArea>
 
           {/* Sticky Footer with UserInput */}
-          <div className="sticky bottom-0 bg-background p-2">
+          <div className="sticky bottom-0 bg-background px-4 py-2">
             {isOpen && thread && (
               <UserInput
                 currentUserId={userId}
