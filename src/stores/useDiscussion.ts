@@ -890,13 +890,18 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
       get().fetchReplies(postId);
     }
 
-    // Automatically show replies for the parent post
-    set((state) => ({
-      showReplies: {
-        ...state.showReplies,
-        [postId]: true,
-      },
-    }));
+    // Find the parent post to check if it belongs to the current user
+    const parentPost = findPostInTree(state.posts, postId);
+
+    // Only automatically show replies if the parent post belongs to the current user
+    if (parentPost && parentPost.authorId === state.currentUserId) {
+      set((state) => ({
+        showReplies: {
+          ...state.showReplies,
+          [postId]: true,
+        },
+      }));
+    }
   },
 
   initializeSocket: () => {
@@ -950,17 +955,31 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
         // Phát âm thanh thông báo khi có bài đăng mới từ người khác
         playNotificationSound();
 
-        // Fetch replies if it's a reply to a post
-        if (post.parentId) get().onNewReply(post.parentId);
-
         // Check if post already exists in state
         const existingPost = findPostInTree(state.posts, post.id);
         if (existingPost) return state;
 
-        // If it's a reply to an existing post
+        // If it's a reply to a post, handle it
         if (post.parentId) {
           // Find the parent post
           const parentPost = findPostInTree(state.posts, post.parentId);
+
+          // For parent posts that belong to current user, automatically show replies
+          if (parentPost && parentPost.authorId === state.currentUserId) {
+            // Update showReplies directly here to ensure it happens
+            set((prevState) => ({
+              showReplies: {
+                ...prevState.showReplies,
+                [post.parentId as string]: true,
+              },
+            }));
+
+            // Also ensure replies are loaded for this parent
+            if (!state.repliesMap[post.parentId as string]) {
+              get().fetchReplies(post.parentId as string);
+            }
+          }
+
           if (!parentPost) return state;
 
           // Update posts tree
@@ -1018,22 +1037,53 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
 
     socketService.onUpdatePost((post) => {
       set((state) => {
+        // Don't update if this is our own post update (should already be reflected in UI)
+        if (post.authorId === state.currentUserId) return state;
+
+        // Ensure we have the complete post object with necessary fields for UI
+        const enhancedPost = {
+          ...post,
+          reactions: post.reactions || [],
+          reactionCounts: post.reactionCounts || createDefaultReactionCounts(),
+          _count: post._count || { replies: 0 },
+          replies: post.replies || [],
+        };
+
         // Update post in tree
         const updatedPosts = updatePostsTree(state.posts, (p) => {
           if (p.id === post.id) {
-            return { ...p, ...post, replies: p.replies || [] };
+            // Preserve existing replies and reactions if they're not in the updated post
+            return {
+              ...enhancedPost,
+              replies: p.replies || [],
+              reactions: post.reactions || p.reactions || [],
+              reactionCounts:
+                post.reactionCounts ||
+                p.reactionCounts ||
+                createDefaultReactionCounts(),
+            };
           }
           return p;
         });
 
-        // Update reply in map if needed
+        // Update reply in maps if needed
         const updatedRepliesMap = { ...state.repliesMap };
+
+        // If it's a reply (has a parentId), update in the parent's reply map
         if (post.parentId && updatedRepliesMap[post.parentId]) {
           updatedRepliesMap[post.parentId] = updatedRepliesMap[
             post.parentId
           ].map((reply) =>
             reply.id === post.id
-              ? { ...reply, ...post, replies: reply.replies || [] }
+              ? {
+                  ...enhancedPost,
+                  replies: reply.replies || [],
+                  reactions: post.reactions || reply.reactions || [],
+                  reactionCounts:
+                    post.reactionCounts ||
+                    reply.reactionCounts ||
+                    createDefaultReactionCounts(),
+                }
               : reply,
           );
         }
@@ -1048,13 +1098,21 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
 
     socketService.onDeletePost(({ postId }) => {
       set((state) => {
+        // If we're deleting our own post, we've already handled it optimistically
+        // Find the post to get more details before removing
+        const postToDelete = findPostInTree(state.posts, postId);
+        if (!postToDelete) return state;
+
+        // Find parent post if this is a reply
+        const parentId = postToDelete.parentId;
+
         // Remove post from tree
         const updatedPosts = updatePostsTree(state.posts, (post) => {
           if (post.id === postId) {
             return null; // Remove this post
           }
 
-          // If this post has the target as a reply, update count
+          // If this post has the target as a reply, update count and remove the reply
           if (
             post.replies &&
             post.replies.some((reply) => reply.id === postId)
@@ -1065,6 +1123,7 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
                 ...post._count,
                 replies: Math.max(0, (post._count?.replies || 0) - 1),
               },
+              replies: post.replies.filter((reply) => reply.id !== postId),
             };
           }
 
@@ -1073,12 +1132,26 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
 
         // Clean up repliesMap
         const updatedRepliesMap = { ...state.repliesMap };
+
+        // Remove the post's own replies map if it had replies
         delete updatedRepliesMap[postId];
+
+        // If it was a reply, remove it from its parent's repliesMap
+        if (parentId && updatedRepliesMap[parentId]) {
+          updatedRepliesMap[parentId] = updatedRepliesMap[parentId].filter(
+            (reply) => reply.id !== postId,
+          );
+        }
+
+        // Clean up showReplies state too
+        const updatedShowReplies = { ...state.showReplies };
+        delete updatedShowReplies[postId];
 
         return {
           ...state,
           posts: updatedPosts,
           repliesMap: updatedRepliesMap,
+          showReplies: updatedShowReplies,
           thread: state.thread
             ? {
                 ...state.thread,
@@ -1103,9 +1176,7 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
       // Ignore if it's the current user joining
       if (user.userId === currentUserId) return;
 
-      // Phát âm thanh thông báo khi có người dùng mới tham gia
-      playNotificationSound();
-
+      // Remove the sound notification for user joining
       set((state) => ({
         threadUsers: [
           ...state.threadUsers.filter((u) => u.userId !== user.userId),

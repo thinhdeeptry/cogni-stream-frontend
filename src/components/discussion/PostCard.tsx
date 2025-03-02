@@ -169,11 +169,11 @@ export function PostCard({
   };
 
   return (
-    <div className={`mb-3 w-full max-w-xl ${level > 0 ? "ml-6" : ""}`}>
+    <div className={`mb-3 w-fit max-w-full ${level > 0 ? "ml-6" : ""}`}>
       <div className="flex items-start gap-2">
         {level > 0 && (
           <div className="relative -ml-6 mr-1">
-            <div className="absolute top-4 -left-6 w-6 h-6 border-l-2 border-b-2 border-gray-200 rounded-bl-xl" />
+            <div className="absolute top-4 -left-6 w-6 h-6 border-l-2 border-b-2 border-gray-400 rounded-bl-xl" />
           </div>
         )}
         <Avatar className="w-8 h-8">
@@ -210,7 +210,7 @@ export function PostCard({
             </div>
           ) : (
             <div
-              className="bg-white border border-gray-200 rounded-2xl p-3 relative"
+              className="bg-zinc-50 border border-gray-200 rounded-2xl p-3 relative"
               onMouseEnter={() => setIsHovering(true)}
               onMouseLeave={() => setIsHovering(false)}
             >

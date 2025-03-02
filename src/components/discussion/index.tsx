@@ -216,7 +216,7 @@ export default function Discussion({
 
       {/* Sheet component */}
       <Sheet open={isOpen} onOpenChange={setIsOpen}>
-        <SheetContent className="flex flex-col p-0 w-full sm:max-w-md md:max-w-lg lg:max-w-2xl">
+        <SheetContent className="flex flex-col p-0 w-full sm:max-w-2xl md:max-w-2xl lg:max-w-3xl">
           {/* Sticky Header */}
           <div className="sticky top-0 z-10 bg-background">
             <SheetHeader className="p-4">
