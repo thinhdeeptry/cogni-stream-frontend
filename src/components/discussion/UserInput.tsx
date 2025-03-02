@@ -178,8 +178,8 @@ export default function UserInput({
         </Avatar>
       )}
       <div className="flex-1">
-        <div className="bg-white rounded-lg border">
-          <div className="relative p-2">
+        <div className="bg-white border rounded-2xl">
+          <div className="relative p-3">
             {!parentId &&
               thread.type === DiscussionType.COURSE_REVIEW &&
               !hideRating && (
@@ -194,10 +194,10 @@ export default function UserInput({
                 (thread.type === DiscussionType.COURSE_REVIEW &&
                 !parentId &&
                 !hideRating
-                  ? "Viết bình luận khóa học của bạn..."
-                  : "Viết bình luận...")
+                  ? "Write your course review..."
+                  : "Write a comment...")
               }
-              className={`min-h-[45px] max-h-[200px] border-0 focus-visible:ring-0 shadow-none resize-none rounded-lg pr-8 py-2.5 text-sm ${isSubmitting ? "opacity-50" : ""}`}
+              className={`min-h-[35px] max-h-[200px] border-0 focus-visible:ring-0 shadow-none resize-none rounded-lg p-0  placeholder:text-foreground/50 placeholder:text-sm ${isSubmitting ? "opacity-50" : ""}`}
               disabled={isSubmitting}
             />
             <div className="absolute right-2 bottom-2 flex items-center gap-0.5">

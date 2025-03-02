@@ -124,7 +124,7 @@ export function ReactionButton({
             </span>
           </>
         ) : (
-          <span className="text-xs">Like</span>
+          <span className="text-xs">Thích</span>
         )}
       </Button>
 
@@ -135,7 +135,7 @@ export function ReactionButton({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
             transition={{ duration: 0.2 }}
-            className="absolute bottom-full left-0 mb-1 flex items-center bg-white rounded-full shadow-lg p-0.5 z-50"
+            className="absolute bottom-full left-0 mb-1 flex items-center border bg-white rounded-full shadow-lg p-0.5 z-50"
           >
             {Object.entries(reactionEmojis).map(([type, { emoji, label }]) => {
               const reactionType = type as ReactionType;

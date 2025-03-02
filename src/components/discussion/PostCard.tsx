@@ -3,8 +3,11 @@
 import { useEffect, useState } from "react";
 
 import { formatDistanceToNow } from "date-fns";
-import { Pencil, Trash2 } from "lucide-react";
+import { vi } from "date-fns/locale";
+import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+
+import { useDiscussionStore } from "@/stores/useDiscussion";
 
 import { Rating } from "@/components/rating";
 import {
@@ -19,9 +22,17 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
-import { useDiscussionStore } from "../../stores/useDiscussion";
 import { ReactionButton } from "./ReactionButton";
 import UserInput from "./UserInput";
 import type { PostWithReplyCount, Thread } from "./type";
@@ -52,6 +63,8 @@ export function PostCard({
 }: PostCardProps) {
   const [isReplying, setIsReplying] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [isHovering, setIsHovering] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const { editPost, deletePost, addReaction, removeReaction, error, addReply } =
     useDiscussionStore();
   const MAX_REPLY_DEPTH = 1;
@@ -95,7 +108,7 @@ export function PostCard({
     }
 
     try {
-      await toast.promise(deletePost(post.id), {
+      toast.promise(deletePost(post.id), {
         loading: "Đang xóa bình luận...",
         success: "Bình luận đã được xóa thành công",
         error: "Không thể xóa bình luận",
@@ -192,61 +205,96 @@ export function PostCard({
                 initialContent={post.content}
                 onSubmitSuccess={handleEditSuccess}
                 showAvatar={false}
+                post={post}
               />
             </div>
           ) : (
-            <div className="bg-white border border-gray-200 rounded-lg p-3">
+            <div
+              className="bg-white border border-gray-200 rounded-2xl p-3 relative"
+              onMouseEnter={() => setIsHovering(true)}
+              onMouseLeave={() => setIsHovering(false)}
+            >
               <div className="flex items-center justify-between">
                 <div className="font-semibold text-xs flex items-center gap-1">
                   {post.authorId ? post.authorId.slice(0, 8) : "Anonymous"}
                   {post.authorId === currentUserId && (
-                    <span className="text-[10px] text-blue-500">· You</span>
+                    <Badge
+                      className="text-[10px] text-blue-500"
+                      variant="outline"
+                    >
+                      Bạn
+                    </Badge>
                   )}
                 </div>
-                {currentUserId && post.authorId === currentUserId && (
-                  <div className="flex items-center gap-0">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 px-1 text-xs text-gray-500"
-                      onClick={() => setIsEditing(!isEditing)}
-                    >
-                      <Pencil className="h-3 w-3" />
-                    </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 px-1 text-xs text-gray-500"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Bạn có chắc chắn?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Hành động này không thể hoàn tác. Nó sẽ xóa vĩnh
-                            viễn bình luận của bạn
-                            {post._count?.replies > 0 &&
-                              ` và tất cả ${post._count.replies} phản hồi của nó`}
-                            .
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Hủy</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={handleDelete}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                {currentUserId &&
+                  post.authorId === currentUserId &&
+                  (isHovering || isDropdownOpen) && (
+                    <div className="flex items-center gap-0">
+                      <DropdownMenu
+                        open={isDropdownOpen}
+                        onOpenChange={setIsDropdownOpen}
+                      >
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0"
                           >
-                            Xóa
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-                )}
+                            <MoreHorizontal className="h-3 w-3" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent
+                          align="end"
+                          className="w-36 text-xs"
+                        >
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setIsEditing(true);
+                              setIsDropdownOpen(false);
+                            }}
+                            className="text-xs"
+                          >
+                            <Pencil className="h-3 w-3 mr-2" />
+                            Chỉnh sửa
+                          </DropdownMenuItem>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <DropdownMenuItem
+                                onSelect={(e) => e.preventDefault()}
+                                className="text-xs"
+                              >
+                                <Trash2 className="h-3 w-3 mr-2" />
+                                Xóa bình luận
+                              </DropdownMenuItem>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>
+                                  Bạn có chắc chắn?
+                                </AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Hành động này không thể hoàn tác. Nó sẽ xóa
+                                  vĩnh viễn bình luận của bạn
+                                  {post._count?.replies > 0 &&
+                                    ` và tất cả ${post._count.replies} phản hồi của nó`}
+                                  .
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={handleDelete}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                >
+                                  Xóa
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  )}
               </div>
 
               {thread.type === DiscussionType.COURSE_REVIEW &&
@@ -263,34 +311,22 @@ export function PostCard({
                 )}
 
               <p className="mt-1 text-sm break-all">{post.content}</p>
-
-              <div className="mt-2 text-xs text-gray-500 flex items-center justify-between">
-                <ReactionButton
-                  postId={post.id}
-                  reactions={post.reactions}
-                  reactionCounts={post.reactionCounts}
-                  currentUserId={currentUserId || ""}
-                  onReact={(type, existingReactionId) => {
-                    addReaction(post.id, type, existingReactionId);
-                  }}
-                  onRemoveReaction={(reactionId, reactionType) =>
-                    removeReaction(reactionId, reactionType)
-                  }
-                />
-                <div className="flex items-center">
-                  <span className="text-xs text-gray-400 mr-3">
-                    {formatDistanceToNow(new Date(post.createdAt), {
-                      addSuffix: true,
-                    })}
-                    {post.isEdited && " (edited)"}
-                  </span>
-                  {renderReactionSummary()}
-                </div>
-              </div>
             </div>
           )}
 
           <div className="mt-1 ml-2 flex items-center gap-3 text-xs text-gray-500">
+            <ReactionButton
+              postId={post.id}
+              reactions={post.reactions}
+              reactionCounts={post.reactionCounts}
+              currentUserId={currentUserId || ""}
+              onReact={(type, existingReactionId) => {
+                addReaction(post.id, type, existingReactionId);
+              }}
+              onRemoveReaction={(reactionId, reactionType) =>
+                removeReaction(reactionId, reactionType)
+              }
+            />
             {level < MAX_REPLY_DEPTH && (
               <Button
                 variant="ghost"
@@ -312,6 +348,16 @@ export function PostCard({
                 Trả lời
               </Button>
             )}
+            <div className="flex items-center">
+              <span className="text-xs text-gray-400 mr-3">
+                {formatDistanceToNow(new Date(post.createdAt), {
+                  addSuffix: true,
+                  locale: vi,
+                })}
+                {post.isEdited && " (đã chỉnh sửa)"}
+              </span>
+              {renderReactionSummary()}
+            </div>
 
             {post._count?.replies > 0 && level < MAX_REPLY_DEPTH && (
               <Button
@@ -420,14 +466,25 @@ function EditInput({
   initialContent,
   onSubmitSuccess,
   showAvatar = false,
+  post,
 }: {
   currentUserId?: string;
   thread: Thread;
   initialContent: string;
   onSubmitSuccess: (content: string) => Promise<void>;
   showAvatar?: boolean;
+  post: PostWithReplyCount;
 }) {
   const [content, setContent] = useState(initialContent);
+
+  // Determine if rating should be hidden based on post data
+  const hideRating = !(
+    thread.type === DiscussionType.COURSE_REVIEW &&
+    !post.parentId &&
+    post.rating !== null &&
+    post.rating !== undefined &&
+    typeof post.rating === "number"
+  );
 
   return (
     <div className="flex-1">
@@ -440,6 +497,7 @@ function EditInput({
         placeholder="Chỉnh sửa bình luận của bạn..."
         showAvatar={showAvatar}
         submitButtonText="Lưu"
+        hideRating={hideRating}
         onSubmit={async (content) => {
           await onSubmitSuccess(content);
         }}
