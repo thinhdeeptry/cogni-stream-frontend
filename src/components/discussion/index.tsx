@@ -1,15 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useDiscussionStore } from "./discussion.store";
-import { Button } from "@/components/ui/button";
+import { useEffect } from "react";
+
+import { Loader2, MessageCircle, Users } from "lucide-react";
 import { toast } from "sonner";
+
+import { Button } from "@/components/ui/button";
+
+import { useDiscussionStore } from "../../stores/useDiscussion";
 import { PostCard } from "./PostCard";
 import UserInput from "./UserInput";
-import { Loader2, Users } from "lucide-react";
-import { ConnectionStatus } from "./ConnectionStatus";
 import { DiscussionType } from "./type";
-import { checkUserReview } from "./discussion.action";
 
 export default function Discussion({
   threadId,
@@ -27,8 +28,12 @@ export default function Discussion({
     error,
     threadUsers,
     isConnected,
-    connectionError,
     isReconnecting,
+    showReplies,
+    isLoadingMore,
+    loadingReplies,
+    hasReviewed,
+    repliesMap,
     setCurrentUserId,
     setCurrentUserName,
     setCurrentThreadId,
@@ -36,17 +41,11 @@ export default function Discussion({
     cleanupSocket,
     fetchThread,
     fetchPosts,
-    currentPage,
-    fetchReplies,
-    repliesMap,
     addReply,
+    toggleReplies,
+    loadMoreReplies,
+    loadMorePosts,
   } = useDiscussionStore();
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [loadingReplies, setLoadingReplies] = useState<Record<string, boolean>>(
-    {},
-  );
-  const [showReplies, setShowReplies] = useState<Record<string, boolean>>({});
-  const [hasReviewed, setHasReviewed] = useState(false);
 
   useEffect(() => {
     setCurrentUserId(userId);
@@ -75,78 +74,11 @@ export default function Discussion({
     }
   }, [threadId, fetchThread, fetchPosts]);
 
-  // Check if user has already reviewed when thread loads
-  useEffect(() => {
-    const checkReviewStatus = async () => {
-      if (thread?.type === DiscussionType.COURSE_REVIEW && userId) {
-        try {
-          const { hasReviewed: userHasReviewed } = await checkUserReview(
-            thread.resourceId,
-            userId,
-          );
-          setHasReviewed(userHasReviewed);
-        } catch (err) {
-          console.error("Failed to check review status:", err);
-        }
-      }
-    };
-
-    if (thread) {
-      checkReviewStatus();
-    }
-  }, [thread, userId]);
-
   useEffect(() => {
     if (error) {
       toast.error(error);
     }
   }, [error]);
-
-  const handleToggleReplies = async (postId: string) => {
-    setShowReplies((prev) => ({
-      ...prev,
-      [postId]: !prev[postId],
-    }));
-
-    if (!repliesMap[postId]) {
-      setLoadingReplies((prev) => ({
-        ...prev,
-        [postId]: true,
-      }));
-      try {
-        await fetchReplies(postId);
-      } finally {
-        setLoadingReplies((prev) => ({
-          ...prev,
-          [postId]: false,
-        }));
-      }
-    }
-  };
-
-  const handleLoadMoreReplies = async (postId: string) => {
-    setLoadingReplies((prev) => ({
-      ...prev,
-      [postId]: true,
-    }));
-    try {
-      await fetchReplies(postId, (repliesMap[postId]?.length || 0) / 3 + 1);
-    } finally {
-      setLoadingReplies((prev) => ({
-        ...prev,
-        [postId]: false,
-      }));
-    }
-  };
-
-  const handleLoadMore = async () => {
-    setIsLoadingMore(true);
-    try {
-      await fetchPosts(currentPage + 1);
-    } finally {
-      setIsLoadingMore(false);
-    }
-  };
 
   if (isLoading && !posts.length) {
     return (
@@ -161,7 +93,7 @@ export default function Discussion({
   }
 
   if (!thread) {
-    return <div>Thread not found</div>;
+    return <div>Không tìm thấy bài viết</div>;
   }
 
   const hasMorePosts = thread._count.posts > posts.length;
@@ -169,26 +101,19 @@ export default function Discussion({
 
   return (
     <div className="space-y-4">
-      <ConnectionStatus
-        isConnected={isConnected}
-        connectionError={connectionError}
-        isReconnecting={isReconnecting}
-        threadUsers={threadUsers}
-        currentUserId={userId}
-      />
-
       <div className="border-b pb-4 space-y-2">
         <h1 className="text-2xl font-semibold">{thread?.title}</h1>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Users className="h-4 w-4" />
-          <span>{totalPosts} posts</span>
+          <MessageCircle className="h-4 w-4" />
+          <span>{totalPosts} bình luận</span>
           <span className="text-gray-300">•</span>
-          <span>{threadUsers.length} viewing</span>
+          <Users className="h-4 w-4" />
+          <span>{threadUsers.length} người đang xem</span>
           {isConnected && <span className="text-green-500">•</span>}
           {isReconnecting && (
             <span className="flex items-center gap-1 text-yellow-500">
               <Loader2 className="h-3 w-3 animate-spin" />
-              Reconnecting
+              Đang kết nối
             </span>
           )}
         </div>
@@ -196,8 +121,8 @@ export default function Discussion({
 
       {thread?.type === DiscussionType.COURSE_REVIEW && hasReviewed ? (
         <div className="text-sm text-muted-foreground mb-2">
-          You have already reviewed this course. You can still participate in
-          the discussion without adding a rating.
+          Bạn đã đánh giá khóa học này. Bạn vẫn có thể tham gia thảo luận mà
+          không cần thêm điểm đánh giá.
         </div>
       ) : null}
 
@@ -207,8 +132,8 @@ export default function Discussion({
         parentId={undefined}
         placeholder={
           thread?.type === DiscussionType.COURSE_REVIEW && !hasReviewed
-            ? "Write your course review (rating required)..."
-            : "Start a discussion..."
+            ? "Đánh giá khóa học với tên của bạn..."
+            : "Bình luận dưới tên của bạn..."
         }
         hideRating={hasReviewed}
         onSubmit={async (content, rating) => {
@@ -218,16 +143,10 @@ export default function Discussion({
             !rating
           ) {
             throw new Error(
-              "You must provide a rating with your first course review",
+              "Bạn phải cung cấp điểm đánh giá với bình luận đầu tiên của bạn",
             );
           }
           await addReply(null, content, rating);
-          if (
-            thread?.type === DiscussionType.COURSE_REVIEW &&
-            rating !== undefined
-          ) {
-            setHasReviewed(true);
-          }
         }}
       />
 
@@ -239,8 +158,8 @@ export default function Discussion({
             currentUserId={userId}
             thread={thread}
             replies={repliesMap[post.id] || []}
-            onToggleReplies={handleToggleReplies}
-            onLoadMoreReplies={handleLoadMoreReplies}
+            onToggleReplies={() => toggleReplies(post.id)}
+            onLoadMoreReplies={() => loadMoreReplies(post.id)}
             isLoadingReplies={loadingReplies[post.id]}
             showReplies={showReplies[post.id]}
           />
@@ -251,7 +170,7 @@ export default function Discussion({
         <div className="flex justify-center pt-4">
           <Button
             variant="link"
-            onClick={handleLoadMore}
+            onClick={loadMorePosts}
             disabled={isLoadingMore}
             className="w-full max-w-xs text-xs"
           >
@@ -260,7 +179,7 @@ export default function Discussion({
                 <Loader2 className="h-4 w-4 animate-spin" />
               </div>
             ) : (
-              `Show More (${totalPosts - posts.length} remaining)`
+              `Hiển thị thêm (${totalPosts - posts.length} bình luận còn lại)`
             )}
           </Button>
         </div>

@@ -1,18 +1,21 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { ReactionType, ReactionCounts } from "./type";
+import { useEffect, useRef, useState } from "react";
+
+import { AnimatePresence, motion } from "framer-motion";
+
 import { Button } from "@/components/ui/button";
-import { motion, AnimatePresence } from "framer-motion";
+
+import { ReactionCounts, ReactionType } from "./type";
 
 const reactionEmojis: Record<ReactionType, { emoji: string; label: string }> = {
-  [ReactionType.LIKE]: { emoji: "👍", label: "Like" },
-  [ReactionType.LOVE]: { emoji: "❤️", label: "Love" },
-  [ReactionType.CARE]: { emoji: "🤗", label: "Care" },
+  [ReactionType.LIKE]: { emoji: "👍", label: "Thích" },
+  [ReactionType.LOVE]: { emoji: "❤️", label: "Yêu thích" },
+  [ReactionType.CARE]: { emoji: "🤗", label: "Thương thương" },
   [ReactionType.HAHA]: { emoji: "😄", label: "Haha" },
   [ReactionType.WOW]: { emoji: "😮", label: "Wow" },
-  [ReactionType.SAD]: { emoji: "😢", label: "Sad" },
-  [ReactionType.ANGRY]: { emoji: "😠", label: "Angry" },
+  [ReactionType.SAD]: { emoji: "😢", label: "Buồn" },
+  [ReactionType.ANGRY]: { emoji: "😠", label: "Phẫn nộ" },
 };
 
 interface ReactionData {

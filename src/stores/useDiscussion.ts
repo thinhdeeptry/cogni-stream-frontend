@@ -1,19 +1,31 @@
 import { create } from "zustand";
-import type { Post, ReactionType, Reaction, ThreadWithPostCount } from "./type";
-import {
-  createPost,
-  updatePost,
-  deletePost,
-  addReaction,
-  removeReaction,
-  updateReaction,
-  getThread,
-  getPosts,
-  findReplies,
-  checkUserReview,
-} from "./discussion.action";
-import socketService from "./socket";
 
+import {
+  addReaction,
+  checkUserReview,
+  createPost,
+  deletePost,
+  findReplies,
+  getPosts,
+  getThread,
+  removeReaction,
+  updatePost,
+  updateReaction,
+} from "../actions/discussion.action";
+import socketService from "../components/discussion/socket";
+import type {
+  Post,
+  Reaction,
+  ReactionCounts,
+  ReactionType,
+  ThreadWithPostCount,
+} from "../components/discussion/type";
+
+// Constants
+const POSTS_PER_PAGE = 5;
+const REPLIES_PER_PAGE = 3;
+
+// Helper Types
 interface ThreadUser {
   userId: string;
   userName: string;
@@ -36,14 +48,28 @@ interface DiscussionState {
   isConnected: boolean;
   connectionError: string | null;
   isReconnecting: boolean;
+
+  // UI States added from component
+  showReplies: Record<string, boolean>;
+  isLoadingMore: boolean;
+  loadingReplies: Record<string, boolean>;
+
+  // Setters
   setCurrentUserId: (userId: string) => void;
   setCurrentUserName: (userName: string) => void;
   setCurrentThreadId: (threadId: string) => void;
+
+  // Socket management
   initializeSocket: () => void;
   cleanupSocket: () => void;
+
+  // Data fetching
   fetchThread: () => Promise<void>;
   fetchPosts: (page?: number) => Promise<void>;
   fetchReplies: (postId: string, page?: number) => Promise<void>;
+  checkUserReview: (courseId: string) => Promise<void>;
+
+  // Post actions
   addReply: (
     parentId: string | null,
     content: string,
@@ -51,6 +77,8 @@ interface DiscussionState {
   ) => Promise<void>;
   editPost: (postId: string, content: string, rating?: number) => Promise<void>;
   deletePost: (postId: string) => Promise<void>;
+
+  // Reaction actions
   addReaction: (
     postId: string,
     reactionType: ReactionType,
@@ -60,14 +88,119 @@ interface DiscussionState {
     reactionId: string,
     reactionType: ReactionType,
   ) => Promise<void>;
-  checkUserReview: (courseId: string) => Promise<void>;
+
+  // UI Management
+  toggleReplies: (postId: string) => Promise<void>;
+  loadMoreReplies: (postId: string) => Promise<void>;
+  loadMorePosts: () => Promise<void>;
+
+  // Socket callbacks
   onNewReply: (postId: string) => void;
 }
 
-const POSTS_PER_PAGE = 5;
-const REPLIES_PER_PAGE = 3;
+// Utility functions
+const createDefaultReactionCounts = (): ReactionCounts => ({
+  LIKE: 0,
+  LOVE: 0,
+  CARE: 0,
+  HAHA: 0,
+  WOW: 0,
+  SAD: 0,
+  ANGRY: 0,
+  total: 0,
+});
+
+// Utility function to play notification sound
+const playNotificationSound = () => {
+  // Chỉ thực hiện trên trình duyệt (client-side)
+  if (typeof window !== "undefined") {
+    try {
+      const audio = new Audio("/assets/sounds/notify-sound.mp3");
+      audio.play().catch((error) => {
+        console.error("Không thể phát âm thanh thông báo:", error);
+      });
+    } catch (error) {
+      console.error("Lỗi khi tạo đối tượng Audio:", error);
+    }
+  }
+};
+
+const updateReactionCountsForAdd = (
+  counts: ReactionCounts,
+  newType: ReactionType,
+  oldType?: ReactionType,
+): ReactionCounts => {
+  const updated = { ...counts };
+
+  // If replacing an existing reaction, decrement old type
+  if (oldType) {
+    updated[oldType] = Math.max(0, updated[oldType] - 1);
+  } else {
+    // Only increment total if adding a new reaction (not replacing)
+    updated.total += 1;
+  }
+
+  // Increment the new reaction type
+  updated[newType] += 1;
+
+  return updated;
+};
+
+const updateReactionCountsForRemove = (
+  counts: ReactionCounts,
+  typeToRemove: ReactionType,
+): ReactionCounts => {
+  const updated = { ...counts };
+
+  // Decrement the specific reaction count
+  if (updated[typeToRemove] > 0) {
+    updated[typeToRemove] -= 1;
+  }
+
+  // Update the total count
+  if (updated.total > 0) {
+    updated.total -= 1;
+  }
+
+  return updated;
+};
+
+// Post Tree Utilities
+const findPostInTree = (posts: Post[], targetId: string): Post | null => {
+  for (const post of posts) {
+    if (post.id === targetId) return post;
+    if (post.replies && post.replies.length > 0) {
+      const found = findPostInTree(post.replies, targetId);
+      if (found) return found;
+    }
+  }
+  return null;
+};
+
+const updatePostsTree = (
+  posts: Post[],
+  updater: (post: Post) => Post | null,
+): Post[] => {
+  return posts.reduce<Post[]>((acc, post) => {
+    const updatedPost = updater(post);
+
+    if (updatedPost === null) {
+      // Post should be removed
+      return acc;
+    }
+
+    // If post has replies, process them recursively
+    if (updatedPost.replies && updatedPost.replies.length > 0) {
+      updatedPost.replies = updatePostsTree(updatedPost.replies, updater);
+    }
+
+    acc.push(updatedPost);
+    return acc;
+  }, []);
+};
 
 export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
+  // State
   thread: null,
   posts: [],
   isLoading: false,
@@ -85,13 +218,26 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
   connectionError: null,
   isReconnecting: false,
 
+  // UI States
+  showReplies: {},
+  isLoadingMore: false,
+  loadingReplies: {},
+
+  // Setters
   setCurrentUserId: (userId) => set({ currentUserId: userId }),
   setCurrentUserName: (userName) => set({ currentUserName: userName }),
   setCurrentThreadId: (threadId) => set({ currentThreadId: threadId }),
 
+  // Data fetching methods
   checkUserReview: async (courseId) => {
-    const { currentUserId } = get();
+    const { currentUserId, thread } = get();
     if (!currentUserId || !courseId) return;
+
+    // Only check for user reviews if this is a COURSE_REVIEW thread
+    if (!thread || thread.type !== "COURSE_REVIEW") {
+      set({ hasReviewed: false });
+      return;
+    }
 
     try {
       const { hasReviewed, reviewId } = await checkUserReview(
@@ -143,23 +289,18 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
     }
   },
 
-  fetchPosts: async (page?: number) => {
+  fetchPosts: async (page = 1) => {
     const { currentThreadId } = get();
     if (!currentThreadId) return;
 
     try {
       set({ isLoading: true, error: null });
-      const currentPage = page || 1;
-      const posts = await getPosts(
-        currentThreadId,
-        currentPage,
-        POSTS_PER_PAGE,
-      );
+      const posts = await getPosts(currentThreadId, page, POSTS_PER_PAGE);
 
-      if (page && page > 1) {
+      if (page > 1) {
         set((state) => ({
           posts: [...state.posts, ...posts],
-          currentPage,
+          currentPage: page,
           isLoading: false,
         }));
       } else {
@@ -176,76 +317,92 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
     }
   },
 
-  fetchReplies: async (postId: string, page?: number) => {
+  fetchReplies: async (postId: string, page = 1) => {
     try {
-      set({ isLoading: true, error: null });
-      const currentPage = page || 1;
-      const replies = await findReplies(postId, currentPage, REPLIES_PER_PAGE);
+      set((state) => ({
+        loadingReplies: { ...state.loadingReplies, [postId]: true },
+        error: null,
+      }));
+
+      const replies = await findReplies(postId, page, REPLIES_PER_PAGE);
 
       set((state) => {
-        // Helper function to update replies in the tree
-        const updateRepliesInTree = (
-          posts: Post[],
-          targetId: string,
-          newReplies: Post[],
-          page: number,
-        ): Post[] => {
-          return posts.map((post) => {
-            if (post.id === targetId) {
-              const existingReplies = state.repliesMap[targetId] || [];
-              const updatedReplies =
-                page === 1 ? newReplies : [...existingReplies, ...newReplies];
-              return {
-                ...post,
-                replies: updatedReplies,
-              };
-            }
-            if (post.replies && post.replies.length > 0) {
-              return {
-                ...post,
-                replies: updateRepliesInTree(
-                  post.replies,
-                  targetId,
-                  newReplies,
-                  page,
-                ),
-              };
-            }
-            return post;
-          });
-        };
-
         // Update replies in both posts and repliesMap
-        const updatedPosts = updateRepliesInTree(
-          state.posts,
-          postId,
-          replies,
-          currentPage,
-        );
+        const updatedPosts = updatePostsTree(state.posts, (post) => {
+          if (post.id === postId) {
+            const existingReplies = state.repliesMap[postId] || [];
+            const updatedReplies =
+              page === 1 ? replies : [...existingReplies, ...replies];
+
+            return {
+              ...post,
+              replies: updatedReplies,
+            };
+          }
+          return post;
+        });
+
         const existingReplies = state.repliesMap[postId] || [];
-        const updatedRepliesMap = {
-          ...state.repliesMap,
-          [postId]:
-            currentPage === 1 ? replies : [...existingReplies, ...replies],
-        };
 
         return {
           posts: updatedPosts,
-          repliesMap: updatedRepliesMap,
+          repliesMap: {
+            ...state.repliesMap,
+            [postId]: page === 1 ? replies : [...existingReplies, ...replies],
+          },
           replyPages: {
             ...state.replyPages,
-            [postId]: currentPage,
+            [postId]: page,
           },
-          isLoading: false,
+          loadingReplies: { ...state.loadingReplies, [postId]: false },
         };
       });
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to load replies";
-      set({ error: errorMessage, isLoading: false });
+      set((state) => ({
+        error: errorMessage,
+        loadingReplies: { ...state.loadingReplies, [postId]: false },
+      }));
     }
   },
 
+  // UI Management
+  toggleReplies: async (postId: string) => {
+    const { repliesMap } = get();
+
+    // Toggle visibility
+    set((state) => ({
+      showReplies: {
+        ...state.showReplies,
+        [postId]: !state.showReplies[postId],
+      },
+    }));
+
+    // Fetch replies if not already loaded and visibility is toggled on
+    if (!repliesMap[postId] && get().showReplies[postId]) {
+      await get().fetchReplies(postId);
+    }
+  },
+
+  loadMoreReplies: async (postId: string) => {
+    const { repliesMap } = get();
+    const currentPage =
+      Math.ceil((repliesMap[postId]?.length || 0) / REPLIES_PER_PAGE) + 1;
+    await get().fetchReplies(postId, currentPage);
+  },
+
+  loadMorePosts: async () => {
+    const { currentPage } = get();
+    set({ isLoadingMore: true });
+    try {
+      await get().fetchPosts(currentPage + 1);
+    } finally {
+      set({ isLoadingMore: false });
+    }
+  },
+
+  // Reaction methods
   addReaction: async (postId, reactionType, existingReactionId) => {
     const { currentUserId } = get();
     if (!currentUserId) {
@@ -270,9 +427,20 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
       }
 
       // Update UI after successful server response
-      set((state) => ({
-        posts: state.posts.map((post) => {
-          if (post.id === postId) {
+      set((state) => {
+        const updatedPosts = updatePostsTree(state.posts, (post) => {
+          // If this is not the target post or its reply, return as is
+          const isTargetPost = post.id === postId;
+          const hasTargetReply = post.replies?.some(
+            (reply) => reply.id === postId,
+          );
+
+          if (!isTargetPost && !hasTargetReply) {
+            return post;
+          }
+
+          // Handle post or its reply
+          if (isTargetPost) {
             // Check if user already has a reaction
             const existingReaction = post.reactions.find(
               (r) => r.userId === currentUserId,
@@ -290,30 +458,13 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
             };
 
             // Create a safe copy of reactionCounts with default values
-            const updatedReactionCounts = {
-              LIKE: post.reactionCounts?.LIKE || 0,
-              LOVE: post.reactionCounts?.LOVE || 0,
-              CARE: post.reactionCounts?.CARE || 0,
-              HAHA: post.reactionCounts?.HAHA || 0,
-              WOW: post.reactionCounts?.WOW || 0,
-              SAD: post.reactionCounts?.SAD || 0,
-              ANGRY: post.reactionCounts?.ANGRY || 0,
-              total: post.reactionCounts?.total || 0,
-            };
-
-            // If there's an existing reaction, decrement its count first
-            if (existingReaction) {
-              updatedReactionCounts[existingReaction.type] = Math.max(
-                0,
-                updatedReactionCounts[existingReaction.type] - 1,
-              );
-            } else {
-              // Only increment total if we're not replacing an existing reaction
-              updatedReactionCounts.total += 1;
-            }
-
-            // Increment the new reaction type count
-            updatedReactionCounts[reactionType] += 1;
+            const reactionCounts =
+              post.reactionCounts || createDefaultReactionCounts();
+            const updatedReactionCounts = updateReactionCountsForAdd(
+              reactionCounts,
+              reactionType,
+              existingReaction?.type,
+            );
 
             return {
               ...post,
@@ -323,9 +474,8 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
               ],
               reactionCounts: updatedReactionCounts,
             };
-          }
-
-          if (post.replies) {
+          } else {
+            // Post with target reply
             return {
               ...post,
               replies: post.replies.map((reply) => {
@@ -347,30 +497,13 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
                   };
 
                   // Create a safe copy of reactionCounts with default values
-                  const updatedReactionCounts = {
-                    LIKE: reply.reactionCounts?.LIKE || 0,
-                    LOVE: reply.reactionCounts?.LOVE || 0,
-                    CARE: reply.reactionCounts?.CARE || 0,
-                    HAHA: reply.reactionCounts?.HAHA || 0,
-                    WOW: reply.reactionCounts?.WOW || 0,
-                    SAD: reply.reactionCounts?.SAD || 0,
-                    ANGRY: reply.reactionCounts?.ANGRY || 0,
-                    total: reply.reactionCounts?.total || 0,
-                  };
-
-                  // If there's an existing reaction, decrement its count first
-                  if (existingReaction) {
-                    updatedReactionCounts[existingReaction.type] = Math.max(
-                      0,
-                      updatedReactionCounts[existingReaction.type] - 1,
-                    );
-                  } else {
-                    // Only increment total if we're not replacing an existing reaction
-                    updatedReactionCounts.total += 1;
-                  }
-
-                  // Increment the new reaction type count
-                  updatedReactionCounts[reactionType] += 1;
+                  const reactionCounts =
+                    reply.reactionCounts || createDefaultReactionCounts();
+                  const updatedReactionCounts = updateReactionCountsForAdd(
+                    reactionCounts,
+                    reactionType,
+                    existingReaction?.type,
+                  );
 
                   return {
                     ...reply,
@@ -387,96 +520,14 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
               }),
             };
           }
-          return post;
-        }),
-      }));
+        });
+
+        return { posts: updatedPosts };
+      });
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to add reaction";
       set({ error: errorMessage });
-
-      // If the server request fails, revert the optimistic update
-      set((state) => ({
-        posts: state.posts.map((post) => {
-          if (post.id === postId) {
-            const filteredReactions = post.reactions.filter(
-              (r) => !(r.userId === currentUserId && r.type === reactionType),
-            );
-
-            // Create a safe copy of reactionCounts with default values
-            const updatedReactionCounts = {
-              LIKE: post.reactionCounts?.LIKE || 0,
-              LOVE: post.reactionCounts?.LOVE || 0,
-              CARE: post.reactionCounts?.CARE || 0,
-              HAHA: post.reactionCounts?.HAHA || 0,
-              WOW: post.reactionCounts?.WOW || 0,
-              SAD: post.reactionCounts?.SAD || 0,
-              ANGRY: post.reactionCounts?.ANGRY || 0,
-              total: post.reactionCounts?.total || 0,
-            };
-
-            // Decrement the specific reaction count if needed
-            if (updatedReactionCounts[reactionType] > 0) {
-              updatedReactionCounts[reactionType] -= 1;
-            }
-
-            // Update the total count
-            if (updatedReactionCounts.total > 0) {
-              updatedReactionCounts.total -= 1;
-            }
-
-            return {
-              ...post,
-              reactions: filteredReactions,
-              reactionCounts: updatedReactionCounts,
-            };
-          }
-
-          if (post.replies) {
-            return {
-              ...post,
-              replies: post.replies.map((reply) => {
-                if (reply.id === postId) {
-                  const filteredReactions = reply.reactions.filter(
-                    (r) =>
-                      !(r.userId === currentUserId && r.type === reactionType),
-                  );
-
-                  // Create a safe copy of reactionCounts with default values
-                  const updatedReactionCounts = {
-                    LIKE: reply.reactionCounts?.LIKE || 0,
-                    LOVE: reply.reactionCounts?.LOVE || 0,
-                    CARE: reply.reactionCounts?.CARE || 0,
-                    HAHA: reply.reactionCounts?.HAHA || 0,
-                    WOW: reply.reactionCounts?.WOW || 0,
-                    SAD: reply.reactionCounts?.SAD || 0,
-                    ANGRY: reply.reactionCounts?.ANGRY || 0,
-                    total: reply.reactionCounts?.total || 0,
-                  };
-
-                  // Decrement the specific reaction count if needed
-                  if (updatedReactionCounts[reactionType] > 0) {
-                    updatedReactionCounts[reactionType] -= 1;
-                  }
-
-                  // Update the total count
-                  if (updatedReactionCounts.total > 0) {
-                    updatedReactionCounts.total -= 1;
-                  }
-
-                  return {
-                    ...reply,
-                    reactions: filteredReactions,
-                    reactionCounts: updatedReactionCounts,
-                  };
-                }
-                return reply;
-              }),
-            };
-          }
-          return post;
-        }),
-      }));
     }
   },
 
@@ -489,40 +540,25 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
 
     try {
       // Update UI immediately for better UX
-      set((state) => ({
-        posts: state.posts.map((post) => {
-          // Update top-level post reactions
-          if (
-            post.reactions &&
-            post.reactions.some((r) => r.id === reactionId)
-          ) {
+      set((state) => {
+        const updatedPosts = updatePostsTree(state.posts, (post) => {
+          // Check if reaction is in this post
+          const hasReaction = post.reactions.some((r) => r.id === reactionId);
+
+          if (hasReaction) {
             // Get the reaction to determine its type if possible
             const reactionToRemove = post.reactions.find(
               (r) => r.id === reactionId,
             );
             const typeToRemove = reactionToRemove?.type || reactionType;
 
-            // Create a safe copy of reactionCounts with default values
-            const updatedReactionCounts = {
-              LIKE: post.reactionCounts?.LIKE || 0,
-              LOVE: post.reactionCounts?.LOVE || 0,
-              CARE: post.reactionCounts?.CARE || 0,
-              HAHA: post.reactionCounts?.HAHA || 0,
-              WOW: post.reactionCounts?.WOW || 0,
-              SAD: post.reactionCounts?.SAD || 0,
-              ANGRY: post.reactionCounts?.ANGRY || 0,
-              total: post.reactionCounts?.total || 0,
-            };
-
-            // Decrement the specific reaction count (ensure it doesn't go below 0)
-            if (updatedReactionCounts[typeToRemove] > 0) {
-              updatedReactionCounts[typeToRemove] -= 1;
-            }
-
-            // Update the total count
-            if (updatedReactionCounts.total > 0) {
-              updatedReactionCounts.total -= 1;
-            }
+            // Update reaction counts
+            const reactionCounts =
+              post.reactionCounts || createDefaultReactionCounts();
+            const updatedReactionCounts = updateReactionCountsForRemove(
+              reactionCounts,
+              typeToRemove,
+            );
 
             return {
               ...post,
@@ -531,58 +567,51 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
             };
           }
 
-          // Check for reactions in replies
+          // Check if reaction is in any of the replies
           if (post.replies) {
-            return {
-              ...post,
-              replies: post.replies.map((reply) => {
-                if (
-                  reply.reactions &&
-                  reply.reactions.some((r) => r.id === reactionId)
-                ) {
-                  // Get the reaction to determine its type if possible
-                  const reactionToRemove = reply.reactions.find(
-                    (r) => r.id === reactionId,
-                  );
-                  const typeToRemove = reactionToRemove?.type || reactionType;
+            let reactionFound = false;
 
-                  // Create a safe copy of reactionCounts with default values
-                  const updatedReactionCounts = {
-                    LIKE: reply.reactionCounts?.LIKE || 0,
-                    LOVE: reply.reactionCounts?.LOVE || 0,
-                    CARE: reply.reactionCounts?.CARE || 0,
-                    HAHA: reply.reactionCounts?.HAHA || 0,
-                    WOW: reply.reactionCounts?.WOW || 0,
-                    SAD: reply.reactionCounts?.SAD || 0,
-                    ANGRY: reply.reactionCounts?.ANGRY || 0,
-                    total: reply.reactionCounts?.total || 0,
-                  };
+            const updatedReplies = post.replies.map((reply) => {
+              if (reply.reactions.some((r) => r.id === reactionId)) {
+                reactionFound = true;
 
-                  // Decrement the specific reaction count (ensure it doesn't go below 0)
-                  if (updatedReactionCounts[typeToRemove] > 0) {
-                    updatedReactionCounts[typeToRemove] -= 1;
-                  }
+                // Get the reaction to determine its type if possible
+                const reactionToRemove = reply.reactions.find(
+                  (r) => r.id === reactionId,
+                );
+                const typeToRemove = reactionToRemove?.type || reactionType;
 
-                  // Update the total count
-                  if (updatedReactionCounts.total > 0) {
-                    updatedReactionCounts.total -= 1;
-                  }
+                // Update reaction counts
+                const reactionCounts =
+                  reply.reactionCounts || createDefaultReactionCounts();
+                const updatedReactionCounts = updateReactionCountsForRemove(
+                  reactionCounts,
+                  typeToRemove,
+                );
 
-                  return {
-                    ...reply,
-                    reactions: reply.reactions.filter(
-                      (r) => r.id !== reactionId,
-                    ),
-                    reactionCounts: updatedReactionCounts,
-                  };
-                }
-                return reply;
-              }),
-            };
+                return {
+                  ...reply,
+                  reactions: reply.reactions.filter((r) => r.id !== reactionId),
+                  reactionCounts: updatedReactionCounts,
+                };
+              }
+              return reply;
+            });
+
+            if (reactionFound) {
+              return {
+                ...post,
+                replies: updatedReplies,
+              };
+            }
           }
+
+          // No changes to this post
           return post;
-        }),
-      }));
+        });
+
+        return { posts: updatedPosts };
+      });
 
       // Send request to server in the background
       await removeReaction(reactionId);
@@ -599,6 +628,7 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
     }
   },
 
+  // Post methods
   addReply: async (parentId, content, rating) => {
     const { currentUserId, thread } = get();
     if (!currentUserId) {
@@ -636,86 +666,62 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
       );
 
       // Enhance the new post with required fields for UI
-      const enhancedPost = {
+      const enhancedPost: Post = {
         ...newPost,
         reactions: [],
-        reactionCounts: {
-          LIKE: 0,
-          LOVE: 0,
-          CARE: 0,
-          HAHA: 0,
-          WOW: 0,
-          SAD: 0,
-          ANGRY: 0,
-          total: 0,
-        },
+        reactionCounts: createDefaultReactionCounts(),
         _count: { replies: 0 },
         isEdited: false,
         createdAt: new Date(),
         updatedAt: new Date(),
-      } as Post;
+        replies: [],
+      };
 
       set((state) => {
-        // Helper function to update replies in the tree
-        const updateRepliesInTree = (
-          posts: Post[],
-          targetId: string,
-          newReply: Post,
-        ): Post[] => {
-          return posts.map((post) => {
-            // If this is the parent post, add the reply directly
-            if (post.id === targetId) {
+        let updatedPosts: Post[];
+        let updatedRepliesMap = { ...state.repliesMap };
+        let updatedShowReplies = { ...state.showReplies };
+
+        // For top-level posts, add to the beginning of the list
+        // For replies, update the tree structure
+        if (parentId) {
+          updatedPosts = updatePostsTree(state.posts, (post) => {
+            if (post.id === parentId) {
               return {
                 ...post,
                 _count: {
                   ...post._count,
                   replies: (post._count?.replies || 0) + 1,
                 },
-                replies: [...(post.replies || []), newReply],
+                replies: [...(post.replies || []), enhancedPost],
               };
             }
-
-            // If this post has replies, recursively search in them
-            if (post.replies && post.replies.length > 0) {
-              const updatedReplies = updateRepliesInTree(
-                post.replies,
-                targetId,
-                newReply,
-              );
-
-              // Only update if something changed in the replies
-              if (
-                JSON.stringify(updatedReplies) !== JSON.stringify(post.replies)
-              ) {
-                return {
-                  ...post,
-                  replies: updatedReplies,
-                };
-              }
-            }
-
             return post;
           });
-        };
 
-        // For top-level posts, add to the beginning of the list
-        // For replies, update the tree structure
-        const updatedPosts = parentId
-          ? updateRepliesInTree(state.posts, parentId, enhancedPost)
-          : [enhancedPost, ...state.posts];
-
-        // Update repliesMap to ensure UI consistency
-        const updatedRepliesMap = { ...state.repliesMap };
-        if (parentId) {
+          // Update repliesMap to ensure UI consistency
           updatedRepliesMap[parentId] = [
             ...(state.repliesMap[parentId] || []),
             enhancedPost,
           ];
+
+          // Automatically show replies for the parent post
+          updatedShowReplies[parentId] = true;
+        } else {
+          // Top-level post
+          updatedPosts = [enhancedPost, ...state.posts];
         }
+
+        // If this is a course review (top-level post with rating), update hasReviewed
+        const hasReviewed =
+          thread.type === "COURSE_REVIEW" && !parentId && rating !== undefined
+            ? true
+            : state.hasReviewed;
 
         return {
           posts: updatedPosts,
           repliesMap: updatedRepliesMap,
+          showReplies: updatedShowReplies,
           thread: state.thread
             ? {
                 ...state.thread,
@@ -726,6 +732,7 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
               }
             : null,
           error: null,
+          hasReviewed,
         };
       });
     } catch (err) {
@@ -749,12 +756,18 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
         currentUserId,
         rating,
       );
+
       set((state) => ({
-        posts: state.posts.map((post) => {
+        posts: updatePostsTree(state.posts, (post) => {
           if (post.id === postId) {
             return { ...post, ...updatedPost };
           }
-          if (post.replies) {
+
+          // Check replies if post has them
+          if (
+            post.replies &&
+            post.replies.some((reply) => reply.id === postId)
+          ) {
             return {
               ...post,
               replies: post.replies.map((reply) =>
@@ -762,6 +775,7 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
               ),
             };
           }
+
           return post;
         }),
         error: null,
@@ -776,53 +790,79 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
   deletePost: async (postId) => {
     const { currentUserId } = get();
     if (!currentUserId) {
-      set({ error: "Please log in to delete posts" });
+      set({ error: "Vui lòng đăng nhập để xóa bình luận" });
       return;
     }
 
     try {
       // Optimistically update UI first
       set((state) => {
-        // Helper function to remove post and update counts
-        const removePostFromArray = (posts: Post[]): Post[] => {
-          return posts.filter((post) => {
-            if (post.id === postId) {
-              return false; // Remove this post
-            }
-            if (post.replies) {
-              // Update replies array and _count
-              const filteredReplies = removePostFromArray(post.replies);
-              if (filteredReplies.length !== post.replies.length) {
-                post.replies = filteredReplies;
-                post._count = {
-                  ...post._count,
-                  replies: Math.max(0, (post._count?.replies || 0) - 1),
-                };
-              }
-            }
-            return true;
-          });
-        };
+        // Remove post from the tree
+        const updatedPosts = updatePostsTree(state.posts, (post) => {
+          // If this is the post to delete, return null to remove it
+          if (post.id === postId) {
+            return null;
+          }
 
-        const updatedPosts = removePostFromArray(state.posts);
+          // If this post has replies and one of them is the target, update the count
+          if (
+            post.replies &&
+            post.replies.some((reply) => reply.id === postId)
+          ) {
+            return {
+              ...post,
+              _count: {
+                ...post._count,
+                replies: Math.max(0, (post._count?.replies || 0) - 1),
+              },
+              // Filter out the deleted reply explicitly
+              replies: post.replies.filter((reply) => reply.id !== postId),
+            };
+          }
 
-        // Update thread post count if needed
-        const threadUpdate = state.thread && {
-          ...state.thread,
-          _count: {
-            ...state.thread._count,
-            posts: Math.max(0, state.thread._count.posts - 1),
-          },
-        };
+          return post;
+        });
 
         // Clean up repliesMap if needed
         const updatedRepliesMap = { ...state.repliesMap };
-        delete updatedRepliesMap[postId];
+
+        // If post has replies, remove all its replies from repliesMap
+        if (state.repliesMap[postId]) {
+          delete updatedRepliesMap[postId];
+        }
+
+        // Also check if the post is a reply, remove it from its parent's repliesMap
+        Object.keys(updatedRepliesMap).forEach((parentId) => {
+          if (
+            updatedRepliesMap[parentId]?.some((reply) => reply.id === postId)
+          ) {
+            updatedRepliesMap[parentId] = updatedRepliesMap[parentId].filter(
+              (reply) => reply.id !== postId,
+            );
+          }
+        });
+
+        // Update showReplies state
+        const updatedShowReplies = { ...state.showReplies };
+
+        // If deleted post had replies being shown, remove that entry
+        if (updatedShowReplies[postId]) {
+          delete updatedShowReplies[postId];
+        }
 
         return {
           posts: updatedPosts,
-          thread: threadUpdate || null,
+          thread: state.thread
+            ? {
+                ...state.thread,
+                _count: {
+                  ...state.thread._count,
+                  posts: Math.max(0, state.thread._count.posts - 1),
+                },
+              }
+            : null,
           repliesMap: updatedRepliesMap,
+          showReplies: updatedShowReplies,
           error: null,
         };
       });
@@ -831,7 +871,7 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
       await deletePost(postId, currentUserId);
     } catch (err) {
       const errorMessage =
-        err instanceof Error ? err.message : "Failed to delete post";
+        err instanceof Error ? err.message : "Không thể xóa bình luận";
       set({ error: errorMessage });
 
       // If deletion fails, refresh the posts to restore state
@@ -842,12 +882,21 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
     }
   },
 
+  // Socket-related methods
   onNewReply: (postId: string) => {
     // Fetch replies for the parent post if they haven't been loaded yet
     const state = get();
     if (!state.repliesMap[postId]) {
       get().fetchReplies(postId);
     }
+
+    // Automatically show replies for the parent post
+    set((state) => ({
+      showReplies: {
+        ...state.showReplies,
+        [postId]: true,
+      },
+    }));
   },
 
   initializeSocket: () => {
@@ -860,6 +909,7 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
 
     const socket = socketService.connect();
 
+    // Connection event handlers
     socket.on("connect", () => {
       set({
         isConnected: true,
@@ -891,34 +941,34 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
 
     socketService.joinThread(currentThreadId, currentUserId, currentUserName);
 
-    // Post event listeners
+    // Handle real-time post events
     socketService.onNewPost((post) => {
       set((state) => {
+        // Ignore own posts
         if (post.authorId === state.currentUserId) return state;
+
+        // Phát âm thanh thông báo khi có bài đăng mới từ người khác
+        playNotificationSound();
+
+        // Fetch replies if it's a reply to a post
         if (post.parentId) get().onNewReply(post.parentId);
 
-        const findPost = (posts: Post[], targetId: string): Post | null => {
-          for (const p of posts) {
-            if (p.id === targetId) return p;
-            if (p.replies) {
-              const found = findPost(p.replies, targetId);
-              if (found) return found;
-            }
-          }
-          return null;
-        };
-
-        const existingPost = findPost(state.posts, post.id);
+        // Check if post already exists in state
+        const existingPost = findPostInTree(state.posts, post.id);
         if (existingPost) return state;
 
+        // If it's a reply to an existing post
         if (post.parentId) {
-          const parentPost = findPost(state.posts, post.parentId);
+          // Find the parent post
+          const parentPost = findPostInTree(state.posts, post.parentId);
           if (!parentPost) return state;
 
-          const updatedPosts = state.posts.map((p) => {
+          // Update posts tree
+          const updatedPosts = updatePostsTree(state.posts, (p) => {
             if (p.id === post.parentId) {
               const replies = p.replies || [];
               if (replies.some((r) => r.id === post.id)) return p;
+
               return {
                 ...p,
                 _count: {
@@ -931,6 +981,7 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
             return p;
           });
 
+          // Update replies map
           const updatedRepliesMap = { ...state.repliesMap };
           if (
             !updatedRepliesMap[post.parentId]?.some((r) => r.id === post.id)
@@ -948,6 +999,7 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
           };
         }
 
+        // It's a top-level post
         return {
           ...state,
           posts: [{ ...post, replies: [] }, ...state.posts],
@@ -966,23 +1018,15 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
 
     socketService.onUpdatePost((post) => {
       set((state) => {
-        const updatedPosts = state.posts.map((p) => {
+        // Update post in tree
+        const updatedPosts = updatePostsTree(state.posts, (p) => {
           if (p.id === post.id) {
             return { ...p, ...post, replies: p.replies || [] };
-          }
-          if (p.replies) {
-            return {
-              ...p,
-              replies: p.replies.map((reply) =>
-                reply.id === post.id
-                  ? { ...reply, ...post, replies: reply.replies || [] }
-                  : reply,
-              ),
-            };
           }
           return p;
         });
 
+        // Update reply in map if needed
         const updatedRepliesMap = { ...state.repliesMap };
         if (post.parentId && updatedRepliesMap[post.parentId]) {
           updatedRepliesMap[post.parentId] = updatedRepliesMap[
@@ -1004,24 +1048,30 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
 
     socketService.onDeletePost(({ postId }) => {
       set((state) => {
-        const removePostFromArray = (posts: Post[]): Post[] => {
-          return posts.filter((post) => {
-            if (post.id === postId) return false;
-            if (post.replies) {
-              const filteredReplies = removePostFromArray(post.replies);
-              if (filteredReplies.length !== post.replies.length) {
-                post.replies = filteredReplies;
-                post._count = {
-                  ...post._count,
-                  replies: Math.max(0, (post._count?.replies || 0) - 1),
-                };
-              }
-            }
-            return true;
-          });
-        };
+        // Remove post from tree
+        const updatedPosts = updatePostsTree(state.posts, (post) => {
+          if (post.id === postId) {
+            return null; // Remove this post
+          }
 
-        const updatedPosts = removePostFromArray(state.posts);
+          // If this post has the target as a reply, update count
+          if (
+            post.replies &&
+            post.replies.some((reply) => reply.id === postId)
+          ) {
+            return {
+              ...post,
+              _count: {
+                ...post._count,
+                replies: Math.max(0, (post._count?.replies || 0) - 1),
+              },
+            };
+          }
+
+          return post;
+        });
+
+        // Clean up repliesMap
         const updatedRepliesMap = { ...state.repliesMap };
         delete updatedRepliesMap[postId];
 
@@ -1050,6 +1100,12 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
     });
 
     socketService.onUserJoined((user) => {
+      // Ignore if it's the current user joining
+      if (user.userId === currentUserId) return;
+
+      // Phát âm thanh thông báo khi có người dùng mới tham gia
+      playNotificationSound();
+
       set((state) => ({
         threadUsers: [
           ...state.threadUsers.filter((u) => u.userId !== user.userId),
@@ -1077,6 +1133,10 @@ export const useDiscussionStore = create<DiscussionState>()((set, get) => ({
       posts: [],
       repliesMap: {},
       currentPage: 1,
+      // Reset UI states
+      showReplies: {},
+      isLoadingMore: false,
+      loadingReplies: {},
     });
   },
 }));

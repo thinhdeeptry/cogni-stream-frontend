@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import DiscussionSection from "@/components/discussion";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,7 +11,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useState } from "react";
 
 const THREAD_IDS = {
   course: "b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b11",
@@ -25,6 +26,7 @@ const TEST_USERS: TestUser[] = [
   { id: "97017806-520f-45ef-9fe9-90e7daf39e22", name: "John Doe" },
   { id: "97017806-520f-45ef-9fe9-90e7daf39e23", name: "Jane Smith" },
   { id: "97017806-520f-45ef-9fe9-90e7daf39e24", name: "Bob Johnson" },
+  { id: "97017806-520f-45ef-9fe9-90e7daf39e25", name: "New Guy" },
 ];
 
 export default function DiscussionTest() {

@@ -1,24 +1,27 @@
-import { useRef, useState, useEffect } from "react";
+import dynamic from "next/dynamic";
+import { useEffect, useRef, useState } from "react";
+
+import data from "@emoji-mart/data";
+import { Send, Smile } from "lucide-react";
+import { toast } from "sonner";
+
+import { Rating } from "@/components/rating";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Send, Smile } from "lucide-react";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { toast } from "sonner";
-import dynamic from "next/dynamic";
-import { Rating } from "@/components/rating";
+
 import { DiscussionType, Thread } from "./type";
-import data from "@emoji-mart/data";
 
 // Dynamically import EmojiPicker to avoid SSR issues
 const EmojiPicker = dynamic(() => import("@emoji-mart/react"), { ssr: false });
@@ -50,12 +53,12 @@ export default function UserInput({
   thread,
   parentId,
   onSubmitSuccess,
-  placeholder = "Write a comment...",
+  placeholder = "Bình luận dưới tên của bạn...",
   showAvatar = true,
   className = "",
   initialContent = "",
   onContentChange,
-  submitButtonText = "Post",
+  submitButtonText = "Bình luận",
   onSubmit,
   hideRating = false,
 }: UserInputProps) {
@@ -82,11 +85,11 @@ export default function UserInput({
   const handleSubmitNewPost = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!currentUserId) {
-      toast.error("Please log in to post");
+      toast.error("Bạn phải đăng nhập để có thể để lại bình luận");
       return;
     }
     if (!thread) {
-      toast.error("Thread not found");
+      toast.error("Không tìm thấy bài viết");
       return;
     }
 
@@ -97,7 +100,7 @@ export default function UserInput({
       !hideRating &&
       rating === undefined
     ) {
-      toast.error("Please provide a rating for your course review");
+      toast.error("Bạn phải đánh giá khóa học trước khi để lại bình luận");
       return;
     }
 
@@ -154,7 +157,7 @@ export default function UserInput({
   if (!currentUserId) {
     return (
       <div className="text-center text-gray-500">
-        Please log in to post comments
+        Bạn phải đăng nhập để có thể để lại bình luận
       </div>
     );
   }
@@ -191,8 +194,8 @@ export default function UserInput({
                 (thread.type === DiscussionType.COURSE_REVIEW &&
                 !parentId &&
                 !hideRating
-                  ? "Write your course review..."
-                  : "Write a comment...")
+                  ? "Viết bình luận khóa học của bạn..."
+                  : "Viết bình luận...")
               }
               className={`min-h-[45px] max-h-[200px] border-0 focus-visible:ring-0 shadow-none resize-none rounded-lg pr-8 py-2.5 text-sm ${isSubmitting ? "opacity-50" : ""}`}
               disabled={isSubmitting}

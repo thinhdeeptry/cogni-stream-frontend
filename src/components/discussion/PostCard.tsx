@@ -1,14 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Thread, PostWithReplyCount } from "./type";
-import { DiscussionType } from "./type";
-import { useDiscussionStore } from "./discussion.store";
-import { ReactionButton } from "./ReactionButton";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
+
 import { formatDistanceToNow } from "date-fns";
-import { Trash2, Pencil } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+
+import { Rating } from "@/components/rating";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,9 +18,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { toast } from "sonner";
-import { Rating } from "@/components/rating";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+
+import { useDiscussionStore } from "../../stores/useDiscussion";
+import { ReactionButton } from "./ReactionButton";
 import UserInput from "./UserInput";
+import type { PostWithReplyCount, Thread } from "./type";
+import { DiscussionType } from "./type";
 
 interface PostCardProps {
   post: PostWithReplyCount;
@@ -55,11 +58,18 @@ export function PostCard({
 
   // Get the effective parent ID for replies
   const getEffectiveParentId = () => {
-    // Only allow replies to top-level posts
-    if (level >= MAX_REPLY_DEPTH) {
-      return undefined; // Return undefined to prevent replying
+    // For level 0 (top-level posts), return the post ID
+    // For level 1 (replies to posts), find the original parent ID
+    if (level === 0) {
+      return post.id;
+    } else if (level === 1) {
+      // For level 1 posts, we want to return their parent's ID
+      // This ensures all replies stay at level 1 (under the same parent)
+      return post.parentId || post.id;
     }
-    return post.id;
+
+    // If somehow we have deeper levels, don't allow more replies
+    return undefined;
   };
 
   useEffect(() => {
@@ -70,7 +80,7 @@ export function PostCard({
 
   const handleEditSuccess = async (content: string) => {
     if (!currentUserId) {
-      toast.error("Please log in to edit");
+      toast.error("Vui lòng đăng nhập để chỉnh sửa");
       return;
     }
 
@@ -80,15 +90,15 @@ export function PostCard({
 
   const handleDelete = async () => {
     if (!currentUserId) {
-      toast.error("Please log in to delete");
+      toast.error("Vui lòng đăng nhập để xóa");
       return;
     }
 
     try {
       await toast.promise(deletePost(post.id), {
-        loading: "Deleting post...",
-        success: "Post deleted successfully",
-        error: "Failed to delete post",
+        loading: "Đang xóa bình luận...",
+        success: "Bình luận đã được xóa thành công",
+        error: "Không thể xóa bình luận",
       });
     } catch (err) {
       const errorMessage =
@@ -165,7 +175,7 @@ export function PostCard({
             <div className="mb-2">
               <div className="flex items-center justify-between mb-1">
                 <div className="font-semibold text-xs flex items-center gap-1">
-                  <span className="text-blue-600">Edit post</span>
+                  <span className="text-blue-600">Chỉnh sửa bình luận</span>
                 </div>
                 <Button
                   variant="ghost"
@@ -173,7 +183,7 @@ export function PostCard({
                   className="h-6 px-1 text-xs text-gray-500"
                   onClick={() => setIsEditing(false)}
                 >
-                  Cancel
+                  Hủy
                 </Button>
               </div>
               <EditInput
@@ -215,22 +225,22 @@ export function PostCard({
                       </AlertDialogTrigger>
                       <AlertDialogContent>
                         <AlertDialogHeader>
-                          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                          <AlertDialogTitle>Bạn có chắc chắn?</AlertDialogTitle>
                           <AlertDialogDescription>
-                            This action cannot be undone. This will permanently
-                            delete your post
+                            Hành động này không thể hoàn tác. Nó sẽ xóa vĩnh
+                            viễn bình luận của bạn
                             {post._count?.replies > 0 &&
-                              ` and all its ${post._count.replies} replies`}
+                              ` và tất cả ${post._count.replies} phản hồi của nó`}
                             .
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogCancel>Hủy</AlertDialogCancel>
                           <AlertDialogAction
                             onClick={handleDelete}
                             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                           >
-                            Delete
+                            Xóa
                           </AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>
@@ -288,7 +298,18 @@ export function PostCard({
                 className="text-xs p-0 h-6 flex items-center gap-1 hover:bg-transparent hover:text-blue-600"
                 onClick={() => setIsReplying(!isReplying)}
               >
-                Reply
+                Trả lời
+              </Button>
+            )}
+
+            {level === MAX_REPLY_DEPTH && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs p-0 h-6 flex items-center gap-1 hover:bg-transparent hover:text-blue-600"
+                onClick={() => setIsReplying(!isReplying)}
+              >
+                Trả lời
               </Button>
             )}
 
@@ -303,14 +324,14 @@ export function PostCard({
                 {isLoadingReplies ? (
                   <div className="flex items-center gap-2">
                     <div className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                    Loading...
+                    Đang tải...
                   </div>
                 ) : (
                   <>
                     {showReplies
-                      ? "Hide"
-                      : `View ${post._count.replies} ${
-                          post._count.replies === 1 ? "reply" : "replies"
+                      ? "Ẩn"
+                      : `Xem ${post._count.replies} ${
+                          post._count.replies === 1 ? "phản hồi" : "phản hồi"
                         }`}
                   </>
                 )}
@@ -318,14 +339,14 @@ export function PostCard({
             )}
           </div>
 
-          {isReplying && level < MAX_REPLY_DEPTH && (
+          {isReplying && (
             <div className="mt-2 ml-2">
               <UserInput
                 currentUserId={currentUserId}
                 thread={thread}
                 parentId={getEffectiveParentId()}
                 onSubmitSuccess={() => setIsReplying(false)}
-                placeholder="Write a reply..."
+                placeholder="Viết phản hồi..."
                 showAvatar={false}
                 onSubmit={async (content) => {
                   await addReply(getEffectiveParentId() || null, content);
@@ -368,14 +389,16 @@ export function PostCard({
                       {isLoadingReplies ? (
                         <div className="flex items-center gap-2">
                           <div className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                          Loading replies...
+                          Đang tải phản hồi...
                         </div>
                       ) : (
                         <>
-                          Load {post._count?.replies - replies.length} more{" "}
+                          Tải thêm {post._count?.replies - replies.length} phản
+                          hồi
                           {post._count?.replies - replies.length === 1
-                            ? "reply"
-                            : "replies"}
+                            ? ""
+                            : ""}{" "}
+                          khác
                         </>
                       )}
                     </Button>
@@ -414,9 +437,9 @@ function EditInput({
         initialContent={initialContent}
         onContentChange={setContent}
         onSubmitSuccess={() => onSubmitSuccess(content)}
-        placeholder="Edit your comment..."
+        placeholder="Chỉnh sửa bình luận của bạn..."
         showAvatar={showAvatar}
-        submitButtonText="Save"
+        submitButtonText="Lưu"
         onSubmit={async (content) => {
           await onSubmitSuccess(content);
         }}
