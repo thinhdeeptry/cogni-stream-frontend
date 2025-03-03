@@ -49,6 +49,7 @@ export interface ReferenceAnswer {
 }
 
 export interface Question {
+  id?: string;
   type: QuestionType;
   content: ContentItem;
   explanation?: string;
@@ -56,7 +57,7 @@ export interface Question {
   courseId?: string;
   chapterId?: string;
   lessonId?: string;
-  difficulty?: QuestionDifficulty;
+  difficulty: QuestionDifficulty;
   options?: AnswerOption[];
   referenceAnswer?: ReferenceAnswer;
 }

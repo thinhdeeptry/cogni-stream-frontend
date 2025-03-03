@@ -1,4 +1,8 @@
-import { Question, QuestionDifficulty, QuestionType } from "@/types";
+import {
+  Question,
+  QuestionDifficulty,
+  QuestionType,
+} from "@/types/assessment/types";
 
 // Mock data with Question type augmented to include id
 export interface MockQuestion extends Question {

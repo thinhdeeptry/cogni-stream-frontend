@@ -1,44 +1,23 @@
 "use client";
 
-import { QuestionForm } from "@/components/question-form";
-import { Question } from "@/types";
-import { mockCourses } from "@/data/mock";
+import { useRouter } from "next/navigation";
+
+import { Question } from "@/types/assessment/types";
 import axios from "axios";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
-import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
-export default function AddQuestionPage() {
+import { QuestionForm } from "@/components/assessment/question-form";
+import { Button } from "@/components/ui/button";
+
+export default function CreateQuestionPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const courseId = searchParams.get("courseId");
-  const [courseName, setCourseName] = useState("");
-
-  useEffect(() => {
-    if (!courseId) {
-      toast.error("Không tìm thấy thông tin khóa học");
-      router.push("/assessment/questions");
-      return;
-    }
-
-    const course = mockCourses.find((course) => course.id === courseId);
-    if (!course) {
-      toast.error("Không tìm thấy thông tin khóa học");
-      router.push("/assessment/questions");
-      return;
-    }
-
-    setCourseName(course.name);
-  }, [courseId, router]);
 
   const handleSubmit = async (data: Question) => {
     try {
       // Bỏ qua các trường media khi gửi request
       const requestData = {
         ...data,
-        courseId,
         content: {
           text: data.content.text,
         },
@@ -58,7 +37,7 @@ export default function AddQuestionPage() {
           : undefined,
       };
 
-      await axios.post("http://localhost:3003/questions", requestData);
+      await axios.post("http://localhost:3005/api/v1/questions", requestData);
       toast.success("Thêm câu hỏi thành công");
       router.push("/assessment/questions");
     } catch (error) {
@@ -68,8 +47,8 @@ export default function AddQuestionPage() {
   };
 
   return (
-    <div className="p-6">
-      <div className="mb-6 space-y-4">
+    <div className="space-y-6">
+      <div className="flex items-center gap-4">
         <Button
           variant="ghost"
           className="h-12 px-6 gap-2 text-base"
@@ -80,10 +59,12 @@ export default function AddQuestionPage() {
         </Button>
         <div>
           <h2 className="text-2xl font-semibold">Thêm câu hỏi mới</h2>
-          <p className="text-muted-foreground">Khóa học: {courseName}</p>
+          <p className="text-muted-foreground">
+            Tạo câu hỏi mới cho ngân hàng đề
+          </p>
         </div>
       </div>
-      <QuestionForm lessonId="" onSubmit={handleSubmit} />
+      <QuestionForm onSubmit={handleSubmit} />
     </div>
   );
 }

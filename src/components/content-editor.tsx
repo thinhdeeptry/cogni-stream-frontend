@@ -1,11 +1,13 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
+
+import type { ContentItem } from "@/types/assessment/types";
+import { ImagePlus, Music, Plus, X } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { ImagePlus, Music, X, Plus } from "lucide-react";
-import Image from "next/image";
-import type { ContentItem } from "@/types";
 
 interface ContentEditorProps {
   value: ContentItem;
