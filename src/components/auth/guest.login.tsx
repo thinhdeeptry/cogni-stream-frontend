@@ -9,7 +9,7 @@ import { useForm } from "react-hook-form";
 import { Toaster, toast } from "sonner";
 import * as z from "zod";
 
-import { loginUser } from "@/actions/login";
+import { loginUser } from "@/actions/authActions";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -39,12 +39,14 @@ export default function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setIsLoading(false);
-      setError(null);
-    }
-  }, []);
+  // useEffect(() => {
+  //   if (typeof window !== "undefined") {
+  //     if (isLoading || error) {
+  //       setIsLoading(false);
+  //       setError(null);
+  //     }
+  //   }
+  // }, []);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -62,7 +64,6 @@ export default function LoginForm() {
     try {
       const result = await loginUser(email, password);
       console.log("Login result>>> ", result);
-
       if (result.error) {
         console.log("Login error>>> ", result.message);
         toast.error(result.message);
@@ -87,22 +88,6 @@ export default function LoginForm() {
   return (
     <div className="min-h-screen bg-main-50 flex items-center justify-center p-6 relative">
       <Toaster richColors position="top-right" />
-      {/* Decorative polka dot element */}
-      <div className="absolute left-40 top-1/3 w-32 h-32 bg-main-200 rounded-md opacity-80 flex items-center justify-center">
-        <div className="w-full h-full flex flex-wrap">
-          {Array(16)
-            .fill(0)
-            .map((_, i) => (
-              <div
-                key={i}
-                className="w-1/4 h-1/4 flex items-center justify-center"
-              >
-                <div className="w-1.5 h-1.5 bg-main-900 rounded-full"></div>
-              </div>
-            ))}
-        </div>
-      </div>
-
       <Card className="w-full max-w-md bg-white rounded-xl shadow-sm">
         <CardHeader className="text-center pt-8 pb-2">
           <h2 className="text-2xl font-bold">
@@ -119,7 +104,7 @@ export default function LoginForm() {
                   <FormItem>
                     <FormControl>
                       <Input
-                        placeholder="Enter Email / Phone No"
+                        placeholder="Enter Email"
                         className="rounded-full h-12 px-4 border-input"
                         {...field}
                       />
@@ -163,14 +148,17 @@ export default function LoginForm() {
                   </FormItem>
                 )}
               />
-              <div className="text-center">
+              {/* <div className="text-center">
                 <Button
                   variant="link"
                   className="text-sm text-muted-foreground p-0 h-auto"
                 >
                   Having trouble in sign in?
                 </Button>
-              </div>
+              </div> */}
+              {error && (
+                <p className="text-destructive text-sm text-center">{error}</p>
+              )}
               <Button
                 type="submit"
                 className="w-full h-12 rounded-full bg-main-300 hover:bg-main-400 text-main-900"
@@ -181,9 +169,6 @@ export default function LoginForm() {
                 ) : null}
                 Sign in
               </Button>
-              {error && (
-                <p className="text-destructive text-sm text-center">{error}</p>
-              )}
             </form>
           </Form>
 
@@ -255,7 +240,7 @@ export default function LoginForm() {
             <Button
               variant="link"
               className="p-0 h-auto font-semibold text-main-900 hover:text-main-800"
-              onClick={() => router.push("/register")}
+              onClick={() => router.push("/auth/register")}
             >
               Request Now
             </Button>

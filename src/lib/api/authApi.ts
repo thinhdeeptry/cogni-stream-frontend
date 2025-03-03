@@ -1,6 +1,3 @@
-import { message } from "antd";
-
-// lib/api/authApi.ts
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 // Lớp gọi API cho Auth
@@ -17,22 +14,49 @@ class AuthApi {
   }
 
   // Đăng ký người dùng
-  async register(email: string, password: string) {
+  handleErrorsRegister = (response: Response, data: any) => {
+    switch (response.status) {
+      case 201:
+        return {
+          statusCode: 201,
+          error: false,
+          message:
+            "Đăng ký thành công. Vui lòng kiểm tra email để kích hoạt tài khoản.",
+          data: data,
+        };
+      case 400:
+        return {
+          statusCode: 400,
+          error: true,
+          message:
+            data.message ||
+            "Tài khoản chưa được kích hoạt. Vui lòng kiểm tra email để kích hoạt.",
+        };
+      default:
+        return {
+          statusCode: 500,
+          error: true,
+          message:
+            data.message || "Đã xảy ra lỗi từ server. Vui lòng thử lại sau.",
+        };
+    }
+  };
+  async register(email: string, password: string, name: string) {
     const response = await fetch(`${API_URL}/auth/register`, {
       method: "POST",
       headers: this.getHeaders(),
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, name }),
     });
+    const data = await response.json();
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || "Registration failed");
+      return this.handleErrorsRegister(response, data);
     }
 
-    return response.json();
+    return data;
   }
   // Hàm xử lý lỗi
-  handleErrors = (response: Response, data: any) => {
+  handleErrorsLogin = (response: Response, data: any) => {
     switch (response.status) {
       case 201:
         return data;
@@ -82,7 +106,7 @@ class AuthApi {
 
     // Sử dụng hàm handleErrors để kiểm tra lỗi
     if (!response.ok) {
-      return this.handleErrors(response, data);
+      return this.handleErrorsLogin(response, data);
     }
     return data;
   }

@@ -2,7 +2,10 @@
 "use server";
 
 import { signIn } from "@/auth";
+import { authApi } from "@/lib/api/authApi";
 import { AuthError } from "next-auth";
+
+// actions/login.ts
 
 // actions/login.ts
 
@@ -42,6 +45,49 @@ export async function loginUser(email: string, password: string) {
       };
     }
     //hello
+    return {
+      error: true,
+      success: true,
+      message: "Đã xảy ra lỗi không xác định. Vui lòng thử lại sau.",
+      status: 500,
+    };
+  }
+}
+
+export async function signUpUser(
+  email: string,
+  password: string,
+  name: string,
+) {
+  try {
+    const result = await authApi.register(email, password, name);
+
+    // Nếu thành công, trả về thông tin để FE xử lý chuyển hướng
+    console.log("Sign up result:", result.data);
+    if (result.error) {
+      if (result.statusCode === 400) {
+        return {
+          error: true,
+          success: true,
+          message: result.message,
+          status: 400,
+        };
+      }
+      return {
+        error: true,
+        success: true,
+        message: "Đã xảy ra lỗi không xác định. Vui lòng thử lại sau.",
+        status: 500,
+      };
+    }
+    return {
+      error: false,
+      success: true,
+      message: "",
+      redirectTo: "/",
+      status: 200,
+    };
+  } catch (error) {
     return {
       error: true,
       success: true,

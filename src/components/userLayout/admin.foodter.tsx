@@ -1,14 +1,6 @@
 "use client";
 
-import { Layout } from "antd";
-
 const AdminFooter = () => {
-  const { Footer } = Layout;
-
-  return (
-    <Footer style={{ textAlign: "center" }}>
-      Edu Forge ©{new Date().getFullYear()} Created by @ThinhDeepTry
-    </Footer>
-  );
+  return <div>Footer</div>;
 };
 export default AdminFooter;

@@ -2,16 +2,16 @@
 
 import React from "react";
 
-import { Layout, theme } from "antd";
+import { signOut } from "next-auth/react";
 
-import AdminFooter from "@/components/userLayout/admin.foodter";
-import AdminHeader from "@/components/userLayout/admin.header";
-import AdminSideBar from "@/components/userLayout/admin.sidebar";
+import { Button } from "@/components/ui/button";
 
 const DashboardPage: React.FC = () => {
-  // const {
-  //     token: { colorBgContainer, borderRadiusLG },
-  //   } = theme.useToken();
-  return "DashboardPage";
+  return (
+    <div>
+      <h1>Welcome to the Dashboard</h1>
+      <Button onClick={() => signOut()}>sigOut</Button>
+    </div>
+  );
 };
 export default DashboardPage;

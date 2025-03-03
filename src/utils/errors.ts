@@ -20,3 +20,6 @@ export class AccountNotActivatedError extends AuthError {
 export class ServerError extends AuthError {
   static type = "Đã xảy ra lỗi từ server";
 }
+export class EmailAlreadyExistsError extends AuthError {
+  static type = "Email đã tồn tại";
+}
