@@ -1,9 +1,14 @@
-import { Question } from "@/types";
+import { Question, QuestionDifficulty, QuestionType } from "@/types";
 
-export const mockQuestions: Question[] = [
+// Mock data with Question type augmented to include id
+export interface MockQuestion extends Question {
+  id: string;
+}
+
+export const mockQuestions: MockQuestion[] = [
   {
     id: "q-001",
-    type: "SINGLE_CHOICE",
+    type: QuestionType.SINGLE_CHOICE,
     content: {
       text: "Giải phương trình: 2x + 5 = 13",
     },
@@ -12,21 +17,19 @@ export const mockQuestions: Question[] = [
     courseId: "course-001",
     chapterId: "chapter-001",
     lessonId: "lesson-001",
+    difficulty: QuestionDifficulty.UNDERSTANDING,
     options: [
       {
-        id: "opt-001",
         content: { text: "x = 4" },
         isCorrect: true,
         order: 1,
       },
       {
-        id: "opt-002",
         content: { text: "x = 3" },
         isCorrect: false,
         order: 2,
       },
       {
-        id: "opt-003",
         content: { text: "x = 5" },
         isCorrect: false,
         order: 3,
@@ -35,7 +38,7 @@ export const mockQuestions: Question[] = [
   },
   {
     id: "q-002",
-    type: "MULTIPLE_CHOICE",
+    type: QuestionType.MULTIPLE_CHOICE,
     content: {
       text: "Chọn các phát biểu đúng về phương trình bậc hai ax² + bx + c = 0:",
     },
@@ -44,21 +47,19 @@ export const mockQuestions: Question[] = [
     courseId: "course-001",
     chapterId: "chapter-001",
     lessonId: "lesson-002",
+    difficulty: QuestionDifficulty.APPLYING,
     options: [
       {
-        id: "opt-004",
         content: { text: "Có tối đa 2 nghiệm thực" },
         isCorrect: true,
         order: 1,
       },
       {
-        id: "opt-005",
         content: { text: "Luôn có nghiệm" },
         isCorrect: false,
         order: 2,
       },
       {
-        id: "opt-006",
         content: { text: "Đồ thị là một parabol" },
         isCorrect: true,
         order: 3,
@@ -67,24 +68,23 @@ export const mockQuestions: Question[] = [
   },
   {
     id: "q-003",
-    type: "TRUE_FALSE",
+    type: QuestionType.TRUE_FALSE,
     content: {
-      text: "Trong tam giác vuông, bình phương cạnh huyền bằng tổng bình phương hai cạnh góc vuông.",
+      text: "Phương trình 2x + 1 = 0 có nghiệm là x = -1/2",
     },
     explanation: "Định lý Pytago",
     questionSetterId: "setter-001",
     courseId: "course-001",
     chapterId: "chapter-002",
     lessonId: "lesson-004",
+    difficulty: QuestionDifficulty.REMEMBERING,
     options: [
       {
-        id: "opt-007",
         content: { text: "Đúng" },
         isCorrect: true,
         order: 1,
       },
       {
-        id: "opt-008",
         content: { text: "Sai" },
         isCorrect: false,
         order: 2,
@@ -93,15 +93,16 @@ export const mockQuestions: Question[] = [
   },
   {
     id: "q-004",
-    type: "ESSAY",
+    type: QuestionType.ESSAY,
     content: {
-      text: "Trình bày các bước giải một bài toán hình học về tam giác.",
+      text: "Trình bày phương pháp giải phương trình bậc hai ax² + bx + c = 0",
     },
     explanation: "Phương pháp giải toán hình học",
     questionSetterId: "setter-001",
     courseId: "course-001",
     chapterId: "chapter-002",
-    lessonId: "lesson-004",
+    lessonId: "lesson-005",
+    difficulty: QuestionDifficulty.EVALUATING,
     referenceAnswer: {
       content: {
         text: "1. Vẽ hình và ghi dữ kiện\n2. Phân tích dữ kiện\n3. Lập kế hoạch giải\n4. Thực hiện từng bước\n5. Kiểm tra kết quả",
@@ -112,7 +113,7 @@ export const mockQuestions: Question[] = [
   },
   {
     id: "q-005",
-    type: "MULTIPLE_CHOICE",
+    type: QuestionType.MULTIPLE_CHOICE,
     content: {
       text: "Một vật chuyển động thẳng đều có:",
     },
@@ -121,21 +122,19 @@ export const mockQuestions: Question[] = [
     courseId: "course-002",
     chapterId: "chapter-003",
     lessonId: "lesson-007",
+    difficulty: QuestionDifficulty.ANALYZING,
     options: [
       {
-        id: "opt-009",
         content: { text: "Vận tốc không đổi" },
         isCorrect: true,
         order: 1,
       },
       {
-        id: "opt-010",
         content: { text: "Gia tốc không đổi" },
         isCorrect: false,
         order: 2,
       },
       {
-        id: "opt-011",
         content: { text: "Quãng đường tỷ lệ thuận với thời gian" },
         isCorrect: true,
         order: 3,
@@ -144,7 +143,7 @@ export const mockQuestions: Question[] = [
   },
   {
     id: "q-006",
-    type: "SINGLE_CHOICE",
+    type: QuestionType.SINGLE_CHOICE,
     content: {
       text: "Choose the correct greeting for a formal business meeting:",
     },
@@ -153,21 +152,19 @@ export const mockQuestions: Question[] = [
     courseId: "course-003",
     chapterId: "chapter-005",
     lessonId: "lesson-012",
+    difficulty: QuestionDifficulty.APPLYING,
     options: [
       {
-        id: "opt-012",
         content: { text: "Hey there!" },
         isCorrect: false,
         order: 1,
       },
       {
-        id: "opt-013",
         content: { text: "Good morning, pleased to meet you" },
         isCorrect: true,
         order: 2,
       },
       {
-        id: "opt-014",
         content: { text: "What's up?" },
         isCorrect: false,
         order: 3,
@@ -176,30 +173,28 @@ export const mockQuestions: Question[] = [
   },
   {
     id: "q-007",
-    type: "MULTIPLE_CHOICE",
+    type: QuestionType.MULTIPLE_CHOICE,
     content: {
-      text: "Which of the following are valid variable names in Python?",
+      text: "Đâu là tên biến hợp lệ trong JavaScript?",
     },
     explanation: "Python variable naming rules",
     questionSetterId: "setter-004",
-    courseId: "course-004",
-    chapterId: "chapter-007",
-    lessonId: "lesson-017",
+    courseId: "course-003",
+    chapterId: "chapter-005",
+    lessonId: "lesson-013",
+    difficulty: QuestionDifficulty.UNDERSTANDING,
     options: [
       {
-        id: "opt-015",
         content: { text: "my_variable" },
         isCorrect: true,
         order: 1,
       },
       {
-        id: "opt-016",
         content: { text: "1variable" },
         isCorrect: false,
         order: 2,
       },
       {
-        id: "opt-017",
         content: { text: "_hidden" },
         isCorrect: true,
         order: 3,
@@ -208,24 +203,23 @@ export const mockQuestions: Question[] = [
   },
   {
     id: "q-008",
-    type: "TRUE_FALSE",
+    type: QuestionType.TRUE_FALSE,
     content: {
-      text: "Ankan là hiđrocacbon no, mạch hở.",
+      text: "HTML là ngôn ngữ lập trình",
     },
     explanation: "Định nghĩa về ankan",
-    questionSetterId: "setter-005",
-    courseId: "course-005",
-    chapterId: "chapter-009",
-    lessonId: "lesson-020",
+    questionSetterId: "setter-004",
+    courseId: "course-003",
+    chapterId: "chapter-006",
+    lessonId: "lesson-015",
+    difficulty: QuestionDifficulty.CREATING,
     options: [
       {
-        id: "opt-018",
         content: { text: "Đúng" },
         isCorrect: true,
         order: 1,
       },
       {
-        id: "opt-019",
         content: { text: "Sai" },
         isCorrect: false,
         order: 2,

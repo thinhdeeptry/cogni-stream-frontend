@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { QuestionType } from "@/types";
+import { QuestionType, QuestionDifficulty } from "@/types";
 import {
   Select,
   SelectContent,
@@ -45,7 +45,7 @@ const referenceAnswerSchema = z.object({
   notes: z.string().optional(),
 });
 
-const questionSchema = z.object({
+const baseQuestionSchema = z.object({
   type: z.nativeEnum(QuestionType),
   content: contentItemSchema,
   explanation: z.string().optional(),
@@ -53,19 +53,31 @@ const questionSchema = z.object({
   courseId: z.string().optional(),
   chapterId: z.string().optional(),
   lessonId: z.string(),
+  difficulty: z.nativeEnum(QuestionDifficulty),
+});
+
+const multipleChoiceSchema = baseQuestionSchema.extend({
   options: z
     .array(answerOptionSchema)
-    .refine((options) => {
-      if (options.length < 2) {
-        return false;
-      }
-      return true;
-    }, "Phải có ít nhất 2 đáp án")
-    .refine((options) => {
-      return options.some((option) => option.isCorrect);
-    }, "Phải có ít nhất 1 đáp án đúng"),
-  referenceAnswer: referenceAnswerSchema.optional(),
+    .min(2, "Phải có ít nhất 2 đáp án")
+    .refine(
+      (options) => options.some((option) => option.isCorrect),
+      "Phải có ít nhất 1 đáp án đúng",
+    ),
 });
+
+const essaySchema = baseQuestionSchema.extend({
+  referenceAnswer: referenceAnswerSchema,
+});
+
+const questionSchema = z.discriminatedUnion("type", [
+  multipleChoiceSchema.extend({ type: z.literal(QuestionType.SINGLE_CHOICE) }),
+  multipleChoiceSchema.extend({
+    type: z.literal(QuestionType.MULTIPLE_CHOICE),
+  }),
+  multipleChoiceSchema.extend({ type: z.literal(QuestionType.TRUE_FALSE) }),
+  essaySchema.extend({ type: z.literal(QuestionType.ESSAY) }),
+]);
 
 type QuestionFormValues = z.infer<typeof questionSchema>;
 
@@ -87,12 +99,31 @@ export function QuestionForm({ lessonId, onSubmit }: QuestionFormProps) {
         text: "",
       },
       lessonId,
+      difficulty: QuestionDifficulty.REMEMBERING,
       options: [
         { content: { text: "" }, order: 1, isCorrect: false },
         { content: { text: "" }, order: 2, isCorrect: false },
       ],
     },
   });
+
+  // Reset form when question type changes
+  useEffect(() => {
+    if (questionType === QuestionType.ESSAY) {
+      form.setValue("options", [] as any);
+    } else {
+      form.setValue("referenceAnswer", {
+        content: { text: "" },
+        notes: "",
+      });
+      if (!form.getValues("options")?.length) {
+        form.setValue("options", [
+          { content: { text: "" }, order: 1, isCorrect: false },
+          { content: { text: "" }, order: 2, isCorrect: false },
+        ]);
+      }
+    }
+  }, [questionType, form]);
 
   const getNextOrder = () => {
     const options = form.getValues("options") || [];
@@ -102,14 +133,14 @@ export function QuestionForm({ lessonId, onSubmit }: QuestionFormProps) {
   };
 
   const handleSubmit: SubmitHandler<QuestionFormValues> = (data) => {
-    const correctAnswers = data.options?.filter((opt) => opt.isCorrect) || [];
-
-    if (
-      data.type === QuestionType.SINGLE_CHOICE &&
-      correctAnswers.length !== 1
-    ) {
-      toast.error("Câu hỏi trắc nghiệm một đáp án phải có đúng 1 đáp án đúng");
-      return;
+    if (data.type === QuestionType.SINGLE_CHOICE) {
+      const correctAnswers = data.options?.filter((opt) => opt.isCorrect) || [];
+      if (correctAnswers.length !== 1) {
+        toast.error(
+          "Câu hỏi trắc nghiệm một đáp án phải có đúng 1 đáp án đúng",
+        );
+        return;
+      }
     }
 
     if (data.type === QuestionType.TRUE_FALSE) {
@@ -117,20 +148,11 @@ export function QuestionForm({ lessonId, onSubmit }: QuestionFormProps) {
         toast.error("Câu hỏi Đúng/Sai phải có đúng 2 đáp án");
         return;
       }
+      const correctAnswers = data.options?.filter((opt) => opt.isCorrect) || [];
       if (correctAnswers.length !== 1) {
         toast.error("Câu hỏi Đúng/Sai phải có đúng 1 đáp án đúng");
         return;
       }
-    }
-
-    if (
-      data.type === QuestionType.MULTIPLE_CHOICE &&
-      correctAnswers.length < 1
-    ) {
-      toast.error(
-        "Câu hỏi trắc nghiệm nhiều đáp án phải có ít nhất 1 đáp án đúng",
-      );
-      return;
     }
 
     onSubmit?.(data);
@@ -173,6 +195,49 @@ export function QuestionForm({ lessonId, onSubmit }: QuestionFormProps) {
                         </SelectItem>
                         <SelectItem value={QuestionType.ESSAY}>
                           Tự luận
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="difficulty"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-base">Độ khó</FormLabel>
+                    <Select
+                      onValueChange={(value: QuestionDifficulty) => {
+                        field.onChange(value);
+                      }}
+                      defaultValue={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="h-12 text-base">
+                          <SelectValue placeholder="Chọn độ khó" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value={QuestionDifficulty.REMEMBERING}>
+                          Ghi nhớ
+                        </SelectItem>
+                        <SelectItem value={QuestionDifficulty.UNDERSTANDING}>
+                          Thông hiểu
+                        </SelectItem>
+                        <SelectItem value={QuestionDifficulty.APPLYING}>
+                          Vận dụng
+                        </SelectItem>
+                        <SelectItem value={QuestionDifficulty.ANALYZING}>
+                          Phân tích
+                        </SelectItem>
+                        <SelectItem value={QuestionDifficulty.EVALUATING}>
+                          Đánh giá
+                        </SelectItem>
+                        <SelectItem value={QuestionDifficulty.CREATING}>
+                          Sáng tạo
                         </SelectItem>
                       </SelectContent>
                     </Select>

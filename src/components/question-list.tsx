@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Question, QuestionType } from "@/types";
+import { Question, QuestionType, QuestionDifficulty } from "@/types";
 
 interface QuestionListProps {
   questions: Question[];
@@ -40,10 +40,26 @@ export function QuestionList({
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div>
+                <div className="flex justify-between items-center">
                   <p className="font-medium">Câu hỏi:</p>
-                  <p>{question.content.text}</p>
+                  {question.difficulty && (
+                    <div className="rounded-full bg-blue-50 px-2.5 py-0.5 text-sm font-medium text-blue-600">
+                      {question.difficulty === QuestionDifficulty.REMEMBERING &&
+                        "Ghi nhớ"}
+                      {question.difficulty ===
+                        QuestionDifficulty.UNDERSTANDING && "Thông hiểu"}
+                      {question.difficulty === QuestionDifficulty.APPLYING &&
+                        "Vận dụng"}
+                      {question.difficulty === QuestionDifficulty.ANALYZING &&
+                        "Phân tích"}
+                      {question.difficulty === QuestionDifficulty.EVALUATING &&
+                        "Đánh giá"}
+                      {question.difficulty === QuestionDifficulty.CREATING &&
+                        "Sáng tạo"}
+                    </div>
+                  )}
                 </div>
+                <p>{question.content.text}</p>
                 {question.options && (
                   <div>
                     <p className="font-medium mb-2">Đáp án:</p>

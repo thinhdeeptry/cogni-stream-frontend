@@ -62,28 +62,38 @@ export default function QuestionsPage() {
   const [selectedId, setSelectedId] = useState<string>();
   const [questions, setQuestions] = useState<Question[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const fetchQuestions = async (id?: string) => {
+    try {
+      setIsLoading(true);
+      let params = {};
+
+      if (id) {
+        if (id.startsWith("course-")) {
+          params = { courseId: id };
+        } else if (id.startsWith("chapter-")) {
+          params = { chapterId: id };
+        } else if (id.startsWith("lesson-")) {
+          params = { lessonId: id };
+        }
+      }
+
+      const response = await axios.get(
+        "http://localhost:3005/assessment/api/v1/questions",
+        { params },
+      );
+      setQuestions(response.data);
+    } catch (error) {
+      console.error("Error fetching questions:", error);
+      toast.error("Có lỗi xảy ra khi tải danh sách câu hỏi");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    if (!selectedId) {
-      setQuestions(mockQuestions);
-      return;
-    }
-
-    // Lọc câu hỏi dựa trên ID được chọn
-    const filteredQuestions = mockQuestions.filter((question) => {
-      if (selectedId.startsWith("course-")) {
-        return question.courseId === selectedId;
-      }
-      if (selectedId.startsWith("chapter-")) {
-        return question.chapterId === selectedId;
-      }
-      if (selectedId.startsWith("lesson-")) {
-        return question.lessonId === selectedId;
-      }
-      return false;
-    });
-
-    setQuestions(filteredQuestions);
+    fetchQuestions(selectedId);
   }, [selectedId]);
 
   const handleTreeSelect = (id: string) => {
@@ -141,7 +151,10 @@ export default function QuestionsPage() {
           : undefined,
       };
 
-      await axios.post("http://localhost:3003/questions", requestData);
+      await axios.post(
+        "http://localhost:3005/assessment/api/v1/questions",
+        requestData,
+      );
       toast.success("Thêm câu hỏi thành công");
       setShowForm(false);
       // Cập nhật lại danh sách câu hỏi
@@ -236,61 +249,88 @@ export default function QuestionsPage() {
               </div>
 
               <div className="grid gap-6">
-                {questions.map((question, index) => (
-                  <Card key={index}>
-                    <CardHeader>
-                      <CardTitle className="text-lg">
-                        {question.type === QuestionType.SINGLE_CHOICE &&
-                          "Trắc nghiệm một đáp án"}
-                        {question.type === QuestionType.MULTIPLE_CHOICE &&
-                          "Trắc nghiệm nhiều đáp án"}
-                        {question.type === QuestionType.TRUE_FALSE &&
-                          "Đúng/Sai"}
-                        {question.type === QuestionType.ESSAY && "Tự luận"}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        <div>
-                          <p className="font-medium">Câu hỏi:</p>
-                          <p>{question.content.text}</p>
+                {isLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+                  </div>
+                ) : questions.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    Không có câu hỏi nào
+                  </div>
+                ) : (
+                  questions.map((question, index) => (
+                    <Card key={index}>
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-base font-medium">
+                          Câu hỏi {index + 1}
+                        </CardTitle>
+                        <div
+                          className={`px-3 py-1 rounded-full text-xs font-medium 
+                          ${question.type === QuestionType.SINGLE_CHOICE ? "bg-blue-50 text-blue-700" : ""}
+                          ${question.type === QuestionType.MULTIPLE_CHOICE ? "bg-purple-50 text-purple-700" : ""}
+                          ${question.type === QuestionType.TRUE_FALSE ? "bg-green-50 text-green-700" : ""}
+                          ${question.type === QuestionType.ESSAY ? "bg-orange-50 text-orange-700" : ""}`}
+                        >
+                          {question.type === QuestionType.SINGLE_CHOICE &&
+                            "Trắc nghiệm một đáp án"}
+                          {question.type === QuestionType.MULTIPLE_CHOICE &&
+                            "Trắc nghiệm nhiều đáp án"}
+                          {question.type === QuestionType.TRUE_FALSE &&
+                            "Đúng/Sai"}
+                          {question.type === QuestionType.ESSAY && "Tự luận"}
                         </div>
-                        {question.options && (
-                          <div>
-                            <p className="font-medium mb-2">Đáp án:</p>
-                            <div className="space-y-2">
-                              {question.options.map((option, optionIndex) => (
-                                <div
-                                  key={optionIndex}
-                                  className="flex items-center gap-2 rounded-lg border p-4"
-                                >
-                                  <div className="h-2 w-2 rounded-full bg-primary shrink-0" />
-                                  <p>{option.content.text}</p>
-                                  {option.isCorrect && (
-                                    <div className="ml-auto rounded-full bg-emerald-50 px-2.5 py-0.5 text-sm font-medium text-emerald-600">
-                                      Đáp án đúng
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-4">
+                          <div className="flex">
+                            <span className="font-medium mr-2">Câu hỏi:</span>
+                            <p className="flex-1">{question.content.text}</p>
+                          </div>
+                          {question.options && (
+                            <div>
+                              <p className="font-medium mb-2">Đáp án:</p>
+                              <div className="space-y-2">
+                                {question.options.map((option, optionIndex) => (
+                                  <div
+                                    key={optionIndex}
+                                    className="flex items-center gap-3 rounded-lg border p-4"
+                                  >
+                                    <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-sm font-medium">
+                                      {String.fromCharCode(65 + optionIndex)}
                                     </div>
-                                  )}
-                                </div>
-                              ))}
+                                    <p className="flex-1">
+                                      {option.content.text}
+                                    </p>
+                                    {option.isCorrect && (
+                                      <div className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-600">
+                                        Đáp án đúng
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
                             </div>
-                          </div>
-                        )}
-                        {question.referenceAnswer && (
-                          <div>
-                            <p className="font-medium">Đáp án tham khảo:</p>
-                            <p>{question.referenceAnswer.content.text}</p>
-                            {question.referenceAnswer.notes && (
-                              <p className="mt-2 text-sm text-muted-foreground">
-                                {question.referenceAnswer.notes}
+                          )}
+                          {question.referenceAnswer && (
+                            <div>
+                              <p className="font-medium mb-2">
+                                Đáp án tham khảo:
                               </p>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                              <div className="rounded-lg border p-4">
+                                <p>{question.referenceAnswer.content.text}</p>
+                                {question.referenceAnswer.notes && (
+                                  <p className="mt-2 text-sm text-muted-foreground">
+                                    {question.referenceAnswer.notes}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
               </div>
             </>
           )}

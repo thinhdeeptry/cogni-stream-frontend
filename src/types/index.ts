@@ -5,6 +5,15 @@ export enum QuestionType {
   ESSAY = "ESSAY",
 }
 
+export enum QuestionDifficulty {
+  REMEMBERING = "REMEMBERING",
+  UNDERSTANDING = "UNDERSTANDING",
+  APPLYING = "APPLYING",
+  ANALYZING = "ANALYZING",
+  EVALUATING = "EVALUATING",
+  CREATING = "CREATING",
+}
+
 export interface Course {
   id: string;
   name: string;
@@ -47,6 +56,7 @@ export interface Question {
   courseId?: string;
   chapterId?: string;
   lessonId?: string;
+  difficulty?: QuestionDifficulty;
   options?: AnswerOption[];
   referenceAnswer?: ReferenceAnswer;
 }
