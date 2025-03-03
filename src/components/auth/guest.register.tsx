@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Eye, EyeOff, Github, Loader2 } from "lucide-react";
 import { useForm } from "react-hook-form";
-import { toast } from "sonner";
+import { Toaster, toast } from "sonner";
 import * as z from "zod";
 
 import { signUpUser } from "@/actions/authActions";
@@ -93,6 +93,7 @@ export default function RegisterForm() {
 
   return (
     <div className="min-h-screen bg-main-50 flex items-center justify-center p-6 relative">
+      <Toaster richColors position="top-right" />
       <Card className="w-full max-w-md bg-white rounded-xl shadow-sm">
         <CardHeader className="text-center pt-8 pb-2">
           <h2 className="text-2xl font-bold">

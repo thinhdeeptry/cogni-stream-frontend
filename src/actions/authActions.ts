@@ -11,6 +11,8 @@ import { AuthError } from "next-auth";
 
 // actions/login.ts
 
+// actions/login.ts
+
 export async function loginUser(email: string, password: string) {
   try {
     const result = await signIn("credentials", {
@@ -61,21 +63,19 @@ export async function signUpUser(
 ) {
   try {
     const result = await authApi.register(email, password, name);
-
     // Nếu thành công, trả về thông tin để FE xử lý chuyển hướng
-    console.log("Sign up result:", result.data);
     if (result.error) {
       if (result.statusCode === 400) {
         return {
           error: true,
-          success: true,
+          success: false,
           message: result.message,
           status: 400,
         };
       }
       return {
         error: true,
-        success: true,
+        success: false,
         message: "Đã xảy ra lỗi không xác định. Vui lòng thử lại sau.",
         status: 500,
       };
@@ -84,13 +84,87 @@ export async function signUpUser(
       error: false,
       success: true,
       message: "",
-      redirectTo: "/",
+      redirectTo: `/verify/${result.data._id}`,
+      data: result.data,
       status: 200,
     };
   } catch (error) {
     return {
       error: true,
+      success: false,
+      message: "Đã xảy ra lỗi không xác định. Vui lòng thử lại sau.",
+      status: 500,
+    };
+  }
+}
+export async function verifyUser(id: string, otp: string) {
+  try {
+    const result = await authApi.verifyOTP(id, otp);
+    // Nếu thành công, trả về thông tin để FE xử lý chuyển hướng
+    if (result.error) {
+      if (result.statusCode === 400) {
+        return {
+          error: true,
+          success: false,
+          message: result.message,
+          status: 400,
+        };
+      }
+      return {
+        error: true,
+        success: false,
+        message: "Đã xảy ra lỗi không xác định. Vui lòng thử lại sau.",
+        status: 500,
+      };
+    }
+    return {
+      error: false,
       success: true,
+      message: "",
+      redirectTo: `/auth/login`,
+      data: result.data,
+      status: 200,
+    };
+  } catch (error) {
+    return {
+      error: true,
+      success: false,
+      message: "Đã xảy ra lỗi không xác định. Vui lòng thử lại sau.",
+      status: 500,
+    };
+  }
+}
+export async function RefreshOTPUser(id: string) {
+  try {
+    const result = await authApi.refreshOTP(id);
+    // Nếu thành công, trả về thông tin để FE xử lý chuyển hướng
+    if (result.error) {
+      if (result.statusCode === 400) {
+        return {
+          error: true,
+          success: false,
+          message: result.message,
+          status: 400,
+        };
+      }
+      return {
+        error: true,
+        success: false,
+        message: "Đã xảy ra lỗi không xác định. Vui lòng thử lại sau.",
+        status: 500,
+      };
+    }
+    return {
+      error: false,
+      success: true,
+      message: result.message,
+      data: result.data,
+      status: 200,
+    };
+  } catch (error) {
+    return {
+      error: true,
+      success: false,
       message: "Đã xảy ra lỗi không xác định. Vui lòng thử lại sau.",
       status: 500,
     };
