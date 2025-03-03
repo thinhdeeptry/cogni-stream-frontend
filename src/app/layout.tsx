@@ -1,13 +1,19 @@
-import type { Metadata } from "next";
 import { Inter } from "next/font/google";
-import "./globals.css";
+
+import type { Metadata } from "next";
 import { Toaster } from "sonner";
 
-const inter = Inter({ subsets: ["latin"] });
+import "./globals.css";
+
+const inter = Inter({
+  variable: "--font-inter",
+  subsets: ["latin"],
+});
 
 export const metadata: Metadata = {
-  title: "EduForge",
-  description: "Nền tảng học tập trực tuyến",
+  title: "Eduforge - Your Next Education Platform",
+  description:
+    "Eduforge is a platform for educators and students to collaborate and learn together.",
 };
 
 export default function RootLayout({
@@ -16,8 +22,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="vi">
-      <body className={inter.className}>
+    <html lang="en">
+      <body className={`${inter.variable} ${inter.variable} antialiased`}>
         {children}
         <Toaster richColors position="top-right" />
       </body>
