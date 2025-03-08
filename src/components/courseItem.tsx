@@ -1,21 +1,16 @@
 "use client";
 
-import { Book, Crown, Users } from "lucide-react";
-import { Card, CardContent, CardFooter } from "./ui/card";
 import Image from "next/image";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 
-interface CourseItemProps {
-  id: string;
-  title: string;
-  thumbnailUrl?: string;
-  price: number;
-  promotionPrice?: number;
-  currency?: string;
-  totalLessons: number;
-  enrollmentCount?: number;
-  ownerAvatarUrl?: string;
-}
+import { mockDb } from "@/data/mockDb";
+import { CourseWithUser } from "@/types/course/types";
+import { Book, Crown, Users } from "lucide-react";
+
+import { getLessonsByCourse } from "@/actions/courseAction";
+
+import { Card, CardContent, CardFooter } from "./ui/card";
 
 export default function CourseItem({
   id,
@@ -27,11 +22,36 @@ export default function CourseItem({
   totalLessons,
   enrollmentCount = 0,
   ownerAvatarUrl,
-}: CourseItemProps) {
+}: CourseWithUser) {
+  const [href, setHref] = useState(`/course/${id}`);
+  const loggedInUserId = "user5";
+
+  useEffect(() => {
+    const checkEnrollmentAndFirstLesson = async () => {
+      const userEnrollments = mockDb.getUserEnrollments(loggedInUserId);
+      const enrollment = userEnrollments.find((e) => e.courseId === id);
+      if (enrollment) {
+        try {
+          const lessons = await getLessonsByCourse(id);
+          if (lessons?.chapters?.[0]?.lessons?.[0]) {
+            setHref(
+              `/course/${id}/lesson/${lessons.chapters[0].lessons[0].id}`,
+            );
+          }
+        } catch (error) {
+          console.log("Error fetching lessons:", error);
+          setHref(`/course/${id}`);
+        }
+      }
+    };
+
+    checkEnrollmentAndFirstLesson();
+  }, [id]);
+
   return (
     <Link
-      href={`/course/${id}`}
-      className="min-w-[280px]   block transform transition-all duration-300 hover:-translate-y-1"
+      href={href}
+      className="min-w-[280px] block transform transition-all duration-300 hover:-translate-y-1"
     >
       <Card className="max-h-60 overflow-hidden transition-all hover:shadow-xl cursor-pointer">
         <div className="relative max-h-32 aspect-video w-full">
@@ -42,7 +62,7 @@ export default function CourseItem({
             className="object-cover"
           />
           {price > 0 && (
-            <div className="absolute top-2 right-2 rounded-lg  px-1 py-1.5 bg-gray-500/35 ">
+            <div className="absolute top-2 right-2 rounded-lg px-1 py-1.5 bg-gray-500/35">
               <Crown size={18} color={"gold"} />
             </div>
           )}

@@ -1,12 +1,15 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import axios from "axios";
-import { Book, Crown, Users } from "lucide-react";
-import { ChevronDown } from "lucide-react";
+import { mockDb } from "@/data/mockDb";
+import { Course } from "@/types/course/types";
+import { Book, Crown, Plus, Users } from "lucide-react";
+
+import { getCourseById } from "@/actions/courseAction";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,50 +19,24 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 
-interface Course {
-  id: string;
-  title: string;
-  description?: string;
-  level?: "BEGINNER" | "INTERMEDIATE" | "ADVANCED";
-  price: number;
-  currency: string;
-  thumbnailUrl?: string;
-  promotionPrice?: number;
-  isHasCertificate: boolean;
-  totalLessons: number;
-  learningOutcomes: string[];
-  requirements: string[];
-  targetAudience?: string;
-  chapters: Chapter[];
-}
-
-interface Chapter {
-  id: string;
-  title: string;
-  description?: string;
-  order: number;
-  lessons: Lesson[];
-}
-
-interface Lesson {
-  id: string;
-  title: string;
-  type: "VIDEO" | "BLOG" | "MIXED";
-  isFreePreview: boolean;
-}
-
 export default function CourseDetail() {
   const [course, setCourse] = useState<Course | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isEnrolled, setIsEnrolled] = useState(false);
   const params = useParams();
+  const loggedInUserId = "user5";
+
   useEffect(() => {
     const fetchCourse = async () => {
       try {
-        const { data } = await axios.get(
-          `http://localhost:3002/courses/${params.courseId}`,
-        );
+        const data = await getCourseById(params.courseId as string);
         setCourse(data);
+        // Check if user is enrolled
+        const userEnrollments = mockDb.getUserEnrollments(loggedInUserId);
+        setIsEnrolled(
+          userEnrollments.some((enrollment) => enrollment.courseId === data.id),
+        );
       } catch (err) {
         setError(err instanceof Error ? err.message : "An error occurred");
       } finally {
@@ -69,6 +46,20 @@ export default function CourseDetail() {
 
     fetchCourse();
   }, [params.courseId]);
+
+  const handleEnrollClick = () => {
+    // Here you would typically handle the enrollment process
+    // For now, we'll just redirect to the first lesson if it's free
+    if (course?.chapters && course.chapters.length > 0) {
+      const firstChapter = course.chapters[0];
+      if (firstChapter.lessons && firstChapter.lessons.length > 0) {
+        const firstLesson = firstChapter.lessons[0];
+        if (course.price === 0 || firstLesson.isFreePreview) {
+          window.location.href = `/course/${course.id}/lesson/${firstLesson.id}`;
+        }
+      }
+    }
+  };
 
   if (isLoading) {
     return (
@@ -95,7 +86,7 @@ export default function CourseDetail() {
   }
 
   return (
-    <div className="flex-1 flex gap-8 justify-center min-h-screen p-8">
+    <div className="flex-1 flex gap-8 justify-center min-h-screen p-5">
       {/* Left Column */}
       <div className="w-2/3 space-y-8">
         <div>
@@ -109,31 +100,53 @@ export default function CourseDetail() {
           <ul className="grid grid-cols-2 gap-4">
             {course.learningOutcomes.map((outcome, index) => (
               <li key={index} className="flex text-start gap-2 ">
-                <div className="">✓</div>
+                <div className="text-orange-500">✓</div>
                 <span className="">{outcome}</span>
               </li>
             ))}
           </ul>
         </div>
 
-        {/* Course Content */}
         <div>
-          <h2 className="text-2xl font-semibold mb-4">Nội dung khoá học</h2>
+          <h2 className="text-2xl font-semibold mb-2">Nội dung khoá học</h2>
+          <p className="text-gray-600 mb-4 text-xs">
+            <span className="font-semibold">• Số chương: </span>
+            {course.chapters?.length || 0}{" "}
+            <span className="font-semibold ml-4">• Số bài: </span>
+            {course.totalLessons}
+          </p>
           <div className="space-y-4">
-            {course.chapters.map((chapter) => (
+            {course.chapters?.map((chapter) => (
               <Collapsible key={chapter.id}>
                 <CollapsibleTrigger className="flex items-center justify-between w-full p-4 bg-gray-50 hover:bg-gray-100 rounded-lg">
                   <div className="flex items-center gap-2">
-                    <h3 className="font-medium">{chapter.title}</h3>
+                    <div className="text-gray-500" data-state="closed">
+                      <Plus className="h-4 w-4 text-orange-500" />
+                    </div>
+                    <h3 className="font-semibold text-gray-700">
+                      {chapter.title}
+                    </h3>
                   </div>
-                  <ChevronDown className="h-4 w-4" />
+                  <span className="text-sm text-gray-600">
+                    {chapter.lessons?.length || 0} bài
+                  </span>
                 </CollapsibleTrigger>
                 <CollapsibleContent className="pl-4">
                   <ul className="mt-2 space-y-2">
-                    {chapter.lessons.map((lesson) => (
-                      <li
+                    {chapter.lessons?.map((lesson) => (
+                      <Link
+                        href={
+                          isEnrolled || lesson.isFreePreview
+                            ? `/course/${course.id}/lesson/${lesson.id}`
+                            : `#`
+                        }
                         key={lesson.id}
-                        className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-lg"
+                        className={`flex items-center justify-between p-2 hover:bg-gray-50 rounded-lg ${isEnrolled || lesson.isFreePreview ? "cursor-pointer" : "cursor-not-allowed opacity-50"}`}
+                        onClick={(e) => {
+                          if (!isEnrolled && !lesson.isFreePreview) {
+                            e.preventDefault();
+                          }
+                        }}
                       >
                         <div className="flex items-center gap-2">
                           <Book className="h-4 w-4" />
@@ -144,7 +157,7 @@ export default function CourseDetail() {
                             Preview
                           </span>
                         )}
-                      </li>
+                      </Link>
                     ))}
                   </ul>
                 </CollapsibleContent>
@@ -194,7 +207,7 @@ export default function CourseDetail() {
                   ) : (
                     <div className="space-y-1">
                       <p
-                        className={`font-semibold text-2xl ${course.promotionPrice ? "text-red-600" : ""}`}
+                        className={`font-semibold text-2xl ${course.promotionPrice ? "text-red-600" : "text-red-600"}`}
                       >
                         {course.promotionPrice
                           ? course.promotionPrice.toLocaleString()
@@ -214,7 +227,10 @@ export default function CourseDetail() {
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-gray-600">
                     <Users size={18} />
-                    <span>Trình độ: {course.level}</span>
+                    <span>
+                      Level:{" "}
+                      <span className="font-semibold">{course.level}</span>{" "}
+                    </span>
                   </div>
                   <div className="flex items-center gap-2 text-gray-600">
                     <Book size={18} />
@@ -231,8 +247,15 @@ export default function CourseDetail() {
                 )}
 
                 {/* Enroll Button */}
-                <Button className="w-full" size="lg">
-                  <p className="text-md font-semibold">Đăng ký</p>
+                <Button
+                  className="w-full"
+                  size="lg"
+                  onClick={handleEnrollClick}
+                  disabled={isEnrolled}
+                >
+                  <p className="text-md font-semibold">
+                    {isEnrolled ? "Đã đăng ký" : "Đăng ký"}
+                  </p>
                 </Button>
               </div>
             </CardContent>

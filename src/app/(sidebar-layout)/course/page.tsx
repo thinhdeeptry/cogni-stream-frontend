@@ -3,7 +3,9 @@
 import Image from "next/image";
 import { useEffect, useState } from "react";
 
-import axios from "axios";
+import { Course } from "@/types/course/types";
+
+import { getAllCourses } from "@/actions/courseAction";
 
 import CourseItem from "@/components/courseItem";
 import {
@@ -23,16 +25,6 @@ const bannerImages = [
   "https://res.cloudinary.com/dxxsudprj/image/upload/v1740664063/Screenshot_2025-02-27_at_20.39.05_wvgzaw.png",
 ];
 
-interface Course {
-  id: string;
-  title: string;
-  price: number;
-  currency: string;
-  promotionPrice?: number;
-  totalLessons: number;
-  thumbnailUrl?: string;
-}
-
 export default function Home() {
   const [api, setApi] = useState<CarouselApi>();
   const [current, setCurrent] = useState(0);
@@ -44,8 +36,7 @@ export default function Home() {
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-        const { data } = await axios.get("http://localhost:3002/courses");
-        console.log(data);
+        const data = await getAllCourses();
         setCourses(data);
       } catch (err) {
         setError(err instanceof Error ? err.message : "An error occurred");
@@ -149,9 +140,9 @@ export default function Home() {
         </Carousel>
       </div>
 
-      <div className="w-full space-y-4">
+      <div className="w-full space-y-4 ">
         <h2 className="text-2xl font-semibold">Khoá học Pro</h2>
-        <div className="flex gap-6 overflow-x-auto pb-4">
+        <div className="flex gap-6 overflow-x-auto py-2 pb-4 ">
           {proCourses.map((course) => (
             <CourseItem
               key={course.id}
@@ -166,7 +157,7 @@ export default function Home() {
 
       <div className="w-full space-y-4">
         <h2 className="text-2xl font-semibold">Khoá học miễn phí</h2>
-        <div className="flex gap-6 overflow-x-auto pb-4">
+        <div className="flex gap-6 overflow-x-auto py-2 pb-4">
           {freeCourses.map((course) => (
             <CourseItem
               key={course.id}
