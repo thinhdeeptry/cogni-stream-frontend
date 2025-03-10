@@ -1,10 +1,14 @@
 "use client";
+
+import Link from "next/link";
+
+import { mockDb } from "@/data/mockDb";
 import {
+  Bell,
   BookOpen,
   GraduationCap,
   Home,
   LayoutDashboard,
-  Bell,
 } from "lucide-react";
 
 import {
@@ -17,33 +21,44 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import Link from "next/link";
+
+const loggedInUserId = "user5";
 
 // Menu items.
-const items = [
-  {
-    title: "Trang chủ",
-    url: "/course",
-    icon: Home,
-  },
-  {
-    title: "Lộ trình",
-    url: "/roadmap",
-    icon: GraduationCap,
-  },
-  {
-    title: "Bài viết",
-    url: "/",
-    icon: BookOpen,
-  },
-  {
-    title: "Quản lý",
-    url: "/",
-    icon: LayoutDashboard,
-  },
-];
+const getMenuItems = (userRole: string) => {
+  const baseItems = [
+    {
+      title: "Trang chủ",
+      url: "/course",
+      icon: Home,
+    },
+    {
+      title: "Lộ trình",
+      url: "/roadmap",
+      icon: GraduationCap,
+    },
+    {
+      title: "Bài viết",
+      url: "/",
+      icon: BookOpen,
+    },
+  ];
+
+  if (userRole === "ADMIN") {
+    baseItems.push({
+      title: "Quản lý",
+      url: "/admin/courses",
+      icon: LayoutDashboard,
+    });
+  }
+
+  return baseItems;
+};
 
 export function AppSidebar() {
+  const user = mockDb.getUserById(loggedInUserId);
+  const items = getMenuItems(user?.role || "");
+
   return (
     <Sidebar className="w-22">
       <SidebarContent>

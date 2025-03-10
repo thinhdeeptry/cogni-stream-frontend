@@ -41,6 +41,7 @@ export default function LessonDetail() {
           getCourseById(params.courseId as string),
           getLessonById(params.lessonId as string),
         ]);
+        console.log(courseData);
         setCourse(courseData);
         setLesson(lessonData);
       } catch (err) {
