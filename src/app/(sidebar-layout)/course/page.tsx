@@ -142,7 +142,7 @@ export default function Home() {
 
       <div className="w-full space-y-4 ">
         <h2 className="text-2xl font-semibold">Khoá học Pro</h2>
-        <div className="flex gap-6 overflow-x-auto py-2 pb-4 ">
+        <div className="w-full grid grid-cols-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 py-2 pb-4">
           {proCourses.map((course) => (
             <CourseItem
               key={course.id}
@@ -157,7 +157,7 @@ export default function Home() {
 
       <div className="w-full space-y-4">
         <h2 className="text-2xl font-semibold">Khoá học miễn phí</h2>
-        <div className="flex gap-6 overflow-x-auto py-2 pb-4">
+        <div className="grid grid-cols-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 py-4 pb-6">
           {freeCourses.map((course) => (
             <CourseItem
               key={course.id}

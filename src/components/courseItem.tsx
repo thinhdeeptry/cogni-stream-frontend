@@ -51,7 +51,7 @@ export default function CourseItem({
   return (
     <Link
       href={href}
-      className="min-w-[280px] block transform transition-all duration-300 hover:-translate-y-1"
+      className="w-[300px] block transform transition-all duration-300 hover:-translate-y-1"
     >
       <Card className="max-h-60 overflow-hidden transition-all hover:shadow-xl cursor-pointer">
         <div className="relative max-h-32 aspect-video w-full">
@@ -68,7 +68,9 @@ export default function CourseItem({
           )}
         </div>
         <CardContent className="px-4 py-2.5">
-          <h3 className="font-semibold text-md line-clamp-2 mb-1">{title}</h3>
+          <h3 className="font-semibold text-md line-clamp-1 text-ellipsis overflow-hidden whitespace-nowrap mb-1">
+            {title}
+          </h3>
           <div className="flex items-center gap-2">
             {price === 0 ? (
               <p className="text-red-600 font-normal">Miễn phí</p>

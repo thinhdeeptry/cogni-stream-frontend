@@ -25,9 +25,11 @@ export default function AdminCoursesPage() {
     <div className="p-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Quản lý khoá học</h1>
-        <Button>
-          <Plus className="mr-2 h-4 w-4" /> Thêm khoá học
-        </Button>
+        <Link href="/admin/courses/create">
+          <Button>
+            <Plus className="mr-2 h-4 w-4" /> Thêm khoá học
+          </Button>
+        </Link>
       </div>
 
       <div className="rounded-md border">
@@ -60,12 +62,16 @@ export default function AdminCoursesPage() {
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
-                    <Button variant="outline" size="icon">
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="icon">
-                      <Edit className="h-4 w-4" />
-                    </Button>
+                    <Link href={`/course/${course.id}`}>
+                      <Button variant="outline" size="icon">
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </Link>
+                    <Link href={`/admin/courses/${course.id}`}>
+                      <Button variant="outline" size="icon">
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </Link>
                     <Button
                       variant="outline"
                       size="icon"
