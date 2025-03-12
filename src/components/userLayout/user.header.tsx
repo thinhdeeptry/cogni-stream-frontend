@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import useUserStore from "@/stores/useUserStore";
 
+import { SidebarTrigger } from "../ui/sidebar";
 import Navbar from "./navbar";
 
 export default function UserHeader() {
@@ -19,7 +20,7 @@ export default function UserHeader() {
       clearUser();
       await signOut({ redirect: false });
       toast.success("Đăng xuất thành công");
-      router.push("/");
+      router.push("/auth/login");
     } catch (error) {
       console.error("Logout error:", error);
       toast.error("Có lỗi xảy ra khi đăng xuất");
@@ -27,6 +28,8 @@ export default function UserHeader() {
   };
 
   return (
+    // <header className="flex h-16 items-center gap-4 border-b bg-background px-6">
+
     <div className="flex min-h-screen flex-col">
       <Navbar
         isLoggedIn={isLoggedIn}
@@ -35,5 +38,6 @@ export default function UserHeader() {
         onLogout={handleLogout}
       />
     </div>
+    // </header>
   );
 }

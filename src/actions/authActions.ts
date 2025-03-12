@@ -6,6 +6,8 @@ import { authApi } from "@/lib/api/authApi";
 
 // actions/login.ts
 
+// actions/login.ts
+
 export async function loginUser(email: string, password: string) {
   try {
     const result = await signIn("credentials", {
@@ -19,7 +21,7 @@ export async function loginUser(email: string, password: string) {
       error: false,
       success: true,
       message: "",
-      redirectTo: "/",
+      redirectTo: "/test",
       status: 200,
     };
   } catch (error) {
