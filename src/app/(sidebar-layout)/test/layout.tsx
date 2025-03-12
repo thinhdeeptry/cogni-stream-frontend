@@ -1,3 +1,5 @@
+import UserHeader from "@/components/userLayout/user.header";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -5,7 +7,7 @@ export default function RootLayout({
 }>) {
   return (
     <div>
-      <h1>Sidebar</h1>
+      <UserHeader />
       {children}
     </div>
   );
