@@ -1,159 +1,167 @@
-// app/payment/[id]/page.tsx
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { ClipboardCopy } from 'lucide-react'
-import { Sonner, toast } from "sonner"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
+import Link from 'next/link';
+import { Button } from "@/components/ui/button";
+import { AxiosFactory } from "@/lib/axios";
+import { useState, useEffect } from "react";
+import { usePayOS } from "@payos/payos-checkout";
 
-interface PaymentDetails {
-  amount: number
-  bankAccount: string
-  bankName: string
-  accountName: string
-  reference: string
-  qrCode: string
-  expiresAt: string
-}
+export default function PaymentTestPage() {
+  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
+  const [paymentStatus, setPaymentStatus] = useState<string | null>(null);
+  
 
-export default function PaymentPage({ params }: { params: { id: string } }) {
-  const [timeLeft, setTimeLeft] = useState<string>("")
-  const [payment, setPayment] = useState<PaymentDetails>({
-    amount: 1399000,
-    bankAccount: "9353538222",
-    bankName: "Vietcombank",
-    accountName: "ĐẶNG NGỌC SƠN",
-    reference: "DHG21R",
-    qrCode: "/qr-code.png",
-    expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
-  })
+  // Cấu hình PayOS
+  const payOSConfig = {
+    RETURN_URL: "http://localhost:3000/payment/success",
+    ELEMENT_ID: "embeded-payment-container",
+    CHECKOUT_URL: checkoutUrl,
+    embedded: true,
+    onSuccess: () => {
+      console.log("Payment successful");
+      setPaymentStatus("success");
+    },
+    onExit: () => {
+      console.log("Payment interface exited");
+    },
+  };
 
+  // Kiểm tra môi trường client-side
+  const isClient = typeof window !== "undefined";
+  const { open, exit } =  usePayOS(payOSConfig)
+
+  // Hàm tạo thanh toán
+  const createPayment = async (
+    amount: number,
+    description: string,
+    method: string,
+    serviceId: string,
+    serviceType: string,
+    returnUrl: string,
+    cancelUrl: string
+  ) => {
+    try {
+      const orderCode = Math.floor(Math.random() * 1000000);
+      const response = await AxiosFactory.getApiInstance('payment').post('/payments', {
+        orderCode,
+        amount,
+        description,
+        method,
+        serviceId,
+        serviceType,
+        returnUrl,
+        cancelUrl,
+      });
+      console.log("Checkout URL:", response.data.checkoutUrl);
+      setCheckoutUrl(response.data.checkoutUrl);
+      setPaymentStatus(null);
+    } catch (error) {
+      console.error("Failed to create payment:", error);
+    }
+  };
+
+  // Reset để tạo thanh toán mới
+  const handleReset = () => {
+    setCheckoutUrl(null);
+    setPaymentStatus(null);
+    exit();
+  };
+
+  // Tự động tạo thanh toán và mở giao diện khi trang load
   useEffect(() => {
-    const timer = setInterval(() => {
-      const now = new Date().getTime()
-      const expires = new Date(payment.expiresAt).getTime()
-      const distance = expires - now
-
-      if (distance < 0) {
-        clearInterval(timer)
-        setTimeLeft("00:00:00")
-        return
+    const loadPayment = async () => {
+      if (!checkoutUrl && paymentStatus !== "success") {
+        console.log("Creating payment...");
+        await createPayment(
+          5000,
+          "Thanh toán học phí",
+          "BANK_TRANSFER",
+          "",
+          "Enrollment",
+          "http://localhost:3000/payment/success",
+          "http://localhost:3000/payment/expired"
+        );
       }
 
-      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60))
-      const seconds = Math.floor((distance % (1000 * 60)) / 1000)
-      setTimeLeft(`${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`)
-    }, 1000)
+      if (checkoutUrl && paymentStatus !== "success" && isClient) {
+        if (checkoutUrl.startsWith("https://")) {
+          console.log("Opening payment with checkoutUrl:", checkoutUrl);
+          open();
+        } else {
+          console.error("Invalid checkoutUrl:", checkoutUrl);
+        }
+      }
+    };
 
-    return () => clearInterval(timer)
-  }, [payment.expiresAt])
-
-  const copyToClipboard = (text: string, label: string) => {
-    navigator.clipboard.writeText(text)
-    toast.success(`Đã sao chép ${label}`)
-  }
+    loadPayment();
+  }, [checkoutUrl, paymentStatus, open, isClient]);
 
   return (
-    <div className="container max-w-2xl mx-auto p-4">
-      <Sonner position="top-right" />
-      <Card className="w-full">
-        <CardHeader className="text-center border-b">
-          <CardTitle className="text-xl font-semibold">
-            Quét mã QR để thanh toán
-          </CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Đơn hàng sẽ bị hủy sau: {timeLeft}
+    <div className="container max-w-2xl mx-auto p-4 space-y-4">
+      <h1 className="text-2xl font-bold">Payment Test Page</h1>
+
+      <div className="grid gap-4">
+        <div className="p-4 border rounded-lg">
+          <h2 className="font-semibold mb-2">Payment UI</h2>
+          <p className="text-sm text-muted-foreground mb-4">
+            Giao diện thanh toán nhúng
           </p>
-        </CardHeader>
-        <CardContent className="pt-6">
-          <div className="flex flex-col items-center space-y-6">
-            {/* QR Code */}
-            <div className="w-64 h-64 bg-white p-4 rounded-lg">
-              <img
-                src={payment.qrCode || "/placeholder.svg"}
-                alt="QR Code"
-                className="w-full h-full"
-              />
+
+          {paymentStatus !== "success" && (
+            <div className="mb-4">
+              <p><strong>Tên sản phẩm:</strong> Thanh toán học phí</p>
+              <p><strong>Giá tiền:</strong> 5000 VNĐ</p>
+              <p><strong>Số lượng:</strong> 1</p>
+              {checkoutUrl && !paymentStatus && (
+                <div className="mt-4">
+                  <p className="text-center">Quét mã QR để thanh toán</p>
+                  <p className="text-center text-sm text-gray-500">
+                    Sau khi thanh toán, vui lòng đợi 5-10 giây để hệ thống cập nhật.
+                  </p>
+                </div>
+              )}
             </div>
+          )}
 
-            <p className="text-sm text-center text-muted-foreground">
-              Mở app ngân hàng và quét mã QR. Đảm bảo nội dung chuyển khoản là{" "}
-              <span className="font-semibold">{payment.reference}</span>
-            </p>
-
-            {/* Bank Details */}
-            <div className="w-full space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Ngân hàng</span>
-                <span className="font-medium">{payment.bankName}</span>
-              </div>
-
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">
-                  Số tài khoản
-                </span>
-                <div className="flex items-center gap-2">
-                  <span className="font-medium">{payment.bankAccount}</span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() =>
-                      copyToClipboard(payment.bankAccount, "số tài khoản")
-                    }
-                  >
-                    <ClipboardCopy className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">
-                  Tên tài khoản
-                </span>
-                <span className="font-medium">{payment.accountName}</span>
-              </div>
-
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Số tiền</span>
-                <div className="flex items-center gap-2">
-                  <span className="font-medium">
-                    {payment.amount.toLocaleString()}đ
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() =>
-                      copyToClipboard(payment.amount.toString(), "số tiền")
-                    }
-                  >
-                    <ClipboardCopy className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Nội dung</span>
-                <div className="flex items-center gap-2">
-                  <span className="font-medium">{payment.reference}</span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() =>
-                      copyToClipboard(payment.reference, "nội dung chuyển khoản")
-                    }
-                  >
-                    <ClipboardCopy className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
+          {paymentStatus === "success" && (
+            <div className="mt-4">
+              <p className="text-green-600 font-semibold">Thanh toán thành công!</p>
+              <Button
+                className="bg-blue-500 hover:bg-blue-600 mt-2"
+                onClick={handleReset}
+              >
+                Quay lại trang thanh toán
+              </Button>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          )}
+        </div>
+
+        <div id="embeded-payment-container" className="h-[350px] border border-red-500">
+          {checkoutUrl && !paymentStatus && !payOSConfig.CHECKOUT_URL && (
+            <p className="text-center">Đang tải mã QR...</p>
+          )}
+        </div>
+
+        <div className="p-4 border rounded-lg">
+          <h2 className="font-semibold mb-2">Success Page</h2>
+          <p className="text-sm text-muted-foreground mb-4">
+            Xem trang thanh toán thành công
+          </p>
+          <Link href="/payment/success">
+            <Button className="bg-green-500 hover:bg-green-600">Xem Success</Button>
+          </Link>
+        </div>
+
+        <div className="p-4 border rounded-lg">
+          <h2 className="font-semibold mb-2">Expired Page</h2>
+          <p className="text-sm text-muted-foreground mb-4">
+            Xem trang đơn hàng hết hạn
+          </p>
+          <Link href="/payment/expired">
+            <Button className="bg-red-500 hover:bg-red-600">Xem Expired</Button>
+          </Link>
+        </div>
+      </div>
     </div>
-  )
+  );
 }
