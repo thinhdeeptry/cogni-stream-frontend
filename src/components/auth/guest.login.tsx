@@ -38,7 +38,7 @@ export default function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-
+  const [isMounted, setIsMounted] = useState(false);
   // useEffect(() => {
   //   if (typeof window !== "undefined") {
   //     if (isLoading || error) {
@@ -47,6 +47,9 @@ export default function LoginForm() {
   //     }
   //   }
   // }, []);
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -63,7 +66,6 @@ export default function LoginForm() {
     const { email, password } = values;
     try {
       const result = await loginUser(email, password);
-      console.log("Login result>>> ", result);
       if (result.error) {
         console.log("Login error>>> ", result.message);
         toast.error(result.message);
@@ -87,7 +89,7 @@ export default function LoginForm() {
 
   return (
     <div className="min-h-screen bg-main-50 flex items-center justify-center p-6 relative">
-      <Toaster richColors position="top-right" />
+      {isMounted && <Toaster richColors position="top-right" />}
       <Card className="w-full max-w-md bg-white rounded-xl shadow-sm">
         <CardHeader className="text-center pt-8 pb-2">
           <h2 className="text-2xl font-bold">
@@ -144,7 +146,14 @@ export default function LoginForm() {
                         </Button>
                       </div>
                     </FormControl>
-                    <FormMessage />
+                    <FormMessage>
+                      <a
+                        href="#"
+                        className="ml-auto text-sm underline-offset-2 hover:underline"
+                      >
+                        Forgot your password?
+                      </a>
+                    </FormMessage>
                   </FormItem>
                 )}
               />

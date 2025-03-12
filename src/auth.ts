@@ -49,7 +49,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             id: response.user.id,
             email: response.user.email,
             name: response.user.name,
-            accessToken: response.access_token,
+            role: response.user.role,
+            accountType: response.user.accountType,
+            isActive: response.user.isActive,
+            phone: response.user.phone,
+            address: response.user.address,
+            image: response.user.image,
+            accessToken: response.access_token, // Add access token directly to user object
           };
           return user;
         }

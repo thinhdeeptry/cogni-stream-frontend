@@ -13,6 +13,8 @@ import { AuthError } from "next-auth";
 
 // actions/login.ts
 
+// actions/login.ts
+
 export async function loginUser(email: string, password: string) {
   try {
     const result = await signIn("credentials", {
@@ -103,24 +105,15 @@ export async function verifyUser(id: string, otp: string) {
     // Nếu thành công, trả về thông tin để FE xử lý chuyển hướng
     if (result.error) {
       if (result.statusCode === 400) {
-        return {
-          error: true,
-          success: false,
-          message: result.message,
-          status: 400,
-        };
+        console.log("check error verrify >>>", result);
+        return result;
       }
-      return {
-        error: true,
-        success: false,
-        message: "Đã xảy ra lỗi không xác định. Vui lòng thử lại sau.",
-        status: 500,
-      };
+      return result;
     }
     return {
       error: false,
       success: true,
-      message: "",
+      message: "Xác thực thành công!",
       redirectTo: `/auth/login`,
       data: result.data,
       status: 200,
