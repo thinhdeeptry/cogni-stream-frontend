@@ -28,9 +28,7 @@ export default function UserHeader() {
   };
 
   return (
-    // <header className="flex h-16 items-center gap-4 border-b bg-background px-6">
-
-    <div className="flex min-h-screen flex-col">
+    <div className="w-full">
       <Navbar
         isLoggedIn={isLoggedIn}
         userAvatar={user?.image || ""}
@@ -38,6 +36,5 @@ export default function UserHeader() {
         onLogout={handleLogout}
       />
     </div>
-    // </header>
   );
 }

@@ -1,13 +1,14 @@
 // actions/login.ts
 "use server";
 
-import { signIn } from "@/auth";
+import { auth, signIn } from "@/auth";
 import { authApi } from "@/lib/api/authApi";
 
 // actions/login.ts
 
 // actions/login.ts
 
+// actions/login.ts
 export async function loginUser(email: string, password: string) {
   try {
     const result = await signIn("credentials", {
@@ -15,8 +16,26 @@ export async function loginUser(email: string, password: string) {
       password,
       redirect: false, // Không redirect tự động, xử lý bằng FE
     });
-
+    const session = await auth();
     // Nếu thành công, trả về thông tin để FE xử lý chuyển hướng
+    if (session?.user?.role === "ADMIN") {
+      return {
+        error: false,
+        success: true,
+        message: "",
+        redirectTo: "/admin",
+        status: 200,
+      };
+    }
+    if (result.role === "ADMIN") {
+      return {
+        error: false,
+        success: true,
+        message: "",
+        redirectTo: "/admin",
+        status: 200,
+      };
+    }
     return {
       error: false,
       success: true,
@@ -152,6 +171,50 @@ export async function RefreshOTPUser(id: string) {
       error: true,
       success: false,
       message: "Đã xảy ra lỗi không xác định. Vui lòng thử lại sau.",
+      status: 500,
+    };
+  }
+}
+export async function getDashboardData(
+  query: string = "",
+  current: number = 1,
+  pageSize: number = 10,
+) {
+  try {
+    const session = await auth();
+
+    const accessToken = session?.accessToken;
+
+    const result = await authApi.getData(
+      accessToken || "",
+      query,
+      current,
+      pageSize,
+    );
+    console.log("check result in action >>>", result);
+
+    if (result.error) {
+      return {
+        error: true,
+        success: false,
+        message: result.message,
+        status: result.statusCode,
+      };
+    }
+
+    return {
+      error: false,
+      success: true,
+      message: "Lấy dữ liệu thành công",
+      data: result.data,
+      status: 200,
+    };
+  } catch (error) {
+    console.error("Dashboard data fetch error:", error);
+    return {
+      error: true,
+      success: false,
+      message: "Đã xảy ra lỗi khi lấy dữ liệu dashboard. Vui lòng thử lại sau.",
       status: 500,
     };
   }

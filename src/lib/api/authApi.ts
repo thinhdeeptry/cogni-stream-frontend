@@ -1,3 +1,5 @@
+import useUserStore from "@/stores/useUserStore";
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 // Lớp gọi API cho Auth
@@ -235,6 +237,52 @@ class AuthApi {
     }
 
     return response.json();
+  }
+  async getData(
+    accessToken: string,
+    query: string = "",
+    current: number = 1,
+    pageSize: number = 10,
+  ) {
+    console.log("check accessToken >>>", accessToken);
+
+    if (!accessToken) {
+      throw new Error("Không có token xác thực. Vui lòng đăng nhập lại.");
+    }
+
+    // Xây dựng query params
+    const params = new URLSearchParams();
+    if (query) params.append("query", query);
+    // params.append('query', current.toString());
+    params.append("current", current.toString());
+    params.append("pageSize", pageSize.toString());
+
+    const url = `${API_URL}/dashboard?${params.toString()}`;
+    console.log("check url>>> ", url);
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: this.getHeaders(accessToken),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      return {
+        error: true,
+        statusCode: response.status,
+        message:
+          errorData.message || "Đã xảy ra lỗi khi lấy dữ liệu từ dashboard",
+        data: null,
+      };
+    }
+
+    const data = await response.json();
+    return {
+      error: false,
+      statusCode: 200,
+      message: "Lấy dữ liệu thành công",
+      data: data,
+    };
   }
 }
 

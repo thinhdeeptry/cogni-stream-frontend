@@ -34,7 +34,7 @@ export default function AdminLayout({
       return;
     }
 
-    if (session.user.role !== "USER") {
+    if (session.user.role !== "ADMIN") {
       router.push("/unauthorized");
     }
   }, [session, status, router]);
@@ -46,9 +46,9 @@ export default function AdminLayout({
   return (
     <SidebarProvider>
       <AdminSidebar />
-      <SidebarInset>
+      <SidebarInset className="flex flex-col h-screen">
         <UserHeader />
-        <main className="flex-1 p-6">{children}</main>
+        <main className="flex-1 p-6 overflow-auto">{children}</main>
       </SidebarInset>
     </SidebarProvider>
   );
