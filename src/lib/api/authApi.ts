@@ -68,9 +68,12 @@ class AuthApi {
       case 201:
         return data;
       case 400:
+        console.log("check response in authAPI >> ", data.userId);
+
         return {
           statusCode: 400,
           error: true,
+          _id: data.userId,
           message:
             data.message ||
             "Tài khoản chưa được kích hoạt. Vui lòng kiểm tra email để kích hoạt.",
@@ -101,7 +104,7 @@ class AuthApi {
 
   // Đăng nhập
   async login(email: string, password: string) {
-    const response = await fetch("http://localhost:8080/api/v1/auth/login", {
+    const response = await fetch(`${API_URL}/auth/login`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -185,16 +188,13 @@ class AuthApi {
     }
   };
   async verifyOTP(id: string, otp: string) {
-    const response = await fetch(
-      "http://localhost:8080/api/v1/auth/verify-otp",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ id, otp }),
+    const response = await fetch(`${API_URL}/auth/verify-otp`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
       },
-    );
+      body: JSON.stringify({ id, otp }),
+    });
 
     const data = await response.json();
 
@@ -205,16 +205,13 @@ class AuthApi {
     return data;
   }
   async refreshOTP(id: string) {
-    const response = await fetch(
-      "http://localhost:8080/api/v1/auth/refresh-otp",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ id }),
+    const response = await fetch(`${API_URL}/auth/refresh-otp`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
       },
-    );
+      body: JSON.stringify({ id }),
+    });
 
     const data = await response.json();
 
