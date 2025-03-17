@@ -4,11 +4,13 @@ import Link from "next/link";
 
 import { mockDb } from "@/data/mockDb";
 import {
+  BarChart,
   Bell,
   BookOpen,
   GraduationCap,
   Home,
   LayoutDashboard,
+  Users,
 } from "lucide-react";
 
 import {
@@ -45,11 +47,23 @@ const getMenuItems = (userRole: string) => {
   ];
 
   if (userRole === "ADMIN") {
-    baseItems.push({
-      title: "Quản lý",
-      url: "/admin/courses",
-      icon: LayoutDashboard,
-    });
+    baseItems.push(
+      {
+        title: "Quản lý",
+        url: "/admin/courses",
+        icon: LayoutDashboard,
+      },
+      {
+        title: "User",
+        url: "/admin/users",
+        icon: Users,
+      },
+      {
+        title: "Report",
+        url: "/admin/reports",
+        icon: BarChart,
+      },
+    );
   }
 
   return baseItems;
