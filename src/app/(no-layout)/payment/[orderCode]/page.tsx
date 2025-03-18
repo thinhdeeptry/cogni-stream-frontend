@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Loader2, CheckCircle, AlertCircle } from "lucide-react"
 import { AxiosFactory } from "@/lib/axios"
-import { usePayOS } from "@payos/payos-checkout";
+import { usePayOS } from "@payos/payos-checkout"
+
 export default function PaymentPage() {
   const params = useParams()
   const router = useRouter()
@@ -17,7 +18,21 @@ export default function PaymentPage() {
   const [timeLeft, setTimeLeft] = useState(300) // 5 minutes in seconds
 
   // Get the orderId from URL params and convert to number
-  const orderId = Number.parseInt(params.orderId as string)
+  const orderId = Number.parseInt(params.orderCode as string)
+
+  // PayOS configuration
+  const [payOSConfig, setPayOSConfig] = useState({
+    RETURN_URL: "http://localhost:3000/payment/success", // required
+    ELEMENT_ID: "embedded-payment-container", // required
+    CHECKOUT_URL: "", // required
+    embedded: true, // Use embedded UI
+    onSuccess: (event: any) => {
+      handlePaymentSuccess()
+    },
+  })
+
+  const { open, exit } = usePayOS(payOSConfig)
+
   // Fetch payment data
   useEffect(() => {
     const fetchPaymentData = async () => {
@@ -28,7 +43,12 @@ export default function PaymentPage() {
 
         if (response.data) {
           setPaymentData(response.data)
-          
+
+          // Set the checkout URL for PayOS
+          setPayOSConfig((oldConfig) => ({
+            ...oldConfig,
+            CHECKOUT_URL: response.data.checkoutUrl,
+          }))
 
           // Check if payment is already expired or completed
           if (response.data.status === "EXPIRED") {
@@ -71,6 +91,13 @@ export default function PaymentPage() {
     fetchPaymentData()
   }, [orderId, router])
 
+  // Open PayOS when checkout URL is available
+  useEffect(() => {
+    if (payOSConfig.CHECKOUT_URL) {
+      open()
+    }
+  }, [payOSConfig, open])
+
   // Countdown timer for payment expiration
   useEffect(() => {
     if (!loading && paymentStatus === "pending") {
@@ -100,6 +127,7 @@ export default function PaymentPage() {
   // Handle payment expiration
   const handlePaymentExpired = async () => {
     try {
+      exit() // Close PayOS QR code
       // Update payment status to EXPIRED
       await AxiosFactory.getApiInstance("payment").put(`/payments/order/${orderId}/status`, {
         status: "EXPIRED",
@@ -119,6 +147,7 @@ export default function PaymentPage() {
     try {
       console.log("Payment successful")
       setPaymentStatus("success")
+      exit() // Close PayOS QR code
 
       // Update payment status to COMPLETED
       await AxiosFactory.getApiInstance("payment").put(`/payments/order/${orderId}/status`, {
@@ -147,6 +176,11 @@ export default function PaymentPage() {
       setErrorMessage("Có lỗi xảy ra khi cập nhật trạng thái thanh toán.")
       setPaymentStatus("error")
     }
+  }
+
+  // Close PayOS QR code
+  const handleClosePayOS = () => {
+    exit()
   }
 
   const formatPrice = (price: number) => {
@@ -213,23 +247,8 @@ export default function PaymentPage() {
                 <p className="text-sm text-muted-foreground mb-4">
                   Sử dụng ứng dụng ngân hàng để quét mã QR bên dưới và hoàn tất thanh toán
                 </p>
-                <div
-                  id="embedded-payment-container"
-                  className="h-[350px] border rounded-md flex items-center justify-center"
-                >
-                  {paymentData.checkoutUrl ? (
-                    <iframe
-                      src={paymentData.checkoutUrl}
-                      className="w-full h-full border-0"
-                      onLoad={() => console.log("Payment iframe loaded")}
-                    />
-                  ) : (
-                    <div className="text-center p-4">
-                      <AlertCircle className="h-8 w-8 text-red-500 mx-auto mb-2" />
-                      <p>Không thể tải mã QR thanh toán</p>
-                    </div>
-                  )}
-                </div>
+
+                <div id="embedded-payment-container" className="w-full h-96"></div>
               </div>
 
               <div className="rounded-md bg-blue-50 p-4">
@@ -237,13 +256,6 @@ export default function PaymentPage() {
                   Lưu ý: Sau khi thanh toán thành công, vui lòng không đóng trang này cho đến khi hệ thống chuyển hướng
                   tự động. Đơn hàng sẽ hết hạn sau {formatTimeLeft()}.
                 </p>
-              </div>
-
-              {/* Nút này chỉ để test, trong thực tế sẽ được xử lý bởi webhook */}
-              <div className="mt-4">
-                <Button variant="outline" className="w-full" onClick={handlePaymentSuccess}>
-                  Giả lập thanh toán thành công
-                </Button>
               </div>
             </div>
           ) : (
