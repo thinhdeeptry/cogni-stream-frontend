@@ -3,10 +3,10 @@
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, CheckCircle, AlertCircle } from "lucide-react"
+import { Card, CardContent } from "@/components/ui/card"
+import { Loader2, CheckCircle, AlertCircle, Clock } from "lucide-react"
 import { AxiosFactory } from "@/lib/axios"
-import { usePayOS } from "@payos/payos-checkout"
+import { Separator } from "@/components/ui/separator"
 
 export default function PaymentPage() {
   const params = useParams()
@@ -20,19 +20,6 @@ export default function PaymentPage() {
   // Get the orderId from URL params and convert to number
   const orderId = Number.parseInt(params.orderCode as string)
 
-  // PayOS configuration
-  const [payOSConfig, setPayOSConfig] = useState({
-    RETURN_URL: "http://localhost:3000/payment/success", // required
-    ELEMENT_ID: "embedded-payment-container", // required
-    CHECKOUT_URL: "", // required
-    embedded: true, // Use embedded UI
-    onSuccess: (event: any) => {
-      handlePaymentSuccess()
-    },
-  })
-
-  const { open, exit } = usePayOS(payOSConfig)
-
   // Fetch payment data
   useEffect(() => {
     const fetchPaymentData = async () => {
@@ -43,12 +30,6 @@ export default function PaymentPage() {
 
         if (response.data) {
           setPaymentData(response.data)
-
-          // Set the checkout URL for PayOS
-          setPayOSConfig((oldConfig) => ({
-            ...oldConfig,
-            CHECKOUT_URL: response.data.checkoutUrl,
-          }))
 
           // Check if payment is already expired or completed
           if (response.data.status === "EXPIRED") {
@@ -91,13 +72,6 @@ export default function PaymentPage() {
     fetchPaymentData()
   }, [orderId, router])
 
-  // Open PayOS when checkout URL is available
-  useEffect(() => {
-    if (payOSConfig.CHECKOUT_URL) {
-      open()
-    }
-  }, [payOSConfig, open])
-
   // Countdown timer for payment expiration
   useEffect(() => {
     if (!loading && paymentStatus === "pending") {
@@ -127,7 +101,6 @@ export default function PaymentPage() {
   // Handle payment expiration
   const handlePaymentExpired = async () => {
     try {
-      exit() // Close PayOS QR code
       // Update payment status to EXPIRED
       await AxiosFactory.getApiInstance("payment").put(`/payments/order/${orderId}/status`, {
         status: "EXPIRED",
@@ -147,7 +120,6 @@ export default function PaymentPage() {
     try {
       console.log("Payment successful")
       setPaymentStatus("success")
-      exit() // Close PayOS QR code
 
       // Update payment status to COMPLETED
       await AxiosFactory.getApiInstance("payment").put(`/payments/order/${orderId}/status`, {
@@ -178,11 +150,6 @@ export default function PaymentPage() {
     }
   }
 
-  // Close PayOS QR code
-  const handleClosePayOS = () => {
-    exit()
-  }
-
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("vi-VN", {
       style: "currency",
@@ -191,18 +158,24 @@ export default function PaymentPage() {
   }
 
   return (
-    <div className="container max-w-3xl mx-auto p-4 space-y-6 min-h-screen flex flex-col justify-center">
-      <Card className="w-full">
-        <CardHeader>
-          <CardTitle className="text-xl md:text-2xl">Thanh toán khóa học</CardTitle>
-        </CardHeader>
+    <div className="container mx-auto p-4 min-h-screen flex flex-col justify-center">
+      {/* Countdown timer at the top center */}
+      {paymentStatus === "pending" && paymentData && (
+        <div className="flex justify-center mb-6">
+          <div className="flex items-center gap-2 bg-red-100 text-red-700 px-4 py-2 rounded-full font-bold">
+            <Clock className="h-5 w-5" />
+            <span>Thời gian còn lại: {formatTimeLeft()}</span>
+          </div>
+        </div>
+      )}
 
-        <CardContent>
-          {loading ? (
-            <div className="flex justify-center items-center py-12">
-              <Loader2 className="h-12 w-12 animate-spin text-primary" />
-            </div>
-          ) : paymentStatus === "success" ? (
+      {loading ? (
+        <div className="flex justify-center items-center py-12">
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        </div>
+      ) : paymentStatus === "success" ? (
+        <Card className="w-full max-w-3xl mx-auto">
+          <CardContent className="p-6">
             <div className="flex flex-col items-center justify-center py-8 space-y-4">
               <CheckCircle className="h-16 w-16 text-green-500" />
               <p className="text-lg font-medium">Thanh toán thành công!</p>
@@ -211,54 +184,117 @@ export default function PaymentPage() {
               </p>
               {errorMessage && <p className="text-sm text-red-500 text-center mt-2">{errorMessage}</p>}
             </div>
-          ) : paymentStatus === "error" ? (
+          </CardContent>
+        </Card>
+      ) : paymentStatus === "error" ? (
+        <Card className="w-full max-w-3xl mx-auto">
+          <CardContent className="p-6">
             <div className="flex flex-col items-center justify-center py-8 space-y-4">
               <AlertCircle className="h-16 w-16 text-red-500" />
               <p className="text-lg font-medium">Đã xảy ra lỗi</p>
               <p className="text-sm text-red-500 text-center">{errorMessage}</p>
               <Button onClick={() => router.push("/courses")}>Quay lại trang khóa học</Button>
             </div>
-          ) : paymentData ? (
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <h3 className="font-medium">Thông tin đơn hàng</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border rounded-md">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Khóa học</p>
-                    <p className="font-medium">{paymentData.description}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Mã đơn hàng</p>
-                    <p className="font-medium">{orderId}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Số tiền</p>
-                    <p className="font-medium">{formatPrice(paymentData.amount)}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Thời gian còn lại</p>
-                    <p className="font-medium text-red-500">{formatTimeLeft()}</p>
+          </CardContent>
+        </Card>
+      ) : paymentData ? (
+        <Card className="w-full max-w-5xl mx-auto">
+          <CardContent className="p-0">
+            <div className="grid grid-cols-1 md:grid-cols-2">
+              {/* Left side - Course information */}
+              <div className="p-6 space-y-6">
+                <div>
+                  <h2 className="text-2xl font-bold mb-4">Thanh toán khóa học</h2>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <h3 className="font-medium text-lg">Thông tin khóa học</h3>
+                      <div className="space-y-3 p-4 border rounded-md">
+                        <div>
+                          <p className="text-sm text-muted-foreground">Khóa học</p>
+                          <p className="font-medium">{paymentData.description}</p>
+                        </div>
+
+                        {/* Display instructor, duration, level if available in metadata */}
+                        {paymentData.metadata?.instructor && (
+                          <div>
+                            <p className="text-sm text-muted-foreground">Giảng viên</p>
+                            <p className="font-medium">{paymentData.metadata.instructor}</p>
+                          </div>
+                        )}
+
+                        {paymentData.metadata?.duration && (
+                          <div>
+                            <p className="text-sm text-muted-foreground">Thời lượng</p>
+                            <p className="font-medium">{paymentData.metadata.duration}</p>
+                          </div>
+                        )}
+
+                        {paymentData.metadata?.level && (
+                          <div>
+                            <p className="text-sm text-muted-foreground">Trình độ</p>
+                            <p className="font-medium">{paymentData.metadata.level}</p>
+                          </div>
+                        )}
+
+                        <div>
+                          <p className="text-sm text-muted-foreground">Số tiền</p>
+                          <p className="font-medium">{formatPrice(paymentData.amount)}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="rounded-md bg-blue-50 p-4">
+                      <p className="text-sm text-blue-700">
+                        Lưu ý: Sau khi thanh toán thành công, vui lòng không đóng trang này cho đến khi hệ thống chuyển
+                        hướng tự động.
+                      </p>
+                    </div>
+
+                    {/* Cancel payment button */}
+                    <Button variant="outline" className="w-full" onClick={() => router.push("/courses")}>
+                      Hủy thanh toán
+                    </Button>
                   </div>
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <h3 className="font-medium">Quét mã QR để thanh toán</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Sử dụng ứng dụng ngân hàng để quét mã QR bên dưới và hoàn tất thanh toán
-                </p>
-
-                <div id="embedded-payment-container" className="w-full h-96"></div>
+              {/* Separator for mobile view */}
+              <div className="md:hidden px-6">
+                <Separator className="my-4" />
               </div>
 
-              <div className="rounded-md bg-blue-50 p-4">
-                <p className="text-sm text-blue-700">
-                  Lưu ý: Sau khi thanh toán thành công, vui lòng không đóng trang này cho đến khi hệ thống chuyển hướng
-                  tự động. Đơn hàng sẽ hết hạn sau {formatTimeLeft()}.
-                </p>
+              {/* Right side - Payment QR code */}
+              <div className="p-6 border-l border-border">
+                <div className="space-y-4">
+                  <h3 className="font-medium text-lg">Quét mã QR để thanh toán</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Sử dụng ứng dụng ngân hàng để quét mã QR bên dưới và hoàn tất thanh toán
+                  </p>
+                  <div
+                    id="embedded-payment-container"
+                    className="h-[400px] border rounded-md flex items-center justify-center"
+                  >
+                    {paymentData.checkoutUrl ? (
+                      <iframe
+                        src={paymentData.checkoutUrl}
+                        className="w-full h-full border-0"
+                        onLoad={() => console.log("Payment iframe loaded")}
+                      />
+                    ) : (
+                      <div className="text-center p-4">
+                        <AlertCircle className="h-8 w-8 text-red-500 mx-auto mb-2" />
+                        <p>Không thể tải mã QR thanh toán</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
-          ) : (
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="w-full max-w-3xl mx-auto">
+          <CardContent className="p-6">
             <div className="flex flex-col items-center justify-center py-8 space-y-4">
               <AlertCircle className="h-16 w-16 text-red-500" />
               <p className="text-lg font-medium">Không tìm thấy thông tin thanh toán</p>
@@ -267,17 +303,9 @@ export default function PaymentPage() {
               </p>
               <Button onClick={() => router.push("/courses")}>Quay lại trang khóa học</Button>
             </div>
-          )}
-        </CardContent>
-
-        {paymentStatus === "pending" && paymentData && (
-          <CardFooter>
-            <Button variant="outline" className="w-full" onClick={() => router.push("/courses")}>
-              Hủy thanh toán
-            </Button>
-          </CardFooter>
-        )}
-      </Card>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

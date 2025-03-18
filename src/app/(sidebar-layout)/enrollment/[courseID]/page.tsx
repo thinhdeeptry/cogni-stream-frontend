@@ -15,7 +15,7 @@ const getCourseById = (id: string) => ({
   description: "Khóa học nâng cao về React.js, hooks, và state management",
   isFree: false,
   price: 5000,
-  instructor: "Nguyễn Văn Giảng Viên",
+  instructor: "Nguyễn Trọng Tiến",
   duration: "12 giờ",
   level: "Nâng cao",
 })
@@ -98,13 +98,17 @@ export default function EnrollmentPage() {
           serviceId: course.id, // ID của khóa học
           returnUrl: returnUrl,
           cancelUrl: cancelUrl,
-          // Thêm metadata để sử dụng sau khi thanh toán
+          // Thêm metadata để sử dụng sau khi thanh toán và hiển thị trên trang thanh toán
           metadata: {
             courseId: course.id,
             userId: mockUser.id,
             userName: mockUser.name,
             courseName: course.name,
             serviceType: "COURSE_ENROLLMENT",
+            // Thêm thông tin mới theo yêu cầu
+            instructor: course.instructor,
+            duration: course.duration,
+            level: course.level,
           },
         }
 

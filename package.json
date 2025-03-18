@@ -15,6 +15,7 @@
   "dependencies": {
     "@payos/node": "^1.0.10",
     "@payos/payos-checkout": "^1.0.8",
+    "@radix-ui/react-separator": "^1.1.2",
     "@radix-ui/react-slot": "^1.1.2",
     "@react-spring/web": "^9.7.5",
     "axios": "^1.7.9",
