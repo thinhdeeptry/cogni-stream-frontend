@@ -15,7 +15,7 @@ export async function middleware(request: any) {
       return NextResponse.redirect(new URL("/auth/login", request.url));
     }
 
-    if (session.user.role !== "USER") {
+    if (session.user.role !== "ADMIN") {
       // Logged in but not an admin, redirect to home or unauthorized page
       return NextResponse.redirect(new URL("/unauthorized", request.url));
     }

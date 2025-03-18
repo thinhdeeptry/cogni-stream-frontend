@@ -34,8 +34,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         if (response.error) {
           if (response.statusCode === 400) {
-            // Tài khoản chưa kích hoạt
-            throw new AccountNotActivatedError();
+            throw new AccountNotActivatedError(response._id);
           } else if (response.statusCode === 401) {
             // Sai email hoặc mật khẩu
             throw new InvalidEmailPasswordError();
