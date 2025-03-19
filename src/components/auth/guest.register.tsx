@@ -40,6 +40,11 @@ export default function RegisterForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // useEffect(() => {
   //   if (typeof window !== "undefined") {
@@ -90,6 +95,18 @@ export default function RegisterForm() {
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
   };
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-main-50 flex items-center justify-center p-6">
+        <Card className="w-full max-w-md bg-white rounded-xl shadow-sm">
+          <CardHeader className="text-center pt-8 pb-2">
+            <h2 className="text-2xl font-bold">Loading...</h2>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-main-50 flex items-center justify-center p-6 relative">

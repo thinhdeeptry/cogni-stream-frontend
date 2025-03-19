@@ -13,12 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
 export default function GuestVerify(props: { id: string }) {
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      toast.success("Vui lòng kiểm tra email để xác thực!");
-      startCountdown();
-    }
-  }, []);
+  const [mounted, setMounted] = useState(false);
   const { id } = props;
   const router = useRouter();
   const [code, setCode] = useState(["", "", "", "", "", ""]);
@@ -28,6 +23,11 @@ export default function GuestVerify(props: { id: string }) {
   const timerRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
   useEffect(() => {
+    setMounted(true);
+    if (typeof window !== "undefined") {
+      toast.success("Vui lòng kiểm tra email để xác thực!");
+      startCountdown();
+    }
     // Cleanup timer on unmount
     return () => {
       if (timerRef.current) {
@@ -146,6 +146,18 @@ export default function GuestVerify(props: { id: string }) {
     return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
   };
 
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-main-50 via-main-100 to-yellow-100 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md bg-white rounded-xl shadow-lg">
+          <CardHeader className="text-center pt-8 pb-2">
+            <h2 className="text-2xl font-bold">Loading...</h2>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-main-50 via-main-100 to-yellow-100 flex items-center justify-center p-4">
       <Toaster richColors position="top-right" />
@@ -167,7 +179,9 @@ export default function GuestVerify(props: { id: string }) {
             {code.map((digit, index) => (
               <input
                 key={index}
-                ref={(el) => (inputRefs.current[index] = el)}
+                ref={(el: HTMLInputElement | null): void => {
+                  inputRefs.current[index] = el;
+                }}
                 type="text"
                 inputMode="numeric"
                 maxLength={1}

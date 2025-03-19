@@ -8,6 +8,8 @@ import { authApi } from "@/lib/api/authApi";
 
 // actions/login.ts
 
+// actions/login.ts
+
 export async function loginUser(email: string, password: string) {
   try {
     // First attempt to sign in
@@ -48,6 +50,8 @@ export async function loginUser(email: string, password: string) {
     }
     // If login successful, get session to check user role
     const session = await auth();
+    // console.log("check session in action>>> ", session);
+
     // Redirect based on user role
     if (session?.user?.role === "ADMIN") {
       return {
@@ -64,7 +68,7 @@ export async function loginUser(email: string, password: string) {
       error: false,
       success: true,
       message: "Đăng nhập thành công!",
-      redirectTo: "/dashboard",
+      redirectTo: "/",
       status: 200,
     };
   } catch (error: any) {

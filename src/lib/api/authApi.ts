@@ -1,4 +1,6 @@
-import useUserStore from "@/stores/useUserStore";
+import { jwtDecode } from "jwt-decode";
+
+import useUserStore from "@/stores/useUserStoree";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -66,6 +68,13 @@ class AuthApi {
   handleErrorsLogin = (response: Response, data: any) => {
     switch (response.status) {
       case 201:
+        localStorage.setItem("refreshToken", data.refreshToken);
+        useUserStore.getState().setUser(data.user, data.access_token);
+        useUserStore.getState().setTokens(data.access_token, data.refreshToken);
+        console.log(
+          "check refreshTOken >>> ",
+          useUserStore.getState().refreshToken,
+        );
         return data;
       case 400:
         console.log("check response in authAPI >> ", data.userId);
@@ -110,10 +119,16 @@ class AuthApi {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ email, password }),
+      credentials: "include", // để cookies hoạt động
     });
-
     const data = await response.json();
 
+    // Cập nhật accessToken vào store
+    if (data.accessToken) {
+      useUserStore
+        .getState()
+        .setTokens(data.accessToken, data.refreshToken || "");
+    }
     // Sử dụng hàm handleErrors để kiểm tra lỗi
     if (!response.ok) {
       return this.handleErrorsLogin(response, data);
@@ -121,21 +136,6 @@ class AuthApi {
     return data;
   }
 
-  // Làm mới token
-  async refresh(refreshToken: string) {
-    const response = await fetch(`${API_URL}/auth/refresh`, {
-      method: "POST",
-      headers: this.getHeaders(),
-      body: JSON.stringify({ refreshToken }),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || "Refresh token failed");
-    }
-
-    return response.json(); // Trả về { accessToken, refreshToken }
-  }
   handleErrorsVerify = (response: Response, data: any) => {
     switch (response.status) {
       case 201:
@@ -162,7 +162,7 @@ class AuthApi {
         };
     }
   };
-  handleErrorsRefresh = (response: Response, data: any) => {
+  handleErrorsRefreshOTP = (response: Response, data: any) => {
     switch (response.status) {
       case 201:
         return {
@@ -217,7 +217,7 @@ class AuthApi {
 
     // Sử dụng hàm handleErrors để kiểm tra lỗi
     if (!response.ok) {
-      return this.handleErrorsVerify(response, data);
+      return this.handleErrorsRefreshOTP(response, data);
     }
     return data;
   }
@@ -235,16 +235,38 @@ class AuthApi {
 
     return response.json();
   }
+  // làm mới token
+  async refresh(): Promise<{ accessToken: string }> {
+    try {
+      const response = await fetch(`${API_URL}/auth/token`, {
+        method: "GET",
+        credentials: "include", // Important to include cookies
+      });
+      console.log("check response in api >>> ", response);
+
+      if (!response.ok) {
+        throw new Error("Failed to refresh token");
+      }
+
+      const data = await response.json();
+      useUserStore.getState().setTokens(data.accessToken, ""); // Cập nhật accessToken
+      return data;
+    } catch (error) {
+      console.error("Token refresh error:", error);
+      // Handle authentication errors, possibly by redirecting to login
+      throw error;
+    }
+  }
   async getData(
     accessToken: string,
     query: string = "",
     current: number = 1,
     pageSize: number = 10,
   ) {
-    console.log("check accessToken >>>", accessToken);
-
-    if (!accessToken) {
-      throw new Error("Không có token xác thực. Vui lòng đăng nhập lại.");
+    if (!accessToken || this.isTokenExpired(accessToken)) {
+      const accessTokenNew = await this.refresh();
+      accessToken = accessTokenNew.accessToken;
+      console.log("check accessTokenNew >>>", accessTokenNew);
     }
 
     // Xây dựng query params
@@ -280,6 +302,21 @@ class AuthApi {
       message: "Lấy dữ liệu thành công",
       data: data,
     };
+  }
+  private isTokenExpired(token: string): boolean {
+    try {
+      const decoded: any = jwtDecode(token);
+      // Lấy thời gian hết hạn từ token (exp là timestamp tính bằng giây)
+      const expirationTime = decoded.exp * 1000; // Chuyển sang milliseconds
+      const currentTime = Date.now();
+
+      // Trả về true nếu token đã hết hạn hoặc sắp hết hạn (còn dưới 30 giây)
+      return expirationTime <= currentTime + 400000;
+    } catch (error) {
+      console.error("Error decoding token:", error);
+      // Nếu không thể decode token, coi như token đã hết hạn
+      return true;
+    }
   }
 }
 

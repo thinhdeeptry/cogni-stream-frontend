@@ -3,7 +3,7 @@ import { DefaultSession, DefaultUser, JWT } from "next-auth";
 
 declare global {
   interface IUser {
-    _id: string;
+    id: string;
     name: string;
     email: string;
     phone?: string;

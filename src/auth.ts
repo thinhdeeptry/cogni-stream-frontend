@@ -9,14 +9,24 @@ import {
   ServerError,
 } from "./utils/errors";
 
-export const { handlers, signIn, signOut, auth } = NextAuth({
+export const {
+  handlers,
+  signIn,
+  signOut,
+  auth,
+}: {
+  handlers: any;
+  signIn: any;
+  signOut: any;
+  auth: any;
+} = NextAuth({
   providers: [
     Credentials({
       credentials: {
         email: {},
         password: { label: "Password", type: "password" },
       },
-      authorize: async (credentials) => {
+      authorize: async (credentials, request): Promise<IUser | null> => {
         if (!credentials?.email || !credentials?.password) {
           return null;
         }
@@ -54,6 +64,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             phone: response.user.phone,
             address: response.user.address,
             image: response.user.image,
+            createdAt: response.user.createdAt,
             accessToken: response.access_token, // Add access token directly to user object
           };
           return user;
@@ -98,6 +109,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         phone: token.phone,
         address: token.address,
         image: token.image,
+        session: token.session,
       };
       // Lưu accessToken ở cấp session, không phải trong user
       session.accessToken = token.accessToken;

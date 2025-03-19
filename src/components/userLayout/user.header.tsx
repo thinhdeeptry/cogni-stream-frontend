@@ -1,19 +1,23 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 import { signOut } from "next-auth/react";
 import { toast } from "sonner";
 
-import useUserStore from "@/stores/useUserStore";
+import useUserStore from "@/stores/useUserStoree";
 
-import { SidebarTrigger } from "../ui/sidebar";
 import Navbar from "./navbar";
 
 export default function UserHeader() {
+  const [mounted, setMounted] = useState(false);
   const { user, accessToken, clearUser } = useUserStore();
-  const isLoggedIn = !!user && !!accessToken;
   const router = useRouter();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -26,6 +30,12 @@ export default function UserHeader() {
       toast.error("Có lỗi xảy ra khi đăng xuất");
     }
   };
+
+  if (!mounted) {
+    return null;
+  }
+
+  const isLoggedIn = !!user && !!accessToken;
 
   return (
     <div className="w-full">

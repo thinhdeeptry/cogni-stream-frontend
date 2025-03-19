@@ -38,17 +38,10 @@ export default function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [isMounted, setIsMounted] = useState(false);
-  // useEffect(() => {
-  //   if (typeof window !== "undefined") {
-  //     if (isLoading || error) {
-  //       setIsLoading(false);
-  //       setError(null);
-  //     }
-  //   }
-  // }, []);
+  const [mounted, setMounted] = useState(false);
+
   useEffect(() => {
-    setIsMounted(true);
+    setMounted(true);
   }, []);
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -92,9 +85,21 @@ export default function LoginForm() {
     setShowPassword(!showPassword);
   };
 
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-main-50 flex items-center justify-center p-6">
+        <Card className="w-full max-w-md bg-white rounded-xl shadow-sm">
+          <CardHeader className="text-center pt-8 pb-2">
+            <h2 className="text-2xl font-bold">Loading...</h2>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-main-50 flex items-center justify-center p-6 relative">
-      {isMounted && <Toaster richColors position="top-right" />}
+      <Toaster richColors position="top-right" />
       <Card className="w-full max-w-md bg-white rounded-xl shadow-sm">
         <CardHeader className="text-center pt-8 pb-2">
           <h2 className="text-2xl font-bold">

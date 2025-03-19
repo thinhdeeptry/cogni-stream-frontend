@@ -6,7 +6,7 @@ import { ChevronRight, ChevronRightSquare } from "lucide-react";
 import { Metadata } from "next";
 import { signOut } from "next-auth/react";
 
-import useUserStore from "@/stores/useUserStore";
+import useUserStore from "@/stores/useUserStoree";
 
 import BlurText from "@/components/react-bits/text-animations/BlurText/BlurText";
 import TrueFocus from "@/components/react-bits/text-animations/TrueFocus/TrueFocus";
@@ -32,14 +32,6 @@ export default async function Home() {
         />
 
         <div className="flex gap-4 items-center flex-col sm:flex-row ">
-          {/* <div>
-            <Button
-              onClick={handleSignOut}
-              className="w-full bg-red-500 text-white hover:bg-red-600"
-            >
-              Đăng xuất
-            </Button>
-          </div> */}
           <a
             className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
             href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
