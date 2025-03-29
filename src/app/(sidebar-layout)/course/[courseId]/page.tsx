@@ -11,6 +11,8 @@ import { Book, Crown, Plus, Users } from "lucide-react";
 
 import { getCourseById } from "@/actions/courseAction";
 
+import useUserStore from "@/stores/useUserStore";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -25,15 +27,15 @@ export default function CourseDetail() {
   const [error, setError] = useState<string | null>(null);
   const [isEnrolled, setIsEnrolled] = useState(false);
   const params = useParams();
-  const loggedInUserId = "user5";
-
+  const { user } = useUserStore();
   useEffect(() => {
     const fetchCourse = async () => {
       try {
         const data = await getCourseById(params.courseId as string);
         setCourse(data);
         // Check if user is enrolled
-        const userEnrollments = mockDb.getUserEnrollments(loggedInUserId);
+        const userEnrollments = mockDb.getUserEnrollments(user?.id || "");
+
         setIsEnrolled(
           userEnrollments.some((enrollment) => enrollment.courseId === data.id),
         );
@@ -48,8 +50,6 @@ export default function CourseDetail() {
   }, [params.courseId]);
 
   const handleEnrollClick = () => {
-    // Here you would typically handle the enrollment process
-    // For now, we'll just redirect to the first lesson if it's free
     if (course?.chapters && course.chapters.length > 0) {
       const firstChapter = course.chapters[0];
       if (firstChapter.lessons && firstChapter.lessons.length > 0) {

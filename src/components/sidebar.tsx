@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { use } from "react";
 
-import { mockDb } from "@/data/mockDb";
 import {
   BarChart,
   Bell,
@@ -12,6 +12,8 @@ import {
   LayoutDashboard,
   Users,
 } from "lucide-react";
+
+import useUserStore from "@/stores/useUserStore";
 
 import {
   Sidebar,
@@ -70,7 +72,7 @@ const getMenuItems = (userRole: string) => {
 };
 
 export function AppSidebar() {
-  const user = mockDb.getUserById(loggedInUserId);
+  const { user } = useUserStore();
   const items = getMenuItems(user?.role || "");
 
   return (

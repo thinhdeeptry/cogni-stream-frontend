@@ -5,39 +5,10 @@ enum EnrollmentStatus {
   PENDING = "PENDING",
 }
 
-export const mockUsers = [
-  {
-    id: "user5",
-    name: "Kien Tran",
-    email: "john@example.com",
-    password: "123456789",
-    phone: "0325421880",
-    address: "123 Main St",
-    image:
-      "https://res.cloudinary.com/dxxsudprj/image/upload/v1733839978/Anime_Characters_cnkjji.jpg",
-    role: "ADMIN",
-    accountType: "LOCAL",
-    isActive: true,
-  },
-  {
-    id: "user1",
-    name: "Join",
-    email: "john@example.com",
-    password: "123456789",
-    phone: "0325421880",
-    address: "123 Main St",
-    image:
-      "https://res.cloudinary.com/dxxsudprj/image/upload/v1733839978/Anime_Characters_cnkjji.jpg",
-    role: "USER",
-    accountType: "LOCAL",
-    isActive: true,
-  },
-];
-
 export const mockEnrollments = [
   {
     id: "enrollment1",
-    userId: "user5",
+    userId: "67d98d8eb2aa93dedb170087",
     courseId: "250c6539-e7b3-4d79-af09-debab6c0d75b",
     courseName: "Phát triển tư duy phản biện",
     userName: "Kien Tran",
@@ -50,7 +21,7 @@ export const mockEnrollments = [
   },
   {
     id: "enrollment2",
-    userId: "user5",
+    userId: "user1",
     courseId: "7d530f37-8a33-42d9-ada7-81476896af2b",
     courseName: "Thiết kế UI/UX",
     userName: "Kien Tran",
@@ -114,9 +85,5 @@ export const mockDb = {
 
   getCertificate: (enrollmentId: string) => {
     return mockCertificates.find((cert) => cert.enrollmentId === enrollmentId);
-  },
-
-  getUserById: (userId: string) => {
-    return mockUsers.find((user) => user.id === userId);
   },
 };

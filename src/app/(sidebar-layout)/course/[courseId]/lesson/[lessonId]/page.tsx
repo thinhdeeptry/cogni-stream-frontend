@@ -22,6 +22,8 @@ import ReactPlayer from "react-player";
 
 import { getCourseById, getLessonById } from "@/actions/courseAction";
 
+import useUserStore from "@/stores/useUserStore";
+
 import { Button } from "@/components/ui/button";
 
 export default function LessonDetail() {
@@ -31,7 +33,7 @@ export default function LessonDetail() {
   const [error, setError] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isEnrolled, setIsEnrolled] = useState(false);
-  const loggedInUserId = "user5";
+  const { user } = useUserStore();
   const params = useParams();
 
   useEffect(() => {
@@ -54,7 +56,7 @@ export default function LessonDetail() {
     fetchData();
 
     // Check enrollment status
-    const userEnrollments = mockDb.getUserEnrollments(loggedInUserId);
+    const userEnrollments = mockDb.getUserEnrollments(user?.id || "");
     setIsEnrolled(
       userEnrollments.some(
         (enrollment) => enrollment.courseId === params.courseId,

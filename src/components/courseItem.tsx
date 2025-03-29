@@ -10,6 +10,8 @@ import { Book, Crown, Users } from "lucide-react";
 
 import { getLessonsByCourse } from "@/actions/courseAction";
 
+import useUserStore from "@/stores/useUserStore";
+
 import { Card, CardContent, CardFooter } from "./ui/card";
 
 export default function CourseItem({
@@ -24,11 +26,11 @@ export default function CourseItem({
   ownerAvatarUrl,
 }: CourseWithUser) {
   const [href, setHref] = useState(`/course/${id}`);
-  const loggedInUserId = "user5";
+  const { user } = useUserStore();
 
   useEffect(() => {
     const checkEnrollmentAndFirstLesson = async () => {
-      const userEnrollments = mockDb.getUserEnrollments(loggedInUserId);
+      const userEnrollments = mockDb.getUserEnrollments(user?.id || "");
       const enrollment = userEnrollments.find((e) => e.courseId === id);
       if (enrollment) {
         try {

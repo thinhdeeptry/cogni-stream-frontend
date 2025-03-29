@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { mockDb } from "@/data/mockDb";
 import { Course } from "@/types/course/types";
 import { Edit, Eye, Plus, Trash } from "lucide-react";
+
+import useUserStore from "@/stores/useUserStore";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -19,7 +20,7 @@ import {
 
 export default function AdminCoursesPage() {
   const [courses, setCourses] = useState<Course[]>([]);
-  const loggedInUserId = "user5";
+  const { user } = useUserStore();
 
   return (
     <div className="p-8">
