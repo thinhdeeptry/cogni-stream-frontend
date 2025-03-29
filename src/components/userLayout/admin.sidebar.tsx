@@ -44,42 +44,42 @@ const navigationItems = [
     title: "User Management",
     href: "/admin/users",
     icon: Users,
-    subItems: [
-      { title: "All Users", href: "/admin/users" },
-      { title: "Add New User", href: "/admin/users/new" },
-      { title: "User Roles", href: "/admin/users/roles" },
-    ],
+    // subItems: [
+    //   { title: "All Users", href: "/admin/users" },
+    //   { title: "Add New User", href: "/admin/users/new" },
+    //   { title: "User Roles", href: "/admin/users/roles" },
+    // ],
   },
   {
     title: "Content Management",
     href: "/admin/content",
     icon: FileText,
-    subItems: [
-      { title: "Pages", href: "/admin/content/pages" },
-      { title: "Blog Posts", href: "/admin/content/posts" },
-      { title: "Media Library", href: "/admin/content/media" },
-    ],
+    // subItems: [
+    //   { title: "Pages", href: "/admin/content/pages" },
+    //   { title: "Blog Posts", href: "/admin/content/posts" },
+    //   { title: "Media Library", href: "/admin/content/media" },
+    // ],
   },
   {
     title: "Reports",
     href: "/admin/reports",
     icon: BarChart,
-    subItems: [
-      { title: "Analytics", href: "/admin/reports/analytics" },
-      { title: "User Activity", href: "/admin/reports/activity" },
-      { title: "Sales", href: "/admin/reports/sales" },
-    ],
+    // subItems: [
+    //   { title: "Analytics", href: "/admin/reports/analytics" },
+    //   { title: "User Activity", href: "/admin/reports/activity" },
+    //   { title: "Sales", href: "/admin/reports/sales" },
+    // ],
   },
-  {
-    title: "Settings",
-    href: "/admin/settings",
-    icon: Settings,
-    subItems: [
-      { title: "General", href: "/admin/settings/general" },
-      { title: "Security", href: "/admin/settings/security" },
-      { title: "Appearance", href: "/admin/settings/appearance" },
-    ],
-  },
+  // {
+  //   title: "Settings",
+  //   href: "/admin/settings",
+  //   icon: Settings,
+  //   subItems: [
+  //     { title: "General", href: "/admin/settings/general" },
+  //     { title: "Security", href: "/admin/settings/security" },
+  //     { title: "Appearance", href: "/admin/settings/appearance" },
+  //   ],
+  // },
 ];
 
 export default function AdminSidebar() {
@@ -111,7 +111,7 @@ export default function AdminSidebar() {
                       <ChevronDown className="h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
                     </SidebarMenuButton>
                   </CollapsibleTrigger>
-                  <CollapsibleContent>
+                  {/* <CollapsibleContent>
                     <SidebarMenuSub>
                       {item.subItems.map((subItem) => (
                         <SidebarMenuSubItem key={subItem.title}>
@@ -127,7 +127,7 @@ export default function AdminSidebar() {
                         </SidebarMenuSubItem>
                       ))}
                     </SidebarMenuSub>
-                  </CollapsibleContent>
+                  </CollapsibleContent> */}
                 </Collapsible>
               ) : (
                 <SidebarMenuButton asChild isActive={pathname === item.href}>

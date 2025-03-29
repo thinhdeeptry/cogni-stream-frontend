@@ -67,12 +67,17 @@ export default function LoginForm() {
     try {
       const result = await loginUser(email, password);
       if (result.error) {
-        console.log("Login error>>> ", result.message);
         toast.error(result.message);
         setError(result.message);
+        if (result.redirectTo) {
+          console.log("Login error>>> ", result.message);
+          router.push(result.redirectTo);
+          toast.error(result.message);
+        }
       } else if (result.success) {
         if (result.redirectTo) {
           router.push(result.redirectTo);
+          toast.success(result.message);
         }
       }
     } catch (error) {

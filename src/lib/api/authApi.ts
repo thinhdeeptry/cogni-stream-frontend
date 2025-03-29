@@ -1,3 +1,5 @@
+import useUserStore from "@/stores/useUserStore";
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 // Lớp gọi API cho Auth
@@ -66,9 +68,12 @@ class AuthApi {
       case 201:
         return data;
       case 400:
+        console.log("check response in authAPI >> ", data.userId);
+
         return {
           statusCode: 400,
           error: true,
+          _id: data.userId,
           message:
             data.message ||
             "Tài khoản chưa được kích hoạt. Vui lòng kiểm tra email để kích hoạt.",
@@ -99,7 +104,7 @@ class AuthApi {
 
   // Đăng nhập
   async login(email: string, password: string) {
-    const response = await fetch("http://localhost:8080/api/v1/auth/login", {
+    const response = await fetch(`${API_URL}/auth/login`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -183,16 +188,13 @@ class AuthApi {
     }
   };
   async verifyOTP(id: string, otp: string) {
-    const response = await fetch(
-      "http://localhost:8080/api/v1/auth/verify-otp",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ id, otp }),
+    const response = await fetch(`${API_URL}/auth/verify-otp`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
       },
-    );
+      body: JSON.stringify({ id, otp }),
+    });
 
     const data = await response.json();
 
@@ -203,16 +205,13 @@ class AuthApi {
     return data;
   }
   async refreshOTP(id: string) {
-    const response = await fetch(
-      "http://localhost:8080/api/v1/auth/refresh-otp",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ id }),
+    const response = await fetch(`${API_URL}/auth/refresh-otp`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
       },
-    );
+      body: JSON.stringify({ id }),
+    });
 
     const data = await response.json();
 
@@ -235,6 +234,52 @@ class AuthApi {
     }
 
     return response.json();
+  }
+  async getData(
+    accessToken: string,
+    query: string = "",
+    current: number = 1,
+    pageSize: number = 10,
+  ) {
+    console.log("check accessToken >>>", accessToken);
+
+    if (!accessToken) {
+      throw new Error("Không có token xác thực. Vui lòng đăng nhập lại.");
+    }
+
+    // Xây dựng query params
+    const params = new URLSearchParams();
+    if (query) params.append("query", query);
+    // params.append('query', current.toString());
+    params.append("current", current.toString());
+    params.append("pageSize", pageSize.toString());
+
+    const url = `${API_URL}/dashboard?${params.toString()}`;
+    console.log("check url>>> ", url);
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: this.getHeaders(accessToken),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      return {
+        error: true,
+        statusCode: response.status,
+        message:
+          errorData.message || "Đã xảy ra lỗi khi lấy dữ liệu từ dashboard",
+        data: null,
+      };
+    }
+
+    const data = await response.json();
+    return {
+      error: false,
+      statusCode: 200,
+      message: "Lấy dữ liệu thành công",
+      data: data,
+    };
   }
 }
 
