@@ -38,6 +38,7 @@ export interface ContentItem {
 }
 
 export interface AnswerOption {
+  id: string;
   content: ContentItem;
   order: number;
   isCorrect: boolean;
