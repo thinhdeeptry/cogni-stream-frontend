@@ -1,7 +1,9 @@
 import { Inter } from "next/font/google";
 
 import type { Metadata } from "next";
-import { Toaster } from "sonner";
+import { SessionProvider } from "next-auth/react";
+
+import AuthSync from "@/components/auth/auth.sync";
 
 import "./globals.css";
 
@@ -24,8 +26,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.variable} ${inter.variable} antialiased`}>
-        {children}
-        <Toaster richColors position="top-right" />
+        {/* //render auth sync component */}
+        <SessionProvider>
+          <AuthSync />
+          {children}
+        </SessionProvider>
       </body>
     </html>
   );

@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+
+import { cn } from "@/lib/utils";
 import * as LabelPrimitive from "@radix-ui/react-label";
 import { Slot } from "@radix-ui/react-slot";
 import {
@@ -12,7 +14,6 @@ import {
   useFormContext,
 } from "react-hook-form";
 
-import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 
 const Form = FormProvider;
@@ -148,7 +149,7 @@ const FormMessage = React.forwardRef<
   React.HTMLAttributes<HTMLParagraphElement>
 >(({ className, children, ...props }, ref) => {
   const { error, formMessageId } = useFormField();
-  const body = error ? String(error?.message) : children;
+  const body = error ? String(error?.message ?? "") : children;
 
   if (!body) {
     return null;
