@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 
-import { Loader2, MessageCircle, Star, Users, X } from "lucide-react";
+import { Loader2, MessageCircle, Star, X } from "lucide-react";
 import { toast } from "sonner";
+
+import useUserStore from "@/stores/useUserStore";
 
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -24,8 +26,6 @@ import { DiscussionType } from "./type";
 // Content component that handles the scrollable content area
 function DiscussionContent({
   threadId,
-  userId,
-  userName,
   thread,
   posts,
   isLoading,
@@ -40,10 +40,9 @@ function DiscussionContent({
   toggleReplies,
   loadMoreReplies,
   loadMorePosts,
+  currentUserId,
 }: {
   threadId: string;
-  userId: string;
-  userName: string;
   thread: any;
   posts: any[];
   isLoading: boolean;
@@ -58,6 +57,7 @@ function DiscussionContent({
   toggleReplies: (postId: string) => void;
   loadMoreReplies: (postId: string) => void;
   loadMorePosts: () => void;
+  currentUserId: string;
 }) {
   if (isLoading && !posts.length) {
     return (
@@ -85,7 +85,7 @@ function DiscussionContent({
           <PostCard
             key={post.id}
             post={post}
-            currentUserId={userId}
+            currentUserId={currentUserId}
             thread={thread}
             replies={repliesMap[post.id] || []}
             onToggleReplies={() => toggleReplies(post.id)}
@@ -119,16 +119,10 @@ function DiscussionContent({
 }
 
 // Main wrapper component with Sheet
-export default function Discussion({
-  threadId,
-  userId,
-  userName,
-}: {
-  threadId: string;
-  userId: string;
-  userName: string;
-}) {
+export default function Discussion({ threadId }: { threadId: string }) {
   const [isOpen, setIsOpen] = useState(false);
+  const user = useUserStore((state) => state.user);
+
   const {
     posts,
     thread,
@@ -157,13 +151,14 @@ export default function Discussion({
 
   // Only set user info once, regardless of sheet open state
   useEffect(() => {
-    setCurrentUserId(userId);
-    setCurrentUserName(userName);
+    if (!user) return;
+
+    setCurrentUserId(user.id);
+    setCurrentUserName(user.name);
     setCurrentThreadId(threadId);
   }, [
     threadId,
-    userId,
-    userName,
+    user,
     setCurrentUserId,
     setCurrentUserName,
     setCurrentThreadId,
@@ -171,8 +166,8 @@ export default function Discussion({
 
   // Only initialize socket and fetch data when sheet is open
   useEffect(() => {
-    // Skip if sheet is not open
-    if (!isOpen) return;
+    // Skip if sheet is not open or no user
+    if (!isOpen || !user) return;
 
     // Initialize socket when sheet opens
     initializeSocket();
@@ -186,7 +181,8 @@ export default function Discussion({
       cleanupSocket();
     };
   }, [
-    isOpen, // Add isOpen as dependency so effect runs when sheet opens
+    isOpen,
+    user,
     threadId,
     fetchThread,
     fetchPosts,
@@ -199,6 +195,20 @@ export default function Discussion({
       toast.error(error);
     }
   }, [error]);
+
+  // If no user, show login prompt
+  if (!user) {
+    return (
+      <Button
+        onClick={() => toast.error("Please log in to join discussions")}
+        className="fixed bottom-6 right-6 rounded-full h-12 w-12 shadow-lg"
+        aria-label="Open discussion"
+        size="icon"
+      >
+        <MessageCircle className="h-6 w-6" />
+      </Button>
+    );
+  }
 
   const totalPosts = thread?._count?.posts || 0;
 
@@ -268,8 +278,6 @@ export default function Discussion({
             {isOpen && (
               <DiscussionContent
                 threadId={threadId}
-                userId={userId}
-                userName={userName}
                 thread={thread}
                 posts={posts}
                 isLoading={isLoading}
@@ -284,6 +292,7 @@ export default function Discussion({
                 toggleReplies={toggleReplies}
                 loadMoreReplies={loadMoreReplies}
                 loadMorePosts={loadMorePosts}
+                currentUserId={user.id}
               />
             )}
           </ScrollArea>
@@ -292,7 +301,7 @@ export default function Discussion({
           <div className="sticky bottom-0 bg-background px-4 py-2">
             {isOpen && thread && (
               <UserInput
-                currentUserId={userId}
+                currentUserId={user.id}
                 thread={thread}
                 parentId={undefined}
                 placeholder={

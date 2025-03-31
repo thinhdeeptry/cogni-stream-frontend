@@ -1,8 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
+import { getAllThreads } from "@/actions/discussion.action";
+
+import useUserStore from "@/stores/useUserStore";
 
 import DiscussionSection from "@/components/discussion";
+import type { ThreadWithPostCount } from "@/components/discussion/type";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -12,78 +17,87 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const THREAD_IDS = {
-  course: "b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b11",
-  lesson: "b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b12",
-};
-
-interface TestUser {
-  id: string;
-  name: string;
-}
-
-const TEST_USERS: TestUser[] = [
-  { id: "97017806-520f-45ef-9fe9-90e7daf39e22", name: "John Doe" },
-  { id: "97017806-520f-45ef-9fe9-90e7daf39e23", name: "Jane Smith" },
-  { id: "97017806-520f-45ef-9fe9-90e7daf39e24", name: "Bob Johnson" },
-  { id: "97017806-520f-45ef-9fe9-90e7daf39e25", name: "New Guy" },
-];
-
 export default function DiscussionTest() {
-  const [currentThreadId, setCurrentThreadId] = useState(THREAD_IDS.course);
-  const [currentUser, setCurrentUser] = useState<TestUser>(TEST_USERS[0]);
+  const [threads, setThreads] = useState<ThreadWithPostCount[]>([]);
+  const [currentThreadId, setCurrentThreadId] = useState<string>("");
+  const [isLoading, setIsLoading] = useState(true);
+  const user = useUserStore((state) => state.user);
 
-  const toggleThread = () => {
-    setCurrentThreadId(
-      currentThreadId === THREAD_IDS.course
-        ? THREAD_IDS.lesson
-        : THREAD_IDS.course,
+  console.log(user);
+
+  useEffect(() => {
+    const fetchThreads = async () => {
+      try {
+        const data = await getAllThreads();
+        setThreads(data);
+        if (data.length > 0) {
+          setCurrentThreadId(data[0].id);
+        }
+      } catch (error) {
+        console.error("Failed to fetch threads:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchThreads();
+  }, []);
+
+  if (!user) {
+    return (
+      <div className="p-4">
+        <p className="text-center text-muted-foreground">
+          Please log in to participate in discussions.
+        </p>
+      </div>
     );
-  };
+  }
+
+  if (isLoading) {
+    return (
+      <div className="p-4">
+        <p className="text-center text-muted-foreground">Loading threads...</p>
+      </div>
+    );
+  }
+
+  if (threads.length === 0) {
+    return (
+      <div className="p-4">
+        <p className="text-center text-muted-foreground">
+          No discussion threads found.
+        </p>
+      </div>
+    );
+  }
+
+  const currentThread = threads.find((thread) => thread.id === currentThreadId);
 
   return (
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <h2 className="text-xl font-bold">
-            {currentThreadId === THREAD_IDS.course
-              ? "Course Review"
-              : "Lesson Discussion"}
-          </h2>
-          <Select
-            value={currentUser.id}
-            onValueChange={(value: string) => {
-              const user = TEST_USERS.find((u) => u.id === value);
-              if (user) setCurrentUser(user);
-            }}
-          >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Select user" />
+          <h2 className="text-xl font-bold">Discussion Threads</h2>
+          <Select value={currentThreadId} onValueChange={setCurrentThreadId}>
+            <SelectTrigger className="w-[300px]">
+              <SelectValue placeholder="Select a thread" />
             </SelectTrigger>
             <SelectContent>
-              {TEST_USERS.map((user) => (
-                <SelectItem key={user.id} value={user.id}>
-                  {user.name}
+              {threads.map((thread) => (
+                <SelectItem key={thread.id} value={thread.id}>
+                  {thread.title || `Thread ${thread.id}`}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
-        <Button onClick={toggleThread} variant="outline">
-          Switch to{" "}
-          {currentThreadId === THREAD_IDS.course
-            ? "Lesson Discussion"
-            : "Course Review"}
-        </Button>
       </div>
 
-      <div className="max-w-[500px] ml-auto">
-        <DiscussionSection
-          threadId={currentThreadId}
-          userId={currentUser.id}
-          userName={currentUser.name}
-        />
-      </div>
+      {currentThread && (
+        <div className="max-w-[500px] ml-auto">
+          <DiscussionSection threadId={currentThread.id} />
+        </div>
+      )}
     </div>
   );
 }

@@ -9,6 +9,11 @@ import {
 
 const discussionAxios = AxiosFactory.getApiInstance("discussion");
 
+export async function getAllThreads(): Promise<ThreadWithPostCount[]> {
+  const { data } = await discussionAxios.get(`/api/v1/threads`);
+  return data;
+}
+
 export async function getThread(
   threadId: string,
 ): Promise<ThreadWithPostCount> {
