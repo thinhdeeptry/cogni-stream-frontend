@@ -87,8 +87,8 @@ export default function LoginForm() {
 
   if (!mounted) {
     return (
-      <div className="min-h-screen bg-main-50 flex items-center justify-center p-6">
-        <Card className="w-full max-w-md bg-white rounded-xl shadow-sm">
+      <div className="min-h-screen flex items-center justify-center p-6">
+        <Card className="w-full max-w-md bg-white/30 backdrop-blur-sm rounded-xl shadow-lg">
           <CardHeader className="text-center pt-8 pb-2">
             <h2 className="text-2xl font-bold">Loading...</h2>
           </CardHeader>
@@ -98,11 +98,11 @@ export default function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen bg-main-50 flex items-center justify-center p-6 relative">
+    <div className="min-h-screen flex items-center justify-center p-6 relative">
       <Toaster richColors position="top-right" />
-      <Card className="w-full max-w-md bg-white rounded-xl shadow-sm">
+      <Card className="w-full max-w-md bg-white/30 backdrop-blur-sm rounded-xl shadow-lg border-white/50">
         <CardHeader className="text-center pt-8 pb-2">
-          <h2 className="text-2xl font-bold">
+          <h2 className="text-2xl font-bold text-gray-800">
             Edu Forge – Nơi tri thức bùng nổ tương lai rộng mở!
           </h2>
         </CardHeader>
@@ -117,7 +117,7 @@ export default function LoginForm() {
                     <FormControl>
                       <Input
                         placeholder="Enter Email"
-                        className="rounded-full h-12 px-4 border-input"
+                        className="rounded-full h-12 px-4 border-white/50 bg-white/50 backdrop-blur-sm focus:bg-white/70 transition-all"
                         {...field}
                       />
                     </FormControl>
@@ -135,7 +135,7 @@ export default function LoginForm() {
                         <Input
                           type={showPassword ? "text" : "password"}
                           placeholder="Passcode"
-                          className="rounded-full h-12 px-4 border-input pr-10"
+                          className="rounded-full h-12 px-4 border-white/50 bg-white/50 backdrop-blur-sm focus:bg-white/70 transition-all pr-10"
                           {...field}
                         />
                         <Button
@@ -159,7 +159,7 @@ export default function LoginForm() {
                     <FormMessage>
                       <a
                         href="#"
-                        className="ml-auto text-sm underline-offset-2 hover:underline"
+                        className="ml-auto text-sm underline-offset-2 hover:underline text-gray-700"
                       >
                         Forgot your password?
                       </a>
@@ -180,7 +180,7 @@ export default function LoginForm() {
               )}
               <Button
                 type="submit"
-                className="w-full h-12 rounded-full bg-main-300 hover:bg-main-400 text-main-900"
+                className="w-full h-12 rounded-full bg-orange-500/80 hover:bg-orange-500 text-white backdrop-blur-sm transition-all"
                 disabled={isLoading}
               >
                 {isLoading ? (
@@ -193,10 +193,10 @@ export default function LoginForm() {
 
           <div className="relative my-8">
             <div className="absolute inset-0 flex items-center">
-              <Separator className="w-full" />
+              <Separator className="w-full bg-white/50" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-white px-2 text-muted-foreground">
+              <span className="bg-white/30 backdrop-blur-sm px-2 text-gray-700">
                 Or continue with
               </span>
             </div>
@@ -205,9 +205,8 @@ export default function LoginForm() {
           <div className="grid grid-cols-3 gap-3">
             <Button
               variant="outline"
-              className="rounded-lg h-12 border-input hover:bg-main-50"
+              className="rounded-lg h-12 border-white/50 bg-white/30 hover:bg-white/50 backdrop-blur-sm transition-all"
               onClick={() => {
-                // Add Google OAuth logic
                 toast.info("Google login coming soon");
               }}
             >

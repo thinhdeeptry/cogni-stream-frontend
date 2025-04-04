@@ -1,3 +1,5 @@
+import { cookies } from "next/headers";
+
 import { jwtDecode } from "jwt-decode";
 
 import useUserStore from "@/stores/useUserStoree";
@@ -122,8 +124,13 @@ class AuthApi {
       credentials: "include", // để cookies hoạt động
     });
     const data = await response.json();
-
-    // Cập nhật accessToken vào store
+    const cookieStore = await cookies();
+    cookieStore.set({
+      name: "name",
+      value: data.refreshToken,
+      httpOnly: true,
+      path: "/",
+    }); // Cập nhật accessToken vào store
     if (data.accessToken) {
       useUserStore
         .getState()
