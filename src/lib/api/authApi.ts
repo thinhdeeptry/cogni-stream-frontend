@@ -4,7 +4,7 @@ import { jwtDecode } from "jwt-decode";
 
 import useUserStore from "@/stores/useUserStoree";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const API_URL = process.env.NEXT_AUTH_PUBLIC_API_URL;
 
 // Lớp gọi API cho Auth
 class AuthApi {

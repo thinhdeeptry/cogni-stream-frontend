@@ -23,6 +23,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 
+import { ShineBorder } from "../magicui/shine-border";
+
 const formSchema = z.object({
   name: z.string().min(2, {
     message: "Họ tên phải có ít nhất 2 ký tự.",
@@ -40,18 +42,6 @@ export default function RegisterForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  // useEffect(() => {
-  //   if (typeof window !== "undefined") {
-  //     setIsLoading(false)
-  //     setError(null)
-  //   }
-  // }, [])
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -96,22 +86,14 @@ export default function RegisterForm() {
     setShowPassword(!showPassword);
   };
 
-  if (!mounted) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-6">
-        <Card className="w-full max-w-md bg-white/30 backdrop-blur-sm rounded-xl shadow-lg">
-          <CardHeader className="text-center pt-8 pb-2">
-            <div className="h-6 w-32 mx-auto bg-gray-200/50 animate-pulse rounded" />
-          </CardHeader>
-        </Card>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen flex items-center justify-center p-6 relative">
       <Toaster richColors position="top-right" />
       <Card className="w-full max-w-md bg-white/30 backdrop-blur-sm rounded-xl shadow-lg border-white/50">
+        <ShineBorder
+          shineColor={["#A07CFE", "#FE8FB5", "#FFBE7B"]}
+          borderWidth={2}
+        />
         <CardHeader className="text-center pt-8 pb-2">
           <h2 className="text-2xl font-bold text-gray-800">
             Edu Forge – Mở cửa tri thức{"\n"}ghi danh ngay!

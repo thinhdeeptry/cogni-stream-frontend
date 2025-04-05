@@ -12,6 +12,8 @@ import { RefreshOTPUser, verifyUser } from "@/actions/authActions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
+import { ShineBorder } from "../magicui/shine-border";
+
 export default function GuestVerify(props: { id: string }) {
   const [mounted, setMounted] = useState(false);
   const { id } = props;
@@ -162,6 +164,10 @@ export default function GuestVerify(props: { id: string }) {
     <div className="min-h-screen flex items-center justify-center p-4">
       <Toaster richColors position="top-right" />
       <Card className="w-full max-w-md bg-white/30 backdrop-blur-sm rounded-xl shadow-lg border-white/50">
+        <ShineBorder
+          shineColor={["#A07CFE", "#FE8FB5", "#FFBE7B"]}
+          borderWidth={2}
+        />
         <CardHeader className="space-y-1 text-center pt-8">
           <div className="flex justify-center mb-4">
             <div className="w-12 h-12 rounded-full bg-orange-100/50 backdrop-blur-sm flex items-center justify-center">
