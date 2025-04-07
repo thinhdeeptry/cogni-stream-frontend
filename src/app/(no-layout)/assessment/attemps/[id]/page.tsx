@@ -137,11 +137,12 @@ function AttemptPageClient({ id }: { id: string }) {
 
   const handleSubmit = async () => {
     try {
-      await axios.post(
+      const response = await axios.post(
         `http://localhost:3005/api/v1/test-attempts/${id}/submit`,
       );
       toast.success("Đã nộp bài thành công");
-      router.push("/assessment/tests");
+      // Chuyển hướng đến trang kết quả
+      router.push(`/assessment/results/${id}`);
     } catch (error) {
       console.error("Error submitting attempt:", error);
       toast.error("Có lỗi xảy ra khi nộp bài");
