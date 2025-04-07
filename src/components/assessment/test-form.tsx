@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-import { mockCourses } from "@/data/mock";
 import { zodResolver } from "@hookform/resolvers/zod";
+import axios from "axios";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 
@@ -63,9 +63,29 @@ interface TestFormProps {
   onSubmit: (data: TestFormValues) => void;
 }
 
+interface Lesson {
+  id: string;
+  title: string;
+}
+
+interface Chapter {
+  id: string;
+  title: string;
+  lessons: Lesson[];
+}
+
+interface Course {
+  id: string;
+  ownerId: string;
+  title: string;
+  chapters: Chapter[];
+}
+
 export function TestForm({ onSubmit }: TestFormProps) {
   const [selectedCourseId, setSelectedCourseId] = useState<string>("");
   const [selectedChapterId, setSelectedChapterId] = useState<string>("");
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const form = useForm<TestFormValues>({
     resolver: zodResolver(testFormSchema),
@@ -84,7 +104,35 @@ export function TestForm({ onSubmit }: TestFormProps) {
     },
   });
 
-  const selectedCourse = mockCourses.find((c) => c.id === selectedCourseId);
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        setIsLoading(true);
+        const response = await axios.get(
+          "http://localhost:3002/courses/user/25e1d787-4ce1-4109-b8eb-a90fe40d942c/structure",
+        );
+
+        // Xử lý dữ liệu trả về tùy thuộc vào cấu trúc
+        if (response.data && response.data.value) {
+          setCourses(response.data.value);
+        } else if (Array.isArray(response.data)) {
+          setCourses(response.data);
+        } else {
+          console.error("Unexpected API response structure:", response.data);
+          setCourses([]);
+        }
+      } catch (error) {
+        console.error("Error fetching courses:", error);
+        setCourses([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchCourses();
+  }, []);
+
+  const selectedCourse = courses.find((c) => c.id === selectedCourseId);
   const selectedChapter = selectedCourse?.chapters.find(
     (c) => c.id === selectedChapterId,
   );
@@ -176,11 +224,21 @@ export function TestForm({ onSubmit }: TestFormProps) {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {mockCourses.map((course) => (
-                        <SelectItem key={course.id} value={course.id}>
-                          {course.name}
+                      {isLoading ? (
+                        <SelectItem value="loading" disabled>
+                          Đang tải khóa học...
                         </SelectItem>
-                      ))}
+                      ) : courses.length === 0 ? (
+                        <SelectItem value="empty" disabled>
+                          Không có khóa học nào
+                        </SelectItem>
+                      ) : (
+                        courses.map((course) => (
+                          <SelectItem key={course.id} value={course.id}>
+                            {course.title}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -208,11 +266,25 @@ export function TestForm({ onSubmit }: TestFormProps) {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {selectedCourse?.chapters.map((chapter) => (
-                        <SelectItem key={chapter.id} value={chapter.id}>
-                          {chapter.name}
+                      {isLoading ? (
+                        <SelectItem value="loading" disabled>
+                          Đang tải chương...
                         </SelectItem>
-                      ))}
+                      ) : !selectedCourse ? (
+                        <SelectItem value="empty" disabled>
+                          Vui lòng chọn khóa học trước
+                        </SelectItem>
+                      ) : selectedCourse.chapters.length === 0 ? (
+                        <SelectItem value="empty" disabled>
+                          Không có chương nào
+                        </SelectItem>
+                      ) : (
+                        selectedCourse.chapters.map((chapter) => (
+                          <SelectItem key={chapter.id} value={chapter.id}>
+                            {chapter.title}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -233,11 +305,25 @@ export function TestForm({ onSubmit }: TestFormProps) {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {selectedChapter?.lessons.map((lesson) => (
-                        <SelectItem key={lesson.id} value={lesson.id}>
-                          {lesson.name}
+                      {isLoading ? (
+                        <SelectItem value="loading" disabled>
+                          Đang tải bài học...
                         </SelectItem>
-                      ))}
+                      ) : !selectedChapter ? (
+                        <SelectItem value="empty" disabled>
+                          Vui lòng chọn chương trước
+                        </SelectItem>
+                      ) : selectedChapter.lessons.length === 0 ? (
+                        <SelectItem value="empty" disabled>
+                          Không có bài học nào
+                        </SelectItem>
+                      ) : (
+                        selectedChapter.lessons.map((lesson) => (
+                          <SelectItem key={lesson.id} value={lesson.id}>
+                            {lesson.title}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                   <FormMessage />

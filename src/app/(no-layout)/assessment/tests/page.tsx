@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { mockCourses } from "@/data/mock";
 import axios from "axios";
 import { Calendar, Clock, Eye, Play, Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -50,32 +49,55 @@ interface TestAttempt {
   };
 }
 
-function getSelectedName(selectedId: string | null) {
+interface Lesson {
+  id: string;
+  title: string;
+}
+
+interface Chapter {
+  id: string;
+  title: string;
+  lessons: Lesson[];
+}
+
+interface Course {
+  id: string;
+  ownerId: string;
+  title: string;
+  chapters: Chapter[];
+}
+
+function getSelectedName(selectedId: string | null, courses: Course[] = []) {
   if (!selectedId) return "Tất cả bài kiểm tra";
+  if (!Array.isArray(courses) || courses.length === 0)
+    return "Tất cả bài kiểm tra";
 
-  if (selectedId.startsWith("course-")) {
-    const course = mockCourses.find((c) => c.id === selectedId);
-    if (course) {
-      return `Khóa học: ${course.name}`;
+  // Tìm khóa học
+  const course = courses.find((c) => c && c.id === selectedId);
+  if (course) {
+    return `Khóa học: ${course.title || "Không có tên"}`;
+  }
+
+  // Tìm chương
+  for (const course of courses) {
+    if (!course || !Array.isArray(course.chapters)) continue;
+
+    const chapter = course.chapters.find((ch) => ch && ch.id === selectedId);
+    if (chapter) {
+      return `Chương: ${chapter.title || "Không có tên"} - ${course.title || "Không có tên"}`;
     }
   }
 
-  if (selectedId.startsWith("chapter-")) {
-    for (const course of mockCourses) {
-      const chapter = course.chapters.find((c) => c.id === selectedId);
-      if (chapter) {
-        return `Chương: ${chapter.name} - ${course.name}`;
-      }
-    }
-  }
+  // Tìm bài học
+  for (const course of courses) {
+    if (!course || !Array.isArray(course.chapters)) continue;
 
-  if (selectedId.startsWith("lesson-")) {
-    for (const course of mockCourses) {
-      for (const chapter of course.chapters) {
-        const lesson = chapter.lessons.find((l) => l.id === selectedId);
-        if (lesson) {
-          return `Bài: ${lesson.name} - ${chapter.name} - ${course.name}`;
-        }
+    for (const chapter of course.chapters) {
+      if (!chapter || !Array.isArray(chapter.lessons)) continue;
+
+      const lesson = chapter.lessons.find((l) => l && l.id === selectedId);
+      if (lesson) {
+        return `Bài: ${lesson.title || "Không có tên"} - ${chapter.title || "Không có tên"} - ${course.title || "Không có tên"}`;
       }
     }
   }
@@ -104,8 +126,38 @@ export default function TestsPage() {
   const selectedId = searchParams.get("contextId");
   const [tests, setTests] = useState<Test[]>([]);
   const [attempts, setAttempts] = useState<TestAttempt[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingCourses, setIsLoadingCourses] = useState(true);
   const [activeTab, setActiveTab] = useState("available");
+
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        setIsLoadingCourses(true);
+        const response = await axios.get(
+          "http://localhost:3002/courses/user/25e1d787-4ce1-4109-b8eb-a90fe40d942c/structure",
+        );
+
+        // Xử lý dữ liệu trả về tùy thuộc vào cấu trúc
+        if (response.data && response.data.value) {
+          setCourses(response.data.value);
+        } else if (Array.isArray(response.data)) {
+          setCourses(response.data);
+        } else {
+          console.error("Unexpected API response structure:", response.data);
+          setCourses([]);
+        }
+      } catch (error) {
+        console.error("Error fetching courses:", error);
+        setCourses([]);
+      } finally {
+        setIsLoadingCourses(false);
+      }
+    };
+
+    fetchCourses();
+  }, []);
 
   useEffect(() => {
     const fetchTests = async () => {
@@ -113,24 +165,44 @@ export default function TestsPage() {
         setIsLoading(true);
         let params = {};
 
-        if (selectedId) {
-          if (selectedId.startsWith("course-")) {
+        if (selectedId && Array.isArray(courses) && courses.length > 0) {
+          // Tìm khóa học
+          const course = courses.find((c) => c && c.id === selectedId);
+          if (course) {
             params = { courseId: selectedId };
-          } else if (selectedId.startsWith("chapter-")) {
-            const course = mockCourses.find((c) =>
-              c.chapters.some((ch) => ch.id === selectedId),
-            );
-            params = { courseId: course?.id, chapterId: selectedId };
-          } else if (selectedId.startsWith("lesson-")) {
-            for (const course of mockCourses) {
-              for (const chapter of course.chapters) {
-                if (chapter.lessons.some((l) => l.id === selectedId)) {
-                  params = {
-                    courseId: course.id,
-                    chapterId: chapter.id,
-                    lessonId: selectedId,
-                  };
-                  break;
+          } else {
+            // Tìm chương
+            let foundChapter = false;
+            for (const course of courses) {
+              if (!course || !Array.isArray(course.chapters)) continue;
+
+              const chapter = course.chapters.find(
+                (ch) => ch && ch.id === selectedId,
+              );
+              if (chapter) {
+                params = { courseId: course.id, chapterId: selectedId };
+                foundChapter = true;
+                break;
+              }
+            }
+
+            // Tìm bài học
+            if (!foundChapter) {
+              // Find the course and chapter that contains this lesson
+              for (const course of courses) {
+                if (!course || !Array.isArray(course.chapters)) continue;
+
+                for (const chapter of course.chapters) {
+                  if (!chapter || !Array.isArray(chapter.lessons)) continue;
+
+                  if (chapter.lessons.some((l) => l && l.id === selectedId)) {
+                    params = {
+                      courseId: course.id,
+                      chapterId: chapter.id,
+                      lessonId: selectedId,
+                    };
+                    break;
+                  }
                 }
               }
             }
@@ -164,7 +236,7 @@ export default function TestsPage() {
     };
 
     fetchTests();
-  }, [selectedId]);
+  }, [selectedId, courses]);
 
   const startTest = async (testId: string) => {
     try {
@@ -188,7 +260,9 @@ export default function TestsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-semibold">Bài kiểm tra</h2>
-          <p className="text-muted-foreground">{getSelectedName(selectedId)}</p>
+          <p className="text-muted-foreground">
+            {getSelectedName(selectedId, courses)}
+          </p>
         </div>
         <Button
           onClick={() => router.push("/assessment/tests/create")}
