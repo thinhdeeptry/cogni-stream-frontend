@@ -1,7 +1,7 @@
 "use server";
 
 import { AxiosFactory } from "@/lib/axios";
-import { Course } from "@/types/course/types";
+import { Category, Course } from "@/types/course/types";
 
 const courseApi = AxiosFactory.getApiInstance("course");
 
@@ -60,6 +60,38 @@ export const publishCourse = async (courseId: string) => {
     throw error;
   }
 };
+export const createCourse = async (courseData: {
+  title: string;
+  description: string;
+  categoryId: string;
+  level: string;
+  price: number;
+  currency: string;
+  isPublished: boolean;
+  isHasCertificate: boolean;
+  tags: string[];
+  learningOutcomes: string[];
+  requirements: string[];
+  targetAudience: string;
+  thumbnailUrl?: string;
+}) => {
+  try {
+    const { data } = await courseApi.post("/courses", courseData);
+    return {
+      error: false,
+      success: true,
+      data,
+      message: "Tạo khóa học thành công",
+    };
+  } catch (error) {
+    return {
+      error: true,
+      success: false,
+      message: "Đã xảy ra lỗi khi tạo khóa học",
+      data: null,
+    };
+  }
+};
 
 export const unpublishCourse = async (courseId: string) => {
   try {
@@ -69,7 +101,42 @@ export const unpublishCourse = async (courseId: string) => {
     throw error;
   }
 };
-
+export const updateCourse = async (
+  courseId: string,
+  courseData: {
+    title: string;
+    description: string;
+    categoryId: string;
+    level: string;
+    price: number;
+    promotionPrice?: number;
+    currency: string;
+    isPublished: boolean;
+    isHasCertificate: boolean;
+    tags: string[];
+    learningOutcomes: string[];
+    requirements: string[];
+    targetAudience: string;
+    thumbnailUrl?: string;
+  },
+) => {
+  try {
+    const { data } = await courseApi.patch(`/courses/${courseId}`, courseData);
+    return {
+      error: false,
+      success: true,
+      data,
+      message: "Cập nhật khóa học thành công",
+    };
+  } catch (error) {
+    return {
+      error: true,
+      success: false,
+      message: "Đã xảy ra lỗi khi cập nhật khóa học",
+      data: null,
+    };
+  }
+};
 export const createChapter = async (courseId: string, chapterData: any) => {
   try {
     const { data } = await courseApi.post(
@@ -176,6 +243,14 @@ export const updateLesson = async (lessonId: string, lessonData: any) => {
 export const deleteLesson = async (lessonId: string) => {
   try {
     const { data } = await courseApi.delete(`/lessons/${lessonId}`);
+    return data;
+  } catch (error) {
+    throw error;
+  }
+};
+export const getAllCategories = async (): Promise<Category[]> => {
+  try {
+    const { data } = await courseApi.get("/categories");
     return data;
   } catch (error) {
     throw error;

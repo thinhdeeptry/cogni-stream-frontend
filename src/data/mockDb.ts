@@ -21,7 +21,7 @@ export const mockEnrollments = [
   },
   {
     id: "enrollment2",
-    userId: "user1",
+    userId: "67d98d8eb2aa93dedb170087",
     courseId: "7d530f37-8a33-42d9-ada7-81476896af2b",
     courseName: "Thiết kế UI/UX",
     userName: "Kien Tran",

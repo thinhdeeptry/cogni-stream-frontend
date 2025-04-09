@@ -1,255 +1,201 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { use } from "react";
 import { useEffect, useState } from "react";
 
-import { CourseLevel, LessonType } from "@/types/course/types";
-import { ChevronLeft, Edit, Plus, Save, Trash, Upload } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
+import { formatPrice } from "@/lib/utils";
+import { Course } from "@/types/course/types";
+import { ChevronLeft, Edit, Loader2, Plus } from "lucide-react";
 
-import useUserStore from "@/stores/useUserStore";
+import { getCourseById } from "@/actions/courseAction";
 
+import { CourseContent } from "@/components/CourseContent";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-export default function EditCoursePage() {
-  const router = useRouter();
-  const params = useParams();
-  const courseId = params.courseId as string;
-  const { user } = useUserStore();
+import { AddChapterDialog } from "./AddChapterDialog";
+import { AddLessonDialog } from "./AddLessonDialog";
 
+export default function CourseDetailPage({
+  params,
+}: {
+  params: Promise<{ courseId: string }>;
+}) {
+  const resolvedParams = use(params);
+  const [course, setCourse] = useState<Course | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [activeChapter, setActiveChapter] = useState<string | null>(null);
-  const [showLessonForm, setShowLessonForm] = useState(false);
-  const [editingLesson, setEditingLesson] = useState<string | null>(null);
+  const [isAddChapterOpen, setIsAddChapterOpen] = useState(false);
+  const [isAddLessonOpen, setIsAddLessonOpen] = useState(false);
+  const [selectedChapterId, setSelectedChapterId] = useState<string>("");
 
-  // Course form state
-  const [courseData, setCourseData] = useState({
-    id: "",
-    title: "",
-    description: "",
-    categoryId: "",
-    level: CourseLevel.BEGINNER,
-    price: 0,
-    currency: "VND",
-    isPublished: false,
-    isHasCertificate: false,
-    tags: [] as string[],
-    learningOutcomes: [""] as string[],
-    requirements: [""] as string[],
-    targetAudience: "",
-    thumbnailUrl: "",
-    chapters: [] as any[],
-  });
-
-  // Lesson form state
-  const [lessonData, setLessonData] = useState({
-    id: "",
-    title: "",
-    content: "",
-    type: LessonType.VIDEO,
-    videoUrl: "",
-    order: 0,
-    isPublished: true,
-    isFreePreview: false,
-  });
-
-  // Handle form input changes
-  const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-  ) => {
-    const { name, value } = e.target;
-    setCourseData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  // Handle select changes
-  const handleSelectChange = (name: string, value: string) => {
-    setCourseData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  // Handle checkbox changes
-  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, checked } = e.target;
-    setCourseData((prev) => ({ ...prev, [name]: checked }));
-  };
-
-  // Handle image upload
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const imageUrl = URL.createObjectURL(file);
-      setSelectedImage(imageUrl);
+  const fetchCourseData = async () => {
+    try {
+      setIsLoading(true);
+      const courseData = await getCourseById(resolvedParams.courseId);
+      setCourse(courseData);
+    } catch (error) {
+      toast({
+        title: "Lỗi",
+        description: "Không thể tải thông tin khóa học",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // Handle array field changes (learning outcomes, requirements)
-  const handleArrayFieldChange = (
-    field: string,
-    index: number,
-    value: string,
-  ) => {
-    setCourseData((prev) => {
-      const newArray = [...(prev[field as keyof typeof prev] as string[])];
-      newArray[index] = value;
-      return { ...prev, [field]: newArray };
-    });
-  };
+  useEffect(() => {
+    fetchCourseData();
+  }, [resolvedParams.courseId]);
 
-  // Add new item to array fields
-  const addArrayItem = (field: string) => {
-    setCourseData((prev) => {
-      const newArray = [...(prev[field as keyof typeof prev] as string[]), ""];
-      return { ...prev, [field]: newArray };
-    });
-  };
+  if (isLoading) {
+    return (
+      <div className="p-8 flex justify-center items-center min-h-[200px]">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
-  // Remove item from array fields
-  const removeArrayItem = (field: string, index: number) => {
-    setCourseData((prev) => {
-      const newArray = [...(prev[field as keyof typeof prev] as string[])];
-      newArray.splice(index, 1);
-      return { ...prev, [field]: newArray };
-    });
-  };
+  if (!course) {
+    return (
+      <div className="p-8 flex justify-center items-center min-h-[200px]">
+        <div className="text-muted-foreground">Không tìm thấy khóa học</div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8">
-      <div className="flex items-center gap-4 mb-6">
-        <Link href="/admin/courses">
-          <Button variant="outline" size="icon">
-            <ChevronLeft className="h-4 w-4" />
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-4">
+          <Link href="/admin/courses">
+            <Button variant="outline" size="icon">
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold">{course.title}</h1>
+            <div className="flex items-center gap-2 mt-1">
+              <Badge variant={course.isPublished ? "default" : "secondary"}>
+                {course.isPublished ? "Đã xuất bản" : "Chưa xuất bản"}
+              </Badge>
+              <Badge variant="outline">{course.level}</Badge>
+            </div>
+          </div>
+        </div>
+        <Link href={`/admin/courses/${resolvedParams.courseId}/edit`}>
+          <Button variant="outline">
+            <Edit className="h-4 w-4 mr-2" />
+            Chỉnh sửa
           </Button>
         </Link>
-        <h1 className="text-2xl font-bold">Chỉnh sửa khoá học</h1>
       </div>
 
       <div className="grid grid-cols-3 gap-6">
-        <div className="col-span-2 space-y-6">
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="title">Tên khoá học</Label>
-              <Input
-                id="title"
-                name="title"
-                value={courseData.title}
-                onChange={handleInputChange}
-              />
-            </div>
+        {/* Course Info */}
+        <div className="col-span-1 space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Thông tin khóa học</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="aspect-video relative rounded-lg overflow-hidden">
+                <img
+                  src={course.thumbnailUrl || "/placeholder-course.jpg"}
+                  alt={course.title}
+                  className="object-cover w-full h-full"
+                />
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="description">Mô tả</Label>
-              <Input
-                id="description"
-                name="description"
-                value={courseData.description}
-                onChange={handleInputChange}
-              />
-            </div>
+              <div>
+                <h3 className="font-semibold mb-1">Mô tả</h3>
+                <p className="text-sm text-muted-foreground">
+                  {course.description}
+                </p>
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="category">Danh mục</Label>
-              <Select
-                value={courseData.categoryId}
-                onValueChange={(value) =>
-                  handleSelectChange("categoryId", value)
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn danh mục" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cat1">Lập trình web</SelectItem>
-                  <SelectItem value="cat2">Lập trình mobile</SelectItem>
-                  <SelectItem value="cat3">Lập trình game</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+              <div>
+                <h3 className="font-semibold mb-1">Danh mục</h3>
+                <p className="text-sm text-muted-foreground">
+                  {course.category?.name || "Chưa phân loại"}
+                </p>
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="level">Cấp độ</Label>
-              <Select
-                value={courseData.level}
-                onValueChange={(value) => handleSelectChange("level", value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn cấp độ" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={CourseLevel.BEGINNER}>Cơ bản</SelectItem>
-                  <SelectItem value={CourseLevel.INTERMEDIATE}>
-                    Trung cấp
-                  </SelectItem>
-                  <SelectItem value={CourseLevel.ADVANCED}>Nâng cao</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+              <div>
+                <h3 className="font-semibold mb-1">Giá</h3>
+                <p className="text-sm text-muted-foreground">
+                  {course.price === 0
+                    ? "Miễn phí"
+                    : formatPrice(course.price, course.currency)}
+                </p>
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="price">Giá (VND)</Label>
-              <Input
-                id="price"
-                name="price"
-                type="number"
-                value={courseData.price}
-                onChange={handleInputChange}
-              />
-            </div>
-          </div>
+              <div>
+                <h3 className="font-semibold mb-1">Tổng quan</h3>
+                <div className="text-sm text-muted-foreground space-y-1">
+                  <p>Số chương: {course.chapters?.length}</p>
+                  <p>Số bài học: {course.totalLessons}</p>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="font-semibold mb-1">Yêu cầu</h3>
+                <ul className="text-sm text-muted-foreground list-disc pl-4 space-y-1">
+                  {course.requirements.map((req, index) => (
+                    <li key={index}>{req}</li>
+                  ))}
+                </ul>
+              </div>
+
+              <div>
+                <h3 className="font-semibold mb-1">Mục tiêu khóa học</h3>
+                <ul className="text-sm text-muted-foreground list-disc pl-4 space-y-1">
+                  {course.learningOutcomes.map((outcome, index) => (
+                    <li key={index}>{outcome}</li>
+                  ))}
+                </ul>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
-        <div className="space-y-6">
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Ảnh bìa</Label>
-              <div className="border rounded-lg p-4">
-                {selectedImage || courseData.thumbnailUrl ? (
-                  <div className="relative aspect-video">
-                    <Image
-                      src={selectedImage || courseData.thumbnailUrl}
-                      alt="Course thumbnail"
-                      fill
-                      className="object-cover rounded-lg"
-                    />
-                  </div>
-                ) : (
-                  <div className="aspect-video flex items-center justify-center border-2 border-dashed rounded-lg">
-                    <div className="text-center">
-                      <Upload className="h-8 w-8 mx-auto mb-2 text-gray-400" />
-                      <p className="text-sm text-gray-600">Tải ảnh lên</p>
-                    </div>
-                  </div>
-                )}
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="hidden"
-                  id="thumbnail"
-                />
-                <Label
-                  htmlFor="thumbnail"
-                  className="block w-full text-center mt-4"
-                >
-                  <Button variant="outline" type="button">
-                    Chọn ảnh
-                  </Button>
-                </Label>
-              </div>
-            </div>
+        {/* Chapters and Lessons */}
+        <div className="col-span-2 space-y-6">
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-semibold">Nội dung khóa học</h2>
+            <Button onClick={() => setIsAddChapterOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Thêm chương mới
+            </Button>
           </div>
+
+          <CourseContent
+            courseId={resolvedParams.courseId}
+            chapters={(course.chapters || []).map((chapter) => ({
+              ...chapter,
+              lessons: chapter.lessons || [],
+            }))}
+            onOrderUpdate={fetchCourseData}
+          />
         </div>
       </div>
+
+      <AddChapterDialog
+        courseId={resolvedParams.courseId}
+        open={isAddChapterOpen}
+        onOpenChange={setIsAddChapterOpen}
+      />
+
+      <AddLessonDialog
+        courseId={resolvedParams.courseId}
+        chapterId={selectedChapterId}
+        open={isAddLessonOpen}
+        onOpenChange={setIsAddLessonOpen}
+      />
     </div>
   );
 }

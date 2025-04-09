@@ -155,7 +155,7 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="w-full space-y-4">
+      <div className="w-full ">
         <h2 className="text-2xl font-semibold">Khoá học miễn phí</h2>
         <div className="grid grid-cols-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 py-4 pb-6">
           {freeCourses.map((course) => (
