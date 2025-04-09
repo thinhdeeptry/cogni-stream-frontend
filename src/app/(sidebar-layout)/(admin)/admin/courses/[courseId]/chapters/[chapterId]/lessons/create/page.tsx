@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { use, useState } from "react";
 
-import { toast } from "@/hooks/use-toast";
 import "@blocknote/core/fonts/inter.css";
 import { BlockNoteView } from "@blocknote/mantine";
 import "@blocknote/mantine/style.css";
@@ -29,48 +28,44 @@ export default function CreateLessonPage({
   const editor = useCreateBlockNote();
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-
-    try {
-      // Get the content from the editor
-      const content = JSON.stringify(editor.topLevelBlocks);
-
-      const response = await fetch("/api/lessons", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          title,
-          content,
-          videoUrl,
-          isFreePreview,
-          chapterId: resolvedParams.chapterId,
-          courseId: resolvedParams.courseId,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        toast({
-          title: "Thành công",
-          description: "Đã tạo bài học mới",
-        });
-        router.push(`/admin/courses/${resolvedParams.courseId}`);
-      } else {
-        throw new Error(data.message);
-      }
-    } catch (error) {
-      toast({
-        title: "Lỗi",
-        description: "Không thể tạo bài học",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
+    // e.preventDefault();
+    // setIsSubmitting(true);
+    // try {
+    //   // Get the content from the editor
+    //   const content = JSON.stringify(editor.topLevelBlocks);
+    //   const response = await fetch("/api/lessons", {
+    //     method: "POST",
+    //     headers: {
+    //       "Content-Type": "application/json",
+    //     },
+    //     body: JSON.stringify({
+    //       title,
+    //       content,
+    //       videoUrl,
+    //       isFreePreview,
+    //       chapterId: resolvedParams.chapterId,
+    //       courseId: resolvedParams.courseId,
+    //     }),
+    //   });
+    //   const data = await response.json();
+    //   if (data.success) {
+    //     toast({
+    //       title: "Thành công",
+    //       description: "Đã tạo bài học mới",
+    //     });
+    //     router.push(`/admin/courses/${resolvedParams.courseId}`);
+    //   } else {
+    //     throw new Error(data.message);
+    //   }
+    // } catch (error) {
+    //   toast({
+    //     title: "Lỗi",
+    //     description: "Không thể tạo bài học",
+    //     variant: "destructive",
+    //   });
+    // } finally {
+    //   setIsSubmitting(false);
+    // }
   };
 
   return (

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { toast } from "@/hooks/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { Category, CourseLevel } from "@/types/course/types";
 import { ChevronLeft, Edit, Plus, Save, Trash, Upload } from "lucide-react";
 
@@ -42,6 +42,7 @@ interface CourseFormData {
 }
 
 export default function CreateCoursePage() {
+  const { toast } = useToast();
   const router = useRouter();
   const { user } = useUserStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -149,7 +150,6 @@ export default function CreateCoursePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (
       !courseData.title ||
       !courseData.description ||
@@ -503,11 +503,17 @@ export default function CreateCoursePage() {
         <Button
           type="button"
           variant="outline"
-          onClick={() => router.push("/admin/courses")}
+          onClick={() => {
+            toast({
+              title: "Scheduled: Catch up",
+              description: "Friday, February 10, 2023 at 5:57 PM",
+            });
+            // router.push("/admin/courses")
+          }}
         >
           Hủy
         </Button>
-        <Button type="submit" disabled={isSubmitting}>
+        <Button variant="outline" type="submit" onClick={handleSubmit}>
           {isSubmitting ? "Đang tạo..." : "Tạo khóa học"}
         </Button>
       </div>

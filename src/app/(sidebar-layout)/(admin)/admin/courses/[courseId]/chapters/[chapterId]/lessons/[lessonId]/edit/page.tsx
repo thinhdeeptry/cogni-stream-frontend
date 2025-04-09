@@ -4,12 +4,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { use, useEffect, useState } from "react";
 
-import { toast } from "@/hooks/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import "@blocknote/core/fonts/inter.css";
 import { BlockNoteView } from "@blocknote/mantine";
 import "@blocknote/mantine/style.css";
 import { useCreateBlockNote } from "@blocknote/react";
 import { ChevronLeft } from "lucide-react";
+
+import { createLesson, getLessonById } from "@/actions/courseAction";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,22 +29,21 @@ export default function EditLessonPage({
   const [title, setTitle] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
   const [isFreePreview, setIsFreePreview] = useState(false);
-
+  const { toast } = useToast();
   const editor = useCreateBlockNote();
 
   useEffect(() => {
     const fetchLesson = async () => {
       try {
-        const response = await fetch(`/api/lessons/${resolvedParams.lessonId}`);
-        const data = await response.json();
-
-        if (data.success) {
-          setTitle(data.lesson.title);
-          setVideoUrl(data.lesson.videoUrl);
-          setIsFreePreview(data.lesson.isFreePreview);
+        const data = await getLessonById(resolvedParams.lessonId);
+        console.log(data);
+        if (data) {
+          setTitle(data.title);
+          setVideoUrl(data.videoUrl);
+          setIsFreePreview(data.isFreePreview);
 
           // Load the content into the editor
-          const content = JSON.parse(data.lesson.content);
+          const content = JSON.parse(data.content);
           editor.replaceBlocks(editor.topLevelBlocks, content);
         }
       } catch (error) {
@@ -60,45 +61,29 @@ export default function EditLessonPage({
   }, [resolvedParams.lessonId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-
-    try {
-      const content = JSON.stringify(editor.topLevelBlocks);
-
-      const response = await fetch(`/api/lessons/${resolvedParams.lessonId}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          title,
-          content,
-          videoUrl,
-          isFreePreview,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        toast({
-          title: "Thành công",
-          description: "Đã cập nhật bài học",
-        });
-        router.push(`/admin/courses/${resolvedParams.courseId}`);
-      } else {
-        throw new Error(data.message);
-      }
-    } catch (error) {
-      toast({
-        title: "Lỗi",
-        description: "Không thể cập nhật bài học",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
+    //   e.preventDefault();
+    //   setIsSubmitting(true);
+    //   try {
+    //     const content = JSON.stringify(editor.topLevelBlocks);
+    //     // const response = await createLesson
+    //     if (data) {
+    //       toast({
+    //         title: "Thành công",
+    //         description: "Đã cập nhật bài học",
+    //       });
+    //       router.push(`/admin/courses/${resolvedParams.courseId}`);
+    //     } else {
+    //       throw new Error(data.message);
+    //     }
+    //   } catch (error) {
+    //     toast({
+    //       title: "Lỗi",
+    //       description: "Không thể cập nhật bài học",
+    //       variant: "destructive",
+    //     });
+    //   } finally {
+    //     setIsSubmitting(false);
+    //   }
   };
 
   if (isLoading) {

@@ -1,7 +1,7 @@
 "use server";
 
 import { AxiosFactory } from "@/lib/axios";
-import { Category, Course } from "@/types/course/types";
+import { Category, Course, Lesson } from "@/types/course/types";
 
 const courseApi = AxiosFactory.getApiInstance("course");
 
@@ -191,7 +191,7 @@ export const deleteChapter = async (chapterId: string) => {
 export const createLesson = async (
   courseId: string,
   chapterId: string,
-  lessonData: any,
+  lessonData: Lesson,
 ) => {
   try {
     const { data } = await courseApi.post(
