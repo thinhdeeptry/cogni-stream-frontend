@@ -163,7 +163,7 @@ const columns: ColumnDef<IUser>[] = [
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
             <DropdownMenuItem
-              onClick={() => navigator.clipboard.writeText(user._id)}
+              onClick={() => navigator.clipboard.writeText(user.id)}
             >
               Copy user ID
             </DropdownMenuItem>
@@ -352,7 +352,7 @@ function UpdateUserDialog({ user }: { user: IUser }) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Updating user:", user._id, formData);
+    console.log("Updating user:", user.id, formData);
     // Here you would call your API to update the user
     // After successful update, you would refresh the user list
     setOpen(false);

@@ -17,8 +17,8 @@ declare global {
 
   interface IAuthResponse {
     user: IUser;
-    access_token: string;
-    // các thông tin authentication khác nếu có
+    accessToken: string;
+    refreshToken: string;
   }
 }
 namespace NodeJS {
@@ -31,17 +31,21 @@ namespace NodeJS {
 declare module "next-auth" {
   interface Session {
     user: DefaultSession["user"] & IUser; // Kết hợp DefaultUser với IUser
-    accessToken: string; // Thêm accessToken vào Session
+    accessToken: string;
+    refreshToken: string;
   }
 
   interface User extends DefaultUser, IUser {
     // Kết hợp DefaultUser với IUser
+    accessToken?: string;
+    refreshToken?: string;
   }
 
   interface JWT {
     id: string;
     user: IUser;
     accessToken: string;
+    refreshToken: string; // Thêm refreshToken vào JWT
   }
 }
 export {};

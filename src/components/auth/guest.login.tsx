@@ -24,6 +24,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 
+import { ShineBorder } from "../magicui/shine-border";
+
 const formSchema = z.object({
   email: z.string().email({
     message: "Email không hợp lệ.",
@@ -38,18 +40,6 @@ export default function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [isMounted, setIsMounted] = useState(false);
-  // useEffect(() => {
-  //   if (typeof window !== "undefined") {
-  //     if (isLoading || error) {
-  //       setIsLoading(false);
-  //       setError(null);
-  //     }
-  //   }
-  // }, []);
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -91,11 +81,14 @@ export default function LoginForm() {
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
   };
-
   return (
-    <div className="min-h-screen bg-main-50 flex items-center justify-center p-6 relative">
-      {isMounted && <Toaster richColors position="top-right" />}
-      <Card className="w-full max-w-md bg-white rounded-xl shadow-sm">
+    <div className="min-h-screen flex items-center justify-center p-6 relative bg-gradient-to-br from-purple-50/30 to-orange-50/30">
+      <Toaster richColors position="top-right" />
+      <Card className="w-full max-w-md bg-white/20 backdrop-blur-md rounded-xl shadow-lg border-white/30 relative overflow-hidden">
+        <ShineBorder
+          shineColor={["#A07CFE", "#FE8FB5", "#FFBE7B"]}
+          borderWidth={2}
+        />
         <CardHeader className="text-center pt-8 pb-2">
           <h2 className="text-2xl font-bold">
             Edu Forge – Nơi tri thức bùng nổ tương lai rộng mở!

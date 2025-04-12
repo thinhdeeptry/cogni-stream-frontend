@@ -23,6 +23,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 
+import { ShineBorder } from "../magicui/shine-border";
+
 const formSchema = z.object({
   name: z.string().min(2, {
     message: "Họ tên phải có ít nhất 2 ký tự.",
@@ -40,13 +42,6 @@ export default function RegisterForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-
-  // useEffect(() => {
-  //   if (typeof window !== "undefined") {
-  //     setIsLoading(false)
-  //     setError(null)
-  //   }
-  // }, [])
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -92,11 +87,15 @@ export default function RegisterForm() {
   };
 
   return (
-    <div className="min-h-screen bg-main-50 flex items-center justify-center p-6 relative">
+    <div className="min-h-screen flex items-center justify-center p-6 relative bg-gradient-to-br from-purple-50/30 to-orange-50/30">
       <Toaster richColors position="top-right" />
-      <Card className="w-full max-w-md bg-white rounded-xl shadow-sm">
+      <Card className="w-full max-w-md bg-white/20 backdrop-blur-md rounded-xl shadow-lg border-white/30 relative overflow-hidden">
+        <ShineBorder
+          shineColor={["#A07CFE", "#FE8FB5", "#FFBE7B"]}
+          borderWidth={2}
+        />
         <CardHeader className="text-center pt-8 pb-2">
-          <h2 className="text-2xl font-bold">
+          <h2 className="text-2xl font-bold text-gray-800">
             Edu Forge – Mở cửa tri thức{"\n"}ghi danh ngay!
           </h2>
         </CardHeader>
@@ -111,7 +110,7 @@ export default function RegisterForm() {
                     <FormControl>
                       <Input
                         placeholder="Full Name"
-                        className="rounded-full h-12 px-4 border-input"
+                        className="rounded-full h-12 px-4 border-white/50 bg-white/50 backdrop-blur-sm focus:bg-white/70 transition-all"
                         {...field}
                       />
                     </FormControl>
@@ -173,7 +172,7 @@ export default function RegisterForm() {
               />
               <Button
                 type="submit"
-                className="w-full h-12 rounded-full bg-main-300 hover:bg-main-400 text-main-900"
+                className="w-full h-12 rounded-full bg-orange-500/80 hover:bg-orange-500 text-white backdrop-blur-sm transition-all"
                 disabled={isLoading}
               >
                 {isLoading ? (
@@ -187,22 +186,22 @@ export default function RegisterForm() {
             </form>
           </Form>
 
-          <div className="flex items-center gap-4 my-8">
-            <Separator className="flex-1" />
-            <span className="text-xs text-muted-foreground">
-              Or Sign up with
-            </span>
-            <Separator className="flex-1" />
+          <div className="relative my-8">
+            <div className="absolute inset-0 flex items-center">
+              <Separator className="w-full bg-white/50" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-white/30 backdrop-blur-sm px-2 text-gray-700">
+                Or Sign up with
+              </span>
+            </div>
           </div>
 
           <div className="grid grid-cols-3 gap-3">
             <Button
               variant="outline"
-              className="rounded-md border-input hover:bg-main-50"
-              onClick={() => {
-                // Add Google OAuth logic
-                toast.info("Google sign up coming soon");
-              }}
+              className="rounded-lg border-white/50 bg-white/30 hover:bg-white/50 backdrop-blur-sm transition-all"
+              onClick={() => toast.info("Google sign up coming soon")}
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24">
                 <path
@@ -247,11 +246,11 @@ export default function RegisterForm() {
             </Button>
           </div>
 
-          <div className="mt-8 text-center text-sm text-muted-foreground">
+          <div className="mt-8 text-center text-sm text-gray-700">
             Already have an account?{" "}
             <Button
               variant="link"
-              className="p-0 h-auto font-semibold text-main-900 hover:text-main-800"
+              className="p-0 h-auto font-semibold text-orange-600 hover:text-orange-700"
               onClick={() => router.push("/auth/login")}
             >
               Sign in

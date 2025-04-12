@@ -1,4 +1,4 @@
-import { log } from "console";
+// import { log } from "console";
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 
@@ -9,14 +9,24 @@ import {
   ServerError,
 } from "./utils/errors";
 
-export const { handlers, signIn, signOut, auth } = NextAuth({
+export const {
+  handlers,
+  signIn,
+  signOut,
+  auth,
+}: {
+  handlers: any;
+  signIn: any;
+  signOut: any;
+  auth: any;
+} = NextAuth({
   providers: [
     Credentials({
       credentials: {
         email: {},
         password: { label: "Password", type: "password" },
       },
-      authorize: async (credentials) => {
+      authorize: async (credentials): Promise<IUser | null> => {
         if (!credentials?.email || !credentials?.password) {
           return null;
         }
@@ -43,19 +53,29 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           }
         }
 
-        if (response.user && response.access_token) {
+        // Kiểm tra các trường hợp khác nhau của response
+        if (response.user) {
+          // Tạo đối tượng user với các giá trị mặc định cho các trường có thể bị thiếu
           const user = {
             id: response.user.id,
             email: response.user.email,
             name: response.user.name,
-            role: response.user.role,
-            accountType: response.user.accountType,
-            isActive: response.user.isActive,
-            phone: response.user.phone,
-            address: response.user.address,
-            image: response.user.image,
-            accessToken: response.access_token, // Add access token directly to user object
+            role: response.user.role || "USER",
+            accountType: response.user.accountType || "LOCAL",
+            isActive:
+              response.user.isActive !== undefined
+                ? response.user.isActive
+                : true,
+            phone: response.user.phone || "",
+            address: response.user.address || "",
+            image: response.user.image || "",
+            createdAt: response.user.createdAt || new Date().toISOString(),
+            // Lấy accessToken và refreshToken từ các vị trí khác nhau có thể có trong response
+            accessToken: response.accessToken || response.access_token || "",
+            refreshToken: response.refreshToken || response.refresh_token || "",
           };
+
+          console.log("User object being returned to NextAuth:", user);
           return user;
         }
         return null;
@@ -70,6 +90,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   callbacks: {
     async jwt({ token, user }: { token: any; user: any }) {
+      console.log("JWT callback - Input token:", token);
+      console.log("JWT callback - Input user:", user);
+
       if (user) {
         // Cập nhật token với thông tin user theo interface IUser
         token.id = user.id;
@@ -81,12 +104,31 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.phone = user.phone;
         token.address = user.address;
         token.image = user.image;
-        // Lưu accessToken riêng, không nằm trong interface IUser
+        // Lưu accessToken và refreshToken
         token.accessToken = user.accessToken;
+        token.refreshToken = user.refreshToken;
+
+        console.log("JWT callback - User found, updated token:", {
+          id: token.id,
+          email: token.email,
+          accessToken: token.accessToken ? "[EXISTS]" : "[MISSING]",
+          refreshToken: token.refreshToken ? "[EXISTS]" : "[MISSING]",
+        });
+      } else {
+        console.log("JWT callback - No user provided");
       }
+
       return token;
     },
     async session({ session, token }: { session: any; token: any }) {
+      console.log("Session callback - Input session:", session);
+      console.log("Session callback - Input token:", {
+        id: token.id,
+        email: token.email,
+        accessToken: token.accessToken ? "[EXISTS]" : "[MISSING]",
+        refreshToken: token.refreshToken ? "[EXISTS]" : "[MISSING]",
+      });
+
       // Cập nhật session.user theo interface IUser
       session.user = {
         id: token.id,
@@ -99,8 +141,20 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         address: token.address,
         image: token.image,
       };
-      // Lưu accessToken ở cấp session, không phải trong user
+
+      // Lưu accessToken và refreshToken ở cấp session
+      session.refreshToken = token.refreshToken;
       session.accessToken = token.accessToken;
+
+      console.log("Session callback - Updated session:", {
+        user: {
+          id: session.user.id,
+          email: session.user.email,
+        },
+        accessToken: session.accessToken ? "[EXISTS]" : "[MISSING]",
+        refreshToken: session.refreshToken ? "[EXISTS]" : "[MISSING]",
+      });
+
       return session;
     },
     authorized: async ({ auth }) => {

@@ -8,13 +8,27 @@ import { authApi } from "@/lib/api/authApi";
 
 // actions/login.ts
 
+// actions/login.ts
+
+// actions/login.ts
+
+// actions/login.ts
+
 export async function loginUser(email: string, password: string) {
   try {
+    console.log("loginUser: Attempting to sign in with email:", email);
+
     // First attempt to sign in
     const result = await signIn("credentials", {
       email,
       password,
       redirect: false, // Không redirect tự động, xử lý bằng FE
+    });
+
+    console.log("loginUser: Sign in result:", {
+      ok: !result?.error,
+      error: result?.error || null,
+      url: result?.url || null,
     });
 
     // Check if there was an error during sign in
@@ -48,6 +62,18 @@ export async function loginUser(email: string, password: string) {
     }
     // If login successful, get session to check user role
     const session = await auth();
+    console.log("loginUser: Session after sign in:", {
+      user: session?.user
+        ? {
+            id: session.user.id,
+            email: session.user.email,
+            role: session.user.role,
+          }
+        : null,
+      accessToken: session?.accessToken ? "[EXISTS]" : "[MISSING]",
+      refreshToken: session?.refreshToken ? "[EXISTS]" : "[MISSING]",
+    });
+
     // Redirect based on user role
     if (session?.user?.role === "ADMIN") {
       return {
@@ -64,7 +90,7 @@ export async function loginUser(email: string, password: string) {
       error: false,
       success: true,
       message: "Đăng nhập thành công!",
-      redirectTo: "/dashboard",
+      redirectTo: "/",
       status: 200,
     };
   } catch (error: any) {
