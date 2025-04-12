@@ -215,7 +215,7 @@ export default function EditCoursePage({
               <Input
                 id="title"
                 name="title"
-                value={courseData.title}
+                value={courseData.title || ""}
                 onChange={handleInputChange}
                 required
               />
@@ -226,7 +226,7 @@ export default function EditCoursePage({
               <Textarea
                 id="description"
                 name="description"
-                value={courseData.description}
+                value={courseData.description || ""}
                 onChange={handleInputChange}
                 required
               />

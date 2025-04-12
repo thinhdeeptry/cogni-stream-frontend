@@ -53,7 +53,7 @@ export default function CourseItem({
   return (
     <Link
       href={href}
-      className="w-[300px] block transform transition-all duration-300 hover:-translate-y-1"
+      className=" block transform transition-all duration-300 hover:-translate-y-1"
     >
       <Card className=" max-h-60 overflow-hidden transition-all hover:shadow-xl cursor-pointer">
         <div className="relative max-h-32 aspect-video w-full">

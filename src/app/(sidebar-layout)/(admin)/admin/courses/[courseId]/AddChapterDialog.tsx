@@ -55,7 +55,7 @@ export function AddChapterDialog({
             <Label htmlFor="title">Tên chương</Label>
             <Input
               id="title"
-              value={chapterData.title}
+              value={chapterData.title || ""}
               onChange={(e) =>
                 setChapterData({ ...chapterData, title: e.target.value })
               }

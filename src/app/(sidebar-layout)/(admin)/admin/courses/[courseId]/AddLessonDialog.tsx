@@ -98,7 +98,7 @@ export function AddLessonDialog({
               <Label htmlFor="videoUrl">URL Video</Label>
               <Input
                 id="videoUrl"
-                value={lessonData.videoUrl}
+                value={lessonData.videoUrl || ""}
                 onChange={(e) =>
                   setLessonData({ ...lessonData, videoUrl: e.target.value })
                 }

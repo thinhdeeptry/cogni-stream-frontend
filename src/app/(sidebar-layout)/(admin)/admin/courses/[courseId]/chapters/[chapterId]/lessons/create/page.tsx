@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { use, useState } from "react";
 
+import { useToast } from "@/hooks/use-toast";
 import "@blocknote/core/fonts/inter.css";
 import { BlockNoteView } from "@blocknote/mantine";
 import "@blocknote/mantine/style.css";
@@ -26,6 +27,7 @@ export default function CreateLessonPage({
   const [videoUrl, setVideoUrl] = useState("");
   const [isFreePreview, setIsFreePreview] = useState(false);
   const editor = useCreateBlockNote();
+  const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     // e.preventDefault();
