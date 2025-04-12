@@ -126,12 +126,16 @@ function transformQuestionToFormValues(question: Question): QuestionFormValues {
 }
 
 interface QuestionFormProps {
+  courseId?: string;
+  chapterId?: string;
   lessonId?: string;
   onSubmit?: (data: QuestionFormValues) => void;
   initialData?: Question;
 }
 
 export function QuestionForm({
+  courseId,
+  chapterId,
   lessonId,
   onSubmit,
   initialData,
@@ -140,22 +144,27 @@ export function QuestionForm({
     initialData?.type || QuestionType.SINGLE_CHOICE,
   );
 
+  // Đảm bảo các giá trị mặc định luôn nhất quán
+  const defaultValues = initialData
+    ? transformQuestionToFormValues(initialData)
+    : {
+        type: QuestionType.SINGLE_CHOICE,
+        content: {
+          text: "",
+        },
+        courseId: courseId ?? "", // Sử dụng nullish coalescing để đảm bảo luôn có giá trị
+        chapterId: chapterId ?? "",
+        lessonId: lessonId ?? "",
+        difficulty: QuestionDifficulty.REMEMBERING,
+        options: [
+          { content: { text: "" }, order: 1, isCorrect: false },
+          { content: { text: "" }, order: 2, isCorrect: false },
+        ],
+      };
+
   const form = useForm<QuestionFormValues>({
     resolver: zodResolver(questionSchema),
-    defaultValues: initialData
-      ? transformQuestionToFormValues(initialData)
-      : {
-          type: QuestionType.SINGLE_CHOICE,
-          content: {
-            text: "",
-          },
-          lessonId: lessonId || "",
-          difficulty: QuestionDifficulty.REMEMBERING,
-          options: [
-            { content: { text: "" }, order: 1, isCorrect: false },
-            { content: { text: "" }, order: 2, isCorrect: false },
-          ],
-        },
+    defaultValues,
   });
 
   // Reset form when question type changes

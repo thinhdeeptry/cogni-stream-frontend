@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import { Question } from "@/types/assessment/types";
 import axios from "axios";
@@ -12,6 +12,12 @@ import { Button } from "@/components/ui/button";
 
 export default function CreateQuestionPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Lấy các tham số từ URL
+  const courseId = searchParams.get("courseId");
+  const chapterId = searchParams.get("chapterId");
+  const lessonId = searchParams.get("lessonId");
 
   const handleSubmit = async (data: Question) => {
     try {
@@ -64,7 +70,12 @@ export default function CreateQuestionPage() {
           </p>
         </div>
       </div>
-      <QuestionForm onSubmit={handleSubmit} />
+      <QuestionForm
+        courseId={courseId || undefined}
+        chapterId={chapterId || undefined}
+        lessonId={lessonId || undefined}
+        onSubmit={handleSubmit}
+      />
     </div>
   );
 }

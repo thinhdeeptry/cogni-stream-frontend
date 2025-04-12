@@ -180,7 +180,51 @@ export default function QuestionsPage() {
           </p>
         </div>
         <Button
-          onClick={() => router.push("/assessment/questions/create")}
+          onClick={() => {
+            // Xác định context hiện tại để truyền vào trang tạo câu hỏi
+            let params = new URLSearchParams();
+
+            if (selectedId) {
+              // Tìm trong courses
+              const course = courses.find((c) => c.id === selectedId);
+              if (course) {
+                params.set("courseId", selectedId);
+              } else {
+                // Tìm trong chapters
+                let foundChapter = false;
+                for (const course of courses) {
+                  const chapter = course.chapters.find(
+                    (ch) => ch.id === selectedId,
+                  );
+                  if (chapter) {
+                    params.set("courseId", course.id);
+                    params.set("chapterId", selectedId);
+                    foundChapter = true;
+                    break;
+                  }
+                }
+
+                // Nếu không phải chapter, tìm trong lessons
+                if (!foundChapter) {
+                  for (const course of courses) {
+                    for (const chapter of course.chapters) {
+                      const lesson = chapter.lessons.find(
+                        (l) => l.id === selectedId,
+                      );
+                      if (lesson) {
+                        params.set("courseId", course.id);
+                        params.set("chapterId", chapter.id);
+                        params.set("lessonId", selectedId);
+                        break;
+                      }
+                    }
+                  }
+                }
+              }
+            }
+
+            router.push(`/assessment/questions/create?${params.toString()}`);
+          }}
           size="lg"
           className="h-12 px-6"
         >

@@ -71,7 +71,7 @@ export default function QuestionLayout({
         setError(null);
 
         const response = await axios.get(
-          "http://localhost:3002/courses/user/25e1d787-4ce1-4109-b8eb-a90fe40d942c/structure",
+          "http://localhost:3002/courses/user/user1/structure",
         );
 
         if (response.data && response.data.value) {
