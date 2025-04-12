@@ -8,10 +8,6 @@ import { authApi } from "@/lib/api/authApi";
 
 // actions/login.ts
 
-// actions/login.ts
-
-// actions/login.ts
-
 export async function loginUser(email: string, password: string) {
   try {
     // First attempt to sign in
