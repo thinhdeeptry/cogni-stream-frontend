@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "prepare": "husky"
+    "prepare": "husky install"
   },
   "lint-staged": {
     "**/*": "prettier --write --ignore-unknown"
@@ -79,7 +79,7 @@
     "@types/react-dom": "19",
     "eslint": "9",
     "eslint-config-next": "15.1.7",
-    "husky": "9.1.7",
+    "husky": "^10.0.0",
     "lint-staged": "15.4.3",
     "postcss": "8",
     "prettier": "3.5.1",

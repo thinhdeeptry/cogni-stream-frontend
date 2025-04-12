@@ -1,10 +1,10 @@
 import axios, {
-  AxiosError,
-  AxiosInstance,
-  AxiosRequestConfig,
-  AxiosResponse,
-  InternalAxiosRequestConfig,
+  type AxiosInstance,
+  type AxiosRequestConfig,
+  type InternalAxiosRequestConfig,
 } from "axios";
+import { jwtDecode } from "jwt-decode";
+import { getSession } from "next-auth/react";
 
 import useUserStore from "@/stores/useUserStoree";
 
@@ -13,6 +13,12 @@ import { authApi } from "./api/authApi";
 // Định nghĩa interface cho config tùy chỉnh
 interface CustomApiConfig extends AxiosRequestConfig {
   customHeaders?: Record<string, string>;
+}
+
+// Định nghĩa interface cho decoded JWT
+interface DecodedToken {
+  sub?: string;
+  [key: string]: any;
 }
 
 // Định nghĩa các service name hợp lệ
@@ -28,72 +34,73 @@ type ServiceName =
 
 // Config cơ bản
 class ApiConfig {
-  static readonly BASE_URL: string = "http://localhost";
-  // process.env.NEXT_PUBLIC_API_URL || "http://localhost";
   static readonly DEFAULT_TIMEOUT: number = 10000;
 
-  static readonly SERVICE_PORTS: Record<ServiceName, string> = {
-    user: process.env.NEXT_PUBLIC_USER_SERVICE || "3001",
-    course: process.env.NEXT_PUBLIC_COURSE_SERVICE || "3002",
-    enrollment: process.env.NEXT_PUBLIC_ENROLLMENT_SERVICE || "3003",
-    payment: process.env.NEXT_PUBLIC_PAYMENT_SERVICE || "3004",
-    assessment: process.env.NEXT_PUBLIC_ASSESSMENT_SERVICE || "3005",
-    notification: process.env.NEXT_PUBLIC_NOTIFICATION_SERVICE || "3006",
-    report: process.env.NEXT_PUBLIC_REPORT_SERVICE || "3007",
-    discussion: process.env.NEXT_PUBLIC_DISCUSSION_SERVICE || "3008",
+  // Định nghĩa base URL mặc định (dùng cho user service chạy ở local)
+  static readonly DEFAULT_API_URL: string =
+    process.env.NEXT_PUBLIC_KONG_API_URL || "https://kong.eduforge.io.vn/";
+
+  // Định nghĩa base URL cho từng service (trừ user)
+  static readonly SERVICE_BASE_URLS: Partial<Record<ServiceName, string>> = {
+    course:
+      process.env.NEXT_PUBLIC_COURSE_API_URL ||
+      "https://course.eduforge.io.vn/",
+    enrollment:
+      process.env.NEXT_PUBLIC_ENROLLMENT_API_URL ||
+      "https://enrollment.eduforge.io.vn/",
+    payment:
+      process.env.NEXT_PUBLIC_PAYMENT_API_URL ||
+      "https://payment.eduforge.io.vn/",
+    assessment:
+      process.env.NEXT_PUBLIC_ASSESSMENT_API_URL ||
+      "https://assessment.eduforge.io.vn/",
+    notification:
+      process.env.NEXT_PUBLIC_NOTIFICATION_API_URL ||
+      "https://notification.eduforge.io.vn/",
+    report:
+      process.env.NEXT_PUBLIC_REPORT_API_URL ||
+      "https://report.eduforge.io.vn/",
+    discussion:
+      process.env.NEXT_PUBLIC_DISCUSSION_API_URL ||
+      "https://discussion.eduforge.io.vn/",
+  };
+
+  // Định nghĩa path cho từng service
+  static readonly SERVICE_PATHS: Record<ServiceName, string> = {
+    user: "/auth",
+    course: "",
+    enrollment: "",
+    payment: "",
+    assessment: "",
+    notification: "",
+    report: "",
+    discussion: "",
   };
 }
-
-// Hàm lấy JWT token từ Zustand store
-const getJwtToken = (): string | null => {
-  // Lấy accessToken từ Zustand store
-  if (typeof window !== "undefined") {
-    return useUserStore.getState().accessToken || null;
-  }
-  return null;
-};
-
-// Biến để theo dõi trạng thái refresh token
-let isRefreshing = false;
-let failedQueue: Array<{
-  resolve: (value: unknown) => void;
-  reject: (reason?: any) => void;
-  config: InternalAxiosRequestConfig;
-}> = [];
-
-// Xử lý hàng đợi các request bị trễ do refresh token
-const processQueue = (error: any, token: string | null = null) => {
-  failedQueue.forEach((prom) => {
-    if (error) {
-      prom.reject(error);
-    } else if (token) {
-      prom.config.headers.Authorization = `Bearer ${token}`;
-      prom.resolve(axios(prom.config));
-    }
-  });
-
-  failedQueue = [];
-};
 
 // Factory class để tạo API instances
 class AxiosFactory {
   private static instances: Partial<Record<ServiceName, AxiosInstance>> = {};
-  private static jwtInstances: Partial<Record<ServiceName, AxiosInstance>> = {};
 
   private static createInstance(
     serviceName: ServiceName,
     config: CustomApiConfig = {},
   ): AxiosInstance {
-    const port = ApiConfig.SERVICE_PORTS[serviceName];
+    const path = ApiConfig.SERVICE_PATHS[serviceName];
+    const baseURL =
+      ApiConfig.SERVICE_BASE_URLS[serviceName] || ApiConfig.DEFAULT_API_URL;
 
-    if (!port) {
+    if (!baseURL) {
       throw new Error(
-        `Port cho service ${serviceName} không được định nghĩa trong env`,
+        `Base URL cho service ${serviceName} không được định nghĩa`,
       );
     }
+    if (path === undefined) {
+      throw new Error(`Path cho service ${serviceName} không được định nghĩa`);
+    }
 
-    return axios.create({
-      baseURL: `${ApiConfig.BASE_URL}:${port}`,
+    const instance = axios.create({
+      baseURL: `${baseURL}${path}`,
       timeout: ApiConfig.DEFAULT_TIMEOUT,
       headers: {
         "Content-Type": "application/json",
@@ -102,9 +109,46 @@ class AxiosFactory {
       },
       ...config,
     });
+
+    // Gắn interceptor để tự động thêm token vào mọi request
+    instance.interceptors.request.use(
+      async (
+        reqConfig: InternalAxiosRequestConfig,
+      ): Promise<InternalAxiosRequestConfig> => {
+        // Bỏ qua các route đăng nhập
+        if (reqConfig.url?.includes("/auth/login")) {
+          return reqConfig;
+        }
+
+        try {
+          const session = await getSession();
+          if (session?.accessToken) {
+            reqConfig.headers = reqConfig.headers || {};
+            reqConfig.headers.Authorization = `Bearer ${session.accessToken}`;
+
+            // Giải mã JWT để lấy sub (userId)
+            const decodedToken: DecodedToken = jwtDecode(session.accessToken);
+            const userId = decodedToken.sub;
+
+            if (userId) {
+              reqConfig.headers["X-User-Id"] = userId;
+            }
+          }
+        } catch (error) {
+          console.error("Error getting session or decoding token:", error);
+        }
+
+        return reqConfig;
+      },
+      (error) => {
+        return Promise.reject(error);
+      },
+    );
+
+    return instance;
   }
 
-  // Phương thức public để lấy instance thông thường
+  // Phương thức public để lấy instance với token tự động
   public static getApiInstance(
     serviceName: ServiceName,
     config?: CustomApiConfig,
@@ -115,90 +159,9 @@ class AxiosFactory {
     return this.instances[serviceName]!;
   }
 
-  // Phương thức public để lấy instance với JWT
-  public static getJwtInstance(
-    serviceName: ServiceName,
-    config?: CustomApiConfig,
-  ): AxiosInstance {
-    if (!this.jwtInstances[serviceName]) {
-      const instance = this.createInstance(serviceName, config);
-
-      // Thêm token vào header của mỗi request
-      instance.interceptors.request.use(
-        (reqConfig: InternalAxiosRequestConfig): InternalAxiosRequestConfig => {
-          const token = getJwtToken();
-          if (token) {
-            reqConfig.headers = reqConfig.headers || {};
-            reqConfig.headers.Authorization = `Bearer ${token}`;
-          }
-          return reqConfig;
-        },
-        (error) => {
-          return Promise.reject(error);
-        },
-      );
-
-      // Xử lý response và refresh token khi cần
-      instance.interceptors.response.use(
-        (response: AxiosResponse) => response,
-        async (error: AxiosError) => {
-          const originalRequest = error.config as InternalAxiosRequestConfig;
-
-          // Kiểm tra nếu lỗi là 401 (Unauthorized) và chưa thử refresh token
-          if (
-            error.response?.status === 401 &&
-            !originalRequest.headers["X-Retry-After-Refresh"]
-          ) {
-            if (isRefreshing) {
-              // Nếu đang refresh token, thêm request vào hàng đợi
-              return new Promise((resolve, reject) => {
-                failedQueue.push({ resolve, reject, config: originalRequest });
-              });
-            }
-
-            isRefreshing = true;
-
-            try {
-              // Gọi API refresh token
-              const tokenResponse = await authApi.refresh();
-              const newToken = tokenResponse.accessToken;
-
-              if (newToken) {
-                // Cập nhật token mới vào header của request gốc
-                originalRequest.headers.Authorization = `Bearer ${newToken}`;
-                originalRequest.headers["X-Retry-After-Refresh"] = "true";
-
-                // Xử lý các request đang chờ trong hàng đợi
-                processQueue(null, newToken);
-
-                // Thử lại request gốc với token mới
-                return axios(originalRequest);
-              }
-            } catch (refreshError) {
-              // Xử lý lỗi refresh token
-              console.error("Failed to refresh token:", refreshError);
-              processQueue(refreshError, null);
-
-              // Chuyển hướng đến trang đăng nhập nếu cần
-              if (typeof window !== "undefined") {
-                // Xóa token và thông tin người dùng
-                useUserStore.getState().clearUser();
-
-                // Chuyển hướng đến trang đăng nhập
-                window.location.href = "/auth/login";
-              }
-            } finally {
-              isRefreshing = false;
-            }
-          }
-
-          return Promise.reject(error);
-        },
-      );
-
-      this.jwtInstances[serviceName] = instance;
-    }
-    return this.jwtInstances[serviceName]!;
+  // Reset instances (hữu ích khi logout)
+  public static resetInstances(): void {
+    this.instances = {};
   }
 }
 
