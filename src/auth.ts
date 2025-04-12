@@ -1,6 +1,7 @@
 // import { log } from "console";
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import GoogleProvider from "next-auth/providers/google";
 
 import { authApi } from "./lib/api/authApi";
 import {
@@ -21,6 +22,17 @@ export const {
   auth: any;
 } = NextAuth({
   providers: [
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID || "",
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+      authorization: {
+        params: {
+          prompt: "consent",
+          access_type: "offline",
+          response_type: "code",
+        },
+      },
+    }),
     Credentials({
       credentials: {
         email: {},
@@ -90,9 +102,6 @@ export const {
   },
   callbacks: {
     async jwt({ token, user }: { token: any; user: any }) {
-      console.log("JWT callback - Input token:", token);
-      console.log("JWT callback - Input user:", user);
-
       if (user) {
         // Cập nhật token với thông tin user theo interface IUser
         token.id = user.id;
@@ -107,13 +116,6 @@ export const {
         // Lưu accessToken và refreshToken
         token.accessToken = user.accessToken;
         token.refreshToken = user.refreshToken;
-
-        console.log("JWT callback - User found, updated token:", {
-          id: token.id,
-          email: token.email,
-          accessToken: token.accessToken ? "[EXISTS]" : "[MISSING]",
-          refreshToken: token.refreshToken ? "[EXISTS]" : "[MISSING]",
-        });
       } else {
         console.log("JWT callback - No user provided");
       }
@@ -121,14 +123,6 @@ export const {
       return token;
     },
     async session({ session, token }: { session: any; token: any }) {
-      console.log("Session callback - Input session:", session);
-      console.log("Session callback - Input token:", {
-        id: token.id,
-        email: token.email,
-        accessToken: token.accessToken ? "[EXISTS]" : "[MISSING]",
-        refreshToken: token.refreshToken ? "[EXISTS]" : "[MISSING]",
-      });
-
       // Cập nhật session.user theo interface IUser
       session.user = {
         id: token.id,
@@ -145,16 +139,6 @@ export const {
       // Lưu accessToken và refreshToken ở cấp session
       session.refreshToken = token.refreshToken;
       session.accessToken = token.accessToken;
-
-      console.log("Session callback - Updated session:", {
-        user: {
-          id: session.user.id,
-          email: session.user.email,
-        },
-        accessToken: session.accessToken ? "[EXISTS]" : "[MISSING]",
-        refreshToken: session.refreshToken ? "[EXISTS]" : "[MISSING]",
-      });
-
       return session;
     },
     authorized: async ({ auth }) => {
