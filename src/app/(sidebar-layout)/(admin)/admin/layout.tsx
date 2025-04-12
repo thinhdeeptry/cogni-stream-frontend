@@ -10,6 +10,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
+import Loading from "@/components/userLayout/Loading";
 import AdminContent from "@/components/userLayout/admin.content";
 import AdminHeader from "@/components/userLayout/admin.header";
 import AdminSidebar from "@/components/userLayout/admin.sidebar";
@@ -40,7 +41,7 @@ export default function AdminLayout({
   }, [session, status, router]);
 
   if (status === "loading") {
-    return <div>Đang tải...</div>;
+    return <Loading isLoading={true} />;
   }
 
   return (

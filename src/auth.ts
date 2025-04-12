@@ -96,13 +96,20 @@ export const {
   ],
   pages: {
     signIn: "/auth/login",
+    signOut: "/auth/logout",
+    error: "/auth/error",
   },
   session: {
     strategy: "jwt",
   },
   callbacks: {
-    async jwt({ token, user }: { token: any; user: any }) {
-      if (user) {
+    async jwt({ token, user, account, profile }) {
+      console.log("JWT callback - Input token:", token);
+      console.log("JWT callback - Input user:", user);
+      console.log("JWT callback - Account:", account);
+
+      // Nếu đăng nhập bằng credentials
+      if (user && !account) {
         // Cập nhật token với thông tin user theo interface IUser
         token.id = user.id;
         token.email = user.email;
@@ -116,8 +123,64 @@ export const {
         // Lưu accessToken và refreshToken
         token.accessToken = user.accessToken;
         token.refreshToken = user.refreshToken;
+
+        console.log("JWT callback - Credentials login, updated token:", {
+          id: token.id,
+          email: token.email,
+          accessToken: token.accessToken ? "[EXISTS]" : "[MISSING]",
+          refreshToken: token.refreshToken ? "[EXISTS]" : "[MISSING]",
+        });
+      }
+      // Nếu đăng nhập bằng Google
+      else if (account && account.provider === "google" && user) {
+        try {
+          console.log("JWT callback - Google login, calling backend API");
+
+          // Gọi API backend để xử lý đăng nhập Google và lấy token
+          const googleAuthResponse = await authApi.loginWithGoogle({
+            provider: account.provider,
+            providerId: account.providerAccountId,
+            email: token.email || "",
+            name: token.name || "",
+            image: token.picture || "",
+          });
+
+          console.log("Google auth response:", googleAuthResponse);
+
+          if (googleAuthResponse.error) {
+            console.error(
+              "Error during Google login:",
+              googleAuthResponse.message,
+            );
+            return token;
+          }
+
+          // Cập nhật token với thông tin user từ backend
+          token.id = googleAuthResponse.user.id;
+          token.email = googleAuthResponse.user.email;
+          token.name = googleAuthResponse.user.name;
+          token.role = googleAuthResponse.user.role || "USER";
+          token.accountType = "GOOGLE";
+          token.isActive = googleAuthResponse.user.isActive || true;
+          token.image = googleAuthResponse.user.image || user.image;
+
+          // Lưu accessToken và refreshToken từ backend
+          token.accessToken =
+            googleAuthResponse.accessToken || googleAuthResponse.access_token;
+          token.refreshToken =
+            googleAuthResponse.refreshToken || googleAuthResponse.refresh_token;
+
+          console.log("JWT callback - Google login, updated token:", {
+            id: token.id,
+            email: token.email,
+            accessToken: token.accessToken ? "[EXISTS]" : "[MISSING]",
+            refreshToken: token.refreshToken ? "[EXISTS]" : "[MISSING]",
+          });
+        } catch (error) {
+          console.error("Error processing Google login:", error);
+        }
       } else {
-        console.log("JWT callback - No user provided");
+        console.log("JWT callback - No user or unknown provider");
       }
 
       return token;

@@ -62,6 +62,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import Loading from "@/components/userLayout/Loading";
 
 interface PaginationInfo {
   current: number;
@@ -611,7 +612,7 @@ export default function UsersPage() {
 
       {loading ? (
         <div className="flex justify-center items-center h-64">
-          <p>Loading...</p>
+          <Loading isLoading={loading} />
         </div>
       ) : (
         <div className="rounded-md border">
