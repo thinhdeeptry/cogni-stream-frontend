@@ -10,6 +10,7 @@ export default function AuthSync() {
   const [mounted, setMounted] = useState(false);
   const { data: session } = useSession();
   const setUser = useUserStore((state) => state.setUser);
+  const setTokens = useUserStore((state) => state.setTokens);
   const clearUser = useUserStore((state) => state.clearUser);
 
   useEffect(() => {
@@ -20,9 +21,21 @@ export default function AuthSync() {
     if (!mounted) return;
 
     if (!session) {
+      console.log("AuthSync: No session, clearing user");
       clearUser();
       return;
     }
+
+    console.log("AuthSync: Session data:", {
+      user: session.user
+        ? {
+            id: session.user.id,
+            email: session.user.email,
+          }
+        : null,
+      accessToken: session.accessToken ? "[EXISTS]" : "[MISSING]",
+      refreshToken: session.refreshToken ? "[EXISTS]" : "[MISSING]",
+    });
 
     if (session?.user && session.accessToken) {
       const user: IUser = {
@@ -37,7 +50,22 @@ export default function AuthSync() {
         createdAt: session.user.createdAt || "",
         accountType: session.user.accountType || "",
       };
+
+      // Lưu user và accessToken vào store
       setUser(user, session.accessToken);
+
+      // Lưu cả accessToken và refreshToken vào store
+      // Sử dụng giá trị mặc định là chuỗi rỗng nếu refreshToken không tồn tại
+      const refreshToken =
+        typeof session.refreshToken === "string" ? session.refreshToken : "";
+      setTokens(session.accessToken, refreshToken);
+
+      console.log("AuthSync: Updated user store with tokens", {
+        accessToken: session.accessToken ? "[EXISTS]" : "[MISSING]",
+        refreshToken: refreshToken ? "[EXISTS]" : "[MISSING]",
+      });
+    } else {
+      console.log("AuthSync: Missing user or accessToken in session");
     }
   }, [session, setUser, clearUser, mounted]);
 

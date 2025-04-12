@@ -150,8 +150,9 @@ export default function GuestVerify(props: { id: string }) {
 
   if (!mounted) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <Card className="w-full max-w-md bg-white/30 backdrop-blur-sm rounded-xl shadow-lg">
+      <div className="min-h-screen flex items-center justify-center p-6 relative bg-gradient-to-br from-purple-50/30 to-orange-50/30">
+        <Toaster richColors position="top-right" />
+        <Card className="w-full max-w-md bg-white/20 backdrop-blur-md rounded-xl shadow-lg border-white/30 relative overflow-hidden">
           <CardHeader className="text-center pt-8 pb-2">
             <div className="h-6 w-32 mx-auto bg-gray-200/50 animate-pulse rounded" />
           </CardHeader>
@@ -161,9 +162,9 @@ export default function GuestVerify(props: { id: string }) {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
+    <div className="min-h-screen flex items-center justify-center p-6 relative bg-gradient-to-br from-purple-50/30 to-orange-50/30">
       <Toaster richColors position="top-right" />
-      <Card className="w-full max-w-md bg-white/30 backdrop-blur-sm rounded-xl shadow-lg border-white/50">
+      <Card className="w-full max-w-md bg-white/20 backdrop-blur-md rounded-xl shadow-lg border-white/30 relative overflow-hidden">
         <ShineBorder
           shineColor={["#A07CFE", "#FE8FB5", "#FFBE7B"]}
           borderWidth={2}
