@@ -22,8 +22,8 @@ type ServiceName =
 
 // Config cơ bản
 class ApiConfig {
-  static readonly BASE_URL: string =
-    process.env.NEXT_PUBLIC_API_URL || "http://localhost";
+  static readonly BASE_URL: string = "http://localhost";
+  // process.env.NEXT_PUBLIC_API_URL || "http://localhost";
   static readonly DEFAULT_TIMEOUT: number = 10000;
 
   static readonly SERVICE_PORTS: Record<ServiceName, string> = {
