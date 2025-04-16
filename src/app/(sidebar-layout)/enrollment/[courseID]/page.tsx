@@ -17,9 +17,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-// Mock course data
+// Giữ lại mock data
 const getCourseById = (id: string) => ({
-  id: "FREE-COURSE-31",
+  id: "FREE-COURSE-32",
   name: "React.js Advanced",
   description: "Khóa học nâng cao về React.js, hooks, và state management",
   isFree: true,
@@ -40,8 +40,8 @@ export default function EnrollmentPage() {
   const [statusMessage, setStatusMessage] = useState("");
   const [orderId, setOrderId] = useState<number | null>(null);
 
-  const courseId = params.courseId as string;
-  const course = getCourseById(courseId);
+  // Sử dụng mock data
+  const course = getCourseById(params.courseId as string);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -51,11 +51,11 @@ export default function EnrollmentPage() {
 
   const handleEnroll = async () => {
     if (status !== "authenticated" || !session) {
+      console.log("Session status:", status);
+      console.log("Session data:", session);
       setStatusMessage("Vui lòng đăng nhập để đăng ký khóa học.");
       setEnrollmentStatus("error");
-      setTimeout(() => {
-        router.push("/auth/login");
-      }, 2000);
+      setTimeout(() => router.push("/auth/login"), 2000);
       return;
     }
 
@@ -64,54 +64,50 @@ export default function EnrollmentPage() {
       setEnrollmentStatus("idle");
       setStatusMessage("");
 
-      if (course.isFree) {
-        // Sử dụng AxiosFactory mà không cần thêm token thủ công
-        const enrollmentApi = AxiosFactory.getApiInstance("enrollment");
+      console.log("Current session:", session);
+      console.log("User data:", session.user);
 
-        const response = await enrollmentApi.post("/enrollment", {
+      if (course.isFree) {
+        const enrollmentApi = await AxiosFactory.getApiInstance("gateway");
+        console.log("Enrollment API instance:", enrollmentApi.defaults.baseURL);
+
+        const enrollmentData = {
           courseId: course.id,
+          userId: session.user.id,
           userName: session.user.name,
           courseName: course.name,
           isFree: true,
-        });
+        };
+        console.log("Sending enrollment request:", enrollmentData);
+
+        const response = await enrollmentApi.post(
+          "/enrollment/enrollment",
+          enrollmentData,
+        );
+        console.log("Enrollment response:", response.data);
 
         if (response.data) {
           setEnrollmentStatus("success");
-          setStatusMessage("Bạn đã đăng ký khóa học miễn phí thành công.");
-          setTimeout(() => {
-            router.push(`/dashboard`);
-          }, 2000);
-        } else {
-          setEnrollmentStatus("error");
-          setStatusMessage("Có lỗi xảy ra khi đăng ký khóa học miễn phí.");
+          setStatusMessage("Đăng ký khóa học miễn phí thành công!");
+          setTimeout(() => router.push("/dashboard"), 2000);
         }
       } else {
-        // Sử dụng AxiosFactory mà không cần thêm token thủ công
-        const paymentApi = AxiosFactory.getApiInstance("payment");
+        const paymentApi = await AxiosFactory.getApiInstance("gateway");
+        console.log("Payment API instance:", paymentApi.defaults.baseURL);
 
-        const now = new Date();
-        const year = Number(String(now.getFullYear()).slice(-2));
-        const month = Number(String(now.getMonth() + 1).padStart(2, "0"));
-        const day = Number(String(now.getDate()).padStart(2, "0"));
-        const hours = Number(String(now.getHours()).padStart(2, "0"));
-        const minutes = Number(String(now.getMinutes()).padStart(2, "0"));
-        const seconds = Number(String(now.getSeconds()).padStart(2, "0"));
-        const orderCode = year + month + day + hours + minutes + seconds;
+        const orderCode = generateOrderCode();
         setOrderId(orderCode);
-
-        const returnUrl = `${window.location.origin}/payment/success`;
-        const cancelUrl = `${window.location.origin}/course/${course.id}`;
 
         const paymentData = {
           amount: course.price,
           method: "BANK_TRANSFER",
           serviceName: "Enrollment",
-          description: `${course.name}`,
-          ordercode: orderCode,
+          description: course.name,
+          orderCode: orderCode,
           userId: session.user.id,
           serviceId: course.id,
-          returnUrl: returnUrl,
-          cancelUrl: cancelUrl,
+          returnUrl: `${window.location.origin}/payment/success`,
+          cancelUrl: `${window.location.origin}/course/${course.id}`,
           metadata: {
             courseId: course.id,
             userId: session.user.id,
@@ -123,75 +119,53 @@ export default function EnrollmentPage() {
             level: course.level,
           },
         };
+        console.log("Sending payment request:", paymentData);
 
-        const response = await paymentApi.post("/payments", paymentData);
+        const response = await paymentApi.post(
+          "/payment/payments",
+          paymentData,
+        );
+        console.log("Payment response:", response.data);
 
-        if (response.data && response.data.checkoutUrl) {
+        if (response.data?.checkoutUrl) {
           router.push(`/payment/${orderCode}`);
         } else {
           throw new Error("Không thể tạo trang thanh toán");
         }
       }
     } catch (error) {
-      console.error("Error:", error);
-
-      let errorMessage = "Có lỗi xảy ra. Vui lòng thử lại sau.";
-
-      if (error.response) {
-        if (error.response.status === 401) {
-          errorMessage = "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
-          setTimeout(() => {
-            router.push("/auth/login");
-          }, 2000);
-        } else {
-          errorMessage =
-            error.response.data.message ||
-            "Có lỗi xảy ra khi đăng ký khóa học. Vui lòng thử lại sau.";
-        }
-      } else if (error.request) {
-        errorMessage =
-          "Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng của bạn.";
-      }
-
-      setStatusMessage(errorMessage);
+      console.error("API call error:", error);
+      console.error("Error details:", {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      setStatusMessage("Có lỗi xảy ra khi đăng ký khóa học.");
       setEnrollmentStatus("error");
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat("vi-VN", {
-      style: "currency",
-      currency: "VND",
-    }).format(price);
+  const generateOrderCode = () => {
+    const now = new Date();
+    return parseInt(
+      String(now.getFullYear()).slice(-2) +
+        String(now.getMonth() + 1).padStart(2, "0") +
+        String(now.getDate()).padStart(2, "0") +
+        String(now.getHours()).padStart(2, "0") +
+        String(now.getMinutes()).padStart(2, "0") +
+        String(now.getSeconds()).padStart(2, "0"),
+    );
   };
 
-  // Show loading state while checking authentication
-  if (status === "loading") {
-    return (
-      <div className="container mx-auto py-8 flex justify-center items-center min-h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
-  }
-
   return (
-    <div className="container mx-auto py-8">
-      <h1 className="text-3xl font-bold mb-8">Thông tin khóa học</h1>
-
+    <div className="container mx-auto p-4">
       <Card className="max-w-2xl mx-auto">
         <CardHeader>
-          <div className="flex justify-between items-start">
-            <CardTitle className="text-2xl">{course.name}</CardTitle>
-            <Badge variant={course.isFree ? "secondary" : "default"}>
-              {course.isFree ? "Miễn phí" : "Trả phí"}
-            </Badge>
-          </div>
+          <CardTitle>Đăng ký khóa học: {course.name}</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <p>{course.description}</p>
-
+        <CardContent>
           <div className="grid grid-cols-2 gap-2">
             <div>
               <span className="font-semibold">Giảng viên:</span>{" "}
@@ -207,19 +181,22 @@ export default function EnrollmentPage() {
             {!course.isFree && (
               <div>
                 <span className="font-semibold">Giá:</span>{" "}
-                {formatPrice(course.price)}
+                {new Intl.NumberFormat("vi-VN", {
+                  style: "currency",
+                  currency: "VND",
+                }).format(course.price)}
               </div>
             )}
             {orderId && (
               <div>
-                <span className="font-semibold">Order Code:</span> {orderId}
+                <span className="font-semibold">Mã đơn hàng:</span> {orderId}
               </div>
             )}
           </div>
 
           {enrollmentStatus !== "idle" && (
             <div
-              className={`p-4 rounded-md ${
+              className={`mt-4 p-4 rounded-md ${
                 enrollmentStatus === "success"
                   ? "bg-green-50 text-green-700"
                   : "bg-red-50 text-red-700"
