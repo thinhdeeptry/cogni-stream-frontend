@@ -474,7 +474,7 @@ class AuthApi {
    * @param bufferTime Thời gian đệm (ms) trước khi token thực sự hết hạn để coi là hết hạn
    * @returns true nếu token đã hết hạn hoặc sắp hết hạn, false nếu còn hạn
    */
-  private isTokenExpired(token: string, bufferTime: number = 60000): boolean {
+  isTokenExpired(token: string, bufferTime: number = 60000): boolean {
     if (!token) return true;
 
     try {
