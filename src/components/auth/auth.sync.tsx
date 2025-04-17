@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import { useSession } from "next-auth/react";
 
-import useUserStore from "@/stores/useUserStoree";
+import useUserStore from "@/stores/useUserStore";
 
 export default function AuthSync() {
   const [mounted, setMounted] = useState(false);

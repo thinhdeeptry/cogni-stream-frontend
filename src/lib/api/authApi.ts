@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 
 import { jwtDecode } from "jwt-decode";
 
-import useUserStore from "@/stores/useUserStoree";
+import useUserStore from "@/stores/useUserStore";
 
 const API_URL = process.env.NEXT_AUTH_PUBLIC_API_URL;
 

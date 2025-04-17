@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ArrowRight, ChevronRight, DoorClosed, DoorOpen } from "lucide-react";
 import { Metadata } from "next";
 
-import useUserStore from "@/stores/useUserStoree";
+import useUserStore from "@/stores/useUserStore";
 
 import BlurText from "@/components/react-bits/text-animations/BlurText/BlurText";
 import TrueFocus from "@/components/react-bits/text-animations/TrueFocus/TrueFocus";

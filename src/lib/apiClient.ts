@@ -1,4 +1,4 @@
-import useUserStore from "@/stores/useUserStoree";
+import useUserStore from "@/stores/useUserStore";
 
 import { AxiosFactory } from "./axios";
 

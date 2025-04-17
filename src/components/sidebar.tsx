@@ -13,7 +13,7 @@ import {
   Users,
 } from "lucide-react";
 
-import useUserStore from "@/stores/useUserStoree";
+import useUserStore from "@/stores/useUserStore";
 
 import {
   Sidebar,
