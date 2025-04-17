@@ -87,10 +87,8 @@ export default function EnrollmentPage() {
           isFree: true,
         };
 
-        const response = await enrollmentApi.post(
-          "/enrollment",
-          enrollmentData,
-        );
+        // fix api post enroll
+        const response = await enrollmentApi.post("/", enrollmentData);
         if (response.data) {
           setEnrollmentStatus("success");
           setStatusMessage("Đăng ký khóa học miễn phí thành công!");
