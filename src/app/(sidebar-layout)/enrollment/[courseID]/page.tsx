@@ -17,17 +17,16 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-// Giữ lại mock data
-const getCourseById = (id: string) => ({
-  id: "FREE-COURSE-32",
-  name: "React.js Advanced",
-  description: "Khóa học nâng cao về React.js, hooks, và state management",
-  isFree: true,
-  instructor: "Nguyễn Trọng Tiến",
-  duration: "12 giờ",
-  level: "Nâng cao",
-  price: 5000,
-});
+interface Course {
+  id: string;
+  name: string;
+  description: string;
+  isFree: boolean;
+  instructor: string;
+  duration: string;
+  level: string;
+  price: number;
+}
 
 export default function EnrollmentPage() {
   const params = useParams();
@@ -39,23 +38,37 @@ export default function EnrollmentPage() {
   >("idle");
   const [statusMessage, setStatusMessage] = useState("");
   const [orderId, setOrderId] = useState<number | null>(null);
-
-  // Sử dụng mock data
-  const course = getCourseById(params.courseId as string);
+  const [course, setCourse] = useState<Course | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/auth/login");
+      return;
     }
-  }, [status, router]);
+
+    const fetchCourse = async () => {
+      try {
+        // Sử dụng mock data thay vì gọi API
+        const mockCourse = getCourseById(params.courseId as string);
+        setCourse(mockCourse);
+      } catch (error) {
+        console.error("Error fetching course:", error);
+        setStatusMessage("Không thể tải thông tin khóa học.");
+        setEnrollmentStatus("error");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchCourse();
+  }, [status, router, params.courseId]);
 
   const handleEnroll = async () => {
-    if (status !== "authenticated" || !session) {
-      console.log("Session status:", status);
-      console.log("Session data:", session);
+    if (!session?.user?.id || !course) {
       setStatusMessage("Vui lòng đăng nhập để đăng ký khóa học.");
       setEnrollmentStatus("error");
-      setTimeout(() => router.push("/auth/login"), 2000);
+      router.push("/auth/login");
       return;
     }
 
@@ -64,13 +77,8 @@ export default function EnrollmentPage() {
       setEnrollmentStatus("idle");
       setStatusMessage("");
 
-      console.log("Current session:", session);
-      console.log("User data:", session.user);
-
       if (course.isFree) {
         const enrollmentApi = await AxiosFactory.getApiInstance("gateway");
-        console.log("Enrollment API instance:", enrollmentApi.defaults.baseURL);
-
         const enrollmentData = {
           courseId: course.id,
           userId: session.user.id,
@@ -78,23 +86,18 @@ export default function EnrollmentPage() {
           courseName: course.name,
           isFree: true,
         };
-        console.log("Sending enrollment request:", enrollmentData);
 
         const response = await enrollmentApi.post(
-          "/enrollment/enrollment",
+          "/enrollment",
           enrollmentData,
         );
-        console.log("Enrollment response:", response.data);
-
         if (response.data) {
           setEnrollmentStatus("success");
           setStatusMessage("Đăng ký khóa học miễn phí thành công!");
           setTimeout(() => router.push("/dashboard"), 2000);
         }
       } else {
-        const paymentApi = await AxiosFactory.getApiInstance("gateway");
-        console.log("Payment API instance:", paymentApi.defaults.baseURL);
-
+        const paymentApi = await AxiosFactory.getApiInstance("payment");
         const orderCode = generateOrderCode();
         setOrderId(orderCode);
 
@@ -119,13 +122,8 @@ export default function EnrollmentPage() {
             level: course.level,
           },
         };
-        console.log("Sending payment request:", paymentData);
 
-        const response = await paymentApi.post(
-          "/payment/payments",
-          paymentData,
-        );
-        console.log("Payment response:", response.data);
+        const response = await paymentApi.post("/payments", paymentData);
 
         if (response.data?.checkoutUrl) {
           router.push(`/payment/${orderCode}`);
@@ -134,13 +132,10 @@ export default function EnrollmentPage() {
         }
       }
     } catch (error) {
-      console.error("API call error:", error);
-      console.error("Error details:", {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status,
-      });
-      setStatusMessage("Có lỗi xảy ra khi đăng ký khóa học.");
+      console.error("Enrollment error:", error);
+      setStatusMessage(
+        error.response?.data?.message || "Có lỗi xảy ra khi đăng ký khóa học.",
+      );
       setEnrollmentStatus("error");
     } finally {
       setIsProcessing(false);
@@ -158,6 +153,50 @@ export default function EnrollmentPage() {
         String(now.getSeconds()).padStart(2, "0"),
     );
   };
+
+  const fetchAllEnrollments = async () => {
+    try {
+      const enrollmentApi = await AxiosFactory.getApiInstance("gateway");
+      const response = await enrollmentApi.get("/enrollment");
+      console.log("Enrollments response:", response.data);
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching enrollments:", error);
+      throw error;
+    }
+  };
+
+  // Thêm hàm xử lý click với async/await
+  const handleViewEnrollments = async () => {
+    try {
+      const enrollments = await fetchAllEnrollments();
+      // Xử lý data enrollments ở đây (ví dụ: hiển thị trong modal hoặc chuyển trang)
+      console.log("Fetched enrollments:", enrollments);
+    } catch (error) {
+      console.error("Failed to fetch enrollments:", error);
+      // Hiển thị thông báo lỗi cho user
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!course) {
+    return (
+      <div className="container mx-auto p-4">
+        <Card className="max-w-2xl mx-auto">
+          <CardContent className="p-6">
+            <p className="text-center text-red-500">Không tìm thấy khóa học</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto p-4">
@@ -198,33 +237,44 @@ export default function EnrollmentPage() {
             <div
               className={`mt-4 p-4 rounded-md ${
                 enrollmentStatus === "success"
-                  ? "bg-green-50 text-green-700"
-                  : "bg-red-50 text-red-700"
+                  ? "bg-green-100 text-green-700"
+                  : "bg-red-100 text-red-700"
               }`}
             >
               {statusMessage}
             </div>
           )}
         </CardContent>
-        <CardFooter>
+        <CardFooter className="flex justify-between">
           <Button
-            className="w-full"
-            onClick={handleEnroll}
-            disabled={isProcessing || status !== "authenticated"}
+            onClick={handleViewEnrollments} // Sử dụng hàm mới
+            variant="outline"
+            className="w-full sm:w-auto mr-2"
           >
-            {isProcessing ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Đang xử lý...
-              </>
-            ) : course.isFree ? (
-              "Đăng ký ngay"
-            ) : (
-              "Mua khóa học"
-            )}
+            Xem tất cả khóa học đã đăng ký
+          </Button>
+          <Button
+            onClick={handleEnroll}
+            disabled={isProcessing}
+            className="w-full sm:w-auto"
+          >
+            {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {course.isFree ? "Đăng ký miễn phí" : "Thanh toán và đăng ký"}
           </Button>
         </CardFooter>
       </Card>
     </div>
   );
 }
+
+// Giữ lại mock data ban đầu
+const getCourseById = (id: string) => ({
+  id: "FREE-COURSE-33",
+  name: "React.js Advanced",
+  description: "Khóa học nâng cao về React.js, hooks, và state management",
+  isFree: true,
+  instructor: "Nguyễn Trọng Tiến",
+  duration: "12 giờ",
+  level: "Nâng cao",
+  price: 5000,
+});
