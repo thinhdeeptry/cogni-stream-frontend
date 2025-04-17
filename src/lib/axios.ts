@@ -5,11 +5,8 @@ import axios, {
 import { jwtDecode } from "jwt-decode";
 import { getSession } from "next-auth/react";
 
-import { authApi } from "./api/authApi";
-
 interface DecodedToken {
   sub?: string;
-  exp?: number;
   [key: string]: any;
 }
 
@@ -28,29 +25,6 @@ class AxiosFactory {
   private static instances: Map<ServiceName, AxiosInstance> = new Map();
   private static readonly GATEWAY_URL =
     process.env.NEXT_PUBLIC_GATEWAY_URL || "https://kong.eduforge.io.vn/";
-  private static isRefreshing = false;
-  private static refreshSubscribers: ((token: string) => void)[] = [];
-
-  private static onRefreshed(token: string) {
-    this.refreshSubscribers.forEach((callback) => callback(token));
-    this.refreshSubscribers = [];
-  }
-
-  private static subscribeTokenRefresh(callback: (token: string) => void) {
-    this.refreshSubscribers.push(callback);
-  }
-
-  private static async refreshAuthToken() {
-    try {
-      const result = await authApi.refresh();
-      return result.accessToken;
-    } catch (error) {
-      console.error("Error refreshing token:", error);
-      // Redirect to login or handle refresh failure
-      window.location.href = "/auth/login";
-      return null;
-    }
-  }
 
   static async getApiInstance(
     serviceName: ServiceName,
@@ -67,22 +41,23 @@ class AxiosFactory {
       },
     });
 
-    // Request Interceptor
+    // Add request interceptor
     instance.interceptors.request.use(
       async (config: InternalAxiosRequestConfig) => {
-        // Skip auth for public routes
+        // Skip auth for login and public routes
         if (
           config.url?.includes("/auth/login") ||
           config.url?.includes("/auth/register") ||
           config.url?.includes("/auth/google") ||
-          config.url?.includes("/auth/facebook") ||
-          config.url?.includes("/auth/token")
+          config.url?.includes("/auth/facebook")
         ) {
           return config;
         }
 
         const session = await getSession();
+
         if (!session?.accessToken) {
+          console.error("No access token found in session");
           throw new Error("No access token available");
         }
 
@@ -92,17 +67,8 @@ class AxiosFactory {
             throw new Error("Invalid token structure - no sub claim");
           }
 
-          // Check if token is expired or will expire soon (30 seconds buffer)
-          const currentTime = Math.floor(Date.now() / 1000);
-          if (decoded.exp && decoded.exp - currentTime < 30) {
-            const newToken = await this.refreshAuthToken();
-            if (newToken) {
-              config.headers["Authorization"] = `Bearer ${newToken}`;
-            }
-          } else {
-            config.headers["Authorization"] = `Bearer ${session.accessToken}`;
-          }
-
+          // Set both required headers
+          config.headers["Authorization"] = `Bearer ${session.accessToken}`;
           config.headers["X-User-Id"] = decoded.sub;
         } catch (error) {
           console.error("Token processing error:", error);
@@ -112,48 +78,19 @@ class AxiosFactory {
         return config;
       },
       (error) => {
+        console.error("Request interceptor error:", error);
         return Promise.reject(error);
       },
     );
 
-    // Response Interceptor
+    // Add response interceptor for error handling
     instance.interceptors.response.use(
       (response) => response,
       async (error) => {
-        const originalRequest = error.config;
-
-        if (error.response?.status === 401 && !originalRequest._retry) {
-          if (this.isRefreshing) {
-            // Wait for token refresh
-            return new Promise((resolve) => {
-              this.subscribeTokenRefresh((token: string) => {
-                originalRequest.headers["Authorization"] = `Bearer ${token}`;
-                resolve(instance(originalRequest));
-              });
-            });
-          }
-
-          originalRequest._retry = true;
-          this.isRefreshing = true;
-
-          try {
-            const newToken = await this.refreshAuthToken();
-            this.isRefreshing = false;
-
-            if (newToken) {
-              this.onRefreshed(newToken);
-              originalRequest.headers["Authorization"] = `Bearer ${newToken}`;
-              return instance(originalRequest);
-            }
-          } catch (refreshError) {
-            this.isRefreshing = false;
-            this.clearInstances();
-            // Redirect to login
-            window.location.href = "/auth/login";
-            return Promise.reject(refreshError);
-          }
+        if (error.response?.status === 401) {
+          // Clear instances on auth error to force re-creation
+          AxiosFactory.clearInstances();
         }
-
         return Promise.reject(error);
       },
     );
@@ -164,8 +101,6 @@ class AxiosFactory {
 
   static clearInstances() {
     this.instances.clear();
-    this.refreshSubscribers = [];
-    this.isRefreshing = false;
   }
 }
 

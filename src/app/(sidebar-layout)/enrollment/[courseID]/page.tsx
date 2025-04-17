@@ -87,7 +87,6 @@ export default function EnrollmentPage() {
           isFree: true,
         };
 
-        // fix api post enroll
         const response = await enrollmentApi.post("/", enrollmentData);
         if (response.data) {
           setEnrollmentStatus("success");
