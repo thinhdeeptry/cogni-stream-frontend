@@ -1,6 +1,7 @@
 // import { log } from "console";
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import GoogleProvider from "next-auth/providers/google";
 
 import { authApi } from "./lib/api/authApi";
 import {
@@ -21,6 +22,17 @@ export const {
   auth: any;
 } = NextAuth({
   providers: [
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID || "",
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+      authorization: {
+        params: {
+          prompt: "consent",
+          access_type: "offline",
+          response_type: "code",
+        },
+      },
+    }),
     Credentials({
       credentials: {
         email: {},
@@ -84,16 +96,20 @@ export const {
   ],
   pages: {
     signIn: "/auth/login",
+    signOut: "/auth/logout",
+    error: "/auth/error",
   },
   session: {
     strategy: "jwt",
   },
   callbacks: {
-    async jwt({ token, user }: { token: any; user: any }) {
+    async jwt({ token, user, account, profile }) {
       console.log("JWT callback - Input token:", token);
       console.log("JWT callback - Input user:", user);
+      console.log("JWT callback - Account:", account);
 
-      if (user) {
+      // Nếu đăng nhập bằng credentials
+      if (user && !account) {
         // Cập nhật token với thông tin user theo interface IUser
         token.id = user.id;
         token.email = user.email;
@@ -108,27 +124,68 @@ export const {
         token.accessToken = user.accessToken;
         token.refreshToken = user.refreshToken;
 
-        console.log("JWT callback - User found, updated token:", {
+        console.log("JWT callback - Credentials login, updated token:", {
           id: token.id,
           email: token.email,
           accessToken: token.accessToken ? "[EXISTS]" : "[MISSING]",
           refreshToken: token.refreshToken ? "[EXISTS]" : "[MISSING]",
         });
+      }
+      // Nếu đăng nhập bằng Google
+      else if (account && account.provider === "google" && user) {
+        try {
+          console.log("JWT callback - Google login, calling backend API");
+
+          // Gọi API backend để xử lý đăng nhập Google và lấy token
+          const googleAuthResponse = await authApi.loginWithGoogle({
+            provider: account.provider,
+            providerId: account.providerAccountId,
+            email: token.email || "",
+            name: token.name || "",
+            image: token.picture || "",
+          });
+
+          console.log("Google auth response:", googleAuthResponse);
+
+          if (googleAuthResponse.error) {
+            console.error(
+              "Error during Google login:",
+              googleAuthResponse.message,
+            );
+            return token;
+          }
+
+          // Cập nhật token với thông tin user từ backend
+          token.id = googleAuthResponse.user.id;
+          token.email = googleAuthResponse.user.email;
+          token.name = googleAuthResponse.user.name;
+          token.role = googleAuthResponse.user.role || "USER";
+          token.accountType = "GOOGLE";
+          token.isActive = googleAuthResponse.user.isActive || true;
+          token.image = googleAuthResponse.user.image || user.image;
+
+          // Lưu accessToken và refreshToken từ backend
+          token.accessToken =
+            googleAuthResponse.accessToken || googleAuthResponse.access_token;
+          token.refreshToken =
+            googleAuthResponse.refreshToken || googleAuthResponse.refresh_token;
+
+          console.log("JWT callback - Google login, updated token:", {
+            id: token.id,
+            email: token.email,
+            accessToken: token.accessToken ? "[EXISTS]" : "[MISSING]",
+            refreshToken: token.refreshToken ? "[EXISTS]" : "[MISSING]",
+          });
+        } catch (error) {
+          console.error("Error processing Google login:", error);
+        }
       } else {
-        console.log("JWT callback - No user provided");
+        console.log("JWT callback - No user or unknown provider");
       }
 
       return token;
     },
     async session({ session, token }: { session: any; token: any }) {
-      console.log("Session callback - Input session:", session);
-      console.log("Session callback - Input token:", {
-        id: token.id,
-        email: token.email,
-        accessToken: token.accessToken ? "[EXISTS]" : "[MISSING]",
-        refreshToken: token.refreshToken ? "[EXISTS]" : "[MISSING]",
-      });
-
       // Cập nhật session.user theo interface IUser
       session.user = {
         id: token.id,
@@ -145,16 +202,6 @@ export const {
       // Lưu accessToken và refreshToken ở cấp session
       session.refreshToken = token.refreshToken;
       session.accessToken = token.accessToken;
-
-      console.log("Session callback - Updated session:", {
-        user: {
-          id: session.user.id,
-          email: session.user.email,
-        },
-        accessToken: session.accessToken ? "[EXISTS]" : "[MISSING]",
-        refreshToken: session.refreshToken ? "[EXISTS]" : "[MISSING]",
-      });
-
       return session;
     },
     authorized: async ({ auth }) => {

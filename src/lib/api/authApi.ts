@@ -174,6 +174,74 @@ class AuthApi {
     }
   }
 
+  /**
+   * Đăng nhập với Google
+   * @param googleUser Thông tin người dùng từ Google
+   * @returns Thông tin người dùng và token từ backend
+   */
+  async loginWithGoogle(googleUser: {
+    email: string;
+    name: string;
+    image?: string;
+    provider: string;
+    providerId: string;
+  }) {
+    try {
+      console.log("Calling loginWithGoogle API with data:", googleUser);
+
+      const response = await fetch(`${API_URL}/auth/google-token`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(googleUser),
+        credentials: "include", // để cookies hoạt động
+      });
+
+      const data = await response.json();
+      console.log("Google login API response:", data);
+
+      if (!response.ok) {
+        return {
+          error: true,
+          statusCode: response.status,
+          message: data.message || "Lỗi khi đăng nhập với Google",
+        };
+      }
+
+      // Lưu refreshToken vào cookie
+      const cookieStore = await cookies();
+      if (data.refreshToken || data.refresh_token) {
+        cookieStore.set({
+          name: "refreshToken",
+          value: data.refreshToken || data.refresh_token,
+          httpOnly: true,
+          path: "/",
+          maxAge: 30 * 24 * 60 * 60, // 30 ngày
+        });
+      }
+
+      // Cập nhật token vào store
+      const accessToken = data.accessToken || data.access_token;
+      const refreshToken = data.refreshToken || data.refresh_token;
+
+      if (accessToken) {
+        useUserStore.getState().setTokens(accessToken, refreshToken || "");
+      }
+
+      return data;
+    } catch (error) {
+      console.error("Google login error:", error);
+      return {
+        error: true,
+        statusCode: 500,
+        message:
+          "Lỗi khi đăng nhập với Google: " +
+          (error instanceof Error ? error.message : "Unknown error"),
+      };
+    }
+  }
+
   handleErrorsVerify = (response: Response, data: any) => {
     switch (response.status) {
       case 201:
