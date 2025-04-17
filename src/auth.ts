@@ -108,8 +108,38 @@ export const {
       console.log("JWT callback - Input user:", user);
       console.log("JWT callback - Account:", account);
 
+      // Check if access token exists and is expired
+      if (token && token.accessToken && typeof token.accessToken === "string") {
+        try {
+          // Check if token is expired using the isTokenExpired function from authApi
+          const isExpired = authApi.isTokenExpired(token.accessToken);
+
+          if (isExpired && token.refreshToken) {
+            console.log("Access token expired, attempting to refresh...");
+            try {
+              // Call refresh function to get a new access token
+              const refreshResponse = await authApi.refresh();
+              if (refreshResponse.accessToken) {
+                console.log("Token refreshed successfully");
+                // Update the token with new access token
+                token.accessToken = refreshResponse.accessToken;
+              } else {
+                console.error(
+                  "Failed to refresh token - no new token received",
+                );
+              }
+            } catch (refreshError) {
+              console.error("Error refreshing token:", refreshError);
+              // If refresh fails, we keep the existing token and let the user re-authenticate
+            }
+          }
+        } catch (error) {
+          console.error("Error checking token expiration:", error);
+        }
+      }
+
       // Nếu đăng nhập bằng credentials
-      if (user && !account) {
+      if (user && user.accountType === "LOCAL") {
         // Cập nhật token với thông tin user theo interface IUser
         token.id = user.id;
         token.email = user.email;
