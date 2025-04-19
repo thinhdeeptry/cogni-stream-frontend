@@ -12,7 +12,7 @@ interface DecodedToken {
 
 type ServiceName =
   | "user"
-  | "course"
+  | "courses"
   | "enrollment"
   | "payment"
   | "assessment"
@@ -34,7 +34,7 @@ class AxiosFactory {
     }
 
     const instance = axios.create({
-      baseURL: this.GATEWAY_URL,
+      baseURL: `${this.GATEWAY_URL}/${serviceName}`,
       timeout: 30000,
       headers: {
         "Content-Type": "application/json",

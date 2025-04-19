@@ -7,17 +7,17 @@ import {
   ThreadWithPostCount,
 } from "../components/discussion/type";
 
-const discussionAxios = AxiosFactory.getApiInstance("discussion");
+const discussionAxios = await AxiosFactory.getApiInstance("discussion");
 
 export async function getAllThreads(): Promise<ThreadWithPostCount[]> {
-  const { data } = await discussionAxios.get(`/api/v1/threads`);
+  const { data } = await discussionAxios.get(`/threads`);
   return data;
 }
 
 export async function getThread(
   threadId: string,
 ): Promise<ThreadWithPostCount> {
-  const { data } = await discussionAxios.get(`/api/v1/threads/${threadId}`);
+  const { data } = await discussionAxios.get(`/threads/${threadId}`);
   return data;
 }
 
@@ -27,7 +27,7 @@ export async function getPosts(
   limit?: number,
 ): Promise<Post[]> {
   const { data } = await discussionAxios.get(
-    `/api/v1/threads/${threadId}/posts${page ? `?page=${page}&limit=${limit}` : ""}`,
+    `/threads/${threadId}/posts${page ? `?page=${page}&limit=${limit}` : ""}`,
   );
   return data;
 }
@@ -39,15 +39,18 @@ export async function createPost(
   parentId?: string,
   rating?: number,
 ): Promise<Post> {
-  const { data } = await discussionAxios.post(
-    `/api/v1/posts?authorId=${authorId}`,
-    {
-      content,
-      parentId,
-      rating,
-      threadId,
-    },
-  );
+  console.log({
+    content,
+    parentId,
+    rating,
+    threadId,
+  });
+  const { data } = await discussionAxios.post(`/posts?authorId=${authorId}`, {
+    content,
+    parentId,
+    rating,
+    threadId,
+  });
   return data;
 }
 
@@ -58,7 +61,7 @@ export async function updatePost(
   rating?: number,
 ): Promise<Post> {
   const { data } = await discussionAxios.patch(
-    `/api/v1/posts/${postId}?authorId=${authorId}`,
+    `/posts/${postId}?authorId=${authorId}`,
     {
       content,
       rating,
@@ -72,7 +75,7 @@ export async function deletePost(
   authorId: string,
 ): Promise<void> {
   const response = await discussionAxios.delete(
-    `/api/v1/posts/${postId}?authorId=${authorId}`,
+    `/posts/${postId}?authorId=${authorId}`,
   );
   if (!response.status || response.status >= 400) {
     throw new Error("Failed to delete post");
@@ -84,7 +87,7 @@ export async function addReaction(
   userId: string,
   type: ReactionType,
 ): Promise<void> {
-  const response = await discussionAxios.post(`/api/v1/reactions`, {
+  const response = await discussionAxios.post(`/reactions`, {
     userId,
     postId,
     type,
@@ -93,7 +96,7 @@ export async function addReaction(
 }
 
 export async function removeReaction(reactionId: string): Promise<void> {
-  await discussionAxios.delete(`/api/v1/reactions/${reactionId}`);
+  await discussionAxios.delete(`/reactions/${reactionId}`);
 }
 
 export async function findReplies(
@@ -102,7 +105,7 @@ export async function findReplies(
   limit?: number,
 ): Promise<Post[]> {
   const { data } = await discussionAxios.get(
-    `/api/v1/posts/${postId}/replies${page ? `?page=${page}&limit=${limit}` : ""}`,
+    `/posts/${postId}/replies${page ? `?page=${page}&limit=${limit}` : ""}`,
   );
   return data;
 }
@@ -111,12 +114,9 @@ export async function updateReaction(
   reactionId: string,
   reactionType: ReactionType,
 ) {
-  const { data } = await discussionAxios.patch(
-    `/api/v1/reactions/${reactionId}`,
-    {
-      type: reactionType,
-    },
-  );
+  const { data } = await discussionAxios.patch(`/reactions/${reactionId}`, {
+    type: reactionType,
+  });
 
   return data;
 }
@@ -126,7 +126,7 @@ export async function checkUserReview(
   authorId: string,
 ): Promise<{ hasReviewed: boolean; reviewId?: string }> {
   const { data } = await discussionAxios.get(
-    `/api/v1/posts/check-review?courseId=${courseId}&authorId=${authorId}`,
+    `/posts/check-review?courseId=${courseId}&authorId=${authorId}`,
   );
   return data;
 }
