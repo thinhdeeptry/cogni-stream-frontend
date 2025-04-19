@@ -9,9 +9,15 @@ import { Course } from "@/types/course/types";
 import { Book, Crown, Plus, Users } from "lucide-react";
 
 import { getCourseById } from "@/actions/courseAction";
+import {
+  createThread,
+  getThreadByResourceId,
+} from "@/actions/discussion.action";
 
 import useUserStore from "@/stores/useUserStore";
 
+import Discussion from "@/components/discussion";
+import { DiscussionType } from "@/components/discussion/type";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -25,6 +31,7 @@ export default function CourseDetail() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isEnrolled, setIsEnrolled] = useState(false);
+  const [threadId, setThreadId] = useState<string | null>(null);
   const params = useParams();
   const { user } = useUserStore();
   useEffect(() => {
@@ -41,6 +48,52 @@ export default function CourseDetail() {
 
     fetchCourse();
   }, [params.courseId]);
+
+  useEffect(() => {
+    const fetchOrCreateThread = async () => {
+      console.log("Course ID:", params.courseId);
+      if (!params.courseId) return;
+
+      try {
+        console.log("Fetching thread for resource ID:", params.courseId);
+        // First try to get the thread by resource ID
+        let thread = await getThreadByResourceId(
+          params.courseId as string,
+          DiscussionType.COURSE_REVIEW,
+        );
+        console.log("Thread fetch result:", thread);
+
+        // If the thread doesn't exist, create a new one
+        if (!thread) {
+          console.log("Thread not found, creating new thread");
+          thread = await createThread(
+            params.courseId as string,
+            DiscussionType.COURSE_REVIEW,
+            course?.title || `Course ${params.courseId}`,
+            4.5, // Default overall rating
+          );
+          console.log("New thread created:", thread);
+        }
+
+        // Set the thread ID if we have a thread
+        if (thread) {
+          console.log("Setting thread ID:", thread.id);
+          setThreadId(thread.id);
+        } else {
+          console.log("No thread available to set ID");
+        }
+      } catch (err) {
+        console.error("Error fetching or creating thread:", err);
+        // Don't set an error state here, as this is not critical for the page to function
+        // The Discussion component just won't be rendered if threadId is null
+      }
+    };
+
+    // Only try to fetch/create thread if we have a course ID and the user is logged in
+    if (params.courseId && user) {
+      fetchOrCreateThread();
+    }
+  }, [params.courseId, user?.id]);
 
   const handleEnrollClick = () => {
     if (course?.chapters && course.chapters.length > 0) {
@@ -255,6 +308,9 @@ export default function CourseDetail() {
           </Card>
         </div>
       </div>
+
+      {/* Discussion Component */}
+      {threadId && <Discussion threadId={threadId} />}
     </div>
   );
 }
