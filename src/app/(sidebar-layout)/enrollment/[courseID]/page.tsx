@@ -26,6 +26,7 @@ interface Course {
   duration: string;
   level: string;
   price: number;
+  promotionPrice: number;
 }
 
 export default function EnrollmentPage() {
@@ -65,68 +66,52 @@ export default function EnrollmentPage() {
   }, [status, router, params.courseId]);
 
   const handleEnroll = async () => {
-    if (!session?.user?.id || !course) {
-      setStatusMessage("Vui lòng đăng nhập để đăng ký khóa học.");
-      setEnrollmentStatus("error");
-      router.push("/auth/login");
-      return;
-    }
+    if (!session?.user || !course) return;
 
     try {
       setIsProcessing(true);
       setEnrollmentStatus("idle");
       setStatusMessage("");
 
-      if (course.isFree) {
-        const enrollmentApi = await AxiosFactory.getApiInstance("gateway");
-        const enrollmentData = {
+      // Kiểm tra lại một lần nữa xem có phải khóa free không
+      if (course.promotionPrice === 0 || course.price === 0) {
+        router.push(`/course/${course.id}`); // Quay lại trang course để xử lý đăng ký free
+        return;
+      }
+
+      // Xử lý thanh toán cho khóa học có phí
+      const paymentApi = await AxiosFactory.getApiInstance("payment");
+      const orderCode = generateOrderCode();
+      setOrderId(orderCode);
+
+      const paymentData = {
+        amount: course.promotionPrice || course.price,
+        method: "BANK_TRANSFER",
+        serviceName: "Enrollment",
+        description: course.name,
+        orderCode: orderCode,
+        userId: session.user.id,
+        serviceId: course.id,
+        returnUrl: `${window.location.origin}/payment/success`,
+        cancelUrl: `${window.location.origin}/course/${course.id}`,
+        metadata: {
           courseId: course.id,
           userId: session.user.id,
           userName: session.user.name,
           courseName: course.name,
-          isFree: true,
-        };
+          serviceType: "COURSE_ENROLLMENT",
+          instructor: course.instructor,
+          duration: course.duration,
+          level: course.level,
+        },
+      };
 
-        const response = await enrollmentApi.post("/", enrollmentData);
-        if (response.data) {
-          setEnrollmentStatus("success");
-          setStatusMessage("Đăng ký khóa học miễn phí thành công!");
-          setTimeout(() => router.push("/dashboard"), 2000);
-        }
+      const response = await paymentApi.post("/payments", paymentData);
+
+      if (response.data?.checkoutUrl) {
+        router.push(`/payment/${orderCode}`);
       } else {
-        const paymentApi = await AxiosFactory.getApiInstance("payment");
-        const orderCode = generateOrderCode();
-        setOrderId(orderCode);
-
-        const paymentData = {
-          amount: course.price,
-          method: "BANK_TRANSFER",
-          serviceName: "Enrollment",
-          description: course.name,
-          orderCode: orderCode,
-          userId: session.user.id,
-          serviceId: course.id,
-          returnUrl: `${window.location.origin}/payment/success`,
-          cancelUrl: `${window.location.origin}/course/${course.id}`,
-          metadata: {
-            courseId: course.id,
-            userId: session.user.id,
-            userName: session.user.name,
-            courseName: course.name,
-            serviceType: "COURSE_ENROLLMENT",
-            instructor: course.instructor,
-            duration: course.duration,
-            level: course.level,
-          },
-        };
-
-        const response = await paymentApi.post("/payments", paymentData);
-
-        if (response.data?.checkoutUrl) {
-          router.push(`/payment/${orderCode}`);
-        } else {
-          throw new Error("Không thể tạo trang thanh toán");
-        }
+        throw new Error("Không thể tạo trang thanh toán");
       }
     } catch (error) {
       console.error("Enrollment error:", error);
@@ -153,8 +138,8 @@ export default function EnrollmentPage() {
 
   const fetchAllEnrollments = async () => {
     try {
-      const enrollmentApi = await AxiosFactory.getApiInstance("gateway");
-      const response = await enrollmentApi.get("/enrollment");
+      const enrollmentApi = await AxiosFactory.getApiInstance("enrollment");
+      const response = await enrollmentApi.get("/");
       console.log("Enrollments response:", response.data);
       return response.data;
     } catch (error) {
@@ -266,12 +251,13 @@ export default function EnrollmentPage() {
 
 // Giữ lại mock data ban đầu
 const getCourseById = (id: string) => ({
-  id: "FREE-COURSE-33",
+  id: "FREE-COURSE-34",
   name: "React.js Advanced",
   description: "Khóa học nâng cao về React.js, hooks, và state management",
-  isFree: true,
+  isFree: false,
   instructor: "Nguyễn Trọng Tiến",
   duration: "12 giờ",
   level: "Nâng cao",
-  price: 5000,
+  price: 14.99,
+  promotionPrice: 0,
 });

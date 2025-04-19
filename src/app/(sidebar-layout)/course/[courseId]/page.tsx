@@ -3,12 +3,19 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { Course } from "@/types/course/types";
 import { Book, Crown, Plus, Users } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { toast } from "sonner";
 
 import { getCourseById } from "@/actions/courseAction";
+import {
+  checkEnrollmentStatus,
+  enrollCourse,
+} from "@/actions/enrollmentActions";
 
 import useUserStore from "@/stores/useUserStore";
 
@@ -26,7 +33,9 @@ export default function CourseDetail() {
   const [error, setError] = useState<string | null>(null);
   const [isEnrolled, setIsEnrolled] = useState(false);
   const params = useParams();
-  const { user } = useUserStore();
+  const { data: session } = useSession();
+  const router = useRouter();
+
   useEffect(() => {
     const fetchCourse = async () => {
       try {
@@ -42,15 +51,56 @@ export default function CourseDetail() {
     fetchCourse();
   }, [params.courseId]);
 
-  const handleEnrollClick = () => {
-    if (course?.chapters && course.chapters.length > 0) {
-      const firstChapter = course.chapters[0];
-      if (firstChapter.lessons && firstChapter.lessons.length > 0) {
-        const firstLesson = firstChapter.lessons[0];
-        if (course.price === 0 || firstLesson.isFreePreview) {
-          window.location.href = `/course/${course.id}/lesson/${firstLesson.id}`;
+  useEffect(() => {
+    const checkEnrollment = async () => {
+      if (session?.user?.id && course?.id) {
+        const result = await checkEnrollmentStatus(course.id, session.user.id);
+        if (result.success) {
+          setIsEnrolled(result.data);
         }
       }
+    };
+
+    checkEnrollment();
+  }, [session?.user?.id, course?.id]);
+
+  const handleEnrollClick = async () => {
+    if (!session?.user) {
+      toast.error("Vui lòng đăng nhập để đăng ký khóa học");
+      router.push("/auth/login");
+      return;
+    }
+
+    if (!course) return;
+
+    try {
+      // Kiểm tra khóa học free dựa vào promotionPrice hoặc price
+      const isFree = course.promotionPrice === 0 || course.price === 0;
+
+      if (isFree) {
+        const enrollmentResult = await enrollCourse({
+          courseId: course.id,
+          userId: session.user.id,
+          userName: session.user.name || "",
+          courseName: course.title,
+          isFree: true,
+        });
+
+        if (enrollmentResult.success) {
+          toast.success("Đăng ký khóa học miễn phí thành công!");
+          router.push("/dashboard");
+        } else {
+          throw new Error(enrollmentResult.message);
+        }
+      } else {
+        // Chuyển đến trang enrollment để xử lý thanh toán
+        router.push(`/enrollment/${course.id}`);
+      }
+    } catch (error) {
+      console.error("Enrollment error:", error);
+      toast.error(
+        error.response?.data?.message || "Có lỗi xảy ra khi đăng ký khóa học.",
+      );
     }
   };
 
