@@ -4,7 +4,7 @@ import { jwtDecode } from "jwt-decode";
 
 import useUserStore from "@/stores/useUserStoree";
 
-const API_URL = process.env.NEXT_AUTH_PUBLIC_API_URL;
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 // Lớp gọi API cho Auth
 class AuthApi {
@@ -48,12 +48,18 @@ class AuthApi {
     }
   };
   async register(email: string, password: string, name: string) {
+    console.log("check api>> ", API_URL);
+
     const response = await fetch(`${API_URL}/auth/register`, {
       method: "POST",
       headers: this.getHeaders(),
       body: JSON.stringify({ email, password, name }),
     });
     const data = await response.json();
+    console.log("check data >>> ", data);
+    console.log("check response >>> ", response);
+    console.log("check response ok >>> ", response.ok);
+    console.log("check response status >>> ", response.status);
 
     if (!response.ok) {
       return this.handleErrorsRegister(response, data);
