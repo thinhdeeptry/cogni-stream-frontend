@@ -5,7 +5,7 @@ import { authApi } from "@/lib/api/authApi";
 import { signOut, useSession } from "next-auth/react";
 import { toast } from "sonner";
 
-import useUserStore from "@/stores/useUserStoree";
+import useUserStore from "@/stores/useUserStore";
 
 /**
  * Hook cung cấp các hàm xử lý authentication

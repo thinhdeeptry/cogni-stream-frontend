@@ -1,8 +1,32 @@
-import { cookies } from "next/headers";
-
 import { jwtDecode } from "jwt-decode";
 
-import useUserStore from "@/stores/useUserStoree";
+import useUserStore from "@/stores/useUserStore";
+
+// Helper to determine if code is running on server or client
+const isServer = typeof window === "undefined";
+
+// Dynamic import for server-only code
+const getServerCookies = async () => {
+  if (!isServer) return null;
+
+  try {
+    // Dynamic import to avoid bundling issues with client components
+    const { cookies } = await import("next/headers");
+    return cookies();
+  } catch (error) {
+    console.error("Error accessing server cookies:", error);
+    return null;
+  }
+};
+
+// Function to set a client-side cookie
+const setClientCookie = (name: string, value: string, maxAge: number) => {
+  if (isServer) return;
+
+  const expires = new Date();
+  expires.setTime(expires.getTime() + maxAge * 1000);
+  document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/`;
+};
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -148,15 +172,24 @@ class AuthApi {
       }
 
       // Lưu refreshToken vào cookie
-      const cookieStore = await cookies();
-      if (data.refreshToken || data.refresh_token) {
-        cookieStore.set({
-          name: "refreshToken", // Sửa tên cookie để rõ ràng hơn
-          value: data.refreshToken || data.refresh_token,
-          httpOnly: true,
-          path: "/",
-          maxAge: 30 * 24 * 60 * 60, // 30 ngày
-        });
+      const refreshTokenValue = data.refreshToken || data.refresh_token;
+      if (refreshTokenValue) {
+        if (isServer) {
+          // Server-side cookie handling
+          const cookieStore = await getServerCookies();
+          if (cookieStore) {
+            cookieStore.set({
+              name: "refreshToken",
+              value: refreshTokenValue,
+              httpOnly: true,
+              path: "/",
+              maxAge: 30 * 24 * 60 * 60, // 30 ngày
+            });
+          }
+        } else {
+          // Client-side cookie handling
+          setClientCookie("refreshToken", refreshTokenValue, 30 * 24 * 60 * 60);
+        }
       }
 
       // Cập nhật token vào store
@@ -216,15 +249,24 @@ class AuthApi {
       }
 
       // Lưu refreshToken vào cookie
-      const cookieStore = await cookies();
-      if (data.refreshToken || data.refresh_token) {
-        cookieStore.set({
-          name: "refreshToken",
-          value: data.refreshToken || data.refresh_token,
-          httpOnly: true,
-          path: "/",
-          maxAge: 30 * 24 * 60 * 60, // 30 ngày
-        });
+      const refreshTokenValue = data.refreshToken || data.refresh_token;
+      if (refreshTokenValue) {
+        if (isServer) {
+          // Server-side cookie handling
+          const cookieStore = await getServerCookies();
+          if (cookieStore) {
+            cookieStore.set({
+              name: "refreshToken",
+              value: refreshTokenValue,
+              httpOnly: true,
+              path: "/",
+              maxAge: 30 * 24 * 60 * 60, // 30 ngày
+            });
+          }
+        } else {
+          // Client-side cookie handling
+          setClientCookie("refreshToken", refreshTokenValue, 30 * 24 * 60 * 60);
+        }
       }
 
       // Cập nhật token vào store
@@ -350,9 +392,31 @@ class AuthApi {
   // làm mới token
   async refresh(): Promise<{ accessToken: string }> {
     try {
-      // Lấy refreshToken từ store
-      const cookieStore = await cookies();
-      const refreshToken = cookieStore.get("refreshToken")?.value;
+      // Lấy refreshToken từ store hoặc cookies
+      let refreshToken: string | undefined;
+
+      if (isServer) {
+        // Server-side cookie handling
+        const cookieStore = await getServerCookies();
+        refreshToken = cookieStore?.get("refreshToken")?.value;
+      } else {
+        // Client-side cookie handling
+        const cookies = document.cookie.split(";");
+        const refreshTokenCookie = cookies.find((cookie) =>
+          cookie.trim().startsWith("refreshToken="),
+        );
+        if (refreshTokenCookie) {
+          refreshToken = refreshTokenCookie.split("=")[1];
+        }
+
+        // Fallback to store if no cookie found
+        if (!refreshToken) {
+          const storeRefreshToken = useUserStore.getState().refreshToken;
+          if (storeRefreshToken) {
+            refreshToken = storeRefreshToken;
+          }
+        }
+      }
       console.log("check refresh token >>> ", refreshToken);
       const response = await fetch(`${API_URL}/auth/token`, {
         method: "POST",

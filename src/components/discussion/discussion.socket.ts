@@ -19,9 +19,11 @@ class DiscussionSocketService {
 
   connect() {
     if (!this.socket) {
-      const baseUrl =
-        process.env.NEXT_PUBLIC_DISCUSSION_GATEWAY_URL ||
-        "http://localhost:3008";
+      const baseUrl = "https://discussion.eduforge.io.vn";
+
+      if (!baseUrl) {
+        throw new Error("BASE_URL is not defined");
+      }
 
       this.socket = io(baseUrl + this.namespace, {
         withCredentials: true,

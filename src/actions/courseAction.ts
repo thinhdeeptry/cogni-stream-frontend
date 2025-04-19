@@ -1,9 +1,8 @@
-"use server";
-
+// "use server";
 import { AxiosFactory } from "@/lib/axios";
 import { Category, Course, Lesson } from "@/types/course/types";
 
-const courseApi = AxiosFactory.getApiInstance("course");
+const courseApi = await AxiosFactory.getApiInstance("courses");
 
 export const getAllCourses = async (): Promise<Course[]> => {
   try {

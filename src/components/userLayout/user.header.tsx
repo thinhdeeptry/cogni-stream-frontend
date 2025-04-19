@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { signOut } from "next-auth/react";
 import { toast } from "sonner";
 
-import useUserStore from "@/stores/useUserStoree";
+import useUserStore from "@/stores/useUserStore";
 
 import Navbar from "./navbar";
 
