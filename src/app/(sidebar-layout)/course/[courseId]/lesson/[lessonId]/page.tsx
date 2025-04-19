@@ -20,9 +20,12 @@ import {
 import ReactPlayer from "react-player";
 
 import { getCourseById, getLessonById } from "@/actions/courseAction";
+import { getThreadByResourceId } from "@/actions/discussion.action";
 
 import useUserStore from "@/stores/useUserStore";
 
+import Discussion from "@/components/discussion";
+import { DiscussionType } from "@/components/discussion/type";
 import { Button } from "@/components/ui/button";
 
 export default function LessonDetail() {
@@ -31,7 +34,8 @@ export default function LessonDetail() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [isEnrolled, setIsEnrolled] = useState(false);
+  const [isEnrolled] = useState(false); // We're not setting this value, but it's used in the UI
+  const [threadId, setThreadId] = useState<string | null>(null);
   const { user } = useUserStore();
   const params = useParams();
 
@@ -54,6 +58,48 @@ export default function LessonDetail() {
 
     fetchData();
   }, [params.courseId, params.lessonId]);
+
+  // Separate useEffect for fetching thread to avoid infinite loops
+  useEffect(() => {
+    // Store lesson title in a variable to avoid dependency issues
+    const lessonTitle = lesson?.title || `Lesson ${params.lessonId}`;
+
+    const fetchOrCreateThread = async () => {
+      // Validate required parameters
+      if (!params.lessonId) {
+        console.log("Missing lessonId, cannot fetch/create thread");
+        return;
+      }
+
+      if (!user) {
+        console.log("User not logged in, skipping thread fetch/create");
+        return;
+      }
+
+      try {
+        // Get or create thread by resource ID
+        const thread = await getThreadByResourceId(
+          params.lessonId as string,
+          DiscussionType.LESSON_DISCUSSION,
+          lessonTitle,
+        );
+
+        if (thread) {
+          setThreadId(thread.id);
+        } else {
+          console.log("No thread returned from getThreadByResourceId");
+        }
+      } catch (err) {
+        console.error("Error in discussion thread handling:", err);
+        // Don't set an error state here, as discussion is not critical for the page to function
+      }
+    };
+
+    // Only run once when we have both lesson data and user but no threadId yet
+    if (lesson && user && !threadId) {
+      fetchOrCreateThread();
+    }
+  }, [params.lessonId, user, threadId]);
 
   if (isLoading) {
     return (
@@ -122,6 +168,9 @@ export default function LessonDetail() {
             </h1>
             <p className="text-md ">{lesson.content}</p>
           </div>
+
+          {/* Discussion Component - Always render it */}
+          <Discussion threadId={threadId || ""} />
         </div>
       </div>
 

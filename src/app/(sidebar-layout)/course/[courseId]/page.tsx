@@ -9,10 +9,7 @@ import { Course } from "@/types/course/types";
 import { Book, Crown, Plus, Users } from "lucide-react";
 
 import { getCourseById } from "@/actions/courseAction";
-import {
-  createThread,
-  getThreadByResourceId,
-} from "@/actions/discussion.action";
+import { getThreadByResourceId } from "@/actions/discussion.action";
 
 import useUserStore from "@/stores/useUserStore";
 
@@ -49,51 +46,48 @@ export default function CourseDetail() {
     fetchCourse();
   }, [params.courseId]);
 
+  // Separate useEffect for fetching thread to avoid infinite loops
   useEffect(() => {
+    // Store course title in a ref to avoid dependency issues
+    const courseTitle = course?.title || `Course ${params.courseId}`;
+
     const fetchOrCreateThread = async () => {
-      console.log("Course ID:", params.courseId);
-      if (!params.courseId) return;
+      // Validate required parameters
+      if (!params.courseId) {
+        console.log("Missing courseId, cannot fetch/create thread");
+        return;
+      }
+
+      if (!user) {
+        console.log("User not logged in, skipping thread fetch/create");
+        return;
+      }
 
       try {
-        console.log("Fetching thread for resource ID:", params.courseId);
-        // First try to get the thread by resource ID
-        let thread = await getThreadByResourceId(
+        // Get or create thread by resource ID with default rating for course reviews
+        const thread = await getThreadByResourceId(
           params.courseId as string,
           DiscussionType.COURSE_REVIEW,
+          courseTitle,
+          4.5, // Default overall rating for new course review threads
         );
-        console.log("Thread fetch result:", thread);
 
-        // If the thread doesn't exist, create a new one
-        if (!thread) {
-          console.log("Thread not found, creating new thread");
-          thread = await createThread(
-            params.courseId as string,
-            DiscussionType.COURSE_REVIEW,
-            course?.title || `Course ${params.courseId}`,
-            4.5, // Default overall rating
-          );
-          console.log("New thread created:", thread);
-        }
-
-        // Set the thread ID if we have a thread
         if (thread) {
-          console.log("Setting thread ID:", thread.id);
           setThreadId(thread.id);
         } else {
-          console.log("No thread available to set ID");
+          console.log("No thread returned from getThreadByResourceId");
         }
       } catch (err) {
-        console.error("Error fetching or creating thread:", err);
-        // Don't set an error state here, as this is not critical for the page to function
-        // The Discussion component just won't be rendered if threadId is null
+        console.error("Error in discussion thread handling:", err);
+        // Don't set an error state here, as discussion is not critical for the page to function
       }
     };
 
-    // Only try to fetch/create thread if we have a course ID and the user is logged in
-    if (params.courseId && user) {
+    // Only run once when we have both course data and user
+    if (course && user && !threadId) {
       fetchOrCreateThread();
     }
-  }, [params.courseId, user?.id]);
+  }, [params.courseId, user, threadId]);
 
   const handleEnrollClick = () => {
     if (course?.chapters && course.chapters.length > 0) {
@@ -309,8 +303,8 @@ export default function CourseDetail() {
         </div>
       </div>
 
-      {/* Discussion Component */}
-      {threadId && <Discussion threadId={threadId} />}
+      {/* Discussion Component - Always render it */}
+      <Discussion threadId={threadId || ""} />
     </div>
   );
 }

@@ -138,25 +138,73 @@ export async function checkUserReview(
 }
 
 /**
- * Gets threads by resource ID and type.
+ * Gets a thread by resource ID and type. If no thread is found, creates a new one.
  *
- * Note: This function uses the getAllThreads endpoint and filters by resourceId and type
- * since there's no specific endpoint for getting threads by resource ID in the Postman collection.
+ * First tries to fetch the thread directly by resource ID and type.
+ * If the API returns an empty array or there's an error, creates a new thread with the given resource ID and type.
  */
 export async function getThreadByResourceId(
   resourceId: string,
   type: DiscussionType,
+  title: string = "",
+  overallRating?: number,
 ): Promise<ThreadWithPostCount | null> {
   try {
-    // Get all threads and filter by resourceId and type
-    const threads = await getAllThreads();
-    const thread = threads.find(
-      (t) => t.resourceId === resourceId && t.type === type,
+    // Try to get thread by resource ID and type
+    console.log(
+      `Making API call to: /threads/resource/${resourceId}?type=${type}`,
     );
-    return thread || null;
+    const response = await discussionAxios.get(
+      `/threads/resource/${resourceId}?type=${type}`,
+    );
+
+    console.log("API response:", response);
+    const { data } = response;
+
+    // Check if data is an array and is empty, or if data is null/undefined
+    if (Array.isArray(data) && data.length === 0) {
+      console.log(
+        `API returned empty array for resource ${resourceId}, creating a new thread`,
+      );
+      return await createThread(resourceId, type, title, overallRating);
+    }
+
+    // If data is an array with items, return the first item
+    if (Array.isArray(data) && data.length > 0) {
+      console.log(
+        `Found ${data.length} threads for resource ${resourceId}, returning first one:`,
+        data[0],
+      );
+      return data[0];
+    }
+
+    // If data is a single object (not an array), return it
+    if (data && !Array.isArray(data)) {
+      console.log("Thread found, returning data:", data);
+      return data;
+    }
+
+    // If no thread found (null/undefined data), create a new one
+    console.log(
+      `No thread found for resource ${resourceId}, creating a new one`,
+    );
+    return await createThread(resourceId, type, title, overallRating);
   } catch (error) {
     console.error(`Error fetching thread for resource ${resourceId}:`, error);
-    return null;
+
+    // If there was an error (like 404), create a new thread
+    console.log(
+      `Creating new thread for resource ${resourceId} after fetch error`,
+    );
+    try {
+      return await createThread(resourceId, type, title, overallRating);
+    } catch (createError) {
+      console.error(
+        `Failed to create thread for resource ${resourceId}:`,
+        createError,
+      );
+      return null;
+    }
   }
 }
 
@@ -174,12 +222,17 @@ export async function createThread(
 ): Promise<ThreadWithPostCount | null> {
   try {
     console.log(`Creating thread for resource ${resourceId} with type ${type}`);
-    const { data } = await discussionAxios.post(`/threads`, {
+    console.log("Request payload:", { resourceId, type, title, overallRating });
+
+    const response = await discussionAxios.post(`/threads`, {
       resourceId,
       type,
       title,
       overallRating, // This matches the Postman collection
     });
+
+    console.log("Create thread response:", response);
+    const { data } = response;
     console.log(`Thread created successfully:`, data);
     return data;
   } catch (error: any) {
