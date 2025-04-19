@@ -47,7 +47,7 @@ export default function AdminCoursesPage() {
 
   if (isLoading) {
     return (
-      <div className="p-8">
+      <div className="w-full">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold">Quản lý khoá học</h1>
           <Link href="/admin/courses/create">
@@ -64,7 +64,7 @@ export default function AdminCoursesPage() {
   }
 
   return (
-    <div className="p-8">
+    <div className="w-full">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Quản lý khoá học</h1>
         <Link href="/admin/courses/create">

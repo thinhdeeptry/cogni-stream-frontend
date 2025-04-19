@@ -16,8 +16,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 
-import { SidebarTrigger } from "../ui/sidebar";
-
 interface NavbarProps {
   isLoggedIn?: boolean;
   userAvatar?: string;
@@ -38,7 +36,6 @@ export default function Navbar({
       <div className="container flex h-16 items-center justify-between px-4">
         {/* Logo and Brand */}
         <div className="flex items-center gap-3">
-          <SidebarTrigger className="mr-2 md:mr-0" />
           <div className="flex h-10 w-10 items-center justify-center rounded-md bg-orange-500 text-white font-bold text-xl">
             F8
           </div>

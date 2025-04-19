@@ -4,7 +4,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { mockDb } from "@/data/mockDb";
 import { CourseWithUser } from "@/types/course/types";
 import { Book, Crown, Users } from "lucide-react";
 
@@ -27,28 +26,6 @@ export default function CourseItem({
 }: CourseWithUser) {
   const [href, setHref] = useState(`/course/${id}`);
   const { user } = useUserStore();
-
-  useEffect(() => {
-    const checkEnrollmentAndFirstLesson = async () => {
-      const userEnrollments = mockDb.getUserEnrollments(user?.id || "");
-      const enrollment = userEnrollments.find((e) => e.courseId === id);
-      if (enrollment) {
-        try {
-          const lessons = await getLessonsByCourse(id);
-          if (lessons?.chapters?.[0]?.lessons?.[0]) {
-            setHref(
-              `/course/${id}/lesson/${lessons.chapters[0].lessons[0].id}`,
-            );
-          }
-        } catch (error) {
-          console.log("Error fetching lessons:", error);
-          setHref(`/course/${id}`);
-        }
-      }
-    };
-
-    checkEnrollmentAndFirstLesson();
-  }, [id]);
 
   return (
     <Link

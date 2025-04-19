@@ -1,6 +1,7 @@
-import { AppSidebar } from "@/components/sidebar";
+import { AppSidebar } from "@/components/SideBar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/toaster";
+import UserHeader from "@/components/userLayout/user.header";
 
 export default function RootLayout({
   children,
@@ -10,14 +11,13 @@ export default function RootLayout({
   return (
     <div>
       <SidebarProvider>
-        <div className="flex h-screen w-full overflow-hidden">
-          <AppSidebar />
-          <SidebarTrigger className="mt-2 ml-2 " />
-          <main className="flex-1 overflow-y-auto bg-background">
-            {children}
-          </main>
+        <AppSidebar />
+        <SidebarTrigger className="mt-2 ml-2 " />
+        <main className="flex flex-col w-full h-screen overflow-y-auto">
+          <UserHeader />
           <Toaster />
-        </div>
+          {children}
+        </main>
       </SidebarProvider>
     </div>
   );

@@ -26,14 +26,12 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 
-const loggedInUserId = "user5";
-
 // Menu items.
 const getMenuItems = (userRole: string) => {
   const baseItems = [
     {
       title: "Trang chủ",
-      url: "/course",
+      url: "/",
       icon: Home,
     },
     {

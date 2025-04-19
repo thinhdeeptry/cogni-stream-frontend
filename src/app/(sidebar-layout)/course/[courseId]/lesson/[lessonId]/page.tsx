@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { mockDb } from "@/data/mockDb";
 import { Course } from "@/types/course/types";
 import {
   Collapsible,
@@ -54,14 +53,6 @@ export default function LessonDetail() {
     };
 
     fetchData();
-
-    // Check enrollment status
-    const userEnrollments = mockDb.getUserEnrollments(user?.id || "");
-    setIsEnrolled(
-      userEnrollments.some(
-        (enrollment) => enrollment.courseId === params.courseId,
-      ),
-    );
   }, [params.courseId, params.lessonId]);
 
   if (isLoading) {
@@ -102,7 +93,7 @@ export default function LessonDetail() {
       : null;
 
   return (
-    <div className="flex-1 flex flex-col min-h-screen relative">
+    <div className="w-full flex-1 flex flex-col min-h-screen relative">
       <div
         className={`flex-1 p-6 ${isSidebarOpen ? "pr-[400px]" : ""} transition-all duration-300`}
       >
