@@ -25,7 +25,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} ${inter.variable} antialiased`}>
+      <body className={`${inter.variable} ${inter.className} antialiased`}>
         {/* //render auth sync component */}
         <SessionProvider>
           <AuthSync />
