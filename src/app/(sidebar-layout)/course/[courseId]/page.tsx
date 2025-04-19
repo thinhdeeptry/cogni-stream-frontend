@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { mockDb } from "@/data/mockDb";
 import { Course } from "@/types/course/types";
 import { Book, Crown, Plus, Users } from "lucide-react";
 
@@ -33,12 +32,6 @@ export default function CourseDetail() {
       try {
         const data = await getCourseById(params.courseId as string);
         setCourse(data);
-        // Check if user is enrolled
-        const userEnrollments = mockDb.getUserEnrollments(user?.id || "");
-
-        setIsEnrolled(
-          userEnrollments.some((enrollment) => enrollment.courseId === data.id),
-        );
       } catch (err) {
         setError(err instanceof Error ? err.message : "An error occurred");
       } finally {
@@ -86,7 +79,7 @@ export default function CourseDetail() {
   }
 
   return (
-    <div className="flex-1 flex gap-8 justify-center min-h-screen p-5">
+    <div className="w-full flex-1 flex gap-8 justify-center min-h-screen p-5">
       {/* Left Column */}
       <div className="w-2/3 space-y-8">
         <div>

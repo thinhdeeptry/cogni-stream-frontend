@@ -38,7 +38,7 @@ export default function UserHeader() {
   const isLoggedIn = !!user && !!accessToken;
 
   return (
-    <div className="w-full">
+    <div className="w-full ">
       <Navbar
         isLoggedIn={isLoggedIn}
         userAvatar={user?.image || ""}

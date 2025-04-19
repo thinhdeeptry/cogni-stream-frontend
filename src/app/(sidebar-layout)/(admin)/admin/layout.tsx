@@ -13,7 +13,6 @@ import {
 import Loading from "@/components/userLayout/Loading";
 import AdminContent from "@/components/userLayout/admin.content";
 import AdminHeader from "@/components/userLayout/admin.header";
-import AdminSidebar from "@/components/userLayout/admin.sidebar";
 import UserHeader from "@/components/userLayout/user.header";
 
 export default function AdminLayout({
@@ -44,13 +43,5 @@ export default function AdminLayout({
     return <Loading isLoading={true} />;
   }
 
-  return (
-    <SidebarProvider>
-      <AdminSidebar />
-      <SidebarInset className="flex flex-col h-screen">
-        <UserHeader />
-        <main className="flex-1 p-6 overflow-auto">{children}</main>
-      </SidebarInset>
-    </SidebarProvider>
-  );
+  return <main className="flex-1 p-6 overflow-auto">{children}</main>;
 }

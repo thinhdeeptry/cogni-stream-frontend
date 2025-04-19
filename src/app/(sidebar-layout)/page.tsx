@@ -7,7 +7,7 @@ import { Course } from "@/types/course/types";
 
 import { getAllCourses } from "@/actions/courseAction";
 
-import CourseItem from "@/components/courseItem";
+import CourseItem from "@/components/CourseItem";
 import {
   Carousel,
   CarouselApi,
