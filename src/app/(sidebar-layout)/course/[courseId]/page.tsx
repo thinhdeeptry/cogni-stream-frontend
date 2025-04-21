@@ -64,12 +64,10 @@ export default function CourseDetail() {
       }
 
       try {
-        // Get or create thread by resource ID with default rating for course reviews
+        // Get thread by resource ID
         const thread = await getThreadByResourceId(
           params.courseId as string,
           DiscussionType.COURSE_REVIEW,
-          courseTitle,
-          4.5, // Default overall rating for new course review threads
         );
 
         if (thread) {

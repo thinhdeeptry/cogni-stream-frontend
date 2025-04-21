@@ -10,6 +10,9 @@ import {
 
 const discussionAxios = await AxiosFactory.getApiInstance("discussion");
 
+// Create a simple in-memory cache to prevent infinite loops
+const threadCache = new Map<string, ThreadWithPostCount>();
+
 export async function getAllThreads(): Promise<ThreadWithPostCount[]> {
   const { data } = await discussionAxios.get(`/threads`);
   return data;
@@ -138,82 +141,45 @@ export async function checkUserReview(
 }
 
 /**
- * Gets a thread by resource ID and type. If no thread is found, creates a new one.
- *
- * This function matches the backend's findOrCreateByResourceId method:
- * 1. First tries to fetch the thread directly by resource ID and type
- * 2. If no thread is found, creates a new one with the given resource ID and type
- * 3. Handles potential conflicts when creating threads
+ * Gets a thread by resource ID and type.
+ * This function simply fetches the thread from the backend without creating a new one.
+ * The backend will handle the creation logic if needed.
  */
 export async function getThreadByResourceId(
   resourceId: string,
   type: DiscussionType,
-  title: string = "",
-  overallRating?: number,
 ): Promise<ThreadWithPostCount | null> {
-  try {
-    // Try to get thread by resource ID and type using the findOrCreate endpoint
-    console.log(
-      `Finding or creating thread for resource ID: ${resourceId}, type: ${type}`,
-    );
+  // Use a cache to prevent infinite loops
+  const cacheKey = `${resourceId}-${type}`;
+  const cachedThread = threadCache.get(cacheKey);
+  if (cachedThread) {
+    console.log(`Using cached thread for resource ${resourceId}`);
+    return cachedThread;
+  }
 
-    // First try to find an existing thread
+  try {
+    // Try to get thread by resource ID and type
+    console.log(`Finding thread for resource ID: ${resourceId}, type: ${type}`);
+
+    // Get the thread from the backend
     const response = await discussionAxios.get(
-      `/threads/resource/${resourceId}?type=${type}`,
+      `/threads/resource/${resourceId}/ensure?type=${type}`,
     );
 
     const { data } = response;
 
-    // If we got a valid thread object back, return it
+    // If we got a valid thread object back, cache and return it
     if (data && typeof data === "object" && !Array.isArray(data) && data.id) {
       console.log(`Found existing thread for resource ${resourceId}`);
+      threadCache.set(cacheKey, data);
       return data;
     }
 
-    // If no thread was found, create a new one
-    console.log(
-      `No thread found for resource ${resourceId}, creating a new one`,
-    );
-    return await createThread(resourceId, type, title, overallRating);
+    // If no valid thread data was returned
+    return null;
   } catch (error: any) {
     console.error(`Error finding thread for resource ${resourceId}:`, error);
-
-    // If the error is a 404 (not found), create a new thread
-    if (error.response?.status === 404) {
-      try {
-        console.log(
-          `Thread not found, creating new thread for resource ${resourceId}`,
-        );
-        return await createThread(resourceId, type, title, overallRating);
-      } catch (createError: any) {
-        // If the error is a 409 (conflict), try to fetch the thread again
-        if (createError.response?.status === 409) {
-          console.log(
-            `Thread already exists for resource ${resourceId}, fetching it`,
-          );
-          try {
-            const existingResponse = await discussionAxios.get(
-              `/threads/resource/${resourceId}?type=${type}`,
-            );
-            return existingResponse.data;
-          } catch (fetchError) {
-            console.error(
-              `Failed to fetch existing thread after conflict:`,
-              fetchError,
-            );
-            return null;
-          }
-        }
-
-        console.error(
-          `Failed to create thread for resource ${resourceId}:`,
-          createError,
-        );
-        return null;
-      }
-    }
-
-    // For other errors, return null
+    // For all errors, return null and let the caller handle it
     return null;
   }
 }

@@ -179,22 +179,36 @@ export default function Discussion({ threadId }: { threadId: string }) {
     // Initialize socket when sheet opens
     initializeSocket();
 
-    // Fetch thread and posts
-    fetchThread();
-    fetchPosts();
+    // Fetch thread and posts only once when the sheet opens
+    const controller = new AbortController();
+    const fetchData = async () => {
+      try {
+        await fetchThread();
+        await fetchPosts();
+      } catch (error) {
+        console.error("Error fetching discussion data:", error);
+      }
+    };
+
+    if (!controller.signal.aborted) {
+      fetchData();
+    }
 
     // Clean up socket when sheet closes or component unmounts
     return () => {
+      controller.abort();
       cleanupSocket();
     };
   }, [
+    // Only re-run this effect when these dependencies change
     isOpen,
-    user,
+    user?.id,
     threadId,
-    fetchThread,
-    fetchPosts,
-    initializeSocket,
-    cleanupSocket,
+    // Remove these dependencies to prevent re-fetching
+    // fetchThread,
+    // fetchPosts,
+    // initializeSocket,
+    // cleanupSocket
   ]);
 
   useEffect(() => {

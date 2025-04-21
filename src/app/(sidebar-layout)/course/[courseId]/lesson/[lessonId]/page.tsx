@@ -77,11 +77,10 @@ export default function LessonDetail() {
       }
 
       try {
-        // Get or create thread by resource ID
+        // Get thread by resource ID
         const thread = await getThreadByResourceId(
           params.lessonId as string,
           DiscussionType.LESSON_DISCUSSION,
-          lessonTitle,
         );
 
         if (thread) {
