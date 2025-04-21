@@ -174,10 +174,10 @@ export default function EnrollmentPage() {
       // Log full URL
       console.log(
         "Calling API:",
-        `${process.env.NEXT_PUBLIC_GATEWAY_URL}/courses/${courseId}`,
+        `${process.env.NEXT_PUBLIC_GATEWAY_URL}/courses/courses/${courseId}`,
       );
 
-      const response = await courseApi.get(`/${courseId}`);
+      const response = await courseApi.get(`/courses/${courseId}`);
       console.log("API Response:", response);
       setApiResponse(response.data);
       toast.success("Get course success!");
@@ -197,10 +197,10 @@ export default function EnrollmentPage() {
       // Log full URL
       console.log(
         "Calling API:",
-        `${process.env.NEXT_PUBLIC_GATEWAY_URL}/courses/${courseId}`,
+        `${process.env.NEXT_PUBLIC_GATEWAY_URL}/courses/courses/${courseId}`,
       );
 
-      const response = await courseApi.patch(`/${courseId}`, {
+      const response = await courseApi.patch(`/courses/${courseId}`, {
         title: "Updated Course Title",
         description: "Updated description",
       });
@@ -223,10 +223,10 @@ export default function EnrollmentPage() {
       // Log full URL
       console.log(
         "Calling API:",
-        `${process.env.NEXT_PUBLIC_GATEWAY_URL}/courses/${courseId}`,
+        `${process.env.NEXT_PUBLIC_GATEWAY_URL}/courses/courses/${courseId}`,
       );
 
-      const response = await courseApi.delete(`/${courseId}`);
+      const response = await courseApi.delete(`/courses/${courseId}`);
       console.log("API Response:", response);
       setApiResponse(response.data);
       toast.success("Delete course success!");
