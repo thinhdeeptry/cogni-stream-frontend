@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 
 import { useToast } from "@/hooks/use-toast";
 import { Category, CourseLevel } from "@/types/course/types";
-import { ChevronLeft, Edit, Plus, Save, Trash, Upload } from "lucide-react";
+import { ChevronLeft, Plus, Trash, Upload } from "lucide-react";
 
 import { createCourse, getAllCategories } from "@/actions/courseAction";
 
@@ -47,7 +47,7 @@ export default function CreateCoursePage() {
   const { user } = useUserStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [imageFile, setImageFile] = useState<File | null>(null);
+  // const [imageFile, setImageFile] = useState<File | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(true);
   const [courseData, setCourseData] = useState<CourseFormData>({
@@ -87,7 +87,17 @@ export default function CreateCoursePage() {
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
     const { name, value } = e.target;
-    setCourseData((prev) => ({ ...prev, [name]: value }));
+
+    // Handle numeric fields
+    if (name === "price" || name === "promotionPrice") {
+      // Parse as float to handle decimal values like 49.99
+      const numValue = value === "" ? 0 : parseFloat(value);
+      // Round to 2 decimal places to avoid floating point issues
+      const roundedValue = Math.round(numValue * 100) / 100;
+      setCourseData((prev) => ({ ...prev, [name]: roundedValue }));
+    } else {
+      setCourseData((prev) => ({ ...prev, [name]: value }));
+    }
   };
 
   const handleSelectChange = (name: string, value: string) => {
@@ -101,7 +111,7 @@ export default function CreateCoursePage() {
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setImageFile(file);
+      // setImageFile(file); // Uncomment if you need to use the file later
       const imageUrl = URL.createObjectURL(file);
       setSelectedImage(imageUrl);
     }
@@ -164,12 +174,44 @@ export default function CreateCoursePage() {
     }
 
     setIsSubmitting(true);
-
+    console.log("+Data test: ", courseData);
     try {
-      const result = await createCourse({
+      // Create a new object with the validated data
+      // Get price and ensure it's a number
+      const price =
+        typeof courseData.price === "number"
+          ? courseData.price
+          : parseFloat(String(courseData.price || 0));
+      // Round to 2 decimal places
+      const roundedPrice = Math.round(price * 100) / 100;
+
+      // Get promotionPrice and ensure it's a number
+      let promotionPrice =
+        typeof courseData.promotionPrice === "number"
+          ? courseData.promotionPrice
+          : parseFloat(String(courseData.promotionPrice || 0));
+      // Round to 2 decimal places
+      let roundedPromotionPrice = Math.round(promotionPrice * 100) / 100;
+
+      // Ensure promotionPrice is not greater than price
+      if (roundedPromotionPrice > roundedPrice) {
+        roundedPromotionPrice = roundedPrice;
+      }
+
+      // If price is 0, promotionPrice should also be 0
+      if (roundedPrice === 0) {
+        roundedPromotionPrice = 0;
+      }
+
+      const courseDataToSubmit = {
         ...courseData,
+        price: roundedPrice,
+        promotionPrice: roundedPromotionPrice,
+        ownerId: user?.id || "",
         thumbnailUrl: selectedImage || undefined,
-      });
+      };
+
+      const result = await createCourse(courseDataToSubmit);
 
       if (result.success) {
         toast({
@@ -196,7 +238,7 @@ export default function CreateCoursePage() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="p-8">
+    <form onSubmit={handleSubmit} className="px-1 overflow-hidden ">
       <div className="flex items-center gap-4 mb-6">
         <Link href="/admin/courses">
           <Button variant="outline" size="icon">
@@ -290,7 +332,8 @@ export default function CreateCoursePage() {
                 name="price"
                 type="number"
                 min="0"
-                value={courseData.price}
+                step="0.01"
+                value={courseData.price || 0}
                 onChange={handleInputChange}
               />
             </div>
@@ -302,9 +345,11 @@ export default function CreateCoursePage() {
                 name="promotionPrice"
                 type="number"
                 min="0"
-                max={courseData.price}
-                value={courseData.promotionPrice}
+                step="0.01"
+                max={courseData.price || 0}
+                value={courseData.promotionPrice || 0}
                 onChange={handleInputChange}
+                disabled={!courseData.price || courseData.price <= 0}
               />
             </div>
 
@@ -508,7 +553,7 @@ export default function CreateCoursePage() {
               title: "Scheduled: Catch up",
               description: "Friday, February 10, 2023 at 5:57 PM",
             });
-            // router.push("/admin/courses")
+            router.push("/admin/courses");
           }}
         >
           Hủy

@@ -15,7 +15,7 @@ import {
   updateCourse,
 } from "@/actions/courseAction";
 
-import useUserStore from "@/stores/useUserStore";
+// import useUserStore from "@/stores/useUserStore";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -37,10 +37,9 @@ export default function EditCoursePage({
 }) {
   const resolvedParams = use(params);
   const router = useRouter();
-  const { user } = useUserStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [imageFile, setImageFile] = useState<File | null>(null);
+  // const [imageFile, setImageFile] = useState<File | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(true);
   const [courseData, setCourseData] = useState<Course | null>(null);
@@ -74,7 +73,19 @@ export default function EditCoursePage({
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
     const { name, value } = e.target;
-    setCourseData((prev) => (prev ? { ...prev, [name]: value } : null));
+
+    // Handle numeric fields
+    if (name === "price" || name === "promotionPrice") {
+      // Parse as float to handle decimal values like 49.99
+      const numValue = value === "" ? 0 : parseFloat(value);
+      // Round to 2 decimal places to avoid floating point issues
+      const roundedValue = Math.round(numValue * 100) / 100;
+      setCourseData((prev) =>
+        prev ? { ...prev, [name]: roundedValue } : null,
+      );
+    } else {
+      setCourseData((prev) => (prev ? { ...prev, [name]: value } : null));
+    }
   };
 
   const handleSelectChange = (name: string, value: string) => {
@@ -88,7 +99,7 @@ export default function EditCoursePage({
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setImageFile(file);
+      // setImageFile(file); // Uncomment if you need to use the file later
       const imageUrl = URL.createObjectURL(file);
       setSelectedImage(imageUrl);
     }
@@ -133,7 +144,7 @@ export default function EditCoursePage({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
+    console.log("+Data test: ", courseData);
     if (
       !courseData ||
       !courseData.title ||
@@ -151,13 +162,38 @@ export default function EditCoursePage({
     setIsSubmitting(true);
 
     try {
+      // Validate price and promotionPrice
+      const price =
+        typeof courseData.price === "number"
+          ? courseData.price
+          : parseFloat(String(courseData.price || 0));
+      // Round to 2 decimal places
+      const roundedPrice = Math.round(price * 100) / 100;
+
+      let promotionPrice =
+        typeof courseData.promotionPrice === "number"
+          ? courseData.promotionPrice
+          : parseFloat(String(courseData.promotionPrice || 0));
+      // Round to 2 decimal places
+      let roundedPromotionPrice = Math.round(promotionPrice * 100) / 100;
+
+      // Ensure promotionPrice is not greater than price
+      if (roundedPromotionPrice > roundedPrice) {
+        roundedPromotionPrice = roundedPrice;
+      }
+
+      // If price is 0, promotionPrice should also be 0
+      if (roundedPrice === 0) {
+        roundedPromotionPrice = 0;
+      }
+
       const result = await updateCourse(resolvedParams.courseId, {
         title: courseData.title,
         description: courseData.description || "",
         categoryId: courseData.categoryId,
         level: courseData.level || "BEGINNER",
-        price: courseData.price,
-        promotionPrice: courseData.promotionPrice,
+        price: roundedPrice,
+        promotionPrice: roundedPromotionPrice,
         currency: courseData.currency,
         isPublished: courseData.isPublished,
         isHasCertificate: courseData.isHasCertificate,
@@ -286,8 +322,9 @@ export default function EditCoursePage({
                   id="price"
                   name="price"
                   type="number"
-                  min="0"
-                  value={courseData.price}
+                  min={0}
+                  step="0.01"
+                  value={courseData.price || 0}
                   onChange={handleInputChange}
                 />
               </div>
@@ -298,12 +335,30 @@ export default function EditCoursePage({
                   id="promotionPrice"
                   name="promotionPrice"
                   type="number"
-                  min="0"
-                  max={courseData.price}
-                  value={courseData.promotionPrice}
+                  min={0}
+                  step="0.01"
+                  max={courseData.price || 0}
+                  value={courseData.promotionPrice || 0}
                   onChange={handleInputChange}
+                  disabled={!courseData.price || courseData.price <= 0}
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="currency">Đơn vị tiền tệ</Label>
+              <Select
+                value={courseData.currency || "VND"}
+                onValueChange={(value) => handleSelectChange("currency", value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Chọn đơn vị tiền tệ" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="VND">VND</SelectItem>
+                  <SelectItem value="USD">USD</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="flex items-center space-x-2">
