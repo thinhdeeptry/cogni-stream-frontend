@@ -1,17 +1,58 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 
 import { toast } from "@/hooks/use-toast";
-import { Course } from "@/types/course/types";
-import { Edit, Eye, Plus, Trash } from "lucide-react";
+import { Course, CourseLevel } from "@/types/course/types";
+import { Edit, Eye, Filter, Plus, Trash } from "lucide-react";
 
-import { getAllCourses } from "@/actions/courseAction";
+import {
+  CourseFilters,
+  deleteCourse,
+  getAllCategories,
+  getAllCourses,
+} from "@/actions/courseAction";
 
-import useUserStore from "@/stores/useUserStore";
-
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -24,26 +65,147 @@ import {
 export default function AdminCoursesPage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { user } = useUserStore();
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [courseToDelete, setCourseToDelete] = useState<string | null>(null);
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>(
+    [],
+  );
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
+  // Pagination state
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 1,
+  });
+
+  // Filter state - by default show all courses (including unpublished)
+  const [filters, setFilters] = useState<CourseFilters>({});
+
+  // Fetch categories for filter
   useEffect(() => {
-    const fetchCourses = async () => {
+    const fetchCategories = async () => {
       try {
-        const data = await getAllCourses();
-        setCourses(data);
+        const data = await getAllCategories();
+        setCategories(data);
       } catch (error) {
-        toast({
-          title: "Lỗi",
-          description: "Không thể tải danh sách khóa học",
-          variant: "destructive",
-        });
-      } finally {
-        setIsLoading(false);
+        console.error("Error fetching categories:", error);
       }
     };
 
+    fetchCategories();
+  }, []);
+
+  // Fetch courses with pagination and filters
+  const fetchCourses = async (
+    page = pagination.page,
+    limit = pagination.limit,
+    courseFilters = filters,
+  ) => {
+    try {
+      setIsLoading(true);
+      const response = await getAllCourses(courseFilters, page, limit);
+
+      // Ensure we have valid data
+      if (response && response.data) {
+        setCourses(response.data);
+
+        // Ensure we have valid pagination metadata
+        if (response.meta) {
+          setPagination({
+            page: response.meta.page || 1,
+            limit: response.meta.limit || 10,
+            total: response.meta.total || response.data.length,
+            totalPages:
+              response.meta.totalPages ||
+              Math.ceil(response.data.length / (response.meta.limit || 10)),
+          });
+        } else {
+          // If no meta data, create default pagination
+          setPagination({
+            page: 1,
+            limit: 10,
+            total: response.data.length,
+            totalPages: Math.ceil(response.data.length / 10),
+          });
+        }
+      }
+    } catch (error) {
+      toast({
+        title: "Lỗi",
+        description: "Không thể tải danh sách khóa học",
+        variant: "destructive",
+      });
+      console.error("Error fetching courses:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchCourses();
   }, []);
+
+  const handleDeleteCourse = async (courseId: string) => {
+    if (!courseId) return;
+
+    setCourseToDelete(courseId);
+  };
+
+  const confirmDeleteCourse = async () => {
+    if (!courseToDelete) return;
+
+    try {
+      setIsDeleting(true);
+      await deleteCourse(courseToDelete);
+
+      // Update the courses list by removing the deleted course
+      setCourses(courses.filter((course) => course.id !== courseToDelete));
+      setPagination((prev) => ({
+        ...prev,
+        total: prev.total - 1,
+      }));
+
+      toast({
+        title: "Thành công",
+        description: "Xóa khóa học thành công",
+      });
+    } catch (error) {
+      console.error("Error deleting course:", error);
+      toast({
+        title: "Lỗi",
+        description: "Không thể xóa khóa học",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+      setCourseToDelete(null);
+    }
+  };
+
+  const handlePageChange = (page: number) => {
+    if (page < 1 || page > pagination.totalPages) return;
+    fetchCourses(page);
+  };
+
+  const handleFilterChange = (name: string, value: any) => {
+    setFilters((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const applyFilters = () => {
+    fetchCourses(1, pagination.limit, filters);
+    setIsFilterOpen(false);
+  };
+
+  const resetFilters = () => {
+    setFilters({});
+    fetchCourses(1, pagination.limit, {});
+    setIsFilterOpen(false);
+  };
 
   if (isLoading) {
     return (
@@ -67,11 +229,158 @@ export default function AdminCoursesPage() {
     <div className="w-full">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Quản lý khoá học</h1>
-        <Link href="/admin/courses/create">
-          <Button>
-            <Plus className="mr-2 h-4 w-4" /> Thêm khoá học
-          </Button>
-        </Link>
+        <div className="flex gap-2">
+          <Dialog open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline">
+                <Filter className="mr-2 h-4 w-4" /> Lọc
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Lọc khóa học</DialogTitle>
+                <DialogDescription>
+                  Chọn các tiêu chí để lọc danh sách khóa học
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="category" className="text-right">
+                    Danh mục
+                  </Label>
+                  <Select
+                    value={filters.categoryId || ""}
+                    onValueChange={(value) =>
+                      handleFilterChange("categoryId", value || undefined)
+                    }
+                  >
+                    <SelectTrigger className="col-span-3">
+                      <SelectValue placeholder="Tất cả danh mục" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Tất cả danh mục</SelectItem>
+                      {categories.map((category) => (
+                        <SelectItem key={category.id} value={category.id}>
+                          {category.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="level" className="text-right">
+                    Cấp độ
+                  </Label>
+                  <Select
+                    value={filters.level || ""}
+                    onValueChange={(value) =>
+                      handleFilterChange("level", value || undefined)
+                    }
+                  >
+                    <SelectTrigger className="col-span-3">
+                      <SelectValue placeholder="Tất cả cấp độ" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Tất cả cấp độ</SelectItem>
+                      <SelectItem value={CourseLevel.BEGINNER}>
+                        Người mới bắt đầu
+                      </SelectItem>
+                      <SelectItem value={CourseLevel.INTERMEDIATE}>
+                        Trung cấp
+                      </SelectItem>
+                      <SelectItem value={CourseLevel.ADVANCED}>
+                        Nâng cao
+                      </SelectItem>
+                      <SelectItem value="ALL_LEVELS">Tất cả cấp độ</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="isPublished" className="text-right">
+                    Trạng thái
+                  </Label>
+                  <Select
+                    value={
+                      filters.isPublished !== undefined
+                        ? filters.isPublished.toString()
+                        : ""
+                    }
+                    onValueChange={(value) => {
+                      if (value === "") {
+                        handleFilterChange("isPublished", undefined);
+                      } else {
+                        handleFilterChange("isPublished", value === "true");
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="col-span-3">
+                      <SelectValue placeholder="Tất cả trạng thái" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Tất cả trạng thái</SelectItem>
+                      <SelectItem value="true">Đã xuất bản</SelectItem>
+                      <SelectItem value="false">Bản nháp</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="minPrice" className="text-right">
+                    Giá tối thiểu
+                  </Label>
+                  <Input
+                    id="minPrice"
+                    type="number"
+                    min="0"
+                    className="col-span-3"
+                    value={filters.minPrice || ""}
+                    onChange={(e) =>
+                      handleFilterChange(
+                        "minPrice",
+                        e.target.value ? Number(e.target.value) : undefined,
+                      )
+                    }
+                  />
+                </div>
+
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="maxPrice" className="text-right">
+                    Giá tối đa
+                  </Label>
+                  <Input
+                    id="maxPrice"
+                    type="number"
+                    min="0"
+                    className="col-span-3"
+                    value={filters.maxPrice || ""}
+                    onChange={(e) =>
+                      handleFilterChange(
+                        "maxPrice",
+                        e.target.value ? Number(e.target.value) : undefined,
+                      )
+                    }
+                  />
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={resetFilters}>
+                  Đặt lại
+                </Button>
+                <Button onClick={applyFilters}>Áp dụng</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          <Link href="/admin/courses/create">
+            <Button>
+              <Plus className="mr-2 h-4 w-4" /> Thêm khoá học
+            </Button>
+          </Link>
+        </div>
       </div>
 
       <div className="rounded-md border">
@@ -125,13 +434,41 @@ export default function AdminCoursesPage() {
                           <Edit className="h-4 w-4" />
                         </Button>
                       </Link>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="text-red-500"
-                      >
-                        <Trash className="h-4 w-4" />
-                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="text-red-500"
+                            onClick={() => handleDeleteCourse(course.id)}
+                          >
+                            <Trash className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>
+                              Xác nhận xóa khóa học
+                            </AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Bạn có chắc chắn muốn xóa khóa học "{course.title}
+                              "? Hành động này không thể hoàn tác.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel disabled={isDeleting}>
+                              Hủy
+                            </AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={confirmDeleteCourse}
+                              disabled={isDeleting}
+                              className="bg-red-500 hover:bg-red-600"
+                            >
+                              {isDeleting ? "Đang xóa..." : "Xóa"}
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -140,6 +477,74 @@ export default function AdminCoursesPage() {
           </TableBody>
         </Table>
       </div>
+
+      {/* Pagination */}
+      {!isLoading && courses.length > 0 && (
+        <div className="mt-6 flex flex-col items-center">
+          <Pagination className="mb-2">
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  onClick={() => handlePageChange(pagination.page - 1)}
+                  className={
+                    pagination.page <= 1
+                      ? "pointer-events-none opacity-50"
+                      : "cursor-pointer"
+                  }
+                />
+              </PaginationItem>
+
+              {Array.from(
+                { length: Math.max(1, pagination.totalPages) },
+                (_, i) => i + 1,
+              )
+                .filter((page) => {
+                  // Show first page, last page, current page, and pages around current page
+                  return (
+                    page === 1 ||
+                    page === pagination.totalPages ||
+                    Math.abs(page - pagination.page) <= 1
+                  );
+                })
+                .map((page, index, array) => {
+                  // Add ellipsis where needed
+                  const prevPage = array[index - 1];
+                  const showEllipsisBefore = prevPage && prevPage !== page - 1;
+
+                  return (
+                    <React.Fragment key={page}>
+                      {showEllipsisBefore && (
+                        <PaginationItem>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      )}
+                      <PaginationItem>
+                        <PaginationLink
+                          isActive={page === pagination.page}
+                          onClick={() => handlePageChange(page)}
+                          className="cursor-pointer"
+                        >
+                          {page}
+                        </PaginationLink>
+                      </PaginationItem>
+                    </React.Fragment>
+                  );
+                })}
+
+              <PaginationItem>
+                <PaginationNext
+                  onClick={() => handlePageChange(pagination.page + 1)}
+                  className={
+                    pagination.page >= pagination.totalPages
+                      ? "pointer-events-none opacity-50"
+                      : "cursor-pointer"
+                  }
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
+      )}
     </div>
   );
 }

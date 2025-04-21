@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { use } from "react";
+import { usePathname } from "next/navigation";
 
 import {
   BarChart,
@@ -41,7 +41,7 @@ const getMenuItems = (userRole: string) => {
     },
     {
       title: "Bài viết",
-      url: "/",
+      url: "/blog",
       icon: BookOpen,
     },
   ];
@@ -54,12 +54,12 @@ const getMenuItems = (userRole: string) => {
         icon: LayoutDashboard,
       },
       {
-        title: "User",
+        title: "Người dùng",
         url: "/admin/users",
         icon: Users,
       },
       {
-        title: "Report",
+        title: "Báo cáo",
         url: "/admin/reports",
         icon: BarChart,
       },
@@ -72,30 +72,44 @@ const getMenuItems = (userRole: string) => {
 export function AppSidebar() {
   const { user } = useUserStore();
   const items = getMenuItems(user?.role || "");
+  const pathname = usePathname();
 
   return (
-    <Sidebar className="w-22">
+    <Sidebar className="w-22 h-full">
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu className="w-full">
-              {items.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild className="h-20">
-                    <Link
-                      href={item.url}
-                      className="flex h-10 flex-col items-center justify-center w-full"
+              {items.map((item) => {
+                const isActive =
+                  item.url === "/"
+                    ? pathname === "/"
+                    : item.url.startsWith("/admin")
+                      ? pathname.startsWith(item.url)
+                      : pathname === item.url;
+
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      className="h-20"
+                      isActive={isActive}
                     >
-                      <p>
-                        <item.icon />
-                      </p>
-                      <p className="text-center text-[12px] font-semibold ">
-                        {item.title}
-                      </p>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+                      <Link
+                        href={item.url}
+                        className="flex h-10 flex-col items-center justify-center w-full"
+                      >
+                        <p>
+                          <item.icon />
+                        </p>
+                        <p className="text-center text-[12px] font-semibold ">
+                          {item.title}
+                        </p>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
