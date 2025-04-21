@@ -11,7 +11,7 @@ interface DecodedToken {
 }
 
 type ServiceName =
-  | "user"
+  | "users"
   | "courses"
   | "enrollment"
   | "payment"
@@ -20,6 +20,18 @@ type ServiceName =
   | "report"
   | "discussion"
   | "gateway";
+
+const paths: Record<ServiceName, string> = {
+  users: "users",
+  courses: "",
+  enrollment: "enrollment",
+  payment: "payment",
+  assessment: "assessment",
+  notification: "notification",
+  report: "report",
+  discussion: "discussion",
+  gateway: "gateway",
+};
 
 class AxiosFactory {
   private static instances: Map<ServiceName, AxiosInstance> = new Map();
@@ -34,7 +46,7 @@ class AxiosFactory {
     }
 
     const instance = axios.create({
-      baseURL: `${this.GATEWAY_URL}/${serviceName}`,
+      baseURL: `${this.GATEWAY_URL}/${paths[serviceName]}`,
       timeout: 30000,
       headers: {
         "Content-Type": "application/json",
