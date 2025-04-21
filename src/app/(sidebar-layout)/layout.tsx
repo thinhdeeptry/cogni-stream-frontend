@@ -1,4 +1,4 @@
-import { AppSidebar } from "@/components/SideBar";
+import { AppSidebar } from "@/components/sidebar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/toaster";
 import UserHeader from "@/components/userLayout/user.header";
