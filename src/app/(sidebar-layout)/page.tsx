@@ -36,9 +36,23 @@ export default function Home() {
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-        const data = await getAllCourses();
-        setCourses(data);
+        // Get all published courses without pagination
+        const response = await getAllCourses({
+          isPublished: true, // Only get published courses
+          skipPagination: true, // Get all courses, not just the first page
+        });
+
+        console.log("Home page courses:", response.data);
+
+        // Double-check to make sure we only show published courses
+        const publishedCourses = response.data.filter(
+          (course) => course.isPublished === true,
+        );
+        console.log("Filtered published courses:", publishedCourses.length);
+
+        setCourses(publishedCourses);
       } catch (err) {
+        console.error("Error fetching courses:", err);
         setError(err instanceof Error ? err.message : "An error occurred");
       } finally {
         setIsLoading(false);

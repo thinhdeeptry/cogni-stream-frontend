@@ -164,10 +164,11 @@ export default function CreateCoursePage() {
     }
 
     setIsSubmitting(true);
-
+    console.log("+Data test: ", courseData);
     try {
       const result = await createCourse({
         ...courseData,
+        ownerId: user?.id || "",
         thumbnailUrl: selectedImage || undefined,
       });
 
@@ -196,7 +197,7 @@ export default function CreateCoursePage() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="p-8">
+    <form onSubmit={handleSubmit} className="px-1 overflow-hidden ">
       <div className="flex items-center gap-4 mb-6">
         <Link href="/admin/courses">
           <Button variant="outline" size="icon">
@@ -508,7 +509,7 @@ export default function CreateCoursePage() {
               title: "Scheduled: Catch up",
               description: "Friday, February 10, 2023 at 5:57 PM",
             });
-            // router.push("/admin/courses")
+            router.push("/admin/courses");
           }}
         >
           Hủy
