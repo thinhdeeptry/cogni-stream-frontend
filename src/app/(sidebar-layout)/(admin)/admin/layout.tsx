@@ -5,15 +5,7 @@ import { useEffect } from "react";
 
 import { useSession } from "next-auth/react";
 
-import {
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar";
 import Loading from "@/components/userLayout/Loading";
-import AdminContent from "@/components/userLayout/admin.content";
-import AdminHeader from "@/components/userLayout/admin.header";
-import UserHeader from "@/components/userLayout/user.header";
 
 export default function AdminLayout({
   children,

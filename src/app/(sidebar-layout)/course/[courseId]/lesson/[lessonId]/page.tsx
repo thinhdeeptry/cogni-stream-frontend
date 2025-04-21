@@ -135,23 +135,23 @@ export default function LessonDetail() {
                 className="w-40"
                 disabled={!previousLesson}
               >
-                <ChevronLeft className="mr-2 h-4 w-4" /> Previous Lesson
+                <ChevronLeft className="mr-2 h-4 w-4" /> Bài trước
               </Button>
             </Link>
           ) : (
             <Button variant="outline" className="w-40" disabled>
-              <ChevronLeft className="mr-2 h-4 w-4" /> Previous Lesson
+              <ChevronLeft className="mr-2 h-4 w-4" /> Bài trước
             </Button>
           )}
           {nextLesson ? (
             <Link href={`/course/${course.id}/lesson/${nextLesson.id}`}>
               <Button variant="outline" className="w-40" disabled={!nextLesson}>
-                Next Lesson <ChevronRight className="ml-2 h-4 w-4" />
+                Học tiếp <ChevronRight className="ml-2 h-4 w-4" />
               </Button>
             </Link>
           ) : (
             <Button variant="outline" className="w-40" disabled>
-              Next Lesson <ChevronRight className="ml-2 h-4 w-4" />
+              Học tiếp <ChevronRight className="ml-2 h-4 w-4" />
             </Button>
           )}
         </div>

@@ -4,9 +4,131 @@ import { Category, Course, Lesson } from "@/types/course/types";
 
 const courseApi = await AxiosFactory.getApiInstance("courses");
 
-export const getAllCourses = async (): Promise<Course[]> => {
+export interface CourseFilters {
+  categoryId?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  level?: string;
+  createdAt?: Date;
+  isPublished?: boolean;
+  skipPagination?: boolean; // Option to skip pagination and return all courses
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+}
+
+export const getAllCourses = async (
+  filters: CourseFilters = {},
+  page: number = 1,
+  limit: number = 10,
+): Promise<PaginatedResponse<Course>> => {
   try {
-    const { data } = await courseApi.get("/courses");
+    // Build query parameters
+    const params = new URLSearchParams();
+
+    // Add pagination parameters if not skipping pagination
+    if (!filters.skipPagination) {
+      params.append("page", page.toString());
+      params.append("limit", limit.toString());
+    } else {
+      // If skipping pagination, request a large limit to get all courses
+      params.append("limit", "1000"); // Use a large number to get all courses
+    }
+
+    // Add filter parameters if they exist
+    if (filters.categoryId) params.append("categoryId", filters.categoryId);
+    if (filters.minPrice !== undefined)
+      params.append("minPrice", filters.minPrice.toString());
+    if (filters.maxPrice !== undefined)
+      params.append("maxPrice", filters.maxPrice.toString());
+    if (filters.level) params.append("level", filters.level);
+    if (filters.createdAt)
+      params.append("createdAt", filters.createdAt.toISOString());
+
+    // Always include isPublished parameter if specified
+    if (filters.isPublished !== undefined) {
+      params.append("isPublished", filters.isPublished.toString());
+    }
+
+    console.log("API Request URL:", `/courses?${params.toString()}`);
+    const { data } = await courseApi.get(`/courses?${params.toString()}`);
+    console.log("API Response:", data);
+
+    // If the backend doesn't return a paginated response format yet, transform it
+    if (Array.isArray(data)) {
+      // Filter out unpublished courses if isPublished=true is specified
+      let filteredData = data;
+      if (filters.isPublished === true) {
+        console.log("Filtering for published courses only");
+        filteredData = data.filter(
+          (course: Course) => course.isPublished === true,
+        );
+        console.log("Filtered data length:", filteredData.length);
+      }
+
+      // If skipPagination is true, return all courses
+      if (filters.skipPagination) {
+        console.log("Skipping pagination, returning all filtered courses");
+        return {
+          data: filteredData,
+          meta: {
+            total: filteredData.length,
+            page: 1,
+            limit: filteredData.length,
+            totalPages: 1,
+          },
+        };
+      }
+
+      // Apply manual pagination if needed
+      const startIndex = (page - 1) * limit;
+      const endIndex = startIndex + limit;
+      const paginatedData = filteredData.slice(startIndex, endIndex);
+      console.log(
+        `Paginating data: page ${page}, limit ${limit}, showing ${paginatedData.length} of ${filteredData.length} courses`,
+      );
+
+      return {
+        data: paginatedData,
+        meta: {
+          total: filteredData.length,
+          page,
+          limit,
+          totalPages: Math.ceil(filteredData.length / limit),
+        },
+      };
+    }
+
+    // If the backend returns a paginated response, use it directly
+    // But ensure we filter by isPublished if needed
+    if (
+      data &&
+      data.data &&
+      Array.isArray(data.data) &&
+      filters.isPublished === true
+    ) {
+      const filteredData = data.data.filter(
+        (course: Course) => course.isPublished === true,
+      );
+      return {
+        data: filteredData,
+        meta: {
+          ...data.meta,
+          total: filteredData.length,
+          totalPages: Math.ceil(
+            filteredData.length / (data.meta.limit || limit),
+          ),
+        },
+      };
+    }
+
     return data;
   } catch (error) {
     throw error;
@@ -66,16 +188,18 @@ export const createCourse = async (courseData: {
   level: string;
   price: number;
   currency: string;
+  ownerId: string;
   isPublished: boolean;
   isHasCertificate: boolean;
-  tags: string[];
-  learningOutcomes: string[];
-  requirements: string[];
-  targetAudience: string;
+  tags?: string[];
+  learningOutcomes?: string[];
+  requirements?: string[];
+  targetAudience?: string;
   thumbnailUrl?: string;
 }) => {
   try {
     const { data } = await courseApi.post("/courses", courseData);
+    console.log("+ data >>>", data.id);
     return {
       error: false,
       success: true,
@@ -112,7 +236,7 @@ export const updateCourse = async (
     currency: string;
     isPublished: boolean;
     isHasCertificate: boolean;
-    tags: string[];
+    tags?: string[];
     learningOutcomes: string[];
     requirements: string[];
     targetAudience: string;
@@ -177,7 +301,14 @@ export const updateChapter = async (chapterId: string, chapterData: any) => {
     throw error;
   }
 };
-
+export const deleteCourse = async (courseId: string) => {
+  try {
+    const { data } = await courseApi.delete(`/courses/${courseId}`);
+    return data;
+  } catch (error) {
+    throw error;
+  }
+};
 export const deleteChapter = async (chapterId: string) => {
   try {
     const { data } = await courseApi.delete(`/chapters/${chapterId}`);
