@@ -140,8 +140,10 @@ export async function checkUserReview(
 /**
  * Gets a thread by resource ID and type. If no thread is found, creates a new one.
  *
- * First tries to fetch the thread directly by resource ID and type.
- * If the API returns an empty array or there's an error, creates a new thread with the given resource ID and type.
+ * This function matches the backend's findOrCreateByResourceId method:
+ * 1. First tries to fetch the thread directly by resource ID and type
+ * 2. If no thread is found, creates a new one with the given resource ID and type
+ * 3. Handles potential conflicts when creating threads
  */
 export async function getThreadByResourceId(
   resourceId: string,
@@ -150,69 +152,78 @@ export async function getThreadByResourceId(
   overallRating?: number,
 ): Promise<ThreadWithPostCount | null> {
   try {
-    // Try to get thread by resource ID and type
+    // Try to get thread by resource ID and type using the findOrCreate endpoint
     console.log(
-      `Making API call to: /threads/resource/${resourceId}?type=${type}`,
+      `Finding or creating thread for resource ID: ${resourceId}, type: ${type}`,
     );
+
+    // First try to find an existing thread
     const response = await discussionAxios.get(
       `/threads/resource/${resourceId}?type=${type}`,
     );
 
-    console.log("API response:", response);
     const { data } = response;
 
-    // Check if data is an array and is empty, or if data is null/undefined
-    if (Array.isArray(data) && data.length === 0) {
-      console.log(
-        `API returned empty array for resource ${resourceId}, creating a new thread`,
-      );
-      return await createThread(resourceId, type, title, overallRating);
-    }
-
-    // If data is an array with items, return the first item
-    if (Array.isArray(data) && data.length > 0) {
-      console.log(
-        `Found ${data.length} threads for resource ${resourceId}, returning first one:`,
-        data[0],
-      );
-      return data[0];
-    }
-
-    // If data is a single object (not an array), return it
-    if (data && !Array.isArray(data)) {
-      console.log("Thread found, returning data:", data);
+    // If we got a valid thread object back, return it
+    if (data && typeof data === "object" && !Array.isArray(data) && data.id) {
+      console.log(`Found existing thread for resource ${resourceId}`);
       return data;
     }
 
-    // If no thread found (null/undefined data), create a new one
+    // If no thread was found, create a new one
     console.log(
       `No thread found for resource ${resourceId}, creating a new one`,
     );
     return await createThread(resourceId, type, title, overallRating);
-  } catch (error) {
-    console.error(`Error fetching thread for resource ${resourceId}:`, error);
+  } catch (error: any) {
+    console.error(`Error finding thread for resource ${resourceId}:`, error);
 
-    // If there was an error (like 404), create a new thread
-    console.log(
-      `Creating new thread for resource ${resourceId} after fetch error`,
-    );
-    try {
-      return await createThread(resourceId, type, title, overallRating);
-    } catch (createError) {
-      console.error(
-        `Failed to create thread for resource ${resourceId}:`,
-        createError,
-      );
-      return null;
+    // If the error is a 404 (not found), create a new thread
+    if (error.response?.status === 404) {
+      try {
+        console.log(
+          `Thread not found, creating new thread for resource ${resourceId}`,
+        );
+        return await createThread(resourceId, type, title, overallRating);
+      } catch (createError: any) {
+        // If the error is a 409 (conflict), try to fetch the thread again
+        if (createError.response?.status === 409) {
+          console.log(
+            `Thread already exists for resource ${resourceId}, fetching it`,
+          );
+          try {
+            const existingResponse = await discussionAxios.get(
+              `/threads/resource/${resourceId}?type=${type}`,
+            );
+            return existingResponse.data;
+          } catch (fetchError) {
+            console.error(
+              `Failed to fetch existing thread after conflict:`,
+              fetchError,
+            );
+            return null;
+          }
+        }
+
+        console.error(
+          `Failed to create thread for resource ${resourceId}:`,
+          createError,
+        );
+        return null;
+      }
     }
+
+    // For other errors, return null
+    return null;
   }
 }
 
 /**
  * Creates a new thread with the given resource ID, type, and title.
  *
- * Note: This function matches the Postman collection endpoint:
+ * Note: This function matches the backend's create method:
  * - POST /threads - to create a new thread with resourceId, type, and optional overallRating
+ * - The backend will throw a ConflictException if a thread with the same resourceId already exists
  */
 export async function createThread(
   resourceId: string,
@@ -228,14 +239,33 @@ export async function createThread(
       resourceId,
       type,
       title,
-      overallRating, // This matches the Postman collection
+      overallRating, // This matches the backend's create method
     });
 
-    console.log("Create thread response:", response);
     const { data } = response;
     console.log(`Thread created successfully:`, data);
     return data;
   } catch (error: any) {
+    // If the error is a 409 (conflict), it means a thread with this resourceId already exists
+    if (error.response?.status === 409) {
+      console.warn(
+        `Thread already exists for resource ${resourceId}, attempting to fetch it`,
+      );
+      // Try to fetch the existing thread
+      try {
+        const existingResponse = await discussionAxios.get(
+          `/threads/resource/${resourceId}?type=${type}`,
+        );
+        return existingResponse.data;
+      } catch (fetchError) {
+        console.error(
+          `Failed to fetch existing thread after conflict:`,
+          fetchError,
+        );
+        return null;
+      }
+    }
+
     console.error(`Error creating thread for resource ${resourceId}:`, error);
     console.error(`Error details:`, error.response?.data || error.message);
     console.error(`Error status:`, error.response?.status);

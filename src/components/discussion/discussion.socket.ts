@@ -1,6 +1,6 @@
 import { Socket, io } from "socket.io-client";
 
-import type { Post, Reaction, ReactionType } from "./type";
+import type { Post, Reaction } from "./type";
 
 interface ThreadUser {
   userId: string;
@@ -14,7 +14,6 @@ interface ThreadUsers {
 
 class DiscussionSocketService {
   private socket: Socket | null = null;
-  private currentThreadId: string | null = null;
   private readonly namespace = "/threads";
 
   connect() {
@@ -25,33 +24,49 @@ class DiscussionSocketService {
         throw new Error("BASE_URL is not defined");
       }
 
-      this.socket = io(baseUrl + this.namespace, {
-        withCredentials: true,
-        reconnection: true,
-        reconnectionAttempts: 5,
-        reconnectionDelay: 1000,
-        reconnectionDelayMax: 5000,
-        timeout: 20000,
-      });
+      try {
+        this.socket = io(baseUrl + this.namespace, {
+          withCredentials: true,
+          reconnection: true,
+          reconnectionAttempts: 10, // Increased from 5 to 10
+          reconnectionDelay: 1000,
+          reconnectionDelayMax: 5000,
+          timeout: 30000, // Increased from 20000 to 30000
+          transports: ["websocket", "polling"], // Explicitly specify transports
+          autoConnect: true,
+        });
 
-      this.socket.on("connect", () => {
-        console.log("Socket connected to namespace:", this.namespace);
-      });
+        this.socket.on("connect", () => {
+          console.log("Socket connected to namespace:", this.namespace);
+        });
 
-      this.socket.on("connect_error", (error) => {
-        console.error("Connection error:", error.message);
-      });
+        this.socket.on("connect_error", (error) => {
+          console.error("Connection error:", error.message);
+        });
 
-      this.socket.on("disconnect", (reason) => {
-        console.log(`Disconnected from namespace ${this.namespace}:`, reason);
-      });
+        this.socket.on("disconnect", (reason) => {
+          console.log(`Disconnected from namespace ${this.namespace}:`, reason);
+        });
+
+        this.socket.on("error", (error) => {
+          console.error("Socket error:", error);
+        });
+      } catch (error) {
+        console.error("Error initializing socket:", error);
+        // Return a dummy socket that won't throw errors when methods are called
+        return {
+          on: () => {},
+          emit: () => {},
+          disconnect: () => {},
+          removeAllListeners: () => {},
+        } as any;
+      }
     }
     return this.socket;
   }
 
   disconnect() {
     if (this.socket) {
-      this.currentThreadId = null;
       this.socket.disconnect();
       this.socket = null;
     }
@@ -59,14 +74,12 @@ class DiscussionSocketService {
 
   joinThread(threadId: string, userId: string, userName: string) {
     if (this.socket) {
-      this.currentThreadId = threadId;
       this.socket.emit("join-thread", { threadId, userId, userName });
     }
   }
 
   leaveThread(threadId: string, userId: string) {
     if (this.socket) {
-      this.currentThreadId = null;
       this.socket.emit("leave-thread", { threadId, userId });
     }
   }

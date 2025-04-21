@@ -12,7 +12,7 @@ interface DecodedToken {
 
 type ServiceName =
   | "users"
-  | "courses"
+  | ""
   | "enrollment"
   | "payment"
   | "assessment"
