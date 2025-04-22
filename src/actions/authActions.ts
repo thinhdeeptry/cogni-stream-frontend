@@ -14,6 +14,8 @@ import { authApi } from "@/lib/api/authApi";
 
 // actions/login.ts
 
+// actions/login.ts
+
 export async function loginUser(email: string, password: string) {
   try {
     console.log("loginUser: Attempting to sign in with email:", email);
@@ -271,6 +273,98 @@ export async function getDashboardData(
       error: true,
       success: false,
       message: "Đã xảy ra lỗi khi lấy dữ liệu dashboard. Vui lòng thử lại sau.",
+      status: 500,
+    };
+  }
+}
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
+export async function requestPasswordReset(email: string) {
+  try {
+    const result = await fetch(`${API_URL}/auth/forgot-password`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email }),
+    }).then((res) => res.json());
+
+    console.log("Password reset request result:", result);
+
+    if (result.message === "Không tìm thấy người dùng") {
+      return {
+        error: true,
+        success: false,
+        message: "Email không tồn tại trong hệ thống",
+        status: 404,
+      };
+    }
+
+    return {
+      error: false,
+      success: true,
+      message: "Mã xác thực đã được gửi đến email của bạn",
+      id: result.id,
+      otp: result.otp, // Note: In production, you should not return the OTP
+      status: 200,
+    };
+  } catch (error) {
+    console.error("Password reset request error:", error);
+    return {
+      error: true,
+      success: false,
+      message: "Đã xảy ra lỗi không xác định. Vui lòng thử lại sau.",
+      status: 500,
+    };
+  }
+}
+
+export async function resetPassword(
+  email: string,
+  otp: string,
+  password: string,
+) {
+  try {
+    const newPassword = password;
+    const result = await fetch(`${API_URL}/auth/reset-password`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email, otp, newPassword }),
+    }).then((res) => res.json());
+
+    console.log("Password reset result:", result);
+
+    if (result.statusCode === 400) {
+      return {
+        error: true,
+        success: false,
+        message: result.message,
+        status: 400,
+      };
+    }
+
+    if (result.message === "Sai mã OTP") {
+      return {
+        error: true,
+        success: false,
+        message: "Mã xác thực không đúng. Vui lòng kiểm tra lại.",
+        status: 400,
+      };
+    }
+
+    return {
+      error: false,
+      success: true,
+      message: "Đặt lại mật khẩu thành công!",
+      status: 200,
+    };
+  } catch (error) {
+    console.error("Password reset error:", error);
+    return {
+      error: true,
+      success: false,
+      message: "Đã xảy ra lỗi không xác định. Vui lòng thử lại sau.",
       status: 500,
     };
   }

@@ -217,8 +217,9 @@ export default function Discussion({ threadId }: { threadId: string }) {
     if (thread && user && thread.type === DiscussionType.COURSE_REVIEW) {
       console.log("Explicitly checking user review for thread:", thread.id);
       console.log("Current hasReviewed state:", hasReviewed);
-      // Use the thread's resourceId to check for reviews
+      // For course reviews, the resourceId is the courseId
       checkUserReview(thread.resourceId);
+      console.log("Called checkUserReview with courseId:", thread.resourceId);
     }
   }, [thread?.id, user?.id, checkUserReview]);
 

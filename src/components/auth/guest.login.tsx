@@ -60,9 +60,7 @@ export default function LoginForm() {
         toast.error(result.message);
         setError(result.message);
         if (result.redirectTo) {
-          console.log("Login error>>> ", result.message);
           router.push(result.redirectTo);
-          toast.error(result.message);
         }
       } else if (result.success) {
         if (result.redirectTo) {
@@ -77,7 +75,16 @@ export default function LoginForm() {
       setIsLoading(false);
     }
   }
+  const handleForgotPassword = () => {
+    // Store the current email in localStorage if available
+    const currentEmail = form.getValues().email;
+    if (currentEmail) {
+      localStorage.setItem("forgotPasswordEmail", currentEmail);
+    }
 
+    // Navigate to forgot password page
+    router.push("/auth/forgot-password");
+  };
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
   };
@@ -145,12 +152,13 @@ export default function LoginForm() {
                       </div>
                     </FormControl>
                     <FormMessage>
-                      <a
-                        href="#"
+                      <button
+                        type="button"
                         className="ml-auto text-sm underline-offset-2 hover:underline"
+                        onClick={handleForgotPassword}
                       >
-                        Forgot your password?
-                      </a>
+                        Đã quên mật khẩu?
+                      </button>
                     </FormMessage>
                   </FormItem>
                 )}
@@ -174,7 +182,7 @@ export default function LoginForm() {
                 {isLoading ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : null}
-                Sign in
+                Đăng nhập
               </Button>
             </form>
           </Form>
@@ -185,7 +193,7 @@ export default function LoginForm() {
             </div>
             <div className="relative flex justify-center text-xs uppercase">
               <span className="bg-white px-2 text-muted-foreground">
-                Or continue with
+                Hoặc đăng nhập bằng
               </span>
             </div>
           </div>
@@ -198,13 +206,13 @@ export default function LoginForm() {
           </div>
           {/* Add the new account request section */}
           <div className="mt-8 text-center text-sm text-muted-foreground">
-            Don&apos;t have an account?{" "}
+            Chưa có tài khoản?{" "}
             <Button
               variant="link"
               className="p-0 h-auto font-semibold text-main-900 hover:text-main-800"
               onClick={() => router.push("/auth/register")}
             >
-              Request Now
+              Đăng ký ngay
             </Button>
           </div>
         </CardContent>

@@ -61,15 +61,15 @@ export default function RegisterForm() {
     try {
       await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate a delay
       const result = await signUpUser(email, password, name);
-      console.log("Check result>>> ", result);
+      console.log("Check result>>>>>> ", result);
 
-      toast.success("Đăng ký thành công!");
       if (result.error) {
         console.log("Login error>>> ", result.message);
         toast.error(result.message);
         setError(result.message);
       } else if (result.success) {
         if (result.redirectTo) {
+          toast.success("Đăng ký thành công!");
           router.push(result.redirectTo);
         }
       }
