@@ -290,15 +290,30 @@ export const getChapterById = async (chapterId: string) => {
   }
 };
 
-export const updateChapter = async (chapterId: string, chapterData: any) => {
+export const updateChapter = async (
+  chapterId: string,
+  chapterData: {
+    title: string;
+    description?: string;
+    isPublished?: boolean;
+  },
+) => {
   try {
     const { data } = await courseApi.patch(
       `/chapters/${chapterId}`,
       chapterData,
     );
-    return data;
+    return {
+      success: true,
+      data,
+      message: "Cập nhật chương thành công",
+    };
   } catch (error) {
-    throw error;
+    return {
+      success: false,
+      message: "Đã xảy ra lỗi khi cập nhật chương",
+      error,
+    };
   }
 };
 export const deleteCourse = async (courseId: string) => {
@@ -311,7 +326,9 @@ export const deleteCourse = async (courseId: string) => {
 };
 export const deleteChapter = async (chapterId: string) => {
   try {
+    console.log("++  chapterId", chapterId);
     const { data } = await courseApi.delete(`/chapters/${chapterId}`);
+    console.log("++  data", data);
     return data;
   } catch (error) {
     throw error;
@@ -321,16 +338,31 @@ export const deleteChapter = async (chapterId: string) => {
 export const createLesson = async (
   courseId: string,
   chapterId: string,
-  lessonData: Lesson,
+  lessonData: {
+    title: string;
+    content?: string;
+    type: string;
+    videoUrl?: string;
+    isPublished?: boolean;
+    isFreePreview?: boolean;
+  },
 ) => {
   try {
     const { data } = await courseApi.post(
       `/lessons/courses/${courseId}/chapters/${chapterId}`,
       lessonData,
     );
-    return data;
+    return {
+      success: true,
+      data,
+      message: "Tạo bài học thành công",
+    };
   } catch (error) {
-    throw error;
+    return {
+      success: false,
+      message: "Đã xảy ra lỗi khi tạo bài học",
+      error,
+    };
   }
 };
 
@@ -361,21 +393,47 @@ export const getLessonById = async (lessonId: string) => {
   }
 };
 
-export const updateLesson = async (lessonId: string, lessonData: any) => {
+export const updateLesson = async (
+  lessonId: string,
+  lessonData: {
+    title?: string;
+    content?: string;
+    type?: string;
+    videoUrl?: string;
+    isPublished?: boolean;
+    isFreePreview?: boolean;
+  },
+) => {
   try {
     const { data } = await courseApi.put(`/lessons/${lessonId}`, lessonData);
-    return data;
+    return {
+      success: true,
+      data,
+      message: "Cập nhật bài học thành công",
+    };
   } catch (error) {
-    throw error;
+    return {
+      success: false,
+      message: "Đã xảy ra lỗi khi cập nhật bài học",
+      error,
+    };
   }
 };
 
 export const deleteLesson = async (lessonId: string) => {
   try {
     const { data } = await courseApi.delete(`/lessons/${lessonId}`);
-    return data;
+    return {
+      success: true,
+      data,
+      message: "Xóa bài học thành công",
+    };
   } catch (error) {
-    throw error;
+    return {
+      success: false,
+      message: "Đã xảy ra lỗi khi xóa bài học",
+      error,
+    };
   }
 };
 export const getAllCategories = async (): Promise<Category[]> => {

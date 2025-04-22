@@ -1,5 +1,9 @@
 import { useState } from "react";
 
+import { toast } from "@/hooks/use-toast";
+
+import { createChapter } from "@/actions/courseAction";
+
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -16,12 +20,14 @@ interface AddChapterDialogProps {
   courseId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSuccess?: () => void; // Callback to refresh data after successful creation
 }
 
 export function AddChapterDialog({
   courseId,
   open,
   onOpenChange,
+  onSuccess,
 }: AddChapterDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [chapterData, setChapterData] = useState({
@@ -35,7 +41,18 @@ export function AddChapterDialog({
     setIsSubmitting(true);
 
     try {
-      // Call API to create chapter
+      await createChapter(courseId, chapterData);
+      setChapterData({ title: "", description: "", isPublished: false });
+      toast({
+        title: "Thành công",
+        description: "Đã tạo chương mới",
+      });
+
+      // Call the onSuccess callback to refresh data
+      if (onSuccess) {
+        onSuccess();
+      }
+
       onOpenChange(false);
     } catch (error) {
       console.error(error);

@@ -4,8 +4,21 @@ import Link from "next/link";
 import { useRef, useState } from "react";
 
 import { toast } from "@/hooks/use-toast";
-import { Edit, GripVertical, Plus } from "lucide-react";
+import { Edit, GripVertical, Plus, Trash } from "lucide-react";
 
+import { deleteChapter, deleteLesson } from "@/actions/courseAction";
+
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -35,6 +48,8 @@ export function CourseContent({
   onOrderUpdate,
 }: CourseContentProps) {
   const [items, setItems] = useState(chapters);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isDeletingLesson, setIsDeletingLesson] = useState(false);
   const dragItem = useRef<any>(null);
   const dragOverItem = useRef<any>(null);
   const dragSource = useRef<string | null>(null);
@@ -51,7 +66,7 @@ export function CourseContent({
 
   const handleDragEnter = (
     e: React.DragEvent,
-    targetType: string,
+    _targetType: string,
     index: number,
   ) => {
     dragOverItem.current = index;
@@ -61,6 +76,74 @@ export function CourseContent({
 
   const handleDragLeave = (e: React.DragEvent) => {
     e.currentTarget.classList.remove("drag-over");
+  };
+
+  const confirmDeleteLesson = async (lessonToDelete: string) => {
+    if (!lessonToDelete) return;
+
+    try {
+      setIsDeletingLesson(true);
+      const result = await deleteLesson(lessonToDelete);
+
+      if (result.success) {
+        // Update the UI by removing the deleted lesson
+        const updatedItems = items.map((chapter) => ({
+          ...chapter,
+          lessons: chapter.lessons.filter(
+            (lesson) => lesson.id !== lessonToDelete,
+          ),
+        }));
+
+        setItems(updatedItems);
+
+        toast({
+          title: "Thành công",
+          description: "Đã xóa bài học",
+        });
+
+        // Call the onOrderUpdate to refresh the parent component
+        onOrderUpdate();
+      } else {
+        throw new Error(result.message);
+      }
+    } catch (error) {
+      console.error("Error deleting lesson:", error);
+      toast({
+        title: "Lỗi",
+        description: "Không thể xóa bài học",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeletingLesson(false);
+    }
+  };
+
+  const confirmDeleteChapter = async (chapterToDelete: string) => {
+    if (!chapterToDelete) return;
+
+    try {
+      setIsDeleting(true);
+      await deleteChapter(chapterToDelete);
+
+      // Update the UI by removing the deleted chapter
+      setItems(items.filter((chapter) => chapter.id !== chapterToDelete));
+
+      toast({
+        title: "Thành công",
+        description: "Đã xóa chương",
+      });
+
+      onOrderUpdate();
+    } catch (error) {
+      console.error("Error deleting chapter:", error);
+      toast({
+        title: "Lỗi",
+        description: "Không thể xóa chương",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const handleDrop = async (
@@ -176,6 +259,41 @@ export function CourseContent({
                     <Plus className="h-4 w-4" />
                   </Button>
                 </Link>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-red-500"
+                    >
+                      <Trash className="h-4 w-4" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Xác nhận xóa chương</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Bạn có chắc chắn muốn xóa chương "{chapter.title}"? Hành
+                        động này không thể hoàn tác và sẽ xóa tất cả bài học
+                        trong chương này.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel disabled={isDeleting}>
+                        Hủy
+                      </AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => {
+                          confirmDeleteChapter(chapter.id);
+                        }}
+                        disabled={isDeleting}
+                        className="bg-red-500 hover:bg-red-600"
+                      >
+                        {isDeleting ? "Đang xóa..." : "Xóa"}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             </div>
           </CardHeader>
@@ -204,6 +322,42 @@ export function CourseContent({
                         <Edit className="h-4 w-4" />
                       </Button>
                     </Link>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-500"
+                        >
+                          <Trash className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>
+                            Xác nhận xóa bài học
+                          </AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Bạn có chắc chắn muốn xóa bài học "{lesson.title}"?
+                            Hành động này không thể hoàn tác.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel disabled={isDeletingLesson}>
+                            Hủy
+                          </AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => {
+                              confirmDeleteLesson(lesson.id);
+                            }}
+                            disabled={isDeletingLesson}
+                            className="bg-red-500 hover:bg-red-600"
+                          >
+                            {isDeletingLesson ? "Đang xóa..." : "Xóa"}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 </div>
               ))}

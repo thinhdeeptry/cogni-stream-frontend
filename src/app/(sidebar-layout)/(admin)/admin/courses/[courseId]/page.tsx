@@ -181,6 +181,25 @@ export default function CourseDetailPage({
             }))}
             onOrderUpdate={fetchCourseData}
           />
+
+          {/* Add Lesson Button - Hidden but needed for the dialog */}
+          <Button
+            className="hidden"
+            onClick={() => {
+              if (course.chapters && course.chapters.length > 0) {
+                setSelectedChapterId(course.chapters[0].id);
+                setIsAddLessonOpen(true);
+              } else {
+                toast({
+                  title: "Lỗi",
+                  description: "Bạn cần tạo chương trước khi tạo bài học",
+                  variant: "destructive",
+                });
+              }
+            }}
+          >
+            Thêm bài học
+          </Button>
         </div>
       </div>
 
@@ -188,6 +207,7 @@ export default function CourseDetailPage({
         courseId={resolvedParams.courseId}
         open={isAddChapterOpen}
         onOpenChange={setIsAddChapterOpen}
+        onSuccess={fetchCourseData}
       />
 
       <AddLessonDialog
@@ -195,6 +215,7 @@ export default function CourseDetailPage({
         chapterId={selectedChapterId}
         open={isAddLessonOpen}
         onOpenChange={setIsAddLessonOpen}
+        onSuccess={fetchCourseData}
       />
     </div>
   );

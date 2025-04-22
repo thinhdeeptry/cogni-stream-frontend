@@ -5,17 +5,26 @@ import { useRouter } from "next/navigation";
 import { use, useEffect, useState } from "react";
 
 import { useToast } from "@/hooks/use-toast";
+import { LessonType } from "@/types/course/types";
 import "@blocknote/core/fonts/inter.css";
 import { BlockNoteView } from "@blocknote/mantine";
 import "@blocknote/mantine/style.css";
 import { useCreateBlockNote } from "@blocknote/react";
 import { ChevronLeft } from "lucide-react";
 
-import { createLesson, getLessonById } from "@/actions/courseAction";
+import { getLessonById, updateLesson } from "@/actions/courseAction";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 
 export default function EditLessonPage({
   params,
@@ -29,6 +38,8 @@ export default function EditLessonPage({
   const [title, setTitle] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
   const [isFreePreview, setIsFreePreview] = useState(false);
+  const [isPublished, setIsPublished] = useState(false);
+  const [lessonType, setLessonType] = useState<string>(LessonType.BLOG);
   const { toast } = useToast();
   const editor = useCreateBlockNote();
 
@@ -39,12 +50,23 @@ export default function EditLessonPage({
         console.log(data);
         if (data) {
           setTitle(data.title);
-          setVideoUrl(data.videoUrl);
+          setVideoUrl(data.videoUrl || "");
           setIsFreePreview(data.isFreePreview);
+          setIsPublished(data.isPublished);
+          setLessonType(data.type || LessonType.BLOG);
 
-          // Load the content into the editor
-          const content = JSON.parse(data.content);
-          editor.replaceBlocks(editor.topLevelBlocks, content);
+          // Load the content into the editor if it exists
+          if (data.content) {
+            try {
+              const content = JSON.parse(data.content);
+              // Replace the content in the editor
+              if (Array.isArray(content)) {
+                editor.replaceBlocks(editor.document, content);
+              }
+            } catch (error) {
+              console.error("Error parsing lesson content:", error);
+            }
+          }
         }
       } catch (error) {
         toast({
@@ -61,29 +83,51 @@ export default function EditLessonPage({
   }, [resolvedParams.lessonId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    //   e.preventDefault();
-    //   setIsSubmitting(true);
-    //   try {
-    //     const content = JSON.stringify(editor.topLevelBlocks);
-    //     // const response = await createLesson
-    //     if (data) {
-    //       toast({
-    //         title: "Thành công",
-    //         description: "Đã cập nhật bài học",
-    //       });
-    //       router.push(`/admin/courses/${resolvedParams.courseId}`);
-    //     } else {
-    //       throw new Error(data.message);
-    //     }
-    //   } catch (error) {
-    //     toast({
-    //       title: "Lỗi",
-    //       description: "Không thể cập nhật bài học",
-    //       variant: "destructive",
-    //     });
-    //   } finally {
-    //     setIsSubmitting(false);
-    //   }
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      // Get the content from the editor
+      const blocks = editor.document;
+      const content = JSON.stringify(blocks);
+
+      // Determine the lesson type based on inputs
+      let type = lessonType;
+      if (lessonType === LessonType.MIXED && !videoUrl) {
+        type = LessonType.BLOG;
+      } else if (lessonType === LessonType.VIDEO && !content) {
+        type = LessonType.VIDEO;
+      } else if (videoUrl && blocks.length > 0) {
+        type = LessonType.MIXED;
+      }
+
+      const result = await updateLesson(resolvedParams.lessonId, {
+        title,
+        content,
+        type,
+        videoUrl: videoUrl || undefined,
+        isPublished,
+        isFreePreview,
+      });
+
+      if (result.success) {
+        toast({
+          title: "Thành công",
+          description: "Đã cập nhật bài học",
+        });
+        router.push(`/admin/courses/${resolvedParams.courseId}`);
+      } else {
+        throw new Error(result.message);
+      }
+    } catch (error) {
+      toast({
+        title: "Lỗi",
+        description: "Không thể cập nhật bài học",
+        variant: "destructive",
+      });
+      console.error(error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (isLoading) {
@@ -113,30 +157,64 @@ export default function EditLessonPage({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="videoUrl">URL Video</Label>
-          <Input
-            id="videoUrl"
-            value={videoUrl}
-            onChange={(e) => setVideoUrl(e.target.value)}
-            required
-          />
+          <Label htmlFor="lessonType">Loại bài học</Label>
+          <Select
+            value={lessonType}
+            onValueChange={(value) => setLessonType(value)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Chọn loại bài học" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={LessonType.BLOG}>Bài viết</SelectItem>
+              <SelectItem value={LessonType.VIDEO}>Video</SelectItem>
+              <SelectItem value={LessonType.MIXED}>Cả hai</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
-        <div className="space-y-2">
-          <Label>Nội dung bài học</Label>
-          <div className="min-h-[500px] border rounded-lg p-4">
-            <BlockNoteView editor={editor} theme="light" />
+        {(lessonType === LessonType.VIDEO ||
+          lessonType === LessonType.MIXED) && (
+          <div className="space-y-2">
+            <Label htmlFor="videoUrl">URL Video</Label>
+            <Input
+              id="videoUrl"
+              value={videoUrl}
+              onChange={(e) => setVideoUrl(e.target.value)}
+              placeholder="Nhập URL video từ YouTube, Vimeo, ..."
+              required={lessonType === LessonType.VIDEO}
+            />
           </div>
-        </div>
+        )}
 
-        <div className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            id="isFreePreview"
-            checked={isFreePreview}
-            onChange={(e) => setIsFreePreview(e.target.checked)}
-          />
-          <Label htmlFor="isFreePreview">Cho phép xem thử</Label>
+        {(lessonType === LessonType.BLOG ||
+          lessonType === LessonType.MIXED) && (
+          <div className="space-y-2">
+            <Label>Nội dung bài học</Label>
+            <div className="min-h-[500px] border rounded-lg p-4">
+              <BlockNoteView editor={editor} theme="light" />
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-col space-y-4">
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="isFreePreview"
+              checked={isFreePreview}
+              onCheckedChange={setIsFreePreview}
+            />
+            <Label htmlFor="isFreePreview">Cho phép xem thử</Label>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="isPublished"
+              checked={isPublished}
+              onCheckedChange={setIsPublished}
+            />
+            <Label htmlFor="isPublished">Xuất bản</Label>
+          </div>
         </div>
 
         <Button type="submit" disabled={isSubmitting}>
