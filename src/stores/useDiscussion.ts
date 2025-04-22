@@ -260,7 +260,7 @@ export const useDiscussionStore = create<DiscussionState>()(
 
       // Data fetching methods
       checkUserReview: async (resourceId) => {
-        const { currentUserId, thread } = get();
+        const { currentUserId, thread, posts } = get();
         if (!currentUserId || !resourceId) {
           console.log("Missing userId or resourceId for review check");
           return;
@@ -270,6 +270,22 @@ export const useDiscussionStore = create<DiscussionState>()(
         if (!thread || thread.type !== "COURSE_REVIEW") {
           set({ hasReviewed: false });
           return;
+        }
+
+        // First, check if we can find a review in the existing posts
+        if (posts && posts.length > 0) {
+          const existingReview = posts.find(
+            (post) =>
+              post.authorId === currentUserId &&
+              !post.parentId &&
+              post.rating !== undefined,
+          );
+
+          if (existingReview) {
+            console.log(`Found existing review in posts: ${existingReview.id}`);
+            set({ hasReviewed: true, reviewId: existingReview.id });
+            return;
+          }
         }
 
         try {
@@ -304,11 +320,33 @@ export const useDiscussionStore = create<DiscussionState>()(
           if (err.response?.status === 404) {
             errorMessage = "Resource not found for review check";
             set({ hasReviewed: false, reviewId: undefined });
+          } else if (err.response?.status === 400) {
+            errorMessage = "Invalid parameters for review check";
+            set({ hasReviewed: false, reviewId: undefined });
           } else if (err.message) {
             errorMessage = err.message;
           }
 
-          set({ error: errorMessage });
+          // Don't set error for the UI to avoid disrupting the user experience
+          console.error(errorMessage);
+          // set({ error: errorMessage });
+
+          // Even if the API check fails, check the posts directly as a fallback
+          if (posts && posts.length > 0) {
+            const existingReview = posts.find(
+              (post) =>
+                post.authorId === currentUserId &&
+                !post.parentId &&
+                post.rating !== undefined,
+            );
+
+            if (existingReview) {
+              console.log(
+                `Found existing review in posts after API error: ${existingReview.id}`,
+              );
+              set({ hasReviewed: true, reviewId: existingReview.id });
+            }
+          }
         }
       },
 
@@ -352,29 +390,80 @@ export const useDiscussionStore = create<DiscussionState>()(
           // Check for user review if it's a course review thread
           if (thread.type === "COURSE_REVIEW" && currentUserId) {
             try {
+              console.log(
+                `Checking review for thread type ${thread.type} with resourceId ${thread.resourceId}`,
+              );
               const { hasReviewed, reviewId } = await checkUserReview(
                 thread.resourceId, // Use resourceId instead of threadId
                 currentUserId,
               );
+              console.log(
+                `Review check result: hasReviewed=${hasReviewed}, reviewId=${reviewId || "none"}`,
+              );
+
+              // If the API says the user hasn't reviewed, check the posts manually
+              let manualHasReviewed = hasReviewed;
+              let manualReviewId = reviewId;
+
+              if (!hasReviewed && thread.posts && thread.posts.length > 0) {
+                // Look for a top-level post by this user with a rating
+                const userReview = thread.posts.find(
+                  (post) =>
+                    post.authorId === currentUserId &&
+                    !post.parentId &&
+                    post.rating !== undefined,
+                );
+
+                if (userReview) {
+                  console.log(`Found manual review in posts: ${userReview.id}`);
+                  manualHasReviewed = true;
+                  manualReviewId = userReview.id;
+                }
+              }
+
               set({
                 thread,
                 posts: thread.posts || [],
                 currentPage: 1,
                 isLoading: false,
-                hasReviewed,
-                reviewId,
+                hasReviewed: manualHasReviewed,
+                reviewId: manualReviewId,
                 lastFetchedThreadId: currentThreadId,
                 lastFetchedUserId: currentUserId,
               });
             } catch (reviewErr) {
               // If review check fails, still set thread data but without review info
               console.error("Error checking user review:", reviewErr);
+
+              // Even if the API check fails, try to determine review status from posts
+              let manualHasReviewed = false;
+              let manualReviewId = undefined;
+
+              if (thread.posts && thread.posts.length > 0) {
+                // Look for a top-level post by this user with a rating
+                const userReview = thread.posts.find(
+                  (post) =>
+                    post.authorId === currentUserId &&
+                    !post.parentId &&
+                    post.rating !== undefined,
+                );
+
+                if (userReview) {
+                  console.log(
+                    `Found manual review in posts despite API error: ${userReview.id}`,
+                  );
+                  manualHasReviewed = true;
+                  manualReviewId = userReview.id;
+                }
+              }
+
               set({
                 thread,
                 posts: thread.posts || [],
                 currentPage: 1,
                 isLoading: false,
-                hasReviewed: false,
+                hasReviewed: manualHasReviewed,
+                reviewId: manualReviewId,
                 lastFetchedThreadId: currentThreadId,
                 lastFetchedUserId: currentUserId,
               });
@@ -464,6 +553,23 @@ export const useDiscussionStore = create<DiscussionState>()(
               });
             }
             return;
+          }
+
+          // Check if any of the posts is a review by the current user
+          if (thread.type === "COURSE_REVIEW" && currentUserId && page === 1) {
+            const userReview = posts.find(
+              (post) =>
+                post.authorId === currentUserId &&
+                !post.parentId &&
+                post.rating !== undefined,
+            );
+
+            if (userReview) {
+              console.log(
+                `Found user review in fetched posts: ${userReview.id}`,
+              );
+              set({ hasReviewed: true, reviewId: userReview.id });
+            }
           }
 
           if (page > 1) {
@@ -1000,6 +1106,9 @@ export const useDiscussionStore = create<DiscussionState>()(
             !parentId &&
             rating !== undefined
           ) {
+            // Explicitly set hasReviewed to true since we just added a review
+            set({ hasReviewed: true, reviewId: enhancedPost.id });
+
             // Refresh the thread to get updated overall rating
             await get().fetchThread();
           }

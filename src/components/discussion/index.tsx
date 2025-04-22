@@ -148,6 +148,7 @@ export default function Discussion({ threadId }: { threadId: string }) {
     toggleReplies,
     loadMoreReplies,
     loadMorePosts,
+    checkUserReview,
   } = useDiscussionStore();
 
   // Update isThreadReady when threadId changes
@@ -210,6 +211,23 @@ export default function Discussion({ threadId }: { threadId: string }) {
     // initializeSocket,
     // cleanupSocket
   ]);
+
+  // Explicitly check for user review when thread is loaded
+  useEffect(() => {
+    if (thread && user && thread.type === DiscussionType.COURSE_REVIEW) {
+      console.log("Explicitly checking user review for thread:", thread.id);
+      console.log("Current hasReviewed state:", hasReviewed);
+      // Use the thread's resourceId to check for reviews
+      checkUserReview(thread.resourceId);
+    }
+  }, [thread?.id, user?.id, checkUserReview]);
+
+  // Log when hasReviewed changes
+  useEffect(() => {
+    if (thread?.type === DiscussionType.COURSE_REVIEW) {
+      console.log("hasReviewed state changed:", hasReviewed);
+    }
+  }, [hasReviewed, thread?.type]);
 
   useEffect(() => {
     if (error) {
@@ -299,12 +317,12 @@ export default function Discussion({ threadId }: { threadId: string }) {
                 </SheetClose>
               </div>
 
-              {/* {thread?.type === DiscussionType.COURSE_REVIEW && hasReviewed && (
+              {thread?.type === DiscussionType.COURSE_REVIEW && hasReviewed && (
                 <div className="text-xs text-muted-foreground mt-2">
                   Bạn đã đánh giá khóa học này. Bạn vẫn có thể tham gia thảo
                   luận mà không cần thêm điểm đánh giá.
                 </div>
-              )} */}
+              )}
             </SheetHeader>
           </div>
 
