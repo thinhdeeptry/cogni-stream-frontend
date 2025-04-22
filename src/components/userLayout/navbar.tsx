@@ -18,14 +18,14 @@ import { Input } from "@/components/ui/input";
 
 interface NavbarProps {
   isLoggedIn?: boolean;
-  userAvatar?: string;
+  image?: string;
   userName?: string;
   onLogout?: () => void;
 }
 
 export default function Navbar({
   isLoggedIn = false,
-  userAvatar = "",
+  image = "",
   userName = "User",
   onLogout,
 }: NavbarProps) {
@@ -37,7 +37,7 @@ export default function Navbar({
         {/* Logo and Brand */}
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-md bg-orange-500 text-white font-bold text-xl">
-            F8
+            EF
           </div>
           <h1 className="hidden text-base font-medium md:block">
             Học Lập Trình Để Đi Làm
@@ -74,7 +74,14 @@ export default function Navbar({
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Avatar className="h-8 w-8 border cursor-pointer">
-                    <AvatarImage src={userAvatar} alt={userName} />
+                    <AvatarImage
+                      src={image}
+                      alt={userName}
+                      onError={(e) => {
+                        console.error("Avatar load error:", e);
+                        e.currentTarget.src = "/default-avatar.png"; // Add a default avatar image
+                      }}
+                    />
                     <AvatarFallback>{userName.charAt(0)}</AvatarFallback>
                   </Avatar>
                 </DropdownMenuTrigger>

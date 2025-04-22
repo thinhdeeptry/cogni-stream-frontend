@@ -17,7 +17,11 @@ export default function UserHeader() {
 
   useEffect(() => {
     setMounted(true);
-  }, []);
+    console.log("User data:", {
+      image: user?.image,
+      fullUser: user,
+    });
+  }, [user]);
 
   const handleLogout = async () => {
     try {
@@ -41,7 +45,7 @@ export default function UserHeader() {
     <div className="w-full sticky top-0 z-50">
       <Navbar
         isLoggedIn={isLoggedIn}
-        userAvatar={user?.image || ""}
+        image={user?.image || "ccc"}
         userName={user?.name || "User"}
         onLogout={handleLogout}
       />

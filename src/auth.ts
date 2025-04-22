@@ -104,10 +104,6 @@ export const {
   },
   callbacks: {
     async jwt({ token, user, account, profile }) {
-      console.log("JWT callback - Input token:", token);
-      console.log("JWT callback - Input user:", user);
-      console.log("JWT callback - Account:", account);
-
       // Check if access token exists and is expired
       if (token && token.accessToken && typeof token.accessToken === "string") {
         try {
