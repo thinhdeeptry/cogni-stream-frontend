@@ -103,12 +103,12 @@ export default function Navbar({
             </>
           ) : (
             <>
-              <Link href="/register">
+              <Link href="/auth/register">
                 <Button variant="ghost" className="text-sm font-medium">
                   Đăng ký
                 </Button>
               </Link>
-              <Link href="/login">
+              <Link href="/auth/login">
                 <Button className="bg-orange-500 text-white hover:bg-orange-600">
                   Đăng nhập
                 </Button>
