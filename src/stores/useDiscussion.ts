@@ -293,7 +293,7 @@ export const useDiscussionStore = create<DiscussionState>()(
             `Checking if user ${currentUserId} has reviewed resource ${resourceId}`,
           );
           const { hasReviewed, reviewId } = await checkUserReview(
-            resourceId,
+            resourceId, // For course reviews, resourceId is the courseId
             currentUserId,
           );
 
@@ -394,7 +394,7 @@ export const useDiscussionStore = create<DiscussionState>()(
                 `Checking review for thread type ${thread.type} with resourceId ${thread.resourceId}`,
               );
               const { hasReviewed, reviewId } = await checkUserReview(
-                thread.resourceId, // Use resourceId instead of threadId
+                thread.resourceId, // For course reviews, resourceId is the courseId
                 currentUserId,
               );
               console.log(

@@ -131,15 +131,15 @@ export async function updateReaction(
 }
 
 export async function checkUserReview(
-  resourceId: string,
+  courseId: string,
   authorId: string,
 ): Promise<{ hasReviewed: boolean; reviewId?: string }> {
   try {
     console.log(
-      `Checking user review for resourceId=${resourceId}, authorId=${authorId}`,
+      `Checking user review for courseId=${courseId}, authorId=${authorId}`,
     );
     const { data } = await discussionAxios.get(
-      `/posts/check-review?resourceId=${resourceId}&authorId=${authorId}`,
+      `/posts/check-review?courseId=${courseId}&authorId=${authorId}`,
     );
     return data;
   } catch (error) {
