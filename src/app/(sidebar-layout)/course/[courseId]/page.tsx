@@ -9,9 +9,12 @@ import { Course } from "@/types/course/types";
 import { Book, Crown, Plus, Users } from "lucide-react";
 
 import { getCourseById } from "@/actions/courseAction";
+import { getThreadByResourceId } from "@/actions/discussion.action";
 
 import useUserStore from "@/stores/useUserStore";
 
+import Discussion from "@/components/discussion";
+import { DiscussionType } from "@/components/discussion/type";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -25,6 +28,7 @@ export default function CourseDetail() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isEnrolled, setIsEnrolled] = useState(false);
+  const [threadId, setThreadId] = useState<string | null>(null);
   const params = useParams();
   const { user } = useUserStore();
   useEffect(() => {
@@ -41,6 +45,47 @@ export default function CourseDetail() {
 
     fetchCourse();
   }, [params.courseId]);
+
+  // Separate useEffect for fetching thread to avoid infinite loops
+  useEffect(() => {
+    // Store course title in a ref to avoid dependency issues
+    const courseTitle = course?.title || `Course ${params.courseId}`;
+
+    const fetchOrCreateThread = async () => {
+      // Validate required parameters
+      if (!params.courseId) {
+        console.log("Missing courseId, cannot fetch/create thread");
+        return;
+      }
+
+      if (!user) {
+        console.log("User not logged in, skipping thread fetch/create");
+        return;
+      }
+
+      try {
+        // Get thread by resource ID
+        const thread = await getThreadByResourceId(
+          params.courseId as string,
+          DiscussionType.COURSE_REVIEW,
+        );
+
+        if (thread) {
+          setThreadId(thread.id);
+        } else {
+          console.log("No thread returned from getThreadByResourceId");
+        }
+      } catch (err) {
+        console.error("Error in discussion thread handling:", err);
+        // Don't set an error state here, as discussion is not critical for the page to function
+      }
+    };
+
+    // Only run once when we have both course data and user
+    if (course && user && !threadId) {
+      fetchOrCreateThread();
+    }
+  }, [params.courseId, user, threadId]);
 
   const handleEnrollClick = () => {
     if (course?.chapters && course.chapters.length > 0) {
@@ -255,6 +300,9 @@ export default function CourseDetail() {
           </Card>
         </div>
       </div>
+
+      {/* Discussion Component - Always render it */}
+      <Discussion threadId={threadId || ""} />
     </div>
   );
 }

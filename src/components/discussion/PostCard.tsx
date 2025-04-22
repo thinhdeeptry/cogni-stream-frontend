@@ -65,8 +65,15 @@ export function PostCard({
   const [isEditing, setIsEditing] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const { editPost, deletePost, addReaction, removeReaction, error, addReply } =
-    useDiscussionStore();
+  const {
+    editPost,
+    deletePost,
+    addReaction,
+    removeReaction,
+    error,
+    addReply,
+    currentUserName,
+  } = useDiscussionStore();
   const MAX_REPLY_DEPTH = 1;
 
   // Get the effective parent ID for replies
@@ -216,7 +223,11 @@ export function PostCard({
             >
               <div className="flex items-center justify-between">
                 <div className="font-semibold text-xs flex items-center gap-1">
-                  {post.authorId ? post.authorId.slice(0, 8) : "Anonymous"}
+                  {post.authorId === currentUserId
+                    ? currentUserName || "Bạn"
+                    : post.authorId
+                      ? post.authorId.slice(0, 8)
+                      : "Anonymous"}
                   {post.authorId === currentUserId && (
                     <Badge
                       className="text-[10px] text-blue-500"

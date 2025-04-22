@@ -259,9 +259,12 @@ export const useDiscussionStore = create<DiscussionState>()(
       },
 
       // Data fetching methods
-      checkUserReview: async (courseId) => {
+      checkUserReview: async (resourceId) => {
         const { currentUserId, thread } = get();
-        if (!currentUserId || !courseId) return;
+        if (!currentUserId || !resourceId) {
+          console.log("Missing userId or resourceId for review check");
+          return;
+        }
 
         // Only check for user reviews if this is a COURSE_REVIEW thread
         if (!thread || thread.type !== "COURSE_REVIEW") {
@@ -270,16 +273,41 @@ export const useDiscussionStore = create<DiscussionState>()(
         }
 
         try {
+          console.log(
+            `Checking if user ${currentUserId} has reviewed resource ${resourceId}`,
+          );
           const { hasReviewed, reviewId } = await checkUserReview(
-            courseId,
+            resourceId,
             currentUserId,
           );
+
+          console.log(
+            `Review check result: hasReviewed=${hasReviewed}, reviewId=${reviewId || "none"}`,
+          );
           set({ hasReviewed, reviewId });
-        } catch (err) {
-          const errorMessage =
-            err instanceof Error
-              ? err.message
-              : "Failed to check review status";
+
+          // If user has reviewed, try to find the review post in the current posts
+          if (hasReviewed && reviewId && get().posts.length > 0) {
+            const reviewPost = get().posts.find((post) => post.id === reviewId);
+            if (!reviewPost) {
+              // If the review post isn't in the current posts, refresh posts to get it
+              console.log(
+                "Review post not found in current posts, refreshing posts",
+              );
+              await get().fetchPosts();
+            }
+          }
+        } catch (err: any) {
+          console.error("Error checking user review:", err);
+          // Provide more specific error messages based on status code
+          let errorMessage = "Failed to check review status";
+          if (err.response?.status === 404) {
+            errorMessage = "Resource not found for review check";
+            set({ hasReviewed: false, reviewId: undefined });
+          } else if (err.message) {
+            errorMessage = err.message;
+          }
+
           set({ error: errorMessage });
         }
       },
@@ -291,12 +319,16 @@ export const useDiscussionStore = create<DiscussionState>()(
           lastFetchedThreadId,
           lastFetchedUserId,
         } = get();
-        if (!currentThreadId) return;
+        if (!currentThreadId) {
+          set({ error: "No thread ID provided" });
+          return;
+        }
 
         // Skip fetching if we've already fetched for this thread and user
         if (
           currentThreadId === lastFetchedThreadId &&
-          currentUserId === lastFetchedUserId
+          currentUserId === lastFetchedUserId &&
+          get().thread
         ) {
           console.log("Using cached thread data");
           return;
@@ -306,22 +338,47 @@ export const useDiscussionStore = create<DiscussionState>()(
           set({ isLoading: true, error: null });
           const thread = await getThread(currentThreadId);
 
+          // Validate thread data
+          if (!thread) {
+            set({
+              error: "Thread not found or has been deleted",
+              isLoading: false,
+              thread: null,
+              posts: [],
+            });
+            return;
+          }
+
           // Check for user review if it's a course review thread
           if (thread.type === "COURSE_REVIEW" && currentUserId) {
-            const { hasReviewed, reviewId } = await checkUserReview(
-              currentThreadId,
-              currentUserId,
-            );
-            set({
-              thread,
-              posts: thread.posts || [],
-              currentPage: 1,
-              isLoading: false,
-              hasReviewed,
-              reviewId,
-              lastFetchedThreadId: currentThreadId,
-              lastFetchedUserId: currentUserId,
-            });
+            try {
+              const { hasReviewed, reviewId } = await checkUserReview(
+                thread.resourceId, // Use resourceId instead of threadId
+                currentUserId,
+              );
+              set({
+                thread,
+                posts: thread.posts || [],
+                currentPage: 1,
+                isLoading: false,
+                hasReviewed,
+                reviewId,
+                lastFetchedThreadId: currentThreadId,
+                lastFetchedUserId: currentUserId,
+              });
+            } catch (reviewErr) {
+              // If review check fails, still set thread data but without review info
+              console.error("Error checking user review:", reviewErr);
+              set({
+                thread,
+                posts: thread.posts || [],
+                currentPage: 1,
+                isLoading: false,
+                hasReviewed: false,
+                lastFetchedThreadId: currentThreadId,
+                lastFetchedUserId: currentUserId,
+              });
+            }
           } else {
             set({
               thread,
@@ -332,10 +389,22 @@ export const useDiscussionStore = create<DiscussionState>()(
               lastFetchedUserId: currentUserId,
             });
           }
-        } catch (err) {
-          const errorMessage =
-            err instanceof Error ? err.message : "An unexpected error occurred";
-          set({ error: errorMessage, isLoading: false });
+        } catch (err: any) {
+          console.error("Error fetching thread:", err);
+          // Provide more specific error messages based on status code
+          if (err.response?.status === 404) {
+            set({
+              error: "Discussion thread not found",
+              isLoading: false,
+              thread: null,
+              posts: [],
+            });
+          } else {
+            set({
+              error: `Failed to load discussion thread: ${err.message || "Unknown error"}`,
+              isLoading: false,
+            });
+          }
         }
       },
 
@@ -345,43 +414,92 @@ export const useDiscussionStore = create<DiscussionState>()(
           currentUserId,
           lastFetchedThreadId,
           lastFetchedUserId,
+          thread,
         } = get();
-        if (!currentThreadId) return;
+
+        if (!currentThreadId) {
+          set({ error: "No thread ID provided" });
+          return;
+        }
+
+        // If thread doesn't exist, don't try to fetch posts
+        if (!thread) {
+          console.log("Thread not available, skipping post fetch");
+          return;
+        }
 
         // If loading more pages, always fetch
         // If loading first page, check if we need to fetch
         if (
           page === 1 &&
           currentThreadId === lastFetchedThreadId &&
-          currentUserId === lastFetchedUserId
+          currentUserId === lastFetchedUserId &&
+          get().posts.length > 0
         ) {
           console.log("Using cached posts data");
           return;
         }
 
         try {
-          set({ isLoading: true, error: null });
+          set({ isLoading: page === 1, isLoadingMore: page > 1, error: null });
           const posts = await getPosts(currentThreadId, page, POSTS_PER_PAGE);
+
+          // Handle empty posts array
+          if (!posts || posts.length === 0) {
+            if (page === 1) {
+              // If first page is empty, set empty posts array
+              set({
+                posts: [],
+                currentPage: 1,
+                isLoading: false,
+                isLoadingMore: false,
+                lastFetchedThreadId: currentThreadId,
+                lastFetchedUserId: currentUserId,
+              });
+            } else {
+              // If subsequent page is empty, just update loading state
+              set({
+                isLoading: false,
+                isLoadingMore: false,
+              });
+            }
+            return;
+          }
 
           if (page > 1) {
             set((state) => ({
               posts: [...state.posts, ...posts],
               currentPage: page,
               isLoading: false,
+              isLoadingMore: false,
             }));
           } else {
             set({
               posts,
               currentPage: 1,
               isLoading: false,
+              isLoadingMore: false,
               lastFetchedThreadId: currentThreadId,
               lastFetchedUserId: currentUserId,
             });
           }
-        } catch (err) {
-          const errorMessage =
-            err instanceof Error ? err.message : "An unexpected error occurred";
-          set({ error: errorMessage, isLoading: false });
+        } catch (err: any) {
+          console.error("Error fetching posts:", err);
+          // Provide more specific error messages based on status code
+          if (err.response?.status === 404) {
+            set({
+              error: "Discussion thread not found",
+              isLoading: false,
+              isLoadingMore: false,
+              posts: [],
+            });
+          } else {
+            set({
+              error: `Failed to load posts: ${err.message || "Unknown error"}`,
+              isLoading: false,
+              isLoadingMore: false,
+            });
+          }
         }
       },
 
@@ -393,6 +511,24 @@ export const useDiscussionStore = create<DiscussionState>()(
           }));
 
           const replies = await findReplies(postId, page, REPLIES_PER_PAGE);
+
+          // Handle empty replies array
+          if (!replies || replies.length === 0) {
+            set((state) => ({
+              loadingReplies: { ...state.loadingReplies, [postId]: false },
+              // If it's the first page and no replies, set an empty array
+              // If it's a subsequent page, keep existing replies
+              repliesMap:
+                page === 1
+                  ? { ...state.repliesMap, [postId]: [] }
+                  : state.repliesMap,
+              replyPages: {
+                ...state.replyPages,
+                [postId]: page,
+              },
+            }));
+            return;
+          }
 
           set((state) => {
             // Update replies in both posts and repliesMap
@@ -426,9 +562,17 @@ export const useDiscussionStore = create<DiscussionState>()(
               loadingReplies: { ...state.loadingReplies, [postId]: false },
             };
           });
-        } catch (err) {
-          const errorMessage =
-            err instanceof Error ? err.message : "Failed to load replies";
+        } catch (err: any) {
+          console.error(`Error fetching replies for post ${postId}:`, err);
+
+          // Provide more specific error messages based on status code
+          let errorMessage = "Failed to load replies";
+          if (err.response?.status === 404) {
+            errorMessage = "Post not found or has been deleted";
+          } else if (err.message) {
+            errorMessage = err.message;
+          }
+
           set((state) => ({
             error: errorMessage,
             loadingReplies: { ...state.loadingReplies, [postId]: false },
@@ -722,7 +866,16 @@ export const useDiscussionStore = create<DiscussionState>()(
           !parentId &&
           rating !== undefined
         ) {
-          // Check if user already has a review for this course
+          // Check if user already has a review for this course by checking hasReviewed state
+          // or by looking for an existing review in the posts
+          const { hasReviewed } = get();
+
+          if (hasReviewed) {
+            set({ error: "You have already reviewed this course" });
+            return;
+          }
+
+          // Double-check by looking at posts
           const existingReview = get().posts.find(
             (post) =>
               post.authorId === currentUserId &&
@@ -731,12 +884,24 @@ export const useDiscussionStore = create<DiscussionState>()(
           );
 
           if (existingReview) {
-            set({ error: "You have already reviewed this course" });
+            set({
+              error: "You have already reviewed this course",
+              hasReviewed: true,
+              reviewId: existingReview.id,
+            });
             return;
           }
         }
 
         try {
+          console.log(`Creating post in thread ${thread.id}:`, {
+            threadId: thread.id,
+            authorId: currentUserId,
+            content,
+            parentId: parentId || undefined,
+            rating,
+          });
+
           const newPost = await createPost(
             thread.id,
             currentUserId,
@@ -792,13 +957,23 @@ export const useDiscussionStore = create<DiscussionState>()(
               updatedPosts = [enhancedPost, ...state.posts];
             }
 
-            // If this is a course review (top-level post with rating), update hasReviewed
-            const hasReviewed =
+            // If this is a course review (top-level post with rating), update hasReviewed and reviewId
+            let hasReviewed = state.hasReviewed;
+            let reviewId = state.reviewId;
+
+            if (
               thread.type === "COURSE_REVIEW" &&
               !parentId &&
               rating !== undefined
-                ? true
-                : state.hasReviewed;
+            ) {
+              hasReviewed = true;
+              reviewId = enhancedPost.id; // Store the review post ID
+
+              // If this is a new review, also update the thread's overall rating
+              if (state.thread && typeof rating === "number") {
+                state.thread.overallRating = rating;
+              }
+            }
 
             return {
               posts: updatedPosts,
@@ -815,11 +990,34 @@ export const useDiscussionStore = create<DiscussionState>()(
                 : null,
               error: null,
               hasReviewed,
+              reviewId,
             };
           });
-        } catch (err) {
-          const errorMessage =
-            err instanceof Error ? err.message : "Failed to add reply";
+
+          // If this was a course review, update the review status
+          if (
+            thread.type === "COURSE_REVIEW" &&
+            !parentId &&
+            rating !== undefined
+          ) {
+            // Refresh the thread to get updated overall rating
+            await get().fetchThread();
+          }
+        } catch (err: any) {
+          console.error("Error adding reply:", err);
+
+          // Provide more specific error messages based on status code
+          let errorMessage = "Failed to add reply";
+          if (err.response?.status === 409) {
+            errorMessage = "You have already reviewed this course";
+            // Update hasReviewed state since the backend indicates user already has a review
+            set({ hasReviewed: true });
+            // Try to refresh the thread to get the existing review
+            await get().fetchPosts();
+          } else if (err.message) {
+            errorMessage = err.message;
+          }
+
           set({ error: errorMessage });
         }
       },
@@ -1012,17 +1210,17 @@ export const useDiscussionStore = create<DiscussionState>()(
           );
         });
 
-        socket.on("connect_error", (error) => {
+        socket.on("connect_error", (error: any) => {
           const errorMessage =
             error.message || "Failed to connect to discussion server";
           set({
             isConnected: false,
-            isReconnecting: !error.message.includes("Invalid namespace"),
+            isReconnecting: !error.message?.includes("Invalid namespace"),
             connectionError: errorMessage,
           });
         });
 
-        socket.on("disconnect", (reason) => {
+        socket.on("disconnect", (reason: string) => {
           const isManualDisconnect =
             reason === "io server disconnect" ||
             reason === "io client disconnect";

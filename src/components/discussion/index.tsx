@@ -122,6 +122,7 @@ function DiscussionContent({
 export default function Discussion({ threadId }: { threadId: string }) {
   const [isOpen, setIsOpen] = useState(false);
   const user = useUserStore((state) => state.user);
+  const [isThreadReady, setIsThreadReady] = useState(Boolean(threadId));
 
   const {
     posts,
@@ -149,9 +150,15 @@ export default function Discussion({ threadId }: { threadId: string }) {
     loadMorePosts,
   } = useDiscussionStore();
 
+  // Update isThreadReady when threadId changes
+  useEffect(() => {
+    setIsThreadReady(Boolean(threadId));
+  }, [threadId]);
+
   // Only set user info once, regardless of sheet open state
   useEffect(() => {
     if (!user) return;
+    if (!threadId) return; // Don't set thread ID if it's empty
 
     setCurrentUserId(user.id);
     setCurrentUserName(user.name);
@@ -166,28 +173,42 @@ export default function Discussion({ threadId }: { threadId: string }) {
 
   // Only initialize socket and fetch data when sheet is open
   useEffect(() => {
-    // Skip if sheet is not open or no user
-    if (!isOpen || !user) return;
+    // Skip if sheet is not open, no user, or no threadId
+    if (!isOpen || !user || !threadId) return;
 
     // Initialize socket when sheet opens
     initializeSocket();
 
-    // Fetch thread and posts
-    fetchThread();
-    fetchPosts();
+    // Fetch thread and posts only once when the sheet opens
+    const controller = new AbortController();
+    const fetchData = async () => {
+      try {
+        await fetchThread();
+        await fetchPosts();
+      } catch (error) {
+        console.error("Error fetching discussion data:", error);
+      }
+    };
+
+    if (!controller.signal.aborted) {
+      fetchData();
+    }
 
     // Clean up socket when sheet closes or component unmounts
     return () => {
+      controller.abort();
       cleanupSocket();
     };
   }, [
+    // Only re-run this effect when these dependencies change
     isOpen,
-    user,
+    user?.id,
     threadId,
-    fetchThread,
-    fetchPosts,
-    initializeSocket,
-    cleanupSocket,
+    // Remove these dependencies to prevent re-fetching
+    // fetchThread,
+    // fetchPosts,
+    // initializeSocket,
+    // cleanupSocket
   ]);
 
   useEffect(() => {
@@ -200,12 +221,26 @@ export default function Discussion({ threadId }: { threadId: string }) {
   if (!user) {
     return (
       <Button
-        onClick={() => toast.error("Please log in to join discussions")}
+        onClick={() => toast.error("Vui lòng đăng nhập để tham gia thảo luận")}
         className="fixed bottom-6 right-6 rounded-full h-12 w-12 shadow-lg"
         aria-label="Open discussion"
         size="icon"
       >
         <MessageCircle className="h-6 w-6" />
+      </Button>
+    );
+  }
+
+  // If threadId is empty, show loading state
+  if (!isThreadReady) {
+    return (
+      <Button
+        onClick={() => toast.info("Đang tải thông tin thảo luận...")}
+        className="fixed bottom-6 right-6 rounded-full h-12 w-12 shadow-lg opacity-70"
+        aria-label="Discussion loading"
+        size="icon"
+      >
+        <Loader2 className="h-6 w-6 animate-spin" />
       </Button>
     );
   }
