@@ -4,7 +4,11 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { Course } from "@/types/course/types";
+import { Course, LessonType } from "@/types/course/types";
+import "@blocknote/core/fonts/inter.css";
+import { BlockNoteView } from "@blocknote/mantine";
+import "@blocknote/mantine/style.css";
+import { useCreateBlockNote } from "@blocknote/react";
 import {
   Collapsible,
   CollapsibleContent,
@@ -21,18 +25,17 @@ import ReactPlayer from "react-player";
 
 import { getCourseById, getLessonById } from "@/actions/courseAction";
 
-import useUserStore from "@/stores/useUserStore";
-
 import { Button } from "@/components/ui/button";
 
 export default function LessonDetail() {
   const [course, setCourse] = useState<Course | null>(null);
   const [lesson, setLesson] = useState<any>(null);
+  const editor = useCreateBlockNote();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [isEnrolled, setIsEnrolled] = useState(false);
-  const { user } = useUserStore();
+  // TODO: Implement enrollment check
+  const isEnrolled = false;
   const params = useParams();
 
   useEffect(() => {
@@ -45,6 +48,18 @@ export default function LessonDetail() {
         console.log(courseData);
         setCourse(courseData);
         setLesson(lessonData);
+
+        // Load content into BlockNote editor if it exists
+        if (lessonData.content) {
+          try {
+            const content = JSON.parse(lessonData.content);
+            if (Array.isArray(content)) {
+              editor.replaceBlocks(editor.document, content);
+            }
+          } catch (error) {
+            console.error("Error parsing lesson content:", error);
+          }
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "An error occurred");
       } finally {
@@ -98,20 +113,25 @@ export default function LessonDetail() {
         className={`flex-1 p-6 ${isSidebarOpen ? "pr-[400px]" : ""} transition-all duration-300`}
       >
         <div className="space-y-8">
-          <div className="aspect-video w-full bg-gray-100 rounded-lg">
-            <ReactPlayer
-              url={`${lesson.videoUrl}`}
-              controls={true}
-              config={{
-                youtube: {
-                  playerVars: { showinfo: 1 },
-                },
-              }}
-              className="react-player"
-              width={"100%"}
-              height={"100%"}
-            />
-          </div>
+          {/* Video Content */}
+          {(lesson.type === LessonType.VIDEO ||
+            lesson.type === LessonType.MIXED) &&
+            lesson.videoUrl && (
+              <div className="aspect-video w-full bg-gray-100 rounded-lg mb-8">
+                <ReactPlayer
+                  url={`${lesson.videoUrl}`}
+                  controls={true}
+                  config={{
+                    youtube: {
+                      playerVars: { showinfo: 1 },
+                    },
+                  }}
+                  className="react-player"
+                  width={"100%"}
+                  height={"100%"}
+                />
+              </div>
+            )}
 
           {/* Lesson Content */}
           <div className="prose max-w-none">
@@ -120,7 +140,21 @@ export default function LessonDetail() {
               <span>{lesson.order}. </span>
               {lesson.title}
             </h1>
-            <p className="text-md ">{lesson.content}</p>
+
+            {/* BlockNote Content */}
+            {(lesson.type === LessonType.BLOG ||
+              lesson.type === LessonType.MIXED) &&
+              lesson.content && (
+                <div className="mt-4">
+                  <BlockNoteView editor={editor} theme="light" />
+                </div>
+              )}
+
+            {/* Fallback for plain text content */}
+            {(!lesson.type ||
+              (!lesson.content && lesson.type !== LessonType.VIDEO)) && (
+              <p className="text-md">{lesson.content}</p>
+            )}
           </div>
         </div>
       </div>

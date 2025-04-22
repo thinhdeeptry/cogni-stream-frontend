@@ -1,5 +1,9 @@
 import { useState } from "react";
 
+import { toast } from "@/hooks/use-toast";
+
+import { createLesson } from "@/actions/courseAction";
+
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -24,6 +28,7 @@ interface AddLessonDialogProps {
   chapterId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSuccess?: () => void; // Callback to refresh data after successful creation
 }
 
 export function AddLessonDialog({
@@ -31,6 +36,7 @@ export function AddLessonDialog({
   chapterId,
   open,
   onOpenChange,
+  onSuccess,
 }: AddLessonDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lessonData, setLessonData] = useState({
@@ -47,10 +53,64 @@ export function AddLessonDialog({
     setIsSubmitting(true);
 
     try {
+      // Validate required fields
+      if (!lessonData.title) {
+        toast({
+          title: "Lỗi",
+          description: "Vui lòng nhập tên bài học",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (lessonData.type === "VIDEO" && !lessonData.videoUrl) {
+        toast({
+          title: "Lỗi",
+          description: "Vui lòng nhập URL video",
+          variant: "destructive",
+        });
+        return;
+      }
+
       // Call API to create lesson
-      onOpenChange(false);
+      const result = await createLesson(courseId, chapterId, lessonData);
+
+      if (result.success) {
+        toast({
+          title: "Thành công",
+          description: "Đã tạo bài học mới",
+        });
+
+        // Reset form
+        setLessonData({
+          title: "",
+          content: "",
+          type: "BLOG",
+          videoUrl: "",
+          isPublished: false,
+          isFreePreview: false,
+        });
+
+        // Call the onSuccess callback to refresh data
+        if (onSuccess) {
+          onSuccess();
+        }
+
+        onOpenChange(false);
+      } else {
+        toast({
+          title: "Lỗi",
+          description: result.message || "Không thể tạo bài học",
+          variant: "destructive",
+        });
+      }
     } catch (error) {
       console.error(error);
+      toast({
+        title: "Lỗi",
+        description: "Không thể tạo bài học",
+        variant: "destructive",
+      });
     } finally {
       setIsSubmitting(false);
     }
