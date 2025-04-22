@@ -56,38 +56,30 @@ class AxiosFactory {
     // Add request interceptor
     instance.interceptors.request.use(
       async (config: InternalAxiosRequestConfig) => {
-        // Skip auth for login and public routes
-        if (
-          config.url?.includes("/auth/login") ||
-          config.url?.includes("/auth/register") ||
-          config.url?.includes("/auth/google") ||
-          config.url?.includes("/auth/facebook")
-        ) {
-          return config;
-        }
-
-        const session = await getSession();
-
-        if (!session?.accessToken) {
-          console.error("No access token found in session");
-          throw new Error("No access token available");
-        }
-
         try {
-          const decoded = jwtDecode(session.accessToken) as DecodedToken;
-          if (!decoded.sub) {
-            throw new Error("Invalid token structure - no sub claim");
+          const session = await getSession();
+
+          // Nếu có session và accessToken, thêm vào headers
+          if (session?.accessToken) {
+            try {
+              const decoded = jwtDecode(session.accessToken) as DecodedToken;
+              config.headers["Authorization"] = `Bearer ${session.accessToken}`;
+
+              // Chỉ thêm X-User-Id nếu có sub claim
+              if (decoded.sub) {
+                config.headers["X-User-Id"] = decoded.sub;
+              }
+            } catch (error) {
+              console.warn("Token processing warning:", error);
+              // Không throw error, cho phép request tiếp tục mà không có headers
+            }
           }
 
-          // Set both required headers
-          config.headers["Authorization"] = `Bearer ${session.accessToken}`;
-          config.headers["X-User-Id"] = decoded.sub;
+          return config;
         } catch (error) {
-          console.error("Token processing error:", error);
-          throw new Error("Invalid access token");
+          console.warn("Session retrieval warning:", error);
+          return config; // Vẫn cho phép request tiếp tục
         }
-
-        return config;
       },
       (error) => {
         console.error("Request interceptor error:", error);
