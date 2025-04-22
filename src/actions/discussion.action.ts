@@ -131,13 +131,22 @@ export async function updateReaction(
 }
 
 export async function checkUserReview(
-  courseId: string,
+  resourceId: string,
   authorId: string,
 ): Promise<{ hasReviewed: boolean; reviewId?: string }> {
-  const { data } = await discussionAxios.get(
-    `/posts/check-review?courseId=${courseId}&authorId=${authorId}`,
-  );
-  return data;
+  try {
+    console.log(
+      `Checking user review for resourceId=${resourceId}, authorId=${authorId}`,
+    );
+    const { data } = await discussionAxios.get(
+      `/posts/check-review?resourceId=${resourceId}&authorId=${authorId}`,
+    );
+    return data;
+  } catch (error) {
+    console.error("Error in checkUserReview:", error);
+    // Return default values if the API call fails
+    return { hasReviewed: false };
+  }
 }
 
 /**
