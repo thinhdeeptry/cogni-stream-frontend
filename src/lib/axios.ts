@@ -37,7 +37,20 @@ class AxiosFactory {
   private static instances: Map<ServiceName, AxiosInstance> = new Map();
   private static readonly GATEWAY_URL =
     process.env.NEXT_PUBLIC_GATEWAY_URL || "https://kong.eduforge.io.vn/";
-
+  private static getServiceApiKey(serviceName: ServiceName): string {
+    const keyMap: Record<ServiceName, string | undefined> = {
+      users: process.env.NEXT_PUBLIC_USER_SERVICE_API_KEY,
+      courses: process.env.NEXT_PUBLIC_COURSE_SERVICE_API_KEY,
+      payment: process.env.NEXT_PUBLIC_PAYMENT_SERVICE_API_KEY,
+      enrollment: process.env.NEXT_PUBLIC_ENROLLMENT_SERVICE_API_KEY,
+      assessment: process.env.NEXT_PUBLIC_ASSESSMENT_SERVICE_API_KEY,
+      notification: process.env.NEXT_PUBLIC_NOTIFICATION_SERVICE_API_KEY,
+      report: process.env.NEXT_PUBLIC_REPORT_SERVICE_API_KEY,
+      discussion: process.env.NEXT_PUBLIC_DISCUSSION_SERVICE_API_KEY,
+      gateway: process.env.NEXT_PUBLIC_GATEWAY_API_KEY,
+    };
+    return keyMap[serviceName] || "";
+  }
   static async getApiInstance(
     serviceName: ServiceName,
   ): Promise<AxiosInstance> {
@@ -50,6 +63,8 @@ class AxiosFactory {
       timeout: 30000,
       headers: {
         "Content-Type": "application/json",
+        "x-api-key": this.getServiceApiKey(serviceName),
+        "x-service-name": serviceName,
       },
     });
 
@@ -69,6 +84,7 @@ class AxiosFactory {
               if (decoded.sub) {
                 config.headers["X-User-Id"] = decoded.sub;
               }
+              config.headers["X-Service-Name"] = serviceName;
             } catch (error) {
               console.warn("Token processing warning:", error);
               // Không throw error, cho phép request tiếp tục mà không có headers
@@ -103,6 +119,17 @@ class AxiosFactory {
     return instance;
   }
 
+  //get  user information
+  static async getUserInfo(userId: string) {
+    try {
+      const userInstance = await this.getApiInstance("users");
+      const response = await userInstance.get(`/users/internal/${userId}`);
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching user info:", error);
+      throw error;
+    }
+  }
   static clearInstances() {
     this.instances.clear();
   }
