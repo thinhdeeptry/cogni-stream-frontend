@@ -3,6 +3,7 @@
 import type React from "react";
 import { useEffect, useState } from "react";
 
+import { authApi } from "@/lib/api/authApi";
 import {
   type ColumnDef,
   type ColumnFiltersState,
@@ -19,12 +20,14 @@ import {
   ArrowUpDown,
   ChevronDown,
   Download,
-  Filter,
   MoreHorizontal,
   Plus,
 } from "lucide-react";
+import { Toaster, toast } from "sonner";
 
 import { getDashboardData } from "@/actions/authActions";
+
+import useUserStore from "@/stores/useUserStore";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -171,9 +174,8 @@ const columns: ColumnDef<IUser>[] = [
             <DropdownMenuSeparator />
             <DropdownMenuItem>View details</DropdownMenuItem>
             <UpdateUserDialog user={user} />
-            <DropdownMenuItem className="text-red-600">
-              Delete user
-            </DropdownMenuItem>
+            <ChangePasswordDialog user={user} />
+            <DeleteUserDialog user={user} />
           </DropdownMenuContent>
         </DropdownMenu>
       );
@@ -183,7 +185,9 @@ const columns: ColumnDef<IUser>[] = [
 
 // Add New User Dialog Component
 function AddNewUserDialog() {
+  const { accessToken } = useUserStore();
   const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -198,23 +202,40 @@ function AddNewUserDialog() {
   };
 
   const handleSelectChange = (name: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    if (name === "isActive") {
+      setFormData((prev) => ({ ...prev, [name]: value === "active" }));
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+    }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Adding new user:", formData);
-    // Here you would call your API to add the user
-    // After successful addition, you would refresh the user list
-    setOpen(false);
-    // Reset form
-    setFormData({
-      name: "",
-      email: "",
-      role: "user",
-      accountType: "standard",
-      isActive: true,
-    });
+    setLoading(true);
+
+    try {
+      const response = await authApi.createUser(accessToken, {
+        name: formData.name,
+        email: formData.email,
+        password: "123456",
+        role: formData.role,
+        isActive: formData.isActive,
+      });
+      console.log("check response >>> ", response);
+      if (response.error) {
+        toast.error(response.message || "Failed to create user");
+      } else {
+        toast.success("User created successfully");
+        setOpen(false);
+        // Refresh the user list
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error("Error creating user:", error);
+      toast.error("An unexpected error occurred");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -273,13 +294,13 @@ function AddNewUserDialog() {
                   <SelectValue placeholder="Select role" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="user">User</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="moderator">Moderator</SelectItem>
+                  <SelectItem value="user">USER</SelectItem>
+                  <SelectItem value="admin">ADMIN</SelectItem>
+                  {/* <SelectItem value="moderator">Moderator</SelectItem> */}
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
+            {/* <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="accountType" className="text-right">
                 Account Type
               </Label>
@@ -298,19 +319,14 @@ function AddNewUserDialog() {
                   <SelectItem value="business">Business</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
+            </div> */}
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="isActive" className="text-right">
                 Status
               </Label>
               <Select
                 value={formData.isActive ? "active" : "inactive"}
-                onValueChange={(value) =>
-                  handleSelectChange(
-                    "isActive",
-                    value === "active" ? "true" : "false",
-                  )
-                }
+                onValueChange={(value) => handleSelectChange("isActive", value)}
               >
                 <SelectTrigger className="col-span-3">
                   <SelectValue placeholder="Select status" />
@@ -333,7 +349,9 @@ function AddNewUserDialog() {
 
 // Update User Dialog Component
 function UpdateUserDialog({ user }: { user: IUser }) {
+  const { accessToken } = useUserStore();
   const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: user.name,
     email: user.email,
@@ -351,12 +369,32 @@ function UpdateUserDialog({ user }: { user: IUser }) {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Updating user:", user.id, formData);
-    // Here you would call your API to update the user
-    // After successful update, you would refresh the user list
-    setOpen(false);
+    setLoading(true);
+
+    try {
+      const response = await authApi.updateUser(accessToken, user._id, {
+        name: formData.name,
+        email: formData.email,
+        role: formData.role,
+        isActive: formData.isActive,
+      });
+
+      if (response.error) {
+        toast.error(response.message || "Failed to update user");
+      } else {
+        toast.success("User updated successfully");
+        setOpen(false);
+        // Refresh the user list
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error("Error updating user:", error);
+      toast.error("An unexpected error occurred");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -412,9 +450,9 @@ function UpdateUserDialog({ user }: { user: IUser }) {
                   <SelectValue placeholder="Select role" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="user">User</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="moderator">Moderator</SelectItem>
+                  <SelectItem value="user">USER</SelectItem>
+                  <SelectItem value="admin">ADMIN</SelectItem>
+                  {/* <SelectItem value="moderator">Moderator</SelectItem> */}
                 </SelectContent>
               </Select>
             </div>
@@ -432,9 +470,9 @@ function UpdateUserDialog({ user }: { user: IUser }) {
                   <SelectValue placeholder="Select account type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="standard">Standard</SelectItem>
-                  <SelectItem value="premium">Premium</SelectItem>
-                  <SelectItem value="business">Business</SelectItem>
+                  <SelectItem value="standard">LOCAL</SelectItem>
+                  <SelectItem value="premium">GOOGLE</SelectItem>
+                  <SelectItem value="business">GITHUB</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -470,7 +508,190 @@ function UpdateUserDialog({ user }: { user: IUser }) {
   );
 }
 
+// Add Delete User Dialog Component
+function DeleteUserDialog({ user }: { user: IUser }) {
+  const { accessToken } = useUserStore();
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const handleDelete = async () => {
+    setLoading(true);
+
+    try {
+      const response = await authApi.deleteUser(accessToken, user._id);
+
+      if (response.error) {
+        toast.error(response.message || "Failed to delete user");
+      } else {
+        toast.success("User deleted successfully");
+        setOpen(false);
+        // Refresh the user list
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      toast.error("An unexpected error occurred");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <DropdownMenuItem
+          onSelect={(e) => e.preventDefault()}
+          className="text-red-600"
+        >
+          Delete user
+        </DropdownMenuItem>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Confirm Deletion</DialogTitle>
+          <DialogDescription>
+            Are you sure you want to delete user {user.name}? This action cannot
+            be undone.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => setOpen(false)}
+            disabled={loading}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={handleDelete}
+            disabled={loading}
+          >
+            {loading ? "Deleting..." : "Delete"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Add Change Password Dialog Component
+function ChangePasswordDialog({ user }: { user: IUser }) {
+  const { accessToken } = useUserStore();
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    newPassword: "",
+    confirmPassword: "",
+  });
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setPasswordData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await authApi.changeUserPassword(accessToken, user._id, {
+        currentPassword: "adminOverride", // Admin override
+        newPassword: passwordData.newPassword,
+      });
+
+      if (response.error) {
+        toast.error(response.message || "Failed to change password");
+      } else {
+        toast.success("Password changed successfully");
+        setOpen(false);
+        setPasswordData({
+          newPassword: "",
+          confirmPassword: "",
+        });
+      }
+    } catch (error) {
+      console.error("Error changing password:", error);
+      toast.error("An unexpected error occurred");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+          Change password
+        </DropdownMenuItem>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Change User Password</DialogTitle>
+          <DialogDescription>
+            Set a new password for {user.name}.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit}>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="new-password" className="text-right">
+                New Password
+              </Label>
+              <Input
+                id="new-password"
+                name="newPassword"
+                type="password"
+                value={passwordData.newPassword}
+                onChange={handleChange}
+                className="col-span-3"
+                required
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="confirm-password" className="text-right">
+                Confirm Password
+              </Label>
+              <Input
+                id="confirm-password"
+                name="confirmPassword"
+                type="password"
+                value={passwordData.confirmPassword}
+                onChange={handleChange}
+                className="col-span-3"
+                required
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setOpen(false)}
+              disabled={loading}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={loading}>
+              {loading ? "Changing..." : "Change Password"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Update the actions cell in columns definition
+
 export default function UsersPage() {
+  const { accessToken } = useUserStore();
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
@@ -482,11 +703,16 @@ export default function UsersPage() {
     pageSize: 10,
     total: 0,
   });
+  const [searchTerm, setSearchTerm] = useState("");
 
-  const fetchUsers = async (page: number, pageSize: number) => {
+  const fetchUsers = async (
+    page: number,
+    pageSize: number,
+    search: string = "",
+  ) => {
     try {
       setLoading(true);
-      const response = await getDashboardData("", page, pageSize);
+      const response = await getDashboardData(search, page, pageSize);
 
       if (!response.error && response.data) {
         setUsers(response.data.users || []);
@@ -494,11 +720,12 @@ export default function UsersPage() {
           response.data.pagination || { current: 1, pageSize, total: 0 },
         );
       } else {
-        console.error("Error fetching users:", response.message);
+        toast.error(response.message || "Failed to fetch users");
         setUsers([]);
       }
     } catch (error) {
-      console.error("Failed to fetch dashboard data:", error);
+      console.error("Failed to fetch users:", error);
+      toast.error("An unexpected error occurred");
       setUsers([]);
     } finally {
       setLoading(false);
@@ -508,6 +735,13 @@ export default function UsersPage() {
   useEffect(() => {
     fetchUsers(1, pagination.pageSize);
   }, []);
+
+  // Xử lý tìm kiếm khi người dùng nhập
+  const handleSearch = (value: string) => {
+    setSearchTerm(value);
+    // Reset về trang 1 khi tìm kiếm
+    fetchUsers(1, pagination.pageSize, value);
+  };
 
   const table = useReactTable({
     data: users,
@@ -538,30 +772,28 @@ export default function UsersPage() {
           pageIndex: pagination.current - 1,
           pageSize: pagination.pageSize,
         });
-        fetchUsers(newPagination.pageIndex + 1, newPagination.pageSize);
+        fetchUsers(
+          newPagination.pageIndex + 1,
+          newPagination.pageSize,
+          searchTerm,
+        );
       }
     },
   });
 
   return (
-    <div className="w-full">
+    <div className="w-full -m-5 pt-2">
+      <Toaster richColors position="top-right" />
       <div className="flex flex-col py-4">
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-semibold">Users</h1>
           <div className="flex items-center gap-3">
             <Input
-              placeholder="Filter emails..."
-              value={
-                (table.getColumn("email")?.getFilterValue() as string) ?? ""
-              }
-              onChange={(event) =>
-                table.getColumn("email")?.setFilterValue(event.target.value)
-              }
+              placeholder="Search users..."
+              value={searchTerm}
+              onChange={(event) => handleSearch(event.target.value)}
               className="max-w-sm"
             />
-            <Button variant="outline" size="icon">
-              <Download className="h-4 w-4" />
-            </Button>
             <AddNewUserDialog />
           </div>
         </div>
@@ -593,9 +825,6 @@ export default function UsersPage() {
                   })}
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button variant="outline" size="icon">
-              <Filter className="h-4 w-4" />
-            </Button>
           </div>
           <div className="flex items-center gap-2">
             <p className="text-sm text-muted-foreground">

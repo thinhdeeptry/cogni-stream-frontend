@@ -14,13 +14,13 @@ import Navbar from "./navbar";
 export default function UserHeader() {
   const [mounted, setMounted] = useState(false);
   const { user, accessToken, clearUser } = useUserStore();
-  const { otherUserData, isLoading } = useOtherUser("68036a847ccacdc40db6b727");
+  // const { otherUserData, isLoading } = useOtherUser("68036a847ccacdc40db6b727");
   const router = useRouter();
   useEffect(() => {
     setMounted(true);
     console.log("User data:", {
-      image: otherUserData?.image,
-      fullUser: otherUserData,
+      image: user?.image,
+      fullUser: user,
     });
   }, [user]);
 
@@ -46,8 +46,8 @@ export default function UserHeader() {
     <div className="w-full sticky top-0 z-50">
       <Navbar
         isLoggedIn={isLoggedIn}
-        image={otherUserData?.image || "ccc"}
-        userName={otherUserData?.name || "User"}
+        image={user?.image || "ccc"}
+        userName={user?.name || "User"}
         onLogout={handleLogout}
       />
     </div>
