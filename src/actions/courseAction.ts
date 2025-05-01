@@ -188,7 +188,6 @@ export const createCourse = async (courseData: {
   level: string;
   price: number;
   currency: string;
-  ownerId: string;
   isPublished: boolean;
   isHasCertificate: boolean;
   tags?: string[];

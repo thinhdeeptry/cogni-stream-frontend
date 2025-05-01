@@ -72,7 +72,6 @@ export default function AdminCoursesPage() {
   );
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
-  // Pagination state
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 10,
@@ -80,10 +79,8 @@ export default function AdminCoursesPage() {
     totalPages: 1,
   });
 
-  // Filter state - by default show all courses (including unpublished)
   const [filters, setFilters] = useState<CourseFilters>({});
 
-  // Fetch categories for filter
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -97,7 +94,6 @@ export default function AdminCoursesPage() {
     fetchCategories();
   }, []);
 
-  // Fetch courses with pagination and filters
   const fetchCourses = async (
     page = pagination.page,
     limit = pagination.limit,
@@ -105,13 +101,25 @@ export default function AdminCoursesPage() {
   ) => {
     try {
       setIsLoading(true);
-      const response = await getAllCourses(courseFilters, page, limit);
+      // Chỉ truyền các giá trị filter khi chúng không phải là "tất cả"
+      const filteredParams = {
+        ...courseFilters,
+        categoryId:
+          courseFilters.categoryId === "all"
+            ? undefined
+            : courseFilters.categoryId,
+        level: courseFilters.level === "" ? undefined : courseFilters.level,
+        isPublished:
+          courseFilters.isPublished === undefined
+            ? undefined
+            : courseFilters.isPublished,
+      };
 
-      // Ensure we have valid data
+      const response = await getAllCourses(filteredParams, page, limit);
+
       if (response && response.data) {
         setCourses(response.data);
 
-        // Ensure we have valid pagination metadata
         if (response.meta) {
           setPagination({
             page: response.meta.page || 1,
@@ -122,7 +130,6 @@ export default function AdminCoursesPage() {
               Math.ceil(response.data.length / (response.meta.limit || 10)),
           });
         } else {
-          // If no meta data, create default pagination
           setPagination({
             page: 1,
             limit: 10,
@@ -149,7 +156,6 @@ export default function AdminCoursesPage() {
 
   const handleDeleteCourse = async (courseId: string) => {
     if (!courseId) return;
-
     setCourseToDelete(courseId);
   };
 
@@ -159,8 +165,6 @@ export default function AdminCoursesPage() {
     try {
       setIsDeleting(true);
       await deleteCourse(courseToDelete);
-
-      // Update the courses list by removing the deleted course
       setCourses(courses.filter((course) => course.id !== courseToDelete));
       setPagination((prev) => ({
         ...prev,
@@ -250,16 +254,19 @@ export default function AdminCoursesPage() {
                     Danh mục
                   </Label>
                   <Select
-                    value={filters.categoryId || ""}
+                    value={filters.categoryId || "all"}
                     onValueChange={(value) =>
-                      handleFilterChange("categoryId", value || undefined)
+                      handleFilterChange(
+                        "categoryId",
+                        value === "all" ? undefined : value,
+                      )
                     }
                   >
                     <SelectTrigger className="col-span-3">
                       <SelectValue placeholder="Tất cả danh mục" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Tất cả danh mục</SelectItem>
+                      <SelectItem value="all">Tất cả danh mục</SelectItem>
                       {categories.map((category) => (
                         <SelectItem key={category.id} value={category.id}>
                           {category.name}
@@ -274,16 +281,19 @@ export default function AdminCoursesPage() {
                     Cấp độ
                   </Label>
                   <Select
-                    value={filters.level || ""}
+                    value={filters.level || "all"}
                     onValueChange={(value) =>
-                      handleFilterChange("level", value || undefined)
+                      handleFilterChange(
+                        "level",
+                        value === "all" ? undefined : value,
+                      )
                     }
                   >
                     <SelectTrigger className="col-span-3">
                       <SelectValue placeholder="Tất cả cấp độ" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Tất cả cấp độ</SelectItem>
+                      <SelectItem value="all">Tất cả cấp độ</SelectItem>
                       <SelectItem value={CourseLevel.BEGINNER}>
                         Người mới bắt đầu
                       </SelectItem>
@@ -293,7 +303,6 @@ export default function AdminCoursesPage() {
                       <SelectItem value={CourseLevel.ADVANCED}>
                         Nâng cao
                       </SelectItem>
-                      <SelectItem value="ALL_LEVELS">Tất cả cấp độ</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -304,25 +313,30 @@ export default function AdminCoursesPage() {
                   </Label>
                   <Select
                     value={
-                      filters.isPublished !== undefined
-                        ? filters.isPublished.toString()
-                        : ""
+                      filters.isPublished === undefined
+                        ? "all"
+                        : filters.isPublished
+                          ? "true"
+                          : "false"
                     }
                     onValueChange={(value) => {
-                      if (value === "") {
-                        handleFilterChange("isPublished", undefined);
+                      let filterValue;
+                      if (value === "all") {
+                        filterValue = undefined;
+                      } else if (value === "true") {
+                        filterValue = true;
                       } else {
-                        handleFilterChange("isPublished", value === "true");
+                        filterValue = false;
                       }
+                      handleFilterChange("isPublished", filterValue);
                     }}
                   >
                     <SelectTrigger className="col-span-3">
                       <SelectValue placeholder="Tất cả trạng thái" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Tất cả trạng thái</SelectItem>
+                      <SelectItem value="all">Tất cả trạng thái</SelectItem>
                       <SelectItem value="true">Đã xuất bản</SelectItem>
-                      <SelectItem value="false">Bản nháp</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -478,7 +492,6 @@ export default function AdminCoursesPage() {
         </Table>
       </div>
 
-      {/* Pagination */}
       {!isLoading && courses.length > 0 && (
         <div className="mt-6 flex flex-col items-center">
           <Pagination className="mb-2">
@@ -499,7 +512,6 @@ export default function AdminCoursesPage() {
                 (_, i) => i + 1,
               )
                 .filter((page) => {
-                  // Show first page, last page, current page, and pages around current page
                   return (
                     page === 1 ||
                     page === pagination.totalPages ||
@@ -507,7 +519,6 @@ export default function AdminCoursesPage() {
                   );
                 })
                 .map((page, index, array) => {
-                  // Add ellipsis where needed
                   const prevPage = array[index - 1];
                   const showEllipsisBefore = prevPage && prevPage !== page - 1;
 
