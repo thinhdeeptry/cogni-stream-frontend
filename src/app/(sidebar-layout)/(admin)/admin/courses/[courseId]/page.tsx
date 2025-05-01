@@ -17,7 +17,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 import { AddChapterDialog } from "./AddChapterDialog";
-import { AddLessonDialog } from "./AddLessonDialog";
 
 export default function CourseDetailPage({
   params,
@@ -207,14 +206,6 @@ export default function CourseDetailPage({
         courseId={resolvedParams.courseId}
         open={isAddChapterOpen}
         onOpenChange={setIsAddChapterOpen}
-        onSuccess={fetchCourseData}
-      />
-
-      <AddLessonDialog
-        courseId={resolvedParams.courseId}
-        chapterId={selectedChapterId}
-        open={isAddLessonOpen}
-        onOpenChange={setIsAddLessonOpen}
         onSuccess={fetchCourseData}
       />
     </div>
