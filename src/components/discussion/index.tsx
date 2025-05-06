@@ -177,6 +177,8 @@ export default function Discussion({ threadId }: { threadId: string }) {
     // Skip if sheet is not open, no user, or no threadId
     if (!isOpen || !user || !threadId) return;
 
+    console.log("Initializing socket for thread:", threadId);
+
     // Initialize socket when sheet opens
     initializeSocket();
 
@@ -184,6 +186,7 @@ export default function Discussion({ threadId }: { threadId: string }) {
     const controller = new AbortController();
     const fetchData = async () => {
       try {
+        console.log("Fetching thread data for:", threadId);
         await fetchThread();
         await fetchPosts();
       } catch (error) {
@@ -197,19 +200,19 @@ export default function Discussion({ threadId }: { threadId: string }) {
 
     // Clean up socket when sheet closes or component unmounts
     return () => {
+      console.log("Cleaning up socket for thread:", threadId);
       controller.abort();
       cleanupSocket();
     };
   }, [
-    // Only re-run this effect when these dependencies change
+    // Include all dependencies used in the effect
     isOpen,
     user?.id,
     threadId,
-    // Remove these dependencies to prevent re-fetching
-    // fetchThread,
-    // fetchPosts,
-    // initializeSocket,
-    // cleanupSocket
+    fetchThread,
+    fetchPosts,
+    initializeSocket,
+    cleanupSocket,
   ]);
 
   // Explicitly check for user review when thread is loaded
@@ -255,7 +258,7 @@ export default function Discussion({ threadId }: { threadId: string }) {
     return (
       <Button
         onClick={() => toast.info("Đang tải thông tin thảo luận...")}
-        className="fixed bottom-6 right-6 rounded-full h-12 w-12 shadow-lg opacity-70"
+        className="fixed bottom-20 z-50 right-8 bg-orange-500   hover:bg-orange-500 rounded-full h-12 w-12 shadow-lg opacity-70"
         aria-label="Discussion loading"
         size="icon"
       >
@@ -271,7 +274,7 @@ export default function Discussion({ threadId }: { threadId: string }) {
       {/* Floating MessageCircle button */}
       <Button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 rounded-full h-12 w-12 shadow-lg"
+        className="fixed bottom-20 z-50 right-8 bg-orange-500 hover:bg-orange-600 rounded-full h-12 w-12 shadow-lg"
         aria-label="Open discussion"
         size="icon"
       >

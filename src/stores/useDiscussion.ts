@@ -1297,118 +1297,334 @@ export const useDiscussionStore = create<DiscussionState>()(
 
       initializeSocket: () => {
         const { currentThreadId, currentUserId, currentUserName } = get();
-        if (!currentThreadId || !currentUserId || !currentUserName) return;
+        if (!currentThreadId || !currentUserId || !currentUserName) {
+          console.error("Missing required data for socket initialization", {
+            threadId: currentThreadId,
+            userId: currentUserId,
+            userName: currentUserName,
+          });
+          return;
+        }
+
+        console.log(
+          "Initializing socket in store for thread:",
+          currentThreadId,
+        );
 
         // Clean up existing socket connection before initializing a new one
+        // This ensures we don't have duplicate listeners
         get().cleanupSocket();
         set({ isReconnecting: false });
 
-        const socket = socketService.connect();
+        try {
+          // Connect to socket server
+          const socket = socketService.connect();
 
-        // Connection event handlers
-        socket.on("connect", () => {
+          if (!socket) {
+            console.error("Failed to create socket connection");
+            set({
+              isConnected: false,
+              connectionError: "Failed to create socket connection",
+              isReconnecting: false,
+            });
+            return;
+          }
+
+          // Connection event handlers
+          socket.on("connect", () => {
+            console.log("Socket connected event in store");
+            set({
+              isConnected: true,
+              connectionError: null,
+              isReconnecting: false,
+            });
+
+            // Join thread after successful connection
+            socketService.joinThread(
+              currentThreadId,
+              currentUserId,
+              currentUserName,
+            );
+          });
+
+          socket.on("connect_error", (error: any) => {
+            const errorMessage =
+              error.message || "Failed to connect to discussion server";
+            console.error("Socket connection error in store:", errorMessage);
+
+            // Only set reconnecting if it's not a namespace error (which indicates a configuration issue)
+            const isNamespaceError =
+              error.message?.includes("Invalid namespace");
+            set({
+              isConnected: false,
+              isReconnecting: !isNamespaceError,
+              connectionError: errorMessage,
+            });
+          });
+
+          socket.on("disconnect", (reason: string) => {
+            console.log(`Socket disconnected in store: ${reason}`);
+            const isManualDisconnect =
+              reason === "io server disconnect" ||
+              reason === "io client disconnect";
+
+            set({
+              isConnected: false,
+              isReconnecting: !isManualDisconnect,
+              connectionError: `Disconnected: ${reason}`,
+            });
+          });
+
+          socket.on("reconnect", (attemptNumber: number) => {
+            console.log(`Socket reconnected after ${attemptNumber} attempts`);
+            set({
+              isConnected: true,
+              connectionError: null,
+              isReconnecting: false,
+            });
+
+            // Re-join thread after reconnection
+            socketService.joinThread(
+              currentThreadId,
+              currentUserId,
+              currentUserName,
+            );
+          });
+
+          socket.on("reconnect_error", (error: any) => {
+            console.error("Socket reconnection error:", error);
+          });
+
+          socket.on("reconnect_failed", () => {
+            console.error("Socket reconnection failed after all attempts");
+            set({
+              isReconnecting: false,
+              connectionError: "Không thể kết nối lại sau nhiều lần thử",
+            });
+          });
+
+          // Initial join thread attempt - only if socket is already connected
+          // Otherwise the connect event handler will handle this
+          if (socket.connected) {
+            console.log("Socket already connected, joining thread immediately");
+            socketService.joinThread(
+              currentThreadId,
+              currentUserId,
+              currentUserName,
+            );
+          } else {
+            console.log(
+              "Socket not yet connected, will join thread on connect event",
+            );
+          }
+        } catch (error) {
+          console.error("Error during socket initialization:", error);
           set({
-            isConnected: true,
-            connectionError: null,
+            isConnected: false,
+            connectionError:
+              error instanceof Error
+                ? error.message
+                : "Unknown socket initialization error",
             isReconnecting: false,
           });
-          socketService.joinThread(
-            currentThreadId,
-            currentUserId,
-            currentUserName,
-          );
-        });
-
-        socket.on("connect_error", (error: any) => {
-          const errorMessage =
-            error.message || "Failed to connect to discussion server";
-          set({
-            isConnected: false,
-            isReconnecting: !error.message?.includes("Invalid namespace"),
-            connectionError: errorMessage,
-          });
-        });
-
-        socket.on("disconnect", (reason: string) => {
-          const isManualDisconnect =
-            reason === "io server disconnect" ||
-            reason === "io client disconnect";
-          set({
-            isConnected: false,
-            isReconnecting: !isManualDisconnect,
-            connectionError: `Disconnected: ${reason}`,
-          });
-        });
-
-        socketService.joinThread(
-          currentThreadId,
-          currentUserId,
-          currentUserName,
-        );
+        }
 
         // Handle real-time post events
         socketService.onNewPost((post) => {
-          set((state) => {
-            // Ignore own posts
-            if (post.authorId === state.currentUserId) return state;
+          try {
+            set((state) => {
+              // Ignore own posts - we've already handled them optimistically
+              if (post.authorId === state.currentUserId) return state;
 
-            // Phát âm thanh thông báo khi có bài đăng mới từ người khác
-            playNotificationSound();
+              // Play notification sound when receiving posts from others
+              playNotificationSound();
 
-            // Check if post already exists in state
-            const existingPost = findPostInTree(state.posts, post.id);
-            if (existingPost) return state;
+              // Ensure the post has all required fields for UI
+              const enhancedPost = {
+                ...post,
+                reactions: post.reactions || [],
+                reactionCounts:
+                  post.reactionCounts || createDefaultReactionCounts(),
+                _count: post._count || { replies: 0 },
+                replies: post.replies || [],
+              };
 
-            // If it's a reply to a post, handle it
-            if (post.parentId) {
-              // Find the parent post
-              const parentPost = findPostInTree(state.posts, post.parentId);
-
-              // For parent posts that belong to current user, automatically show replies
-              if (parentPost && parentPost.authorId === state.currentUserId) {
-                // Update showReplies directly here to ensure it happens
-                set((prevState) => ({
-                  showReplies: {
-                    ...prevState.showReplies,
-                    [post.parentId as string]: true,
-                  },
-                }));
-
-                // Also ensure replies are loaded for this parent
-                if (!state.repliesMap[post.parentId as string]) {
-                  get().fetchReplies(post.parentId as string);
-                }
+              // Check if post already exists in state to avoid duplicates
+              const existingPost = findPostInTree(state.posts, post.id);
+              if (existingPost) {
+                console.log(
+                  `Post ${post.id} already exists in state, ignoring`,
+                );
+                return state;
               }
 
-              if (!parentPost) return state;
+              // If it's a reply to a post, handle it
+              if (post.parentId) {
+                console.log(`Received new reply to post ${post.parentId}`);
 
-              // Update posts tree
-              const updatedPosts = updatePostsTree(state.posts, (p) => {
-                if (p.id === post.parentId) {
-                  const replies = p.replies || [];
-                  if (replies.some((r) => r.id === post.id)) return p;
+                // Find the parent post
+                const parentPost = findPostInTree(state.posts, post.parentId);
 
-                  return {
-                    ...p,
-                    _count: {
-                      ...p._count,
-                      replies: (p._count?.replies || 0) + 1,
+                // For parent posts that belong to current user, automatically show replies
+                if (parentPost && parentPost.authorId === state.currentUserId) {
+                  console.log(
+                    `Auto-showing replies for user's post ${post.parentId}`,
+                  );
+
+                  // Update showReplies directly here to ensure it happens
+                  set((prevState) => ({
+                    showReplies: {
+                      ...prevState.showReplies,
+                      [post.parentId as string]: true,
                     },
-                    replies: [...replies, { ...post, replies: [] }],
+                  }));
+
+                  // Also ensure replies are loaded for this parent
+                  if (!state.repliesMap[post.parentId as string]) {
+                    get().fetchReplies(post.parentId as string);
+                  }
+                }
+
+                if (!parentPost) {
+                  console.log(
+                    `Parent post ${post.parentId} not found, ignoring reply`,
+                  );
+                  return state;
+                }
+
+                // Update posts tree
+                const updatedPosts = updatePostsTree(state.posts, (p) => {
+                  if (p.id === post.parentId) {
+                    const replies = p.replies || [];
+                    if (replies.some((r) => r.id === post.id)) return p;
+
+                    return {
+                      ...p,
+                      _count: {
+                        ...p._count,
+                        replies: (p._count?.replies || 0) + 1,
+                      },
+                      replies: [...replies, enhancedPost],
+                    };
+                  }
+                  return p;
+                });
+
+                // Update replies map
+                const updatedRepliesMap = { ...state.repliesMap };
+                if (
+                  !updatedRepliesMap[post.parentId]?.some(
+                    (r) => r.id === post.id,
+                  )
+                ) {
+                  updatedRepliesMap[post.parentId] = [
+                    ...(updatedRepliesMap[post.parentId] || []),
+                    enhancedPost,
+                  ];
+                }
+
+                return {
+                  ...state,
+                  posts: updatedPosts,
+                  repliesMap: updatedRepliesMap,
+                };
+              }
+
+              // It's a top-level post
+              console.log(`Received new top-level post ${post.id}`);
+              return {
+                ...state,
+                posts: [enhancedPost, ...state.posts],
+                thread: state.thread
+                  ? {
+                      ...state.thread,
+                      _count: {
+                        ...state.thread._count,
+                        posts: state.thread._count.posts + 1,
+                      },
+                    }
+                  : null,
+              };
+            });
+          } catch (error) {
+            console.error("Error handling new post event:", error);
+          }
+        });
+
+        socketService.onUpdatePost((post) => {
+          try {
+            set((state) => {
+              // Don't update if this is our own post update (should already be reflected in UI)
+              if (post.authorId === state.currentUserId) return state;
+
+              console.log(`Received update for post ${post.id}`);
+
+              // Ensure we have the complete post object with necessary fields for UI
+              const enhancedPost = {
+                ...post,
+                reactions: post.reactions || [],
+                reactionCounts:
+                  post.reactionCounts || createDefaultReactionCounts(),
+                _count: post._count || { replies: 0 },
+                replies: post.replies || [],
+              };
+
+              // Check if the post exists in our state
+              const existingPost = findPostInTree(state.posts, post.id);
+              if (!existingPost) {
+                console.log(
+                  `Post ${post.id} not found in state, ignoring update`,
+                );
+                return state;
+              }
+
+              // Update post in tree
+              const updatedPosts = updatePostsTree(state.posts, (p) => {
+                if (p.id === post.id) {
+                  // Preserve existing replies and reactions if they're not in the updated post
+                  return {
+                    ...enhancedPost,
+                    replies: p.replies || [],
+                    reactions: post.reactions || p.reactions || [],
+                    reactionCounts:
+                      post.reactionCounts ||
+                      p.reactionCounts ||
+                      createDefaultReactionCounts(),
                   };
                 }
                 return p;
               });
 
-              // Update replies map
+              // Update reply in maps if needed
               const updatedRepliesMap = { ...state.repliesMap };
-              if (
-                !updatedRepliesMap[post.parentId]?.some((r) => r.id === post.id)
-              ) {
-                updatedRepliesMap[post.parentId] = [
-                  ...(updatedRepliesMap[post.parentId] || []),
-                  { ...post, replies: [] },
-                ];
+
+              // If it's a reply (has a parentId), update in the parent's reply map
+              if (post.parentId && updatedRepliesMap[post.parentId]) {
+                const parentReplies = updatedRepliesMap[post.parentId];
+                const replyExists = parentReplies.some(
+                  (reply) => reply.id === post.id,
+                );
+
+                if (replyExists) {
+                  updatedRepliesMap[post.parentId] = parentReplies.map(
+                    (reply) =>
+                      reply.id === post.id
+                        ? {
+                            ...enhancedPost,
+                            replies: reply.replies || [],
+                            reactions: post.reactions || reply.reactions || [],
+                            reactionCounts:
+                              post.reactionCounts ||
+                              reply.reactionCounts ||
+                              createDefaultReactionCounts(),
+                          }
+                        : reply,
+                  );
+                } else {
+                  console.log(
+                    `Reply ${post.id} not found in parent's repliesMap, skipping update`,
+                  );
+                }
               }
 
               return {
@@ -1416,227 +1632,195 @@ export const useDiscussionStore = create<DiscussionState>()(
                 posts: updatedPosts,
                 repliesMap: updatedRepliesMap,
               };
-            }
-
-            // It's a top-level post
-            return {
-              ...state,
-              posts: [{ ...post, replies: [] }, ...state.posts],
-              thread: state.thread
-                ? {
-                    ...state.thread,
-                    _count: {
-                      ...state.thread._count,
-                      posts: state.thread._count.posts + 1,
-                    },
-                  }
-                : null,
-            };
-          });
-        });
-
-        socketService.onUpdatePost((post) => {
-          set((state) => {
-            // Don't update if this is our own post update (should already be reflected in UI)
-            if (post.authorId === state.currentUserId) return state;
-
-            // Ensure we have the complete post object with necessary fields for UI
-            const enhancedPost = {
-              ...post,
-              reactions: post.reactions || [],
-              reactionCounts:
-                post.reactionCounts || createDefaultReactionCounts(),
-              _count: post._count || { replies: 0 },
-              replies: post.replies || [],
-            };
-
-            // Update post in tree
-            const updatedPosts = updatePostsTree(state.posts, (p) => {
-              if (p.id === post.id) {
-                // Preserve existing replies and reactions if they're not in the updated post
-                return {
-                  ...enhancedPost,
-                  replies: p.replies || [],
-                  reactions: post.reactions || p.reactions || [],
-                  reactionCounts:
-                    post.reactionCounts ||
-                    p.reactionCounts ||
-                    createDefaultReactionCounts(),
-                };
-              }
-              return p;
             });
-
-            // Update reply in maps if needed
-            const updatedRepliesMap = { ...state.repliesMap };
-
-            // If it's a reply (has a parentId), update in the parent's reply map
-            if (post.parentId && updatedRepliesMap[post.parentId]) {
-              updatedRepliesMap[post.parentId] = updatedRepliesMap[
-                post.parentId
-              ].map((reply) =>
-                reply.id === post.id
-                  ? {
-                      ...enhancedPost,
-                      replies: reply.replies || [],
-                      reactions: post.reactions || reply.reactions || [],
-                      reactionCounts:
-                        post.reactionCounts ||
-                        reply.reactionCounts ||
-                        createDefaultReactionCounts(),
-                    }
-                  : reply,
-              );
-            }
-
-            return {
-              ...state,
-              posts: updatedPosts,
-              repliesMap: updatedRepliesMap,
-            };
-          });
+          } catch (error) {
+            console.error("Error handling post update event:", error);
+          }
         });
 
         socketService.onDeletePost(({ postId }) => {
-          set((state) => {
-            // If we're deleting our own post, we've already handled it optimistically
-            // Find the post to get more details before removing
-            const postToDelete = findPostInTree(state.posts, postId);
-            if (!postToDelete) return state;
+          try {
+            set((state) => {
+              console.log(`Received delete event for post ${postId}`);
 
-            // Find parent post if this is a reply
-            const parentId = postToDelete.parentId;
-
-            // Remove post from tree
-            const updatedPosts = updatePostsTree(state.posts, (post) => {
-              if (post.id === postId) {
-                return null; // Remove this post
+              // If we're deleting our own post, we've already handled it optimistically
+              // Find the post to get more details before removing
+              const postToDelete = findPostInTree(state.posts, postId);
+              if (!postToDelete) {
+                console.log(
+                  `Post ${postId} not found in state, ignoring delete event`,
+                );
+                return state;
               }
 
-              // If this post has the target as a reply, update count and remove the reply
-              if (
-                post.replies &&
-                post.replies.some((reply) => reply.id === postId)
-              ) {
-                return {
-                  ...post,
-                  _count: {
-                    ...post._count,
-                    replies: Math.max(0, (post._count?.replies || 0) - 1),
-                  },
-                  replies: post.replies.filter((reply) => reply.id !== postId),
-                };
+              // Check if this is our own post (should already be handled optimistically)
+              if (postToDelete.authorId === state.currentUserId) {
+                console.log(
+                  `Post ${postId} is our own post, already handled optimistically`,
+                );
+                return state;
               }
 
-              return post;
-            });
-
-            // Clean up repliesMap
-            const updatedRepliesMap = { ...state.repliesMap };
-
-            // Remove the post's own replies map if it had replies
-            delete updatedRepliesMap[postId];
-
-            // If it was a reply, remove it from its parent's repliesMap
-            if (parentId && updatedRepliesMap[parentId]) {
-              updatedRepliesMap[parentId] = updatedRepliesMap[parentId].filter(
-                (reply) => reply.id !== postId,
+              // Find parent post if this is a reply
+              const parentId = postToDelete.parentId;
+              console.log(
+                `Deleting post ${postId}${parentId ? ` (reply to ${parentId})` : " (top-level)"}`,
               );
-            }
 
-            // Clean up showReplies state too
-            const updatedShowReplies = { ...state.showReplies };
-            delete updatedShowReplies[postId];
+              // Remove post from tree
+              const updatedPosts = updatePostsTree(state.posts, (post) => {
+                if (post.id === postId) {
+                  return null; // Remove this post
+                }
 
-            return {
-              ...state,
-              posts: updatedPosts,
-              repliesMap: updatedRepliesMap,
-              showReplies: updatedShowReplies,
-              thread: state.thread
-                ? {
-                    ...state.thread,
+                // If this post has the target as a reply, update count and remove the reply
+                if (
+                  post.replies &&
+                  post.replies.some((reply) => reply.id === postId)
+                ) {
+                  return {
+                    ...post,
                     _count: {
-                      ...state.thread._count,
-                      posts: Math.max(0, state.thread._count.posts - 1),
+                      ...post._count,
+                      replies: Math.max(0, (post._count?.replies || 0) - 1),
                     },
-                  }
-                : null,
-            };
-          });
+                    replies: post.replies.filter(
+                      (reply) => reply.id !== postId,
+                    ),
+                  };
+                }
+
+                return post;
+              });
+
+              // Clean up repliesMap
+              const updatedRepliesMap = { ...state.repliesMap };
+
+              // Remove the post's own replies map if it had replies
+              if (updatedRepliesMap[postId]) {
+                console.log(`Removing replies map for deleted post ${postId}`);
+                delete updatedRepliesMap[postId];
+              }
+
+              // If it was a reply, remove it from its parent's repliesMap
+              if (parentId && updatedRepliesMap[parentId]) {
+                const beforeLength = updatedRepliesMap[parentId].length;
+                updatedRepliesMap[parentId] = updatedRepliesMap[
+                  parentId
+                ].filter((reply) => reply.id !== postId);
+                const afterLength = updatedRepliesMap[parentId].length;
+
+                if (beforeLength !== afterLength) {
+                  console.log(
+                    `Removed reply ${postId} from parent ${parentId} repliesMap`,
+                  );
+                }
+              }
+
+              // Clean up showReplies state too
+              const updatedShowReplies = { ...state.showReplies };
+              if (updatedShowReplies[postId]) {
+                console.log(
+                  `Removing showReplies entry for deleted post ${postId}`,
+                );
+                delete updatedShowReplies[postId];
+              }
+
+              // Update thread post count if this was a top-level post
+              const isTopLevelPost = !parentId;
+              const updatedThread =
+                state.thread && isTopLevelPost
+                  ? {
+                      ...state.thread,
+                      _count: {
+                        ...state.thread._count,
+                        posts: Math.max(0, state.thread._count.posts - 1),
+                      },
+                    }
+                  : state.thread;
+
+              return {
+                ...state,
+                posts: updatedPosts,
+                repliesMap: updatedRepliesMap,
+                showReplies: updatedShowReplies,
+                thread: updatedThread,
+              };
+            });
+          } catch (error) {
+            console.error("Error handling post delete event:", error);
+          }
         });
 
         // Handle real-time reaction events
         socketService.onNewReaction((reaction) => {
-          // Ignore reactions from the current user (already handled)
-          if (reaction.userId === currentUserId) return;
+          try {
+            // Ignore reactions from the current user (already handled optimistically)
+            if (reaction.userId === currentUserId) return;
 
-          set((state) => {
-            // Update posts tree to add the new reaction
-            const updatedPosts = updatePostsTree(state.posts, (post) => {
-              if (post.id === reaction.postId) {
-                // Create a safe copy of reactionCounts with default values
-                const reactionCounts =
-                  post.reactionCounts || createDefaultReactionCounts();
-                const updatedReactionCounts = {
-                  ...reactionCounts,
-                  [reaction.type]: reactionCounts[reaction.type] + 1,
-                  total: reactionCounts.total + 1,
-                };
+            console.log(
+              `Received new reaction from user ${reaction.userId} on post ${reaction.postId}`,
+            );
 
-                return {
-                  ...post,
-                  reactions: [...post.reactions, reaction],
-                  reactionCounts: updatedReactionCounts,
-                };
+            set((state) => {
+              // Check if the post exists in our state
+              const targetPost = findPostInTree(state.posts, reaction.postId);
+              if (!targetPost) {
+                console.log(
+                  `Post ${reaction.postId} not found in state, ignoring reaction`,
+                );
+                return state;
               }
 
-              // Check if this is a reply
-              if (post.replies) {
-                let hasUpdatedReply = false;
-                const updatedReplies = post.replies.map((reply) => {
-                  if (reply.id === reaction.postId) {
-                    hasUpdatedReply = true;
-                    // Create a safe copy of reactionCounts with default values
-                    const reactionCounts =
-                      reply.reactionCounts || createDefaultReactionCounts();
-                    const updatedReactionCounts = {
-                      ...reactionCounts,
-                      [reaction.type]: reactionCounts[reaction.type] + 1,
-                      total: reactionCounts.total + 1,
-                    };
+              // Check if this reaction already exists (to avoid duplicates)
+              const existingReaction = targetPost.reactions.find(
+                (r) =>
+                  r.id === reaction.id ||
+                  (r.userId === reaction.userId && r.type === reaction.type),
+              );
 
-                    return {
-                      ...reply,
-                      reactions: [...reply.reactions, reaction],
-                      reactionCounts: updatedReactionCounts,
-                    };
-                  }
-                  return reply;
-                });
+              if (existingReaction) {
+                console.log(`Reaction already exists, ignoring`);
+                return state;
+              }
 
-                if (hasUpdatedReply) {
+              // Update posts tree to add the new reaction
+              const updatedPosts = updatePostsTree(state.posts, (post) => {
+                if (post.id === reaction.postId) {
+                  // Create a safe copy of reactionCounts with default values
+                  const reactionCounts =
+                    post.reactionCounts || createDefaultReactionCounts();
+                  const updatedReactionCounts = {
+                    ...reactionCounts,
+                    [reaction.type]: reactionCounts[reaction.type] + 1,
+                    total: reactionCounts.total + 1,
+                  };
+
                   return {
                     ...post,
-                    replies: updatedReplies,
+                    reactions: [...post.reactions, reaction],
+                    reactionCounts: updatedReactionCounts,
                   };
                 }
-              }
 
-              return post;
-            });
-
-            // Update repliesMap if needed
-            const updatedRepliesMap = { ...state.repliesMap };
-            Object.keys(updatedRepliesMap).forEach((parentId) => {
-              if (
-                updatedRepliesMap[parentId].some(
-                  (reply) => reply.id === reaction.postId,
-                )
-              ) {
-                updatedRepliesMap[parentId] = updatedRepliesMap[parentId].map(
-                  (reply) => {
+                // Check if this is a reply
+                if (post.replies) {
+                  let hasUpdatedReply = false;
+                  const updatedReplies = post.replies.map((reply) => {
                     if (reply.id === reaction.postId) {
+                      // Check if this reaction already exists in the reply
+                      const replyHasReaction = reply.reactions.some(
+                        (r) =>
+                          r.id === reaction.id ||
+                          (r.userId === reaction.userId &&
+                            r.type === reaction.type),
+                      );
+
+                      if (replyHasReaction) {
+                        return reply;
+                      }
+
+                      hasUpdatedReply = true;
                       // Create a safe copy of reactionCounts with default values
                       const reactionCounts =
                         reply.reactionCounts || createDefaultReactionCounts();
@@ -1653,17 +1837,69 @@ export const useDiscussionStore = create<DiscussionState>()(
                       };
                     }
                     return reply;
-                  },
-                );
-              }
-            });
+                  });
 
-            return {
-              ...state,
-              posts: updatedPosts,
-              repliesMap: updatedRepliesMap,
-            };
-          });
+                  if (hasUpdatedReply) {
+                    return {
+                      ...post,
+                      replies: updatedReplies,
+                    };
+                  }
+                }
+
+                return post;
+              });
+
+              // Update repliesMap if needed
+              const updatedRepliesMap = { ...state.repliesMap };
+              Object.keys(updatedRepliesMap).forEach((parentId) => {
+                const parentReplies = updatedRepliesMap[parentId];
+                if (
+                  parentReplies.some((reply) => reply.id === reaction.postId)
+                ) {
+                  updatedRepliesMap[parentId] = parentReplies.map((reply) => {
+                    if (reply.id === reaction.postId) {
+                      // Check if this reaction already exists in the reply
+                      const replyHasReaction = reply.reactions.some(
+                        (r) =>
+                          r.id === reaction.id ||
+                          (r.userId === reaction.userId &&
+                            r.type === reaction.type),
+                      );
+
+                      if (replyHasReaction) {
+                        return reply;
+                      }
+
+                      // Create a safe copy of reactionCounts with default values
+                      const reactionCounts =
+                        reply.reactionCounts || createDefaultReactionCounts();
+                      const updatedReactionCounts = {
+                        ...reactionCounts,
+                        [reaction.type]: reactionCounts[reaction.type] + 1,
+                        total: reactionCounts.total + 1,
+                      };
+
+                      return {
+                        ...reply,
+                        reactions: [...reply.reactions, reaction],
+                        reactionCounts: updatedReactionCounts,
+                      };
+                    }
+                    return reply;
+                  });
+                }
+              });
+
+              return {
+                ...state,
+                posts: updatedPosts,
+                repliesMap: updatedRepliesMap,
+              };
+            });
+          } catch (error) {
+            console.error("Error handling new reaction event:", error);
+          }
         });
 
         socketService.onUpdateReaction((reaction) => {
@@ -1920,34 +2156,82 @@ export const useDiscussionStore = create<DiscussionState>()(
 
         // Thread users handlers
         socketService.onThreadUsers((data) => {
-          if (data.threadId === currentThreadId) {
-            set({ threadUsers: data.users });
+          try {
+            if (data.threadId === currentThreadId) {
+              console.log(
+                `Received thread users update for thread ${data.threadId}: ${data.users.length} users`,
+              );
+              set({ threadUsers: data.users });
+            } else {
+              console.log(
+                `Received thread users for different thread ${data.threadId}, ignoring`,
+              );
+            }
+          } catch (error) {
+            console.error("Error handling thread users event:", error);
           }
         });
 
         socketService.onUserJoined((user) => {
-          // Ignore if it's the current user joining
-          if (user.userId === currentUserId) return;
+          try {
+            // Ignore if it's the current user joining
+            if (user.userId === currentUserId) {
+              console.log(`Ignoring our own join event`);
+              return;
+            }
 
-          // Remove the sound notification for user joining
-          set((state) => ({
-            threadUsers: [
-              ...state.threadUsers.filter((u) => u.userId !== user.userId),
-              user,
-            ],
-          }));
+            console.log(
+              `User ${user.userName} (${user.userId}) joined the thread`,
+            );
+
+            // Update the thread users list
+            set((state) => {
+              // Check if user is already in the list
+              const userExists = state.threadUsers.some(
+                (u) => u.userId === user.userId,
+              );
+
+              if (userExists) {
+                console.log(
+                  `User ${user.userId} already in thread users list, updating`,
+                );
+                return {
+                  threadUsers: state.threadUsers.map((u) =>
+                    u.userId === user.userId ? user : u,
+                  ),
+                };
+              } else {
+                console.log(`Adding user ${user.userId} to thread users list`);
+                return {
+                  threadUsers: [...state.threadUsers, user],
+                };
+              }
+            });
+          } catch (error) {
+            console.error("Error handling user joined event:", error);
+          }
         });
       },
 
       cleanupSocket: () => {
         const { currentThreadId, currentUserId } = get();
+
+        console.log("Cleaning up socket in store");
+
+        // Only attempt to leave thread if we have both IDs and we're connected
         if (currentThreadId && currentUserId) {
+          console.log(
+            `Leaving thread ${currentThreadId} as user ${currentUserId}`,
+          );
           socketService.leaveThread(currentThreadId, currentUserId);
         }
-        // Remove all socket event listeners first
+
+        // Remove all socket event listeners first to prevent memory leaks
         socketService.removeAllListeners();
+
         // Then disconnect the socket
         socketService.disconnect();
+
         // Reset all socket-related state
         set({
           isConnected: false,
@@ -1960,6 +2244,8 @@ export const useDiscussionStore = create<DiscussionState>()(
           isLoadingMore: false,
           loadingReplies: {},
         });
+
+        console.log("Socket cleanup complete");
       },
     }),
     {
