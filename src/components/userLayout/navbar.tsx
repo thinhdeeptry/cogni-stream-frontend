@@ -18,14 +18,14 @@ import { Input } from "@/components/ui/input";
 
 interface NavbarProps {
   isLoggedIn?: boolean;
-  userAvatar?: string;
+  image?: string;
   userName?: string;
   onLogout?: () => void;
 }
 
 export default function Navbar({
   isLoggedIn = false,
-  userAvatar = "",
+  image = "",
   userName = "User",
   onLogout,
 }: NavbarProps) {
@@ -74,7 +74,7 @@ export default function Navbar({
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Avatar className="h-8 w-8 border cursor-pointer">
-                    <AvatarImage src={userAvatar} alt={userName} />
+                    <AvatarImage src={image} alt={userName} />
                     <AvatarFallback>{userName.charAt(0)}</AvatarFallback>
                   </Avatar>
                 </DropdownMenuTrigger>
