@@ -41,7 +41,7 @@ export default function UserHeader() {
     <div className="w-full sticky top-0 z-50">
       <Navbar
         isLoggedIn={isLoggedIn}
-        userAvatar={user?.image || ""}
+        image={user?.image || ""}
         userName={user?.name || "User"}
         onLogout={handleLogout}
       />

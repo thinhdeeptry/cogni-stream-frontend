@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 import { AxiosFactory } from "@/lib/axios";
 import { AlertCircle, CheckCircle, Clock, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -30,7 +31,7 @@ export default function PaymentPage() {
       try {
         console.log("Fetching payment data for orderId:", orderId);
         const response = await AxiosFactory.getApiInstance("payment").get(
-          `/payments/order/${orderId}`,
+          `/order/${orderId}`,
         );
         console.log("Payment data response:", response.data);
 
@@ -114,7 +115,7 @@ export default function PaymentPage() {
     try {
       // Update payment status to EXPIRED
       await AxiosFactory.getApiInstance("payment").put(
-        `/payments/order/${orderId}/status`,
+        `/order/${orderId}/status`,
         {
           status: "EXPIRED",
         },
@@ -137,11 +138,14 @@ export default function PaymentPage() {
 
       // Update payment status to COMPLETED
       await AxiosFactory.getApiInstance("payment").put(
-        `/payments/order/${orderId}/status`,
+        `/order/${orderId}/status`,
         {
           status: "COMPLETED",
         },
       );
+
+      // Hiển thị thông báo thành công
+      toast.success("Thanh toán thành công!");
 
       // Redirect to success page with all necessary parameters
       const redirectUrl = new URL(
@@ -156,17 +160,18 @@ export default function PaymentPage() {
         });
       }
 
-      // Add orderCode
-      redirectUrl.searchParams.append("orderCode", orderId.toString());
+      // Thêm orderCode vào URL
+      redirectUrl.searchParams.append("orderCode", orderId);
 
-      // Redirect after a short delay
+      // Delay redirect để người dùng thấy thông báo thành công
       setTimeout(() => {
         router.push(redirectUrl.toString());
-      }, 1500);
+      }, 2000);
     } catch (error) {
       console.error("Error updating payment status:", error);
-      setErrorMessage("Có lỗi xảy ra khi cập nhật trạng thái thanh toán.");
+      setErrorMessage("Có lỗi xảy ra khi cập nhật trạng thái thanh toán");
       setPaymentStatus("error");
+      toast.error("Có lỗi xảy ra khi xử lý thanh toán");
     }
   };
 

@@ -2,12 +2,11 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { Course } from "@/types/course/types";
-import { Book, Crown, Plus, Users } from "lucide-react";
+import { Book, Crown, Plus } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 
@@ -36,16 +35,28 @@ export default function CourseDetail() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isEnrolled, setIsEnrolled] = useState(false);
+  const [firstLessonId, setFirstLessonId] = useState<string | null>(null);
   const [threadId, setThreadId] = useState<string | null>(null);
+
   const params = useParams();
   const { data: session } = useSession();
   const router = useRouter();
 
+  // Fetch course data
   useEffect(() => {
     const fetchCourse = async () => {
       try {
+        setIsLoading(true);
         const data = await getCourseById(params.courseId as string);
         setCourse(data);
+
+        // Find the first lesson ID
+        if (data.chapters && data.chapters.length > 0) {
+          const firstChapter = data.chapters[0];
+          if (firstChapter.lessons && firstChapter.lessons.length > 0) {
+            setFirstLessonId(firstChapter.lessons[0].id);
+          }
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "An error occurred");
       } finally {
@@ -53,28 +64,36 @@ export default function CourseDetail() {
       }
     };
 
-    fetchCourse();
+    if (params.courseId) {
+      fetchCourse();
+    }
   }, [params.courseId]);
 
-  // Separate useEffect for fetching thread to avoid infinite loops
+  // Check enrollment status
   useEffect(() => {
-    // Store course title in a ref to avoid dependency issues
-    const courseTitle = course?.title || `Course ${params.courseId}`;
-
-    const fetchOrCreateThread = async () => {
-      // Validate required parameters
-      if (!params.courseId) {
-        console.log("Missing courseId, cannot fetch/create thread");
-        return;
+    const checkEnrollment = async () => {
+      if (session?.user?.id && course?.id) {
+        try {
+          const result = await checkEnrollmentStatus(
+            course.id,
+            session.user.id,
+          );
+          setIsEnrolled(result.data);
+        } catch (err) {
+          console.error("Error checking enrollment:", err);
+        }
       }
+    };
 
-      if (!user) {
-        console.log("User not logged in, skipping thread fetch/create");
-        return;
-      }
+    checkEnrollment();
+  }, [session?.user?.id, course?.id]);
+
+  // Handle discussion thread
+  useEffect(() => {
+    const fetchThread = async () => {
+      if (!params.courseId || !user) return;
 
       try {
-        // Get thread by resource ID
         const thread = await getThreadByResourceId(
           params.courseId as string,
           DiscussionType.COURSE_REVIEW,
@@ -82,33 +101,14 @@ export default function CourseDetail() {
 
         if (thread) {
           setThreadId(thread.id);
-        } else {
-          console.log("No thread returned from getThreadByResourceId");
         }
       } catch (err) {
-        console.error("Error in discussion thread handling:", err);
-        // Don't set an error state here, as discussion is not critical for the page to function
+        console.error("Error fetching discussion thread:", err);
       }
     };
 
-    // Only run once when we have both course data and user
-    if (course && user && !threadId) {
-      fetchOrCreateThread();
-    }
-  }, [params.courseId, user, threadId]);
-
-  useEffect(() => {
-    const checkEnrollment = async () => {
-      if (session?.user?.id && course?.id) {
-        const result = await checkEnrollmentStatus(course.id, session.user.id);
-        if (result.success) {
-          setIsEnrolled(result.data);
-        }
-      }
-    };
-
-    checkEnrollment();
-  }, [session?.user?.id, course?.id]);
+    fetchThread();
+  }, [params.courseId, user]);
 
   const handleEnrollClick = async () => {
     if (!session?.user) {
@@ -119,35 +119,46 @@ export default function CourseDetail() {
 
     if (!course) return;
 
-    try {
-      // Kiểm tra khóa học free dựa vào promotionPrice hoặc price
-      const isFree = course.promotionPrice === 0 || course.price === 0;
+    // Handle free courses directly
+    if (course.promotionPrice === 0 || course.price === 0) {
+      try {
+        // Show loading toast
+        const loadingToast = toast.loading("Đang đăng ký khóa học...");
 
-      if (isFree) {
-        const enrollmentResult = await enrollCourse({
+        // Enroll in the free course
+        const result = await enrollCourse({
           courseId: course.id,
           userId: session.user.id,
-          userName: session.user.name || "",
+          userName: session.user.name,
           courseName: course.title,
           isFree: true,
         });
 
-        if (enrollmentResult.success) {
-          toast.success("Đăng ký khóa học miễn phí thành công!");
-          router.push("/dashboard");
+        // Dismiss loading toast
+        toast.dismiss(loadingToast);
+
+        if (result.success) {
+          toast.success("Bạn đã đăng ký khóa học thành công!");
+          // Refresh enrollment status
+          setIsEnrolled(true);
         } else {
-          throw new Error(enrollmentResult.message);
+          toast.error(result.message || "Có lỗi xảy ra khi đăng ký khóa học");
         }
-      } else {
-        // Chuyển đến trang enrollment để xử lý thanh toán
-        router.push(`/enrollment/${course.id}`);
+      } catch (error) {
+        toast.error("Có lỗi xảy ra khi đăng ký khóa học");
+        console.error("Error enrolling in free course:", error);
       }
-    } catch (error: any) {
-      console.error("Enrollment error:", error);
-      toast.error(
-        error.response?.data?.message || "Có lỗi xảy ra khi đăng ký khóa học.",
-      );
+    } else {
+      // Redirect to enrollment page for paid courses
+      router.push(`/enrollment/${course.id}?courseID=${course.id}`);
     }
+  };
+
+  const handleStartLearningClick = () => {
+    if (!course || !firstLessonId) return;
+
+    // Navigate to the first lesson
+    router.push(`/course/${course.id}/lesson/${firstLessonId}`);
   };
 
   if (isLoading) {
@@ -184,34 +195,36 @@ export default function CourseDetail() {
         </div>
 
         {/* Learning Outcomes */}
-        <div>
-          <h2 className="text-2xl font-semibold mb-4">Bạn sẽ học được gì?</h2>
-          <ul className="grid grid-cols-2 gap-4">
-            {course.learningOutcomes.map((outcome, index) => (
-              <li key={index} className="flex text-start gap-2 ">
-                <div className="text-orange-500">✓</div>
-                <span className="">{outcome}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
+        {course.learningOutcomes && course.learningOutcomes.length > 0 && (
+          <div>
+            <h2 className="text-2xl font-semibold mb-4">Bạn sẽ học được gì?</h2>
+            <ul className="grid grid-cols-2 gap-4">
+              {course.learningOutcomes.map((outcome, index) => (
+                <li key={index} className="flex text-start gap-2">
+                  <div className="text-orange-500">✓</div>
+                  <span>{outcome}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
+        {/* Course Content */}
         <div>
           <h2 className="text-2xl font-semibold mb-2">Nội dung khoá học</h2>
           <p className="text-gray-600 mb-4 text-xs">
             <span className="font-semibold">• Số chương: </span>
-            {course.chapters?.length || 0}{" "}
+            {course.chapters?.length || 0}
             <span className="font-semibold ml-4">• Số bài: </span>
-            {course.totalLessons}
+            {course.totalLessons || 0}
           </p>
+
           <div className="space-y-4">
             {course.chapters?.map((chapter) => (
               <Collapsible key={chapter.id}>
                 <CollapsibleTrigger className="flex items-center justify-between w-full p-4 bg-gray-50 hover:bg-gray-100 rounded-lg">
                   <div className="flex items-center gap-2">
-                    <div className="text-gray-500" data-state="closed">
-                      <Plus className="h-4 w-4 text-orange-500" />
-                    </div>
+                    <Plus className="h-4 w-4 text-orange-500" />
                     <h3 className="font-semibold text-gray-700">
                       {chapter.title}
                     </h3>
@@ -227,13 +240,20 @@ export default function CourseDetail() {
                         href={
                           isEnrolled || lesson.isFreePreview
                             ? `/course/${course.id}/lesson/${lesson.id}`
-                            : `#`
+                            : "#"
                         }
                         key={lesson.id}
-                        className={`flex items-center justify-between p-2 hover:bg-gray-50 rounded-lg ${isEnrolled || lesson.isFreePreview ? "cursor-pointer" : "cursor-not-allowed opacity-50"}`}
+                        className={`flex items-center justify-between p-2 hover:bg-gray-50 rounded-lg ${
+                          isEnrolled || lesson.isFreePreview
+                            ? "cursor-pointer"
+                            : "cursor-not-allowed opacity-50"
+                        }`}
                         onClick={(e) => {
                           if (!isEnrolled && !lesson.isFreePreview) {
                             e.preventDefault();
+                            toast.error(
+                              "Vui lòng đăng ký khóa học để xem bài học này",
+                            );
                           }
                         }}
                       >
@@ -256,19 +276,30 @@ export default function CourseDetail() {
         </div>
 
         {/* Requirements */}
-        <div>
-          <h2 className="text-2xl font-semibold mb-4">Yêu cầu</h2>
-          <ul className="space-y-2">
-            {course.requirements.map((requirement, index) => (
-              <li key={index} className="flex items-start gap-2">
-                <div className="">•</div>
-                <span>{requirement}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
+        {course.requirements && course.requirements.length > 0 && (
+          <div>
+            <h2 className="text-2xl font-semibold mb-4">Yêu cầu</h2>
+            <ul className="space-y-2">
+              {course.requirements.map((requirement, index) => (
+                <li key={index} className="flex items-start gap-2">
+                  <div>•</div>
+                  <span>{requirement}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Discussion Section */}
+        {threadId && (
+          <div className="mt-8">
+            <h2 className="text-2xl font-semibold mb-4">Thảo luận</h2>
+            <Discussion threadId={threadId} />
+          </div>
+        )}
       </div>
 
+      {/* Right Column - Course Card */}
       <div className="w-1/3">
         <div className="sticky top-8">
           <Card className="overflow-hidden">
@@ -281,13 +312,13 @@ export default function CourseDetail() {
               />
               {course.price > 0 && (
                 <div className="absolute top-2 right-2 rounded-lg px-1 py-1.5 bg-gray-500/35">
-                  <Crown size={18} color={"gold"} />
+                  <Crown size={18} color="gold" />
                 </div>
               )}
             </div>
             <CardContent className="p-6">
               <div className="space-y-4">
-                {/* Price */}
+                {/* Price Display */}
                 <div className="flex items-center gap-2">
                   {course.price === 0 ? (
                     <p className="text-red-600 text-2xl font-semibold">
@@ -296,64 +327,59 @@ export default function CourseDetail() {
                   ) : (
                     <div className="space-y-1">
                       <p
-                        className={`font-semibold text-2xl ${course.promotionPrice ? "text-red-600" : "text-red-600"}`}
+                        className={`font-semibold text-2xl ${
+                          course.promotionPrice
+                            ? "text-red-600"
+                            : "text-red-600"
+                        }`}
                       >
-                        {course.promotionPrice
-                          ? course.promotionPrice.toLocaleString()
-                          : course.price.toLocaleString()}{" "}
+                        {(
+                          course.promotionPrice || course.price
+                        ).toLocaleString()}{" "}
                         {course.currency}
                       </p>
-                      {course.promotionPrice && (
-                        <p className="text-gray-500 line-through">
-                          {course.price.toLocaleString()} {course.currency}
-                        </p>
-                      )}
+                      {course.promotionPrice &&
+                        course.promotionPrice < course.price && (
+                          <p className="text-gray-500 line-through">
+                            {course.price.toLocaleString()} {course.currency}
+                          </p>
+                        )}
                     </div>
                   )}
                 </div>
 
-                {/* Course Info */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <Users size={18} />
-                    <span>
-                      Level:{" "}
-                      <span className="font-semibold">{course.level}</span>{" "}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <Book size={18} />
-                    <span>{course.totalLessons} bài học</span>
-                  </div>
-                </div>
-
-                {/* Target Audience */}
-                {course.targetAudience && (
-                  <div className="text-gray-600">
-                    <h3 className="font-semibold mb-1">Đối tượng học viên:</h3>
-                    <p>{course.targetAudience}</p>
-                  </div>
+                {/* Enroll/Start Learning Button */}
+                {!isEnrolled ? (
+                  <Button
+                    className="w-full"
+                    size="lg"
+                    onClick={handleEnrollClick}
+                  >
+                    {course.price === 0 ? "Đăng ký ngay" : "Mua khóa học"}
+                  </Button>
+                ) : (
+                  <Button
+                    className="w-full"
+                    size="lg"
+                    onClick={handleStartLearningClick}
+                  >
+                    Bắt đầu học
+                  </Button>
                 )}
 
-                {/* Enroll Button */}
-                <Button
-                  className="w-full"
-                  size="lg"
-                  onClick={handleEnrollClick}
-                  disabled={isEnrolled}
-                >
-                  <p className="text-md font-semibold">
-                    {isEnrolled ? "Đã đăng ký" : "Đăng ký"}
-                  </p>
-                </Button>
+                {/* Course Stats */}
+                <div className="pt-4 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Book className="h-4 w-4 text-gray-500" />
+                    <span>{course.totalLessons || 0} bài học</span>
+                  </div>
+                  {/* Add more stats as needed */}
+                </div>
               </div>
             </CardContent>
           </Card>
         </div>
       </div>
-
-      {/* Discussion Component - Always render it */}
-      <Discussion threadId={threadId || ""} />
     </div>
   );
 }
