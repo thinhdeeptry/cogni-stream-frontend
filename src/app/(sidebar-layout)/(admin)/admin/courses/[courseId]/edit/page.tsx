@@ -13,7 +13,10 @@ import {
   getAllCategories,
   getCourseById,
   updateCourse,
+  uploadImage,
 } from "@/actions/courseAction";
+
+import useUserStore from "@/stores/useUserStore";
 
 // import useUserStore from "@/stores/useUserStore";
 
@@ -44,6 +47,7 @@ export default function EditCoursePage({
   const [isLoadingCategories, setIsLoadingCategories] = useState(true);
   const [courseData, setCourseData] = useState<Course | null>(null);
 
+  const { user } = useUserStore();
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -96,12 +100,43 @@ export default function EditCoursePage({
     setCourseData((prev) => (prev ? { ...prev, [name]: checked } : null));
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // setImageFile(file); // Uncomment if you need to use the file later
-      const imageUrl = URL.createObjectURL(file);
-      setSelectedImage(imageUrl);
+      try {
+        // Hiển thị preview ngay lập tức
+        const imageUrl = URL.createObjectURL(file);
+        setSelectedImage(imageUrl);
+
+        // Upload file lên server
+        const response = await uploadImage(
+          file,
+          "courses",
+          `course-thumbnails/${user?.id}`,
+        );
+
+        if (response.success) {
+          // Cập nhật URL thật từ server
+          setSelectedImage(response.url);
+          toast({
+            title: "Thành công",
+            description: "Đã tải lên hình ảnh",
+          });
+        } else {
+          toast({
+            title: "Lỗi",
+            description: response.message,
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        console.error("Error uploading image:", error);
+        toast({
+          title: "Lỗi",
+          description: "Không thể tải lên hình ảnh",
+          variant: "destructive",
+        });
+      }
     }
   };
 

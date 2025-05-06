@@ -17,11 +17,13 @@ import {
   Menu,
   Plus,
 } from "lucide-react";
+import { useSession } from "next-auth/react";
 import ReactPlayer from "react-player";
 import { JSX } from "react/jsx-runtime";
 
 import { getCourseById, getLessonById } from "@/actions/courseAction";
 import { getThreadByResourceId } from "@/actions/discussion.action";
+import { checkEnrollmentStatus } from "@/actions/enrollmentActions";
 
 import useUserStore from "@/stores/useUserStore";
 
@@ -323,11 +325,28 @@ export default function LessonDetail() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [isEnrolled] = useState(false);
+  const [isEnrolled, setIsEnrolled] = useState(false);
   const [threadId, setThreadId] = useState<string | null>(null);
   const { user } = useUserStore();
   const params = useParams();
+  const { data: session } = useSession();
+  useEffect(() => {
+    const checkEnrollment = async () => {
+      if (session?.user?.id && course?.id) {
+        try {
+          const result = await checkEnrollmentStatus(
+            course.id,
+            session.user.id,
+          );
+          setIsEnrolled(result.data);
+        } catch (err) {
+          console.error("Error checking enrollment:", err);
+        }
+      }
+    };
 
+    checkEnrollment();
+  }, [course?.id, session?.user?.id]);
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -398,17 +417,46 @@ export default function LessonDetail() {
     );
   }
 
+  // Hàm kiểm tra quyền truy cập bài học
+  const canAccessLesson = (lesson: any) => {
+    return lesson.isFreePreview || isEnrolled;
+  };
+
+  // Tìm bài học trước/sau có thể truy cập
+  const findAccessibleLesson = (
+    lessons: any[],
+    currentIndex: number,
+    direction: "prev" | "next",
+  ) => {
+    const step = direction === "prev" ? -1 : 1;
+    let index = currentIndex + step;
+
+    while (index >= 0 && index < lessons.length) {
+      if (canAccessLesson(lessons[index])) {
+        return lessons[index];
+      }
+      index += step;
+    }
+    return null;
+  };
+
   const allLessons =
     course.chapters?.flatMap((chapter) => chapter.lessons) || [];
   const currentLessonIndex = allLessons.findIndex(
     (lessonItem) => lessonItem?.id === params.lessonId,
   );
-  const previousLesson =
-    currentLessonIndex > 0 ? allLessons[currentLessonIndex - 1] : null;
-  const nextLesson =
-    currentLessonIndex < allLessons.length - 1
-      ? allLessons[currentLessonIndex + 1]
-      : null;
+
+  // Cập nhật logic tìm bài học trước/sau
+  const previousLesson = findAccessibleLesson(
+    allLessons,
+    currentLessonIndex,
+    "prev",
+  );
+  const nextLesson = findAccessibleLesson(
+    allLessons,
+    currentLessonIndex,
+    "next",
+  );
 
   // Parse lesson content for BLOG or MIXED types
   let contentBlocks: Block[] = [];
@@ -562,7 +610,7 @@ export default function LessonDetail() {
                     {chapter.lessons?.map((lesson) => (
                       <Link
                         href={
-                          lesson.isFreePreview || isEnrolled
+                          canAccessLesson(lesson)
                             ? `/course/${course.id}/lesson/${lesson.id}`
                             : "#"
                         }
@@ -571,9 +619,9 @@ export default function LessonDetail() {
                           lesson.id === params.lessonId
                             ? "bg-orange-100"
                             : "hover:bg-gray-200"
-                        } ${!lesson.isFreePreview && !isEnrolled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                        } ${!canAccessLesson(lesson) ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
                         onClick={(e) => {
-                          if (!lesson.isFreePreview && !isEnrolled) {
+                          if (!canAccessLesson(lesson)) {
                             e.preventDefault();
                           }
                         }}

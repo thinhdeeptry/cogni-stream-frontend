@@ -8,7 +8,11 @@ import { useToast } from "@/hooks/use-toast";
 import { Category, CourseLevel } from "@/types/course/types";
 import { ChevronLeft, Plus, Trash, Upload } from "lucide-react";
 
-import { createCourse, getAllCategories } from "@/actions/courseAction";
+import {
+  createCourse,
+  getAllCategories,
+  uploadImage,
+} from "@/actions/courseAction";
 
 import useUserStore from "@/stores/useUserStore";
 
@@ -108,12 +112,43 @@ export default function CreateCoursePage() {
     setCourseData((prev) => ({ ...prev, [name]: checked }));
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // setImageFile(file); // Uncomment if you need to use the file later
-      const imageUrl = URL.createObjectURL(file);
-      setSelectedImage(imageUrl);
+      try {
+        // Hiển thị preview ngay lập tức
+        const imageUrl = URL.createObjectURL(file);
+        setSelectedImage(imageUrl);
+
+        // Upload file lên server
+        const result = await uploadImage(
+          file,
+          "courses",
+          `course-thumbnails/${user?.id}`,
+        );
+
+        if (result.success) {
+          // Cập nhật URL thật từ server
+          setSelectedImage(result.url);
+          toast({
+            title: "Thành công",
+            description: "Đã tải lên hình ảnh",
+          });
+        } else {
+          toast({
+            title: "Lỗi",
+            description: result.message,
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        console.error("Error uploading image:", error);
+        toast({
+          title: "Lỗi",
+          description: "Không thể tải lên hình ảnh",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -174,31 +209,25 @@ export default function CreateCoursePage() {
     }
 
     setIsSubmitting(true);
-    console.log("+Data test: ", courseData);
+
     try {
-      // Create a new object with the validated data
-      // Get price and ensure it's a number
+      // Các xử lý giá cả như cũ
       const price =
         typeof courseData.price === "number"
           ? courseData.price
           : parseFloat(String(courseData.price || 0));
-      // Round to 2 decimal places
       const roundedPrice = Math.round(price * 100) / 100;
 
-      // Get promotionPrice and ensure it's a number
       let promotionPrice =
         typeof courseData.promotionPrice === "number"
           ? courseData.promotionPrice
           : parseFloat(String(courseData.promotionPrice || 0));
-      // Round to 2 decimal places
       let roundedPromotionPrice = Math.round(promotionPrice * 100) / 100;
 
-      // Ensure promotionPrice is not greater than price
       if (roundedPromotionPrice > roundedPrice) {
         roundedPromotionPrice = roundedPrice;
       }
 
-      // If price is 0, promotionPrice should also be 0
       if (roundedPrice === 0) {
         roundedPromotionPrice = 0;
       }
@@ -208,10 +237,13 @@ export default function CreateCoursePage() {
         price: roundedPrice,
         promotionPrice: roundedPromotionPrice,
         ownerId: user?.id || "",
-        thumbnailUrl: selectedImage || undefined,
+        thumbnailUrl: selectedImage, // Sử dụng URL hình ảnh đã upload
       };
 
-      const result = await createCourse(courseDataToSubmit);
+      const result = await createCourse({
+        ...courseDataToSubmit,
+        thumbnailUrl: courseDataToSubmit.thumbnailUrl || undefined,
+      });
 
       if (result.success) {
         toast({
@@ -514,14 +546,26 @@ export default function CreateCoursePage() {
                       alt="Course thumbnail"
                       className="object-cover rounded-lg w-full h-full"
                     />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="absolute top-2 right-2"
+                      onClick={() => setSelectedImage(null)}
+                    >
+                      <Trash className="h-4 w-4" />
+                    </Button>
                   </div>
                 ) : (
-                  <div className="aspect-video flex items-center justify-center border-2 border-dashed rounded-lg">
+                  <label
+                    htmlFor="thumbnail"
+                    className="aspect-video flex items-center justify-center border-2 border-dashed rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
+                  >
                     <div className="text-center">
                       <Upload className="h-8 w-8 mx-auto mb-2 text-gray-400" />
                       <p className="text-sm text-gray-600">Tải ảnh lên</p>
                     </div>
-                  </div>
+                  </label>
                 )}
                 <input
                   type="file"
@@ -530,14 +574,6 @@ export default function CreateCoursePage() {
                   className="hidden"
                   id="thumbnail"
                 />
-                <Label
-                  htmlFor="thumbnail"
-                  className="block w-full text-center mt-4"
-                >
-                  <Button variant="outline" type="button">
-                    Chọn ảnh
-                  </Button>
-                </Label>
               </div>
             </div>
           </div>
