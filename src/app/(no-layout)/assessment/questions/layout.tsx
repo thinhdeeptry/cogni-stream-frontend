@@ -3,7 +3,9 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import axios from "axios";
+import { getUserCourseStructureWithDetails } from "@/actions/courseAction";
+
+import useUserStore from "@/stores/useUserStore";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tree } from "@/components/ui/tree";
@@ -64,22 +66,34 @@ export default function QuestionLayout({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Lấy thông tin user từ store
+  const user = useUserStore((state) => state.user);
+
   useEffect(() => {
     const fetchCourses = async () => {
       try {
         setIsLoading(true);
         setError(null);
 
-        const response = await axios.get(
-          "http://localhost:3002/courses/user/user1/structure",
-        );
+        if (!user?.id) {
+          setError("Bạn cần đăng nhập để xem danh sách khóa học");
+          setCourses([]);
+          return;
+        }
 
-        if (response.data && response.data.value) {
-          setCourses(response.data.value);
-        } else if (Array.isArray(response.data)) {
-          setCourses(response.data);
+        const result = await getUserCourseStructureWithDetails(user.id);
+
+        if (result.success && result.data) {
+          if (result.data.value) {
+            setCourses(result.data.value);
+          } else if (Array.isArray(result.data)) {
+            setCourses(result.data);
+          } else {
+            setError("Cấu trúc dữ liệu API không đúng định dạng");
+            setCourses([]);
+          }
         } else {
-          setError("Cấu trúc dữ liệu API không đúng định dạng");
+          setError(result.message || "Không thể lấy dữ liệu khóa học");
           setCourses([]);
         }
       } catch (error) {
@@ -94,7 +108,7 @@ export default function QuestionLayout({
     };
 
     fetchCourses();
-  }, []);
+  }, [user?.id]);
 
   const handleSelect = (id: string) => {
     const params = new URLSearchParams(searchParams.toString());

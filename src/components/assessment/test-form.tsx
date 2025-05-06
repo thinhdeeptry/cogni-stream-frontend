@@ -3,9 +3,12 @@
 import { useEffect, useState } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import axios from "axios";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
+
+import { getUserCourseStructureWithDetails } from "@/actions/courseAction";
+
+import useUserStore from "@/stores/useUserStore";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -104,21 +107,34 @@ export function TestForm({ onSubmit }: TestFormProps) {
     },
   });
 
+  // Lấy thông tin user từ store
+  const user = useUserStore((state) => state.user);
+
   useEffect(() => {
     const fetchCourses = async () => {
       try {
         setIsLoading(true);
-        const response = await axios.get(
-          "http://localhost:3002/courses/user/25e1d787-4ce1-4109-b8eb-a90fe40d942c/structure",
-        );
+
+        if (!user?.id) {
+          console.error("User not logged in");
+          setCourses([]);
+          return;
+        }
+
+        const result = await getUserCourseStructureWithDetails(user.id);
 
         // Xử lý dữ liệu trả về tùy thuộc vào cấu trúc
-        if (response.data && response.data.value) {
-          setCourses(response.data.value);
-        } else if (Array.isArray(response.data)) {
-          setCourses(response.data);
+        if (result.success && result.data) {
+          if (result.data.value) {
+            setCourses(result.data.value);
+          } else if (Array.isArray(result.data)) {
+            setCourses(result.data);
+          } else {
+            console.error("Unexpected API response structure:", result.data);
+            setCourses([]);
+          }
         } else {
-          console.error("Unexpected API response structure:", response.data);
+          console.error("Error fetching courses:", result.message);
           setCourses([]);
         }
       } catch (error) {
@@ -130,7 +146,7 @@ export function TestForm({ onSubmit }: TestFormProps) {
     };
 
     fetchCourses();
-  }, []);
+  }, [user?.id]);
 
   const selectedCourse = courses.find((c) => c.id === selectedCourseId);
   const selectedChapter = selectedCourse?.chapters.find(
@@ -157,7 +173,7 @@ export function TestForm({ onSubmit }: TestFormProps) {
       ...data,
       testStart: startTime.toISOString(),
       testEnd: endTime.toISOString(),
-      testCreator: "lê hoàng khang",
+      testCreator: user?.id || "unknown",
     };
 
     onSubmit(formattedData);

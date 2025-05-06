@@ -26,7 +26,7 @@ const paths: Record<ServiceName, string> = {
   courses: "",
   enrollment: "enrollment",
   payment: "payment",
-  assessment: "assessment",
+  assessment: "",
   notification: "notification",
   report: "report",
   discussion: "discussion",

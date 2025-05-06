@@ -4,8 +4,14 @@ import { useRouter } from "next/navigation";
 import { use, useEffect, useState } from "react";
 
 import { Question } from "@/types/assessment/types";
-import axios from "axios";
 import { toast } from "sonner";
+
+import { getQuestionsById } from "@/actions/assessmentAction";
+import {
+  getTestAttemptById,
+  saveTestAnswer,
+  submitTestAttempt,
+} from "@/actions/testAction";
 
 import { QuestionGrid } from "@/components/assessment/question-grid";
 import { QuestionView } from "@/components/assessment/question-view";
@@ -71,10 +77,16 @@ function AttemptPageClient({ id }: { id: string }) {
     const fetchAttempt = async () => {
       try {
         setIsLoading(true);
-        const response = await axios.get(
-          `http://localhost:3005/api/v1/test-attempts/${id}`,
-        );
-        const attemptData = response.data;
+
+        // Get attempt data
+        const attemptResult = await getTestAttemptById(id);
+        if (!attemptResult.success) {
+          throw new Error(
+            attemptResult.message || "Không thể lấy thông tin bài làm",
+          );
+        }
+
+        const attemptData = attemptResult.data;
         setAttempt(attemptData);
 
         // Create a map of existing answers
@@ -85,21 +97,30 @@ function AttemptPageClient({ id }: { id: string }) {
           ]),
         );
 
-        // Fetch questions and combine with existing answers
-        const questionsData = await Promise.all(
-          attemptData.questionOrder.map(async (questionId: string) => {
-            const questionResponse = await axios.get(
-              `http://localhost:3005/api/v1/questions/${questionId}`,
-            );
+        // Fetch all questions in one call
+        const questionsResult = await getQuestionsById(
+          attemptData.questionOrder,
+        );
+        if (!questionsResult.success) {
+          throw new Error(
+            questionsResult.message || "Không thể lấy danh sách câu hỏi",
+          );
+        }
 
+        // Combine questions with existing answers
+        const questionsData = attemptData.questionOrder
+          .map((questionId: string, index: number) => {
             return {
               id: questionId,
-              question: questionResponse.data,
+              question: questionsResult.data
+                ? questionsResult.data[index]
+                : null,
               answer: answersMap.get(questionId) || null,
               isAnswered: answersMap.has(questionId),
             };
-          }),
-        );
+          })
+          .filter((item: TestQuestion) => item.question !== null); // Filter out any null questions
+
         setQuestions(questionsData);
       } catch (error) {
         console.error("Error fetching attempt:", error);
@@ -114,13 +135,14 @@ function AttemptPageClient({ id }: { id: string }) {
 
   const handleAnswer = async (questionId: string, answer: any) => {
     try {
-      await axios.post(
-        `http://localhost:3005/api/v1/test-attempts/${id}/answers`,
-        {
-          questionId,
-          answerData: answer,
-        },
-      );
+      const result = await saveTestAnswer(id, {
+        questionId,
+        answerData: answer,
+      });
+
+      if (!result.success) {
+        throw new Error(result.message || "Không thể lưu câu trả lời");
+      }
 
       setQuestions((prev) =>
         prev.map((q) =>
@@ -137,9 +159,12 @@ function AttemptPageClient({ id }: { id: string }) {
 
   const handleSubmit = async () => {
     try {
-      const response = await axios.post(
-        `http://localhost:3005/api/v1/test-attempts/${id}/submit`,
-      );
+      const result = await submitTestAttempt(id);
+
+      if (!result.success) {
+        throw new Error(result.message || "Không thể nộp bài");
+      }
+
       toast.success("Đã nộp bài thành công");
       // Chuyển hướng đến trang kết quả
       router.push(`/assessment/results/${id}`);
@@ -186,7 +211,7 @@ function AttemptPageClient({ id }: { id: string }) {
         </div>
         <div className="flex-1 overflow-y-auto">
           <div className="space-y-4 p-4">
-            {currentQuestions.map((question, index) => (
+            {currentQuestions.map((question) => (
               <div key={question.id} className="border rounded-lg">
                 <QuestionView
                   question={question.question}

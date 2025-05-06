@@ -4,9 +4,17 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import axios from "axios";
 import { Calendar, Clock, Eye, Play, Plus } from "lucide-react";
 import { toast } from "sonner";
+
+import { getUserCourseStructureWithDetails } from "@/actions/courseAction";
+import {
+  createTestAttempt,
+  getTestAttempts,
+  getTests,
+} from "@/actions/testAction";
+
+import useUserStore from "@/stores/useUserStore";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -131,21 +139,34 @@ export default function TestsPage() {
   const [isLoadingCourses, setIsLoadingCourses] = useState(true);
   const [activeTab, setActiveTab] = useState("available");
 
+  // Lấy thông tin user từ store
+  const user = useUserStore((state) => state.user);
+
   useEffect(() => {
     const fetchCourses = async () => {
       try {
         setIsLoadingCourses(true);
-        const response = await axios.get(
-          "http://localhost:3002/courses/user/25e1d787-4ce1-4109-b8eb-a90fe40d942c/structure",
-        );
+
+        if (!user?.id) {
+          toast.error("Bạn cần đăng nhập để xem danh sách khóa học");
+          setCourses([]);
+          return;
+        }
+
+        const result = await getUserCourseStructureWithDetails(user.id);
 
         // Xử lý dữ liệu trả về tùy thuộc vào cấu trúc
-        if (response.data && response.data.value) {
-          setCourses(response.data.value);
-        } else if (Array.isArray(response.data)) {
-          setCourses(response.data);
+        if (result.success && result.data) {
+          if (result.data.value) {
+            setCourses(result.data.value);
+          } else if (Array.isArray(result.data)) {
+            setCourses(result.data);
+          } else {
+            console.error("Unexpected API response structure:", result.data);
+            setCourses([]);
+          }
         } else {
-          console.error("Unexpected API response structure:", response.data);
+          console.error("Error fetching courses:", result.message);
           setCourses([]);
         }
       } catch (error) {
@@ -157,7 +178,7 @@ export default function TestsPage() {
     };
 
     fetchCourses();
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => {
     const fetchTests = async () => {
@@ -209,24 +230,29 @@ export default function TestsPage() {
           }
         }
 
-        const response = await axios.get("http://localhost:3005/api/v1/tests", {
-          params,
-        });
+        const result = await getTests(params);
 
-        setTests(response.data);
+        if (result.success && result.data) {
+          setTests(result.data);
+        } else {
+          throw new Error(
+            result.message || "Không thể lấy danh sách bài kiểm tra",
+          );
+        }
 
         // Fetch attempts for the current user
-        const attemptsResponse = await axios.get(
-          "http://localhost:3005/api/v1/test-attempts",
-          {
-            params: {
-              testTakerId: "current-user-id", // Replace with actual user ID
-              isSubmitted: true,
-            },
-          },
-        );
+        if (user?.id) {
+          const attemptsResult = await getTestAttempts({
+            testTakerId: user.id,
+            isSubmitted: true,
+          });
 
-        setAttempts(attemptsResponse.data.attempts);
+          if (attemptsResult.success && attemptsResult.data) {
+            setAttempts(attemptsResult.data.attempts);
+          } else {
+            console.error("Error fetching attempts:", attemptsResult.message);
+          }
+        }
       } catch (error) {
         console.error("Error fetching tests:", error);
         toast.error("Có lỗi xảy ra khi tải danh sách bài kiểm tra");
@@ -236,19 +262,25 @@ export default function TestsPage() {
     };
 
     fetchTests();
-  }, [selectedId, courses]);
+  }, [selectedId, courses, user?.id]);
 
   const startTest = async (testId: string) => {
     try {
-      const response = await axios.post(
-        "http://localhost:3005/api/v1/test-attempts",
-        {
-          testId,
-          testTakerId: "current-user-id", // Replace with actual user ID
-        },
-      );
+      if (!user?.id) {
+        toast.error("Bạn cần đăng nhập để làm bài kiểm tra");
+        return;
+      }
 
-      router.push(`/assessment/attemps/${response.data.id}`);
+      const result = await createTestAttempt({
+        testId,
+        testTakerId: user.id,
+      });
+
+      if (result.success && result.data) {
+        router.push(`/assessment/attemps/${result.data.id}`);
+      } else {
+        throw new Error(result.message || "Không thể bắt đầu bài kiểm tra");
+      }
     } catch (error) {
       console.error("Error starting test:", error);
       toast.error("Có lỗi xảy ra khi bắt đầu bài kiểm tra");

@@ -4,9 +4,10 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { Question } from "@/types/assessment/types";
-import axios from "axios";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
+
+import { getQuestionById, updateQuestion } from "@/actions/assessmentAction";
 
 import { QuestionForm } from "@/components/assessment/question-form";
 import { Button } from "@/components/ui/button";
@@ -21,10 +22,13 @@ export default function EditQuestionPage() {
   useEffect(() => {
     const fetchQuestion = async () => {
       try {
-        const response = await axios.get<Question>(
-          `http://localhost:3005/api/v1/questions/${params.id}`,
-        );
-        setQuestion(response.data);
+        const result = await getQuestionById(params.id as string);
+
+        if (result.success && result.data) {
+          setQuestion(result.data);
+        } else {
+          throw new Error(result.message || "Không thể lấy thông tin câu hỏi");
+        }
       } catch (error) {
         console.error("Error fetching question:", error);
         toast.error("Có lỗi xảy ra khi tải thông tin câu hỏi");
@@ -38,35 +42,38 @@ export default function EditQuestionPage() {
   }, [params.id, router]);
 
   // Hàm xử lý submit form
-  const handleSubmit = async (data: Question) => {
+  const handleSubmit = async (formData: any) => {
     try {
+      // Chuyển đổi dữ liệu từ form về định dạng API cần
       const requestData = {
-        ...data,
+        ...formData,
         content: {
-          text: data.content.text,
+          text: formData.content.text,
         },
-        options: data.options?.map((option) => ({
+        options: formData.options?.map((option: any) => ({
           ...option,
           content: {
             text: option.content.text,
           },
         })),
-        referenceAnswer: data.referenceAnswer
+        referenceAnswer: formData.referenceAnswer
           ? {
-              ...data.referenceAnswer,
+              ...formData.referenceAnswer,
               content: {
-                text: data.referenceAnswer.content.text,
+                text: formData.referenceAnswer.content.text,
               },
             }
           : undefined,
       };
 
-      await axios.patch(
-        `http://localhost:3005/api/v1/questions/${params.id}`,
-        requestData,
-      );
-      toast.success("Cập nhật câu hỏi thành công");
-      router.push("/assessment/questions");
+      const result = await updateQuestion(params.id as string, requestData);
+
+      if (result.success) {
+        toast.success("Cập nhật câu hỏi thành công");
+        router.push("/assessment/questions");
+      } else {
+        throw new Error(result.message || "Không thể cập nhật câu hỏi");
+      }
     } catch (error) {
       console.error("Error updating question:", error);
       toast.error("Có lỗi xảy ra khi cập nhật câu hỏi");

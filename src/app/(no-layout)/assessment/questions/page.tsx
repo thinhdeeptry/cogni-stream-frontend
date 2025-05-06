@@ -4,9 +4,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { Question, QuestionType } from "@/types/assessment/types";
-import axios from "axios";
 import { BookOpen, Pencil, Plus } from "lucide-react";
 import { toast } from "sonner";
+
+import { getQuestions } from "@/actions/assessmentAction";
+import { getUserCourseStructureWithDetails } from "@/actions/courseAction";
+
+import useUserStore from "@/stores/useUserStore";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -69,20 +73,30 @@ export default function QuestionsPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Lấy thông tin user từ store
+  const user = useUserStore((state) => state.user);
+
   // Lấy danh sách khóa học
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-        const response = await axios.get(
-          "http://localhost:3002/courses/user/25e1d787-4ce1-4109-b8eb-a90fe40d942c/structure",
-        );
+        if (!user?.id) {
+          setError("Bạn cần đăng nhập để xem danh sách khóa học");
+          return;
+        }
 
-        if (response.data && response.data.value) {
-          setCourses(response.data.value);
-        } else if (Array.isArray(response.data)) {
-          setCourses(response.data);
+        const result = await getUserCourseStructureWithDetails(user.id);
+
+        if (result.success && result.data) {
+          if (result.data.value) {
+            setCourses(result.data.value);
+          } else if (Array.isArray(result.data)) {
+            setCourses(result.data);
+          } else {
+            setError("Cấu trúc dữ liệu API không đúng định dạng");
+          }
         } else {
-          setError("Cấu trúc dữ liệu API không đúng định dạng");
+          setError(result.message || "Không thể lấy dữ liệu khóa học");
         }
       } catch (error) {
         console.error("Error fetching courses:", error);
@@ -93,7 +107,7 @@ export default function QuestionsPage() {
     };
 
     fetchCourses();
-  }, []);
+  }, [user?.id]);
 
   // Lấy danh sách câu hỏi
   useEffect(() => {
@@ -149,13 +163,14 @@ export default function QuestionsPage() {
         console.log(`Selected ${idType} ID: ${selectedId}`);
         console.log("Sending API request with params:", params);
 
-        const response = await axios.get(
-          "http://localhost:3005/api/v1/questions",
-          { params },
-        );
+        const result = await getQuestions(params);
 
-        console.log("API response data:", response.data);
-        setQuestions(response.data);
+        if (result.success && result.data) {
+          console.log("API response data:", result.data);
+          setQuestions(result.data);
+        } else {
+          throw new Error(result.message || "Không thể lấy danh sách câu hỏi");
+        }
       } catch (error) {
         console.error("Error fetching questions:", error);
         setError(

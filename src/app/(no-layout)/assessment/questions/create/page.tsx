@@ -2,10 +2,10 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 
-import { Question } from "@/types/assessment/types";
-import axios from "axios";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
+
+import { createQuestion } from "@/actions/assessmentAction";
 
 import { QuestionForm } from "@/components/assessment/question-form";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,7 @@ export default function CreateQuestionPage() {
   const chapterId = searchParams.get("chapterId");
   const lessonId = searchParams.get("lessonId");
 
-  const handleSubmit = async (data: Question) => {
+  const handleSubmit = async (data: any) => {
     try {
       // Bỏ qua các trường media khi gửi request
       const requestData = {
@@ -27,7 +27,7 @@ export default function CreateQuestionPage() {
         content: {
           text: data.content.text,
         },
-        options: data.options?.map((option) => ({
+        options: data.options?.map((option: any) => ({
           ...option,
           content: {
             text: option.content.text,
@@ -43,9 +43,14 @@ export default function CreateQuestionPage() {
           : undefined,
       };
 
-      await axios.post("http://localhost:3005/api/v1/questions", requestData);
-      toast.success("Thêm câu hỏi thành công");
-      router.push("/assessment/questions");
+      const result = await createQuestion(requestData);
+
+      if (result.success) {
+        toast.success("Thêm câu hỏi thành công");
+        router.push("/assessment/questions");
+      } else {
+        throw new Error(result.message || "Không thể tạo câu hỏi");
+      }
     } catch (error) {
       console.error("Error adding question:", error);
       toast.error("Có lỗi xảy ra khi thêm câu hỏi");

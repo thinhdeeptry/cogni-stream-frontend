@@ -335,6 +335,24 @@ export const deleteChapter = async (chapterId: string) => {
   }
 };
 
+export const getUserCourseStructureWithDetails = async (userId: string) => {
+  try {
+    const { data } = await courseApi.get(`/courses/user/${userId}/structure`);
+    return {
+      success: true,
+      data: data,
+      message: "Lấy cấu trúc khóa học thành công",
+    };
+  } catch (error) {
+    console.error("Error fetching course structure:", error);
+    return {
+      success: false,
+      message: "Đã xảy ra lỗi khi lấy cấu trúc khóa học",
+      error,
+    };
+  }
+};
+
 export const createLesson = async (
   courseId: string,
   chapterId: string,

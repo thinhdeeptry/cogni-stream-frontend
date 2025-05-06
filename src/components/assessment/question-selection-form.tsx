@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 
 import { Question } from "@/types/assessment/types";
-import axios from "axios";
 import { toast } from "sonner";
+
+import { getQuestions } from "@/actions/assessmentAction";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -59,13 +60,14 @@ export function QuestionSelectionForm({
           params = { ...params, lessonId };
         }
 
-        const response = await axios.get(
-          "http://localhost:3005/api/v1/questions",
-          { params },
-        );
+        const result = await getQuestions(params);
+
+        if (!result.success) {
+          throw new Error(result.message || "Không thể lấy danh sách câu hỏi");
+        }
 
         setQuestions(
-          response.data.map((q: Question) => ({
+          result.data.map((q: Question) => ({
             ...q,
             selected: false,
             maxScore: 25,
