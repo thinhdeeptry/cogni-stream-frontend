@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
+import { usePopupChatbot } from "@/hooks/usePopupChatbot";
 import { AxiosFactory } from "@/lib/axios";
 import { Course, LessonType } from "@/types/course/types";
 import {
@@ -30,6 +31,8 @@ import { checkEnrollmentStatus } from "@/actions/enrollmentActions";
 
 import { useProgressStore } from "@/stores/useProgressStore";
 import useUserStore from "@/stores/useUserStore";
+
+import { extractPlainTextFromBlockNote } from "@/utils/blocknote";
 
 import Discussion from "@/components/discussion";
 import { DiscussionType } from "@/components/discussion/type";
@@ -335,6 +338,14 @@ const renderBlockToHtml = (block: Block): JSX.Element => {
   }
 };
 
+// Interface for transcript items with timestamps
+interface TranscriptItem {
+  text: string;
+  timestamp: string;
+  offset: number;
+  duration: number;
+}
+
 export default function LessonDetail() {
   const [course, setCourse] = useState<Course | null>(null);
   const [lesson, setLesson] = useState<any>(null);
@@ -342,6 +353,9 @@ export default function LessonDetail() {
   const [error, setError] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isEnrolled, setIsEnrolled] = useState(false);
+  const [timestampedTranscript, setTimestampedTranscript] = useState<
+    TranscriptItem[]
+  >([]);
   const [threadId, setThreadId] = useState<string | null>(null);
   const [enrollmentId, setEnrollmentId] = useState<string | null>(null);
   const { user } = useUserStore();
@@ -403,6 +417,87 @@ export default function LessonDetail() {
     checkEnrollment();
   }, [course?.id, session?.user?.id]);
 
+  // Memoize the reference text to prevent unnecessary re-renders
+  const referenceText = useMemo(() => {
+    // Format timestamped transcript for reference
+    let transcriptSection = "No video transcript available";
+
+    if (timestampedTranscript.length > 0) {
+      // Check if we have valid timestamps (not all 0:00)
+      const hasValidTimestamps = timestampedTranscript.some(
+        (item) => item.timestamp !== "0:00",
+      );
+
+      if (hasValidTimestamps) {
+        transcriptSection = timestampedTranscript
+          .map((item) => `[${item.timestamp}] ${item.text}`)
+          .join("\n");
+      } else {
+        // If all timestamps are 0:00, log an error and use a simpler format
+        console.error(
+          "All transcript timestamps are 0:00. Check the YouTube transcript API response.",
+        );
+        transcriptSection = timestampedTranscript
+          .map((item, index) => `[Part ${index + 1}] ${item.text}`)
+          .join("\n");
+      }
+    }
+
+    // Extract plain text from lesson content if it exists
+    const plainContent = lesson?.content
+      ? extractPlainTextFromBlockNote(lesson.content)
+      : "No content available";
+
+    return `
+    Course Title: ${course?.title} \n
+    Lesson Title: ${lesson?.title} \n
+    Lesson Content: ${plainContent} \n
+    Lesson Type: ${lesson?.type} \n
+    Lesson Video Transcript with Timestamps: \n${transcriptSection} \n
+    `;
+  }, [
+    course?.title,
+    lesson?.title,
+    lesson?.content,
+    lesson?.type,
+    timestampedTranscript,
+  ]);
+
+  console.log(referenceText);
+  // Use the memoized chatbot component
+  const LessonChatbot = usePopupChatbot({
+    initialOpen: false,
+    position: "bottom-right",
+    referenceText,
+    title: "Trợ lý học tập Eduforge AI",
+    welcomeMessage:
+      "Xin chào! Tôi là trợ lý học tập Eduforge AI. Bạn có thể hỏi tôi bất cứ điều gì liên quan đến bài học này.",
+    showBalloon: false,
+    systemPrompt: `Bạn là trợ lý AI học tập cá nhân của Eduforge, được tối ưu hóa để hỗ trợ quá trình học tập. Hãy tuân thủ các nguyên tắc sau:
+
+1. NỘI DUNG VÀ GIỌNG ĐIỆU
+- Trả lời ngắn gọn, đảm bảo thông tin chính xác và có tính giáo dục cao
+- Ưu tiên cách giải thích dễ hiểu, sử dụng ví dụ minh họa khi cần thiết
+- Sử dụng giọng điệu thân thiện, khuyến khích và tích cực
+
+2. NGUỒN THÔNG TIN
+- Phân tích và sử dụng chính xác nội dung từ reference text (bài học) được cung cấp
+- Nếu câu hỏi nằm ngoài phạm vi bài học, hãy nói rõ và cung cấp kiến thức nền tảng
+- Đề xuất tài liệu bổ sung chỉ khi thực sự cần thiết
+
+3. HỖ TRỢ HỌC TẬP
+- Giúp người học hiểu sâu hơn về khái niệm, không chỉ ghi nhớ thông tin 
+- Hướng dẫn người học tư duy phản biện và giải quyết vấn đề
+- Điều chỉnh độ phức tạp của câu trả lời phù hợp với ngữ cảnh
+
+4. ĐỊNH DẠNG
+- Sử dụng Markdown để định dạng câu trả lời và đảm bảo dễ đọc
+- Dùng đậm, in nghiêng và danh sách để làm nổi bật điểm quan trọng
+- Đảm bảo thuật ngữ kỹ thuật được giải thích rõ ràng
+
+Reference text chứa thông tin về khóa học, bài học và nội dung. Hãy sử dụng thông tin này khi trả lời.`,
+  });
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -412,6 +507,28 @@ export default function LessonDetail() {
         ]);
         setCourse(courseData);
         setLesson(lessonData);
+
+        if (lessonData?.videoUrl) {
+          try {
+            // Use our server-side API route to fetch the transcript
+            const response = await fetch(
+              `/api/youtube-transcript?url=${encodeURIComponent(lessonData.videoUrl)}`,
+            );
+
+            if (!response.ok) {
+              throw new Error(
+                `Failed to fetch transcript: ${response.statusText}`,
+              );
+            }
+
+            const data = await response.json();
+            setTimestampedTranscript(data.timestampedTranscript || []);
+            console.log("Transcript fetched successfully");
+            console.log("Timestamped transcript:", data.timestampedTranscript);
+          } catch (error) {
+            console.error("Error fetching transcript:", error);
+          }
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "An error occurred");
       } finally {
@@ -423,8 +540,6 @@ export default function LessonDetail() {
   }, [params.courseId, params.lessonId]);
 
   useEffect(() => {
-    const lessonTitle = lesson?.title || `Lesson ${params.lessonId}`;
-
     const fetchOrCreateThread = async () => {
       if (!params.lessonId || !user) {
         return;
@@ -538,6 +653,9 @@ export default function LessonDetail() {
     "next",
   );
 
+  // Calculate current lesson index and total lessons
+  const totalLessons = allLessons.length;
+
   // Parse lesson content for BLOG or MIXED types
   let contentBlocks: Block[] = [];
   if (
@@ -573,227 +691,231 @@ export default function LessonDetail() {
     }
   };
 
-  // Calculate current lesson index and total lessons
-  const totalLessons = allLessons.length;
-
   return (
-    <div className="w-full flex-1 flex flex-col min-h-screen relative">
-      <div
-        className={`flex-1 p-6 ${isSidebarOpen ? "pr-[400px]" : ""} transition-all duration-300`}
-      >
-        <div className="space-y-8">
-          {/* Video Content for VIDEO or MIXED */}
-          {(lesson.type === LessonType.VIDEO ||
-            lesson.type === LessonType.MIXED) &&
-            lesson.videoUrl && (
-              <div className="aspect-video w-full bg-gray-100 rounded-lg mb-8">
-                <ReactPlayer
-                  url={lesson.videoUrl}
-                  controls={true}
-                  config={{
-                    youtube: {
-                      playerVars: { showinfo: 1 },
-                    },
-                  }}
-                  className="react-player"
-                  width="100%"
-                  height="100%"
-                />
-              </div>
-            )}
-
-          {/* Lesson Content */}
-          <div className="prose max-w-none">
-            <h1 className="text-2xl font-semibold mb-4">Nội dung bài học</h1>
-            <h1 className="text-xl font-semibold mb-4">
-              <span>{lesson.order}. </span>
-              {lesson.title}
-            </h1>
-
-            {/* Render Parsed Content for BLOG or MIXED */}
-            {(lesson.type === LessonType.BLOG ||
+    <>
+      <div className="w-full flex-1 flex flex-col min-h-screen relative">
+        <div
+          className={`flex-1 p-6 ${isSidebarOpen ? "pr-[400px]" : ""} transition-all duration-300`}
+        >
+          <div className="space-y-8">
+            {/* Video Content for VIDEO or MIXED */}
+            {(lesson.type === LessonType.VIDEO ||
               lesson.type === LessonType.MIXED) &&
-              contentBlocks.length > 0 && (
-                <div className="mt-4">
-                  {contentBlocks.map((block) => (
-                    <div key={block.id}>{renderBlockToHtml(block)}</div>
-                  ))}
+              lesson.videoUrl && (
+                <div className="aspect-video w-full bg-gray-100 rounded-lg mb-8">
+                  <ReactPlayer
+                    url={lesson.videoUrl}
+                    controls={true}
+                    config={{
+                      youtube: {
+                        playerVars: { showinfo: 1 },
+                      },
+                    }}
+                    className="react-player"
+                    width="100%"
+                    height="100%"
+                  />
                 </div>
               )}
 
-            {/* Fallback for VIDEO-only or empty content */}
-            {lesson.type === LessonType.VIDEO && !lesson.videoUrl && (
-              <p className="text-md text-gray-500">Không có nội dung video.</p>
-            )}
-            {(lesson.type === LessonType.BLOG ||
-              lesson.type === LessonType.MIXED) &&
-              contentBlocks.length === 0 && (
+            {/* Lesson Content */}
+            <div className="prose max-w-none">
+              <h1 className="text-2xl font-semibold mb-4">Nội dung bài học</h1>
+              <h1 className="text-xl font-semibold mb-4">
+                <span>{lesson.order}. </span>
+                {lesson.title}
+              </h1>
+
+              {/* Render Parsed Content for BLOG or MIXED */}
+              {(lesson.type === LessonType.BLOG ||
+                lesson.type === LessonType.MIXED) &&
+                contentBlocks.length > 0 && (
+                  <div className="mt-4">
+                    {contentBlocks.map((block) => (
+                      <div key={block.id}>{renderBlockToHtml(block)}</div>
+                    ))}
+                  </div>
+                )}
+
+              {/* Fallback for VIDEO-only or empty content */}
+              {lesson.type === LessonType.VIDEO && !lesson.videoUrl && (
                 <p className="text-md text-gray-500">
-                  Không có nội dung bài viết.
+                  Không có nội dung video.
                 </p>
               )}
+              {(lesson.type === LessonType.BLOG ||
+                lesson.type === LessonType.MIXED) &&
+                contentBlocks.length === 0 && (
+                  <p className="text-md text-gray-500">
+                    Không có nội dung bài viết.
+                  </p>
+                )}
+            </div>
+
+            {/* Discussion Component */}
+            <Discussion threadId={threadId || ""} />
           </div>
-
-          {/* Discussion Component */}
-          <Discussion threadId={threadId || ""} />
         </div>
-      </div>
 
-      {/* Fixed Navigation Bar */}
-      <div className="sticky bottom-0 left-0 right-0 bg-white border-t px-6 py-4 z-10">
-        <div className="flex items-center justify-center gap-4">
-          {previousLesson ? (
-            <Link href={`/course/${course?.id}/lesson/${previousLesson.id}`}>
-              <Button variant="outline" className="w-40">
+        {/* Fixed Navigation Bar */}
+        <div className="sticky bottom-0 left-0 right-0 bg-white border-t px-6 py-4 z-10">
+          <div className="flex items-center justify-center gap-4">
+            {previousLesson ? (
+              <Link href={`/course/${course?.id}/lesson/${previousLesson.id}`}>
+                <Button variant="outline" className="w-40">
+                  <ChevronLeft className="mr-2 h-4 w-4" /> Bài trước
+                </Button>
+              </Link>
+            ) : (
+              <Button variant="outline" className="w-40" disabled>
                 <ChevronLeft className="mr-2 h-4 w-4" /> Bài trước
               </Button>
-            </Link>
-          ) : (
-            <Button variant="outline" className="w-40" disabled>
-              <ChevronLeft className="mr-2 h-4 w-4" /> Bài trước
-            </Button>
-          )}
-
-          {nextLesson ? (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="outline" className="w-40">
-                  Học tiếp <ChevronRight className="ml-2 h-4 w-4" />
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>
-                    Xác nhận hoàn thành bài học
-                  </AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Bạn đã hoàn thành bài học này chưa? Hãy đảm bảo rằng bạn đã
-                    nắm vững kiến thức trước khi chuyển sang bài tiếp theo.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Chưa, tôi cần học lại</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleLessonCompletion}>
-                    Đã hoàn thành, học tiếp
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          ) : (
-            <Button variant="outline" className="w-40" disabled>
-              Học tiếp <ChevronRight className="ml-2 h-4 w-4" />
-            </Button>
-          )}
-        </div>
-        <div className="absolute top-1/4 right-4 flex items-center">
-          <span className="text-md text-gray-600 font-semibold pr-2">
-            {course.chapters?.find((chapter) =>
-              chapter.lessons?.some((lesson) => lesson.id === params.lessonId),
-            )?.title || ""}
-          </span>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="bg-white border shadow-sm"
-            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          >
-            {isSidebarOpen ? (
-              <ArrowBigRight className="h-4 w-4" />
-            ) : (
-              <Menu className="h-4 w-4" />
             )}
-          </Button>
-        </div>
-      </div>
 
-      {/* Collapsible Sidebar */}
-      <div
-        className={`fixed right-0 top-0 h-[calc(100vh-73px)] w-[350px] bg-gray-50 border-l transform transition-transform duration-300 ${
-          isSidebarOpen ? "translate-x-0" : "translate-x-full"
-        }`}
-      >
-        <div className="p-6 h-full overflow-auto">
-          <h2 className="text-xl font-semibold mb-6">Nội dung khoá học</h2>
-          <div className="space-y-4">
-            {course?.chapters?.map((chapter) => (
-              <Collapsible
-                key={chapter.id}
-                open={expandedChapters[chapter.id]}
-                onOpenChange={() => toggleChapter(chapter.id)}
-              >
-                <CollapsibleTrigger className="flex items-center justify-between w-full p-4 bg-gray-100 hover:bg-gray-200 rounded-lg transition-all duration-200">
-                  <div className="flex items-center   gap-2 truncate ">
-                    <div className="text-gray-500 transition-transform duration-200">
-                      {expandedChapters[chapter.id] ? (
-                        <div className="transform transition-transform duration-200">
-                          <Minus className="h-4 w-4 text-orange-500" />
-                        </div>
-                      ) : (
-                        <Plus className="h-4 w-4 text-orange-500" />
-                      )}
-                    </div>
-                    <h3 className=" font-semibold text-gray-700 ">
-                      {chapter.title}
-                    </h3>
-                  </div>
-                  <div className="flex items-center gap-2 pl-1">
-                    <span className="text-sm text-gray-600 truncate">
-                      {chapter.lessons?.length || 0} bài
-                    </span>
-                  </div>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="pl-4">
-                  <ul className="mt-2 space-y-2">
-                    {chapter.lessons?.map((lesson) => (
-                      <Link
-                        href={
-                          canAccessLesson(lesson)
-                            ? `/course/${course.id}/lesson/${lesson.id}`
-                            : "#"
-                        }
-                        key={lesson.id}
-                        className={`block p-2 rounded-lg transition-colors ${
-                          lesson.id === params.lessonId
-                            ? "bg-orange-100"
-                            : "hover:bg-gray-200"
-                        } ${
-                          !canAccessLesson(lesson)
-                            ? "opacity-50 cursor-not-allowed"
-                            : "cursor-pointer"
-                        }`}
-                        onClick={(e) => {
-                          if (!canAccessLesson(lesson)) {
-                            e.preventDefault();
-                          }
-                        }}
-                      >
-                        <div className="flex items-center gap-2 min-h-[32px]">
-                          <div className="flex-1 overflow-hidden">
-                            <span
-                              className={`block truncate ${
-                                lesson.id === params.lessonId
-                                  ? "font-medium"
-                                  : ""
-                              }`}
-                            >
-                              {lesson.title}
-                            </span>
+            {nextLesson ? (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" className="w-40">
+                    Học tiếp <ChevronRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      Xác nhận hoàn thành bài học
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Bạn đã hoàn thành bài học này chưa? Hãy đảm bảo rằng bạn
+                      đã nắm vững kiến thức trước khi chuyển sang bài tiếp theo.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Chưa, tôi cần học lại</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleLessonCompletion}>
+                      Đã hoàn thành, học tiếp
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            ) : (
+              <Button variant="outline" className="w-40" disabled>
+                Học tiếp <ChevronRight className="ml-2 h-4 w-4" />
+              </Button>
+            )}
+          </div>
+          <div className="absolute top-1/4 right-4 flex items-center">
+            <span className="text-md text-gray-600 font-semibold pr-2">
+              {course?.chapters?.find((chapter) =>
+                chapter.lessons?.some(
+                  (lesson) => lesson.id === params.lessonId,
+                ),
+              )?.title || ""}
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="bg-white border shadow-sm"
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            >
+              {isSidebarOpen ? (
+                <ArrowBigRight className="h-4 w-4" />
+              ) : (
+                <Menu className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+        </div>
+
+        {/* Collapsible Sidebar */}
+        <div
+          className={`fixed right-0 top-0 h-[calc(100vh-73px)] w-[350px] bg-gray-50 border-l transform transition-transform duration-300 ${
+            isSidebarOpen ? "translate-x-0" : "translate-x-full"
+          }`}
+        >
+          <div className="p-6 h-full overflow-auto">
+            <h2 className="text-xl font-semibold mb-6">Nội dung khoá học</h2>
+            <div className="space-y-4">
+              {course?.chapters?.map((chapter) => (
+                <Collapsible
+                  key={chapter.id}
+                  open={expandedChapters[chapter.id]}
+                  onOpenChange={() => toggleChapter(chapter.id)}
+                >
+                  <CollapsibleTrigger className="flex items-center justify-between w-full p-4 bg-gray-100 hover:bg-gray-200 rounded-lg transition-all duration-200">
+                    <div className="flex items-center gap-2 truncate">
+                      <div className="text-gray-500 transition-transform duration-200">
+                        {expandedChapters[chapter.id] ? (
+                          <div className="transform transition-transform duration-200">
+                            <Minus className="h-4 w-4 text-orange-500" />
                           </div>
-                          {lesson.isFreePreview && (
-                            <span className="flex-shrink-0 text-xs bg-gray-200 px-2 py-1 rounded">
-                              Preview
-                            </span>
-                          )}
-                        </div>
-                      </Link>
-                    ))}
-                  </ul>
-                </CollapsibleContent>
-              </Collapsible>
-            ))}
+                        ) : (
+                          <Plus className="h-4 w-4 text-orange-500" />
+                        )}
+                      </div>
+                      <h3 className="font-semibold text-gray-700">
+                        {chapter.title}
+                      </h3>
+                    </div>
+                    <div className="flex items-center gap-2 pl-1">
+                      <span className="text-sm text-gray-600 truncate">
+                        {chapter.lessons?.length || 0} bài
+                      </span>
+                    </div>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="pl-4">
+                    <ul className="mt-2 space-y-2">
+                      {chapter.lessons?.map((lesson) => (
+                        <Link
+                          href={
+                            canAccessLesson(lesson)
+                              ? `/course/${course?.id}/lesson/${lesson.id}`
+                              : "#"
+                          }
+                          key={lesson.id}
+                          className={`block p-2 rounded-lg transition-colors ${
+                            lesson.id === params.lessonId
+                              ? "bg-orange-100"
+                              : "hover:bg-gray-200"
+                          } ${
+                            !canAccessLesson(lesson)
+                              ? "opacity-50 cursor-not-allowed"
+                              : "cursor-pointer"
+                          }`}
+                          onClick={(e) => {
+                            if (!canAccessLesson(lesson)) {
+                              e.preventDefault();
+                            }
+                          }}
+                        >
+                          <div className="flex items-center gap-2 min-h-[32px]">
+                            <div className="flex-1 overflow-hidden">
+                              <span
+                                className={`block truncate ${
+                                  lesson.id === params.lessonId
+                                    ? "font-medium"
+                                    : ""
+                                }`}
+                              >
+                                {lesson.title}
+                              </span>
+                            </div>
+                            {lesson.isFreePreview && (
+                              <span className="flex-shrink-0 text-xs bg-gray-200 px-2 py-1 rounded">
+                                Preview
+                              </span>
+                            )}
+                          </div>
+                        </Link>
+                      ))}
+                    </ul>
+                  </CollapsibleContent>
+                </Collapsible>
+              ))}
+            </div>
           </div>
         </div>
       </div>
-    </div>
+      <LessonChatbot />
+    </>
   );
 }
