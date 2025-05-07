@@ -20,10 +20,11 @@ import { Textarea } from "@/components/ui/textarea";
 export function AIMultiExample() {
   return (
     <Tabs defaultValue="general" className="w-full">
-      <TabsList className="grid w-full max-w-md grid-cols-3 mb-8">
+      <TabsList className="grid w-full max-w-md grid-cols-4 mb-8">
         <TabsTrigger value="general">Trợ lý chung</TabsTrigger>
         <TabsTrigger value="teacher">Giáo viên</TabsTrigger>
         <TabsTrigger value="coder">Lập trình viên</TabsTrigger>
+        <TabsTrigger value="yesno">Yes/No</TabsTrigger>
       </TabsList>
 
       <TabsContent value="general">
@@ -49,6 +50,15 @@ export function AIMultiExample() {
           systemPrompt="Bạn là một lập trình viên giỏi. Hãy giúp người dùng giải quyết các vấn đề về code, đưa ra giải pháp tốt nhất và giải thích code một cách chi tiết."
         />
       </TabsContent>
+
+      <TabsContent value="yesno">
+        <AIAssistant
+          title="AI Yes/No"
+          description="AI chỉ trả lời YES hoặc NO"
+          systemPrompt="Bạn là AI chỉ trả lời câu hỏi với YES hoặc NO. Không cung cấp bất kỳ lời giải thích nào. Không sử dụng từ nào khác ngoài YES hoặc NO. Nếu câu hỏi không thể trả lời bằng YES hoặc NO, hãy đáp là NO."
+          placeholder="Hỏi câu hỏi có/không..."
+        />
+      </TabsContent>
     </Tabs>
   );
 }
@@ -57,9 +67,15 @@ interface AIAssistantProps {
   title: string;
   description: string;
   systemPrompt: string;
+  placeholder?: string;
 }
 
-function AIAssistant({ title, description, systemPrompt }: AIAssistantProps) {
+function AIAssistant({
+  title,
+  description,
+  systemPrompt,
+  placeholder,
+}: AIAssistantProps) {
   const [input, setInput] = useState("");
   const { processInput, isLoading, lastOutput, error } = useAI({
     systemPrompt,
@@ -100,7 +116,7 @@ function AIAssistant({ title, description, systemPrompt }: AIAssistantProps) {
           <Textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Type your question..."
+            placeholder={placeholder || "Type your question..."}
             className="flex-1 resize-none"
             disabled={isLoading}
           />
