@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
-import { Bot, Send, Smile, User, X } from "lucide-react";
+import { Bot, Maximize2, Minimize2, Send, Smile, User, X } from "lucide-react";
 
 import useUserStore from "@/stores/useUserStore";
 
@@ -36,10 +36,13 @@ interface PopupChatbotProps {
   position?: "bottom-right" | "bottom-left" | "top-right" | "top-left";
   suggestedQuestions?: string[];
   balloonText?: string;
+  showBalloon?: boolean;
+  welcomeMessage?: string;
 }
 
 // Suggested questions mặc định
 const DEFAULT_SUGGESTED_QUESTIONS = [
+  "Tóm tắt nội dung",
   "Bài học này nói về gì?",
   "Làm thế nào để áp dụng kiến thức này?",
   "Giải thích chi tiết hơn về chủ đề này",
@@ -98,46 +101,34 @@ const LoadingDots = () => {
   return (
     <div className="flex space-x-1.5 items-center">
       <motion.div
-        className="h-2 w-2 bg-primary/70 rounded-full"
+        className="h-2 w-2 bg-primary rounded-full"
         animate={{
           scale: [0.5, 1, 0.5],
-          backgroundColor: [
-            "rgba(var(--primary), 0.4)",
-            "rgba(var(--primary), 0.7)",
-            "rgba(var(--primary), 0.4)",
-          ],
+          opacity: [0.3, 1, 0.3],
         }}
-        transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
+        transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
       />
       <motion.div
-        className="h-2 w-2 bg-primary/70 rounded-full"
+        className="h-2 w-2 bg-primary rounded-full"
         animate={{
           scale: [0.5, 1, 0.5],
-          backgroundColor: [
-            "rgba(var(--primary), 0.4)",
-            "rgba(var(--primary), 0.7)",
-            "rgba(var(--primary), 0.4)",
-          ],
+          opacity: [0.3, 1, 0.3],
         }}
         transition={{
-          duration: 1.2,
+          duration: 1,
           repeat: Infinity,
           ease: "easeInOut",
           delay: 0.2,
         }}
       />
       <motion.div
-        className="h-2 w-2 bg-primary/70 rounded-full"
+        className="h-2 w-2 bg-primary rounded-full"
         animate={{
           scale: [0.5, 1, 0.5],
-          backgroundColor: [
-            "rgba(var(--primary), 0.4)",
-            "rgba(var(--primary), 0.7)",
-            "rgba(var(--primary), 0.4)",
-          ],
+          opacity: [0.3, 1, 0.3],
         }}
         transition={{
-          duration: 1.2,
+          duration: 1,
           repeat: Infinity,
           ease: "easeInOut",
           delay: 0.4,
@@ -158,9 +149,12 @@ export function PopupChatbot({
   position = "bottom-right",
   suggestedQuestions,
   balloonText = "Eduforge AI",
+  showBalloon = true,
+  welcomeMessage = "Xin chào! Tôi là trợ lý AI của Eduforge. Bạn có thể hỏi tôi bất cứ điều gì.",
 }: PopupChatbotProps) {
   const [isOpen, setIsOpen] = useState(initialOpen);
   const [isFirstOpen, setIsFirstOpen] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const user = useUserStore((state) => state.user);
   const userId = user?.id || "user";
@@ -209,6 +203,20 @@ export function PopupChatbot({
   // Handle input change
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
+  };
+
+  // Handle input key press for Enter submission
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Submit on Enter, but allow Shift+Enter for new lines
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      const form = e.currentTarget.form;
+      if (form) {
+        form.dispatchEvent(
+          new Event("submit", { cancelable: true, bubbles: true }),
+        );
+      }
+    }
   };
 
   // Handle form submission
@@ -338,47 +346,25 @@ export function PopupChatbot({
         <Button
           onClick={() => setIsOpen(true)}
           className={cn(
-            "bg-gradient-to-br from-primary to-primary/90 hover:bg-primary/90 rounded-full h-12 w-12 shadow-xl",
+            "bg-primary hover:bg-primary/90 rounded-full h-12 w-12 shadow-md",
             buttonClassName,
           )}
           aria-label="Open AI chatbot"
           size="icon"
         >
-          <motion.div
-            animate={{
-              scale: [1, 1.15, 1],
-              opacity: [0.5, 0.8, 0.5],
-            }}
-            transition={{
-              duration: 2,
-              repeat: Infinity,
-              repeatType: "reverse",
-            }}
-            className="absolute inset-0 rounded-full bg-primary/20"
-          />
-          <motion.div
-            animate={{
-              scale: [1, 1.05, 1],
-              opacity: [0.8, 1, 0.8],
-            }}
-            transition={{
-              duration: 3,
-              repeat: Infinity,
-              repeatType: "reverse",
-            }}
-            className="absolute inset-0 rounded-full border-2 border-primary-foreground/20"
-          />
-          <Bot className="h-7 w-7" />
+          <Bot className="h-6 w-6" />
         </Button>
-        <motion.div
-          initial={{ opacity: 0, y: 10, scale: 0.8 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ delay: 1, duration: 0.3 }}
-          className="absolute -top-10 right-0 bg-white dark:bg-gray-800 px-3 py-1.5 rounded-full shadow-md border border-primary/10 text-sm font-medium text-nowrap"
-        >
-          {balloonText}
-          <div className="absolute -bottom-1.5 right-5 w-3 h-3 bg-white dark:bg-gray-800 border-r border-b border-primary/10 transform rotate-45"></div>
-        </motion.div>
+        {showBalloon && (
+          <motion.div
+            initial={{ opacity: 0, y: 10, scale: 0.8 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ delay: 1, duration: 0.3 }}
+            className="absolute -top-10 right-0 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-lg shadow-sm text-sm font-medium text-nowrap"
+          >
+            {balloonText}
+            <div className="absolute -bottom-1.5 right-5 w-2.5 h-2.5 bg-white dark:bg-slate-800 rotate-45"></div>
+          </motion.div>
+        )}
       </motion.div>
 
       {/* Chatbot popup */}
@@ -393,50 +379,57 @@ export function PopupChatbot({
           >
             <Card
               className={cn(
-                "w-80 sm:w-96 shadow-xl flex flex-col max-h-[500px] border-primary/10 rounded-xl overflow-hidden",
+                "shadow-lg border flex flex-col bg-zinc-50 dark:bg-slate-900  rounded-2xl overflow-hidden",
+                isExpanded
+                  ? "w-[550px] sm:w-[650px] max-h-[650px]"
+                  : "w-80 sm:w-96 max-h-[500px]",
+                "transition-all duration-300",
                 cardClassName,
               )}
             >
-              <CardHeader className="pb-2 border-b bg-gradient-to-r from-primary/5 to-primary/10">
+              <CardHeader className="pb-2 border-b bg-white dark:bg-slate-900 px-4 py-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div className="relative">
-                      <Avatar className="h-8 w-8 bg-primary/10 border-2 border-primary/20">
+                      <Avatar className="h-8 w-8 bg-primary/5">
                         <AvatarFallback className="text-primary">
                           <Bot size={16} />
                         </AvatarFallback>
                       </Avatar>
-                      <motion.div
-                        className="absolute inset-0 rounded-full border-2 border-primary/30"
-                        animate={{ scale: [1, 1.15, 1] }}
-                        transition={{
-                          duration: 2,
-                          repeat: Infinity,
-                          ease: "easeInOut",
-                        }}
-                      />
                     </div>
                     <div>
-                      <CardTitle className="text-lg font-medium">
+                      <CardTitle className="text-base font-medium">
                         {title}
                       </CardTitle>
-                      <p className="text-xs text-muted-foreground">
-                        Powered by Gemini AI
-                      </p>
                     </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 rounded-full hover:bg-primary/10"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800"
+                      onClick={() => setIsExpanded(!isExpanded)}
+                      title={isExpanded ? "Thu nhỏ" : "Mở rộng"}
+                    >
+                      {isExpanded ? (
+                        <Minimize2 size={14} />
+                      ) : (
+                        <Maximize2 size={14} />
+                      )}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
 
-              <CardContent className="overflow-y-auto flex-grow p-4">
+              <CardContent className="overflow-y-auto flex-grow p-4 bg-gray-100/60 dark:bg-slate-950">
                 <div className="space-y-4">
                   {displayMessages.length === 0 ? (
                     <div className="space-y-4">
@@ -446,9 +439,9 @@ export function PopupChatbot({
                           initial={{ opacity: 0, y: 10, scale: 0.95 }}
                           animate={{ opacity: 1, y: 0, scale: 1 }}
                           transition={{ duration: 0.3 }}
-                          className="bg-gradient-to-br from-primary/5 to-primary/10 p-3 rounded-lg text-sm max-w-[85%] shadow-sm border border-primary/10"
+                          className="bg-white dark:bg-slate-900 p-3 rounded-xl text-sm max-w-[85%] shadow-sm"
                         >
-                          <MarkdownRenderer content="Xin chào! Tôi là trợ lý AI của Eduforge. Bạn có thể hỏi tôi bất cứ điều gì." />
+                          <MarkdownRenderer content={welcomeMessage} />
                         </motion.div>
                       </div>
 
@@ -456,9 +449,9 @@ export function PopupChatbot({
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.3, duration: 0.3 }}
-                        className="space-y-2 bg-gradient-to-br from-primary/5 to-primary/10 p-3 rounded-lg border border-primary/10 shadow-sm"
+                        className="space-y-2 bg-white dark:bg-slate-900 p-3 rounded-xl shadow-sm"
                       >
-                        <p className="text-xs font-medium text-primary/80">
+                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
                           Gợi ý câu hỏi:
                         </p>
                         <div className="flex flex-wrap gap-2">
@@ -475,7 +468,7 @@ export function PopupChatbot({
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="text-xs py-1 h-auto border-primary/20 bg-white/50 hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-all duration-200"
+                                className="text-xs py-1 h-auto border-gray-200 dark:border-gray-700 bg-transparent hover:bg-gray-100 dark:hover:bg-slate-800 hover:text-primary transition-all duration-200"
                                 onClick={() =>
                                   handleSuggestedQuestionClick(question)
                                 }
@@ -506,18 +499,16 @@ export function PopupChatbot({
                           animate={{ opacity: 1, y: 0, scale: 1 }}
                           transition={{ duration: 0.3 }}
                           className={cn(
-                            "p-3 rounded-lg max-w-[85%] shadow-sm border",
+                            "p-3 rounded-xl max-w-[85%] shadow-sm",
                             message.role === "user"
-                              ? "bg-gradient-to-br from-primary to-primary/90 text-primary-foreground border-primary/30"
-                              : "bg-gradient-to-br from-primary/5 to-primary/10 border-primary/10",
+                              ? "bg-primary text-white"
+                              : "bg-white dark:bg-slate-900",
                           )}
                         >
                           <MarkdownRenderer
                             content={message.content}
                             className={
-                              message.role === "user"
-                                ? "text-primary-foreground"
-                                : ""
+                              message.role === "user" ? "text-white" : ""
                             }
                           />
                         </motion.div>
@@ -535,7 +526,7 @@ export function PopupChatbot({
                       <motion.div
                         initial={{ opacity: 0, y: 10, scale: 0.95 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
-                        className="bg-gradient-to-br from-primary/5 to-primary/10 p-3 rounded-lg flex items-center h-10 px-4 shadow-sm border border-primary/10"
+                        className="bg-white dark:bg-slate-900 p-3 rounded-xl flex items-center h-8 px-4 shadow-sm"
                       >
                         <LoadingDots />
                       </motion.div>
@@ -545,7 +536,7 @@ export function PopupChatbot({
                 </div>
               </CardContent>
 
-              <CardFooter className="pt-2 border-t p-4 bg-gradient-to-r from-primary/5 to-primary/10">
+              <CardFooter className="border-t p-3 bg-white dark:bg-slate-900">
                 <form
                   onSubmit={handleSubmit}
                   className="w-full flex gap-2 items-start"
@@ -562,13 +553,14 @@ export function PopupChatbot({
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1">
-                    <div className="bg-white border rounded-2xl w-full min-w-[200px] max-w-full">
-                      <div className="relative p-3">
+                    <div className="bg-gray-100 dark:bg-slate-800 rounded-2xl w-full min-w-[200px] max-w-full">
+                      <div className="relative p-3  ">
                         <Textarea
                           value={input}
                           onChange={handleInputChange}
+                          onKeyDown={handleKeyPress}
                           placeholder={placeholder}
-                          className="min-h-[35px] max-h-[120px] border-0 focus-visible:ring-0 shadow-none resize-none rounded-lg p-0 placeholder:text-foreground/50 placeholder:text-sm"
+                          className="min-h-[35px] max-h-[120px] border-0 focus-visible:ring-0 shadow-none resize-none rounded-lg p-0 placeholder:text-gray-400 placeholder:text-sm bg-transparent"
                           disabled={isLoading}
                         />
                         <div className="absolute right-2 bottom-2 flex items-center gap-0.5">
@@ -577,13 +569,13 @@ export function PopupChatbot({
                             disabled={isLoading || !input.trim()}
                             size="icon"
                             className={cn(
-                              "h-7 w-7",
+                              "h-7 w-7 rounded-full",
                               input.trim() && !isLoading
-                                ? "bg-primary hover:bg-primary/90 hover:scale-105"
-                                : "bg-primary/70",
+                                ? "bg-primary hover:bg-primary/90"
+                                : "bg-gray-300 dark:bg-gray-600",
                             )}
                           >
-                            <Send className="h-4 w-4 text-white" />
+                            <Send className="h-3 w-3 mr-1/2 text-white" />
                           </Button>
                         </div>
                       </div>

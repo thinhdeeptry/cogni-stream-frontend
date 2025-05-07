@@ -104,101 +104,61 @@ export async function GET(request: NextRequest) {
       .map((item: any) => item.text)
       .join(" ");
 
+    // Log the first few transcript items to check their structure
+    if (transcriptData.length > 0) {
+      console.log(
+        "First transcript item full data:",
+        JSON.stringify(transcriptData[0], null, 2),
+      );
+      console.log("First few items offsets:");
+      for (let i = 0; i < Math.min(5, transcriptData.length); i++) {
+        console.log(
+          `Item ${i}: offset=${transcriptData[i].offset}, duration=${transcriptData[i].duration}`,
+        );
+      }
+    }
+
     // Format the transcript data with timestamps for reference
     const timestampedTranscript: TimestampedTranscriptItem[] =
       transcriptData.map((item: any) => {
-        // The YouTube transcript API returns different property names in different versions
-        // We need to check all possible properties that might contain the timestamp
-        let startTimeInSeconds = 0;
+        // Extract the timestamp from the item
+        let offsetInSeconds = 0;
 
-        // Log the entire item for debugging
-        console.log(`Processing item: ${JSON.stringify(item)}`);
-
-        // Check all possible property names for timestamps
         if (typeof item.offset === "number") {
-          // offset is in milliseconds
-          startTimeInSeconds = item.offset / 1000;
-          console.log(
-            `Using offset property: ${item.offset} ms -> ${startTimeInSeconds} s`,
-          );
+          offsetInSeconds = item.offset;
         } else if (typeof item.start === "number") {
-          // start is in seconds
-          startTimeInSeconds = item.start;
-          console.log(`Using start property: ${startTimeInSeconds} s`);
+          offsetInSeconds = item.start;
         } else if (typeof item.startTime === "number") {
-          // Some versions use startTime
-          startTimeInSeconds = item.startTime;
-          console.log(`Using startTime property: ${startTimeInSeconds} s`);
+          offsetInSeconds = item.startTime;
         } else if (typeof item.time === "number") {
-          // Some versions use time
-          startTimeInSeconds = item.time;
-          console.log(`Using time property: ${startTimeInSeconds} s`);
+          offsetInSeconds = item.time;
         } else if (typeof item.timeMs === "number") {
-          // Some versions use timeMs (in milliseconds)
-          startTimeInSeconds = item.timeMs / 1000;
-          console.log(
-            `Using timeMs property: ${item.timeMs} ms -> ${startTimeInSeconds} s`,
-          );
-        } else {
-          // Try to find any property that might be a timestamp
-          const numericProps = Object.entries(item)
-            .filter(([_, value]) => typeof value === "number")
-            .map(([key, value]) => ({ key, value: value as number }));
-
-          console.log(
-            `Numeric properties found: ${JSON.stringify(numericProps)}`,
-          );
-
-          // Look for properties that might be timestamps (in seconds or milliseconds)
-          const possibleTimestampProps = numericProps.filter(
-            (prop) =>
-              prop.key.toLowerCase().includes("time") ||
-              prop.key.toLowerCase().includes("start") ||
-              prop.key.toLowerCase().includes("offset"),
-          );
-
-          if (possibleTimestampProps.length > 0) {
-            // Use the first property that looks like a timestamp
-            const timestampProp = possibleTimestampProps[0];
-            console.log(
-              `Using detected timestamp property: ${timestampProp.key} = ${timestampProp.value}`,
-            );
-
-            // If the value is large, assume it's in milliseconds
-            const value = timestampProp.value;
-            startTimeInSeconds = value > 1000 ? value / 1000 : value;
-          } else if (numericProps.length > 0) {
-            // If no obvious timestamp property, try the first numeric property
-            const firstNumeric = numericProps[0];
-            console.log(
-              `Falling back to first numeric property: ${firstNumeric.key} = ${firstNumeric.value}`,
-            );
-
-            // If the value is large, assume it's in milliseconds
-            const value = firstNumeric.value;
-            startTimeInSeconds = value > 1000 ? value / 1000 : value;
-          } else {
-            console.warn(
-              `No numeric properties found in item: ${JSON.stringify(item)}`,
-            );
-          }
+          offsetInSeconds = item.timeMs / 1000;
         }
 
-        // Convert to minutes and seconds
-        const totalSeconds = Math.floor(startTimeInSeconds);
-        const minutes = Math.floor(totalSeconds / 60);
-        const seconds = totalSeconds % 60;
-        const timestamp = `${minutes}:${seconds.toString().padStart(2, "0")}`;
+        // Convert seconds to minutes and seconds for display
+        // Ensure we're using the actual value (don't round yet)
+        const totalMinutes = Math.floor(offsetInSeconds / 60);
+        const remainingSeconds = Math.floor(offsetInSeconds % 60);
 
-        // Log the time calculation for debugging
+        // Format as MM:SS
+        let timestamp = `${totalMinutes}:${remainingSeconds.toString().padStart(2, "0")}`;
+
+        // For longer videos, use HH:MM:SS format if needed
+        if (totalMinutes >= 60) {
+          const hours = Math.floor(totalMinutes / 60);
+          const minutes = totalMinutes % 60;
+          timestamp = `${hours}:${minutes.toString().padStart(2, "0")}:${remainingSeconds.toString().padStart(2, "0")}`;
+        }
+
         console.log(
-          `Final time calculation: startTime=${startTimeInSeconds}, minutes=${minutes}, seconds=${seconds}, timestamp=${timestamp}`,
+          `Processing item: rawOffset=${offsetInSeconds}, minutes=${totalMinutes}, seconds=${remainingSeconds}, timestamp=${timestamp}`,
         );
 
         return {
           text: item.text,
           timestamp,
-          offset: startTimeInSeconds * 1000, // Store in milliseconds for consistency
+          offset: Math.round(offsetInSeconds * 1000), // Store in milliseconds for consistency
           duration: item.duration || 0,
         };
       });

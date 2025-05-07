@@ -15,6 +15,8 @@ interface UsePopupChatbotOptions {
   position?: "bottom-right" | "bottom-left" | "top-right" | "top-left";
   suggestedQuestions?: string[];
   balloonText?: string;
+  showBalloon?: boolean;
+  welcomeMessage?: string;
 }
 
 /**
@@ -48,6 +50,8 @@ export function usePopupChatbot(options: UsePopupChatbotOptions = {}) {
           position={options.position}
           suggestedQuestions={options.suggestedQuestions}
           balloonText={options.balloonText}
+          showBalloon={options.showBalloon}
+          welcomeMessage={options.welcomeMessage}
         />
       );
     };
@@ -63,6 +67,8 @@ export function usePopupChatbot(options: UsePopupChatbotOptions = {}) {
     options.position,
     options.suggestedQuestions,
     options.balloonText,
+    options.showBalloon,
+    options.welcomeMessage,
   ]);
 
   return MemoizedChatbot;
