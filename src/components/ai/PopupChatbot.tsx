@@ -508,7 +508,9 @@ export function PopupChatbot({
                           <MarkdownRenderer
                             content={message.content}
                             className={
-                              message.role === "user" ? "text-white" : ""
+                              message.role === "user"
+                                ? "text-white prose-headings:text-white prose-p:text-white prose-strong:text-white prose-a:text-white/90 prose-code:bg-primary-foreground/20 prose-code:text-white"
+                                : ""
                             }
                           />
                         </motion.div>

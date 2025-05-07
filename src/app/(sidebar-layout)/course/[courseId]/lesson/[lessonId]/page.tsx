@@ -29,6 +29,8 @@ import { getThreadByResourceId } from "@/actions/discussion.action";
 
 import useUserStore from "@/stores/useUserStore";
 
+import { extractPlainTextFromBlockNote } from "@/utils/blocknote";
+
 import Discussion from "@/components/discussion";
 import { DiscussionType } from "@/components/discussion/type";
 import { Button } from "@/components/ui/button";
@@ -83,10 +85,15 @@ export default function LessonDetail() {
       }
     }
 
+    // Extract plain text from lesson content if it exists
+    const plainContent = lesson?.content
+      ? extractPlainTextFromBlockNote(lesson.content)
+      : "No content available";
+
     return `
     Course Title: ${course?.title} \n
     Lesson Title: ${lesson?.title} \n
-    Lesson Content: ${lesson?.content}
+    Lesson Content: ${plainContent} \n
     Lesson Type: ${lesson?.type} \n
     Lesson Video Transcript with Timestamps: \n${transcriptSection} \n
     `;
@@ -98,6 +105,7 @@ export default function LessonDetail() {
     timestampedTranscript,
   ]);
 
+  console.log(referenceText);
   // Use the memoized chatbot component
   const LessonChatbot = usePopupChatbot({
     initialOpen: false,
