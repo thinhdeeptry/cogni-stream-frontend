@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { PopupChatbot } from "@/components/ai/PopupChatbot";
 
@@ -28,21 +28,36 @@ export function usePopupChatbot(options: UsePopupChatbotOptions = {}) {
     setMounted(true);
   }, []);
 
-  // Return the component
-  return () => {
-    if (!mounted) return null;
+  // Memoize the component to prevent unnecessary re-renders
+  const MemoizedChatbot = useMemo(() => {
+    // Return a memoized component that only depends on the mounted state and options
+    return function ChatbotComponent() {
+      if (!mounted) return null;
 
-    return (
-      <PopupChatbot
-        systemPrompt={options.systemPrompt}
-        referenceText={options.referenceText}
-        title={options.title}
-        placeholder={options.placeholder}
-        buttonClassName={options.buttonClassName}
-        cardClassName={options.cardClassName}
-        initialOpen={options.initialOpen}
-        position={options.position}
-      />
-    );
-  };
+      return (
+        <PopupChatbot
+          systemPrompt={options.systemPrompt}
+          referenceText={options.referenceText}
+          title={options.title}
+          placeholder={options.placeholder}
+          buttonClassName={options.buttonClassName}
+          cardClassName={options.cardClassName}
+          initialOpen={options.initialOpen}
+          position={options.position}
+        />
+      );
+    };
+  }, [
+    mounted,
+    options.systemPrompt,
+    options.referenceText,
+    options.title,
+    options.placeholder,
+    options.buttonClassName,
+    options.cardClassName,
+    options.initialOpen,
+    options.position,
+  ]);
+
+  return MemoizedChatbot;
 }

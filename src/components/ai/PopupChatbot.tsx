@@ -15,6 +15,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { MarkdownRenderer } from "@/components/ui/markdown-renderer";
 import {
   Popover,
   PopoverContent,
@@ -138,7 +139,6 @@ export function PopupChatbot({
   position = "bottom-right",
 }: PopupChatbotProps) {
   const [isOpen, setIsOpen] = useState(initialOpen);
-  const [showEmoji, setShowEmoji] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Prepare initial messages with system prompt and reference text
@@ -403,10 +403,7 @@ export function PopupChatbot({
                           transition={{ duration: 0.3 }}
                           className="bg-gradient-to-br from-primary/5 to-primary/10 p-3 rounded-lg text-sm max-w-[85%] shadow-sm border border-primary/10"
                         >
-                          <p className="whitespace-pre-wrap">
-                            Xin chào! Tôi là trợ lý AI của Eduforge. Bạn có thể
-                            hỏi tôi bất cứ điều gì.
-                          </p>
+                          <MarkdownRenderer content="Xin chào! Tôi là trợ lý AI của Eduforge. Bạn có thể hỏi tôi bất cứ điều gì." />
                         </motion.div>
                       </div>
 
@@ -466,9 +463,14 @@ export function PopupChatbot({
                               : "bg-gradient-to-br from-primary/5 to-primary/10 border-primary/10",
                           )}
                         >
-                          <p className="whitespace-pre-wrap text-sm">
-                            {message.content}
-                          </p>
+                          <MarkdownRenderer
+                            content={message.content}
+                            className={
+                              message.role === "user"
+                                ? "text-primary-foreground"
+                                : ""
+                            }
+                          />
                         </motion.div>
                       </motion.div>
                     ))
@@ -504,26 +506,6 @@ export function PopupChatbot({
                       className="flex-1 resize-none min-h-[40px] max-h-[120px] pr-10 border-primary/20 focus-visible:ring-primary/30 rounded-lg shadow-sm"
                       disabled={isLoading}
                     />
-                    <Popover open={showEmoji} onOpenChange={setShowEmoji}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="ghost"
-                          className="absolute right-1 top-1 h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-primary/10 rounded-full"
-                        >
-                          <Smile className="h-5 w-5" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-80 p-0">
-                        <div className="h-[300px] overflow-auto p-3">
-                          {/* Emoji picker would go here */}
-                          <p className="text-sm text-muted-foreground">
-                            Emoji picker would be implemented here
-                          </p>
-                        </div>
-                      </PopoverContent>
-                    </Popover>
                   </div>
                   <Button
                     type="submit"
