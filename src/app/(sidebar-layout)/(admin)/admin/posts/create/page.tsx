@@ -7,7 +7,7 @@ import { Editor } from "@tinymce/tinymce-react";
 import { toast } from "sonner";
 
 import { createPost } from "@/actions/postAction";
-import { Series, getAllSeries } from "@/actions/seriesAction";
+import { getAllSeries } from "@/actions/seriesAction";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,27 +20,28 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 
 export default function CreatePostPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [series, setSeries] = useState<Series[]>([]);
+  const [series, setSeries] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     title: "",
     content: "",
     coverImage: "",
     tags: "",
-    isPublished: false,
     seriesId: "",
+    isPublished: false,
   });
 
   useEffect(() => {
     const fetchSeries = async () => {
       try {
         const response = await getAllSeries();
-        setSeries(response.data);
+        setSeries(response.data.content);
       } catch (error) {
-        toast.error("Không thể tải danh sách series");
+        console.error("Error fetching series:", error);
       }
     };
 
@@ -52,19 +53,14 @@ export default function CreatePostPage() {
     setLoading(true);
 
     try {
-      const tags = formData.tags
-        .split(",")
-        .map((tag) => tag.trim())
-        .filter((tag) => tag.length > 0);
-
       const response = await createPost({
         userId: "current-user-id", // Replace with actual user ID
         title: formData.title,
         content: formData.content,
         coverImage: formData.coverImage,
-        tags,
-        isPublished: formData.isPublished,
+        tags: formData.tags.split(",").map((tag) => tag.trim()),
         seriesId: formData.seriesId || undefined,
+        isPublished: formData.isPublished,
       });
 
       if (response.success) {
@@ -105,11 +101,9 @@ export default function CreatePostPage() {
         <div className="space-y-2">
           <Label htmlFor="content">Nội dung</Label>
           <Editor
-            apiKey="your-tinymce-api-key" // Replace with your TinyMCE API key
+            apiKey="your-tinymce-api-key"
             value={formData.content}
-            onEditorChange={(content: string) =>
-              setFormData({ ...formData, content })
-            }
+            onEditorChange={(content) => setFormData({ ...formData, content })}
             init={{
               height: 500,
               menubar: true,
@@ -156,17 +150,17 @@ export default function CreatePostPage() {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="tags">Tags (phân cách bằng dấu phẩy)</Label>
+          <Label htmlFor="tags">Tags</Label>
           <Input
             id="tags"
             value={formData.tags}
             onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
-            placeholder="Ví dụ: javascript, react, nextjs"
+            placeholder="Nhập tags, phân cách bằng dấu phẩy"
           />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="series">Series (không bắt buộc)</Label>
+          <Label htmlFor="series">Series</Label>
           <Select
             value={formData.seriesId}
             onValueChange={(value) =>
@@ -174,15 +168,20 @@ export default function CreatePostPage() {
             }
           >
             <SelectTrigger>
-              <SelectValue placeholder="Chọn series" />
+              <SelectValue placeholder="Chọn series (không bắt buộc)" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Không có series</SelectItem>
-              {series.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
-                  {s.title}
+              {series.length > 0 ? (
+                series.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.title}
+                  </SelectItem>
+                ))
+              ) : (
+                <SelectItem value="no-series" disabled>
+                  Chưa có series nào
                 </SelectItem>
-              ))}
+              )}
             </SelectContent>
           </Select>
         </div>

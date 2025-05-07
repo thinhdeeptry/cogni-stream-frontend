@@ -8,13 +8,17 @@ export interface Series {
   title: string;
   description: string;
   coverImage: string;
-  posts: {
-    postId: string;
-    order: number;
-  }[];
-  isPublished: boolean;
+  posts: SeriesPost[];
   createdAt: string;
   updatedAt: string;
+  published: boolean;
+}
+
+export interface SeriesPost {
+  postId: string;
+  postTitle: string;
+  postCoverImage: string;
+  order: number;
 }
 
 export interface SeriesFilters {
@@ -25,68 +29,117 @@ export interface SeriesFilters {
 }
 
 export interface PaginatedResponse<T> {
-  data: T[];
-  meta: {
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
+  content: T[];
+  pageable: {
+    pageNumber: number;
+    pageSize: number;
+    sort: {
+      empty: boolean;
+      unsorted: boolean;
+      sorted: boolean;
+    };
+    offset: number;
+    unpaged: boolean;
+    paged: boolean;
   };
+  last: boolean;
+  totalElements: number;
+  totalPages: number;
+  first: boolean;
+  size: number;
+  number: number;
+  sort: {
+    empty: boolean;
+    unsorted: boolean;
+    sorted: boolean;
+  };
+  numberOfElements: number;
+  empty: boolean;
 }
 
-export const getAllSeries = async (
-  filters: SeriesFilters = {},
-): Promise<PaginatedResponse<Series>> => {
-  try {
-    const params = new URLSearchParams();
-    if (filters.page) params.append("page", filters.page.toString());
-    if (filters.size) params.append("size", filters.size.toString());
-    if (filters.sortBy) params.append("sortBy", filters.sortBy);
-    if (filters.sortDir) params.append("sortDir", filters.sortDir);
+export interface ApiResponse<T> {
+  success: boolean;
+  message: string;
+  data: T;
+  timestamp: string;
+}
 
-    const { data } = await axios.get(`${API_URL}/series?${params.toString()}`);
-    return data;
+export const getAllSeries = async (filters?: SeriesFilters) => {
+  try {
+    const response = await axios.get<ApiResponse<PaginatedResponse<Series>>>(
+      `${API_URL}/series`,
+      {
+        params: {
+          page: filters?.page || 0,
+          size: filters?.size || 10,
+          sortBy: filters?.sortBy || "createdAt",
+          sortDir: filters?.sortDir || "desc",
+        },
+      },
+    );
+    return response.data;
   } catch (error) {
     throw error;
   }
 };
 
-export const getSeriesById = async (seriesId: string): Promise<Series> => {
+export const getSeriesById = async (id: string) => {
   try {
-    const { data } = await axios.get(`${API_URL}/series/${seriesId}`);
-    return data;
+    const response = await axios.get<ApiResponse<Series>>(
+      `${API_URL}/series/${id}`,
+    );
+    return response.data;
   } catch (error) {
     throw error;
   }
 };
 
-export const createSeries = async (seriesData: {
+export const getSeriesByUserId = async (
+  userId: string,
+  filters?: SeriesFilters,
+) => {
+  try {
+    const response = await axios.get<ApiResponse<PaginatedResponse<Series>>>(
+      `${API_URL}/series/user/${userId}`,
+      {
+        params: {
+          page: filters?.page || 0,
+          size: filters?.size || 10,
+          sortBy: filters?.sortBy || "createdAt",
+          sortDir: filters?.sortDir || "desc",
+        },
+      },
+    );
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const createSeries = async (data: {
   userId: string;
   title: string;
   description: string;
   coverImage: string;
-  posts: { postId: string; order: number }[];
   isPublished: boolean;
 }) => {
   try {
-    const { data } = await axios.post(`${API_URL}/series`, seriesData);
-    return {
-      success: true,
-      data,
-      message: "Tạo series thành công",
-    };
+    const response = await axios.post<ApiResponse<Series>>(
+      `${API_URL}/series`,
+      {
+        ...data,
+        posts: [],
+      },
+    );
+    return response.data;
   } catch (error) {
-    return {
-      success: false,
-      message: "Đã xảy ra lỗi khi tạo series",
-      error,
-    };
+    throw error;
   }
 };
 
 export const updateSeries = async (
-  seriesId: string,
-  seriesData: {
+  id: string,
+  data: {
     userId: string;
     title: string;
     description: string;
@@ -96,40 +149,27 @@ export const updateSeries = async (
   },
 ) => {
   try {
-    const { data } = await axios.put(
-      `${API_URL}/series/${seriesId}`,
-      seriesData,
-    );
-    return {
-      success: true,
+    const response = await axios.put<ApiResponse<Series>>(
+      `${API_URL}/series/${id}`,
       data,
-      message: "Cập nhật series thành công",
-    };
+    );
+    return response.data;
   } catch (error) {
-    return {
-      success: false,
-      message: "Đã xảy ra lỗi khi cập nhật series",
-      error,
-    };
+    throw error;
   }
 };
 
-export const deleteSeries = async (seriesId: string, userId: string) => {
+export const deleteSeries = async (id: string, userId: string) => {
   try {
-    const { data } = await axios.delete(
-      `${API_URL}/series/${seriesId}?userId=${userId}`,
+    const response = await axios.delete<ApiResponse<void>>(
+      `${API_URL}/series/${id}`,
+      {
+        params: { userId },
+      },
     );
-    return {
-      success: true,
-      data,
-      message: "Xóa series thành công",
-    };
+    return response.data;
   } catch (error) {
-    return {
-      success: false,
-      message: "Đã xảy ra lỗi khi xóa series",
-      error,
-    };
+    throw error;
   }
 };
 
@@ -140,20 +180,16 @@ export const addPostToSeries = async (
   userId: string,
 ) => {
   try {
-    const { data } = await axios.post(
-      `${API_URL}/series/${seriesId}/posts/${postId}?order=${order}&userId=${userId}`,
+    const response = await axios.post<ApiResponse<Series>>(
+      `${API_URL}/series/${seriesId}/posts/${postId}`,
+      null,
+      {
+        params: { order, userId },
+      },
     );
-    return {
-      success: true,
-      data,
-      message: "Thêm bài viết vào series thành công",
-    };
+    return response.data;
   } catch (error) {
-    return {
-      success: false,
-      message: "Đã xảy ra lỗi khi thêm bài viết vào series",
-      error,
-    };
+    throw error;
   }
 };
 
@@ -163,20 +199,15 @@ export const removePostFromSeries = async (
   userId: string,
 ) => {
   try {
-    const { data } = await axios.delete(
-      `${API_URL}/series/${seriesId}/posts/${postId}?userId=${userId}`,
+    const response = await axios.delete<ApiResponse<Series>>(
+      `${API_URL}/series/${seriesId}/posts/${postId}`,
+      {
+        params: { userId },
+      },
     );
-    return {
-      success: true,
-      data,
-      message: "Xóa bài viết khỏi series thành công",
-    };
+    return response.data;
   } catch (error) {
-    return {
-      success: false,
-      message: "Đã xảy ra lỗi khi xóa bài viết khỏi series",
-      error,
-    };
+    throw error;
   }
 };
 
@@ -187,37 +218,35 @@ export const updatePostOrderInSeries = async (
   userId: string,
 ) => {
   try {
-    const { data } = await axios.put(
-      `${API_URL}/series/${seriesId}/posts/${postId}/order?newOrder=${newOrder}&userId=${userId}`,
+    const response = await axios.put<ApiResponse<Series>>(
+      `${API_URL}/series/${seriesId}/posts/${postId}/order`,
+      null,
+      {
+        params: { newOrder, userId },
+      },
     );
-    return {
-      success: true,
-      data,
-      message: "Cập nhật thứ tự bài viết thành công",
-    };
+    return response.data;
   } catch (error) {
-    return {
-      success: false,
-      message: "Đã xảy ra lỗi khi cập nhật thứ tự bài viết",
-      error,
-    };
+    throw error;
   }
 };
 
 export const searchSeries = async (
   keyword: string,
-  filters: SeriesFilters = {},
-): Promise<PaginatedResponse<Series>> => {
+  filters?: SeriesFilters,
+) => {
   try {
-    const params = new URLSearchParams();
-    params.append("keyword", keyword);
-    if (filters.page) params.append("page", filters.page.toString());
-    if (filters.size) params.append("size", filters.size.toString());
-
-    const { data } = await axios.get(
-      `${API_URL}/series/search?${params.toString()}`,
+    const response = await axios.get<ApiResponse<PaginatedResponse<Series>>>(
+      `${API_URL}/series/search`,
+      {
+        params: {
+          keyword,
+          page: filters?.page || 0,
+          size: filters?.size || 10,
+        },
+      },
     );
-    return data;
+    return response.data;
   } catch (error) {
     throw error;
   }

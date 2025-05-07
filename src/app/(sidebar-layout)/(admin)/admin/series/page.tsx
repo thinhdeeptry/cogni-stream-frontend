@@ -7,8 +7,12 @@ import { format } from "date-fns";
 import { Search } from "lucide-react";
 import { toast } from "sonner";
 
-import { Series, deleteSeries, getAllSeries } from "@/actions/seriesAction";
-import { searchSeries } from "@/actions/seriesAction";
+import {
+  Series,
+  deleteSeries,
+  getAllSeries,
+  searchSeries,
+} from "@/actions/seriesAction";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -32,12 +36,12 @@ export default function SeriesPage() {
     try {
       setLoading(true);
       const response = await getAllSeries({
-        page: 1,
+        page: 0,
         size: 10,
         sortBy: "createdAt",
         sortDir: "desc",
       });
-      setSeries(response.data);
+      setSeries(response.data.content);
     } catch (error) {
       toast.error("Không thể tải danh sách series");
     } finally {
@@ -54,10 +58,10 @@ export default function SeriesPage() {
     try {
       setLoading(true);
       const response = await searchSeries(searchQuery, {
-        page: 1,
+        page: 0,
         size: 10,
       });
-      setSeries(response.data);
+      setSeries(response.data.content);
     } catch (error) {
       toast.error("Không thể tìm kiếm series");
     } finally {
@@ -88,7 +92,7 @@ export default function SeriesPage() {
   return (
     <div className="container mx-auto py-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Quản lý series</h1>
+        <h1 className="text-2xl font-bold">Quản lý Series</h1>
         <Button onClick={() => router.push("/admin/series/create")}>
           Tạo series mới
         </Button>
@@ -114,8 +118,9 @@ export default function SeriesPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Tiêu đề</TableHead>
-              <TableHead>Trạng thái</TableHead>
+              <TableHead>Mô tả</TableHead>
               <TableHead>Số bài viết</TableHead>
+              <TableHead>Trạng thái</TableHead>
               <TableHead>Ngày tạo</TableHead>
               <TableHead>Thao tác</TableHead>
             </TableRow>
@@ -123,13 +128,13 @@ export default function SeriesPage() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center">
+                <TableCell colSpan={6} className="text-center">
                   Đang tải...
                 </TableCell>
               </TableRow>
             ) : series.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center">
+                <TableCell colSpan={6} className="text-center">
                   Không có series nào
                 </TableCell>
               </TableRow>
@@ -137,15 +142,18 @@ export default function SeriesPage() {
               series.map((s) => (
                 <TableRow key={s.id}>
                   <TableCell className="font-medium">{s.title}</TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={s.isPublished ? "default" : "secondary"}
-                      className={s.isPublished ? "bg-green-500" : ""}
-                    >
-                      {s.isPublished ? "Đã xuất bản" : "Bản nháp"}
-                    </Badge>
+                  <TableCell className="max-w-md truncate">
+                    {s.description}
                   </TableCell>
                   <TableCell>{s.posts.length}</TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={s.published ? "default" : "secondary"}
+                      className={s.published ? "bg-green-500" : ""}
+                    >
+                      {s.published ? "Đã xuất bản" : "Bản nháp"}
+                    </Badge>
+                  </TableCell>
                   <TableCell>
                     {format(new Date(s.createdAt), "dd/MM/yyyy HH:mm")}
                   </TableCell>
