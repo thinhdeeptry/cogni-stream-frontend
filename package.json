@@ -13,6 +13,7 @@
     "**/*": "prettier --write --ignore-unknown"
   },
   "dependencies": {
+    "@ai-sdk/react": "^1.2.11",
     "@blocknote/core": "^0.28.0",
     "@blocknote/mantine": "^0.28.0",
     "@blocknote/react": "^0.28.0",
@@ -42,6 +43,7 @@
     "@tabler/icons-react": "^3.31.0",
     "@tanstack/react-table": "^8.21.3",
     "add": "^2.0.6",
+    "ai": "^4.3.14",
     "axios": "^1.8.4",
     "button": "^1.1.1",
     "card": "^2.5.4",
@@ -52,6 +54,7 @@
     "embla-carousel-react": "^8.5.2",
     "emoji-mart": "^5.6.0",
     "eslint-plugin-prettier": "^5.2.6",
+    "flowise-embed-react": "^3.0.1",
     "form": "^0.2.5",
     "framer-motion": "^11.18.2",
     "input": "^1.0.1",
@@ -63,6 +66,7 @@
     "next-auth": "^5.0.0-beta.25",
     "next-themes": "^0.4.4",
     "react": "^19.1.0",
+    "react-chatbotify": "^2.0.0-beta.33",
     "react-dom": "^19.1.0",
     "react-hook-form": "^7.55.0",
     "react-icons": "^5.5.0",
