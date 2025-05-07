@@ -189,20 +189,29 @@ export default function CourseDetail() {
     <div className="w-full flex-1 flex gap-8 justify-center min-h-screen p-5">
       {/* Left Column */}
       <div className="w-2/3 space-y-8">
-        <div>
-          <h1 className="text-3xl font-semibold mb-4">{course.title}</h1>
-          <p className="text-gray-600">{course.description}</p>
+        <div className="bg-white rounded-lg shadow-sm p-6 transition-all hover:shadow-md">
+          <h1 className="text-3xl font-semibold mb-4 text-gray-800">
+            {course.title}
+          </h1>
+          <p className="text-gray-600 leading-relaxed">{course.description}</p>
         </div>
 
         {/* Learning Outcomes */}
         {course.learningOutcomes && course.learningOutcomes.length > 0 && (
-          <div>
-            <h2 className="text-2xl font-semibold mb-4">Bạn sẽ học được gì?</h2>
+          <div className="bg-white rounded-lg shadow-sm p-6 transition-all hover:shadow-md">
+            <h2 className="text-2xl font-semibold mb-4 text-gray-800">
+              Bạn sẽ học được gì?
+            </h2>
             <ul className="grid grid-cols-2 gap-4">
               {course.learningOutcomes.map((outcome, index) => (
-                <li key={index} className="flex text-start gap-2">
-                  <div className="text-orange-500">✓</div>
-                  <span>{outcome}</span>
+                <li
+                  key={index}
+                  className="flex text-start gap-3 items-start group"
+                >
+                  <div className="text-orange-500 transition-transform group-hover:scale-110">
+                    ✓
+                  </div>
+                  <span className="text-gray-700">{outcome}</span>
                 </li>
               ))}
             </ul>
@@ -210,8 +219,10 @@ export default function CourseDetail() {
         )}
 
         {/* Course Content */}
-        <div>
-          <h2 className="text-2xl font-semibold mb-2">Nội dung khoá học</h2>
+        <div className="bg-white rounded-lg shadow-sm p-6 transition-all hover:shadow-md">
+          <h2 className="text-2xl font-semibold mb-2 text-gray-800">
+            Nội dung khoá học
+          </h2>
           <p className="text-gray-600 mb-4 text-xs">
             <span className="font-semibold">• Số chương: </span>
             {course.chapters?.length || 0}
@@ -222,7 +233,7 @@ export default function CourseDetail() {
           <div className="space-y-4">
             {course.chapters?.map((chapter) => (
               <Collapsible key={chapter.id}>
-                <CollapsibleTrigger className="flex items-center justify-between w-full p-4 bg-gray-50 hover:bg-gray-100 rounded-lg">
+                <CollapsibleTrigger className="flex items-center justify-between w-full p-4 bg-slate-50 hover:bg-slate-100 rounded-lg transition-all duration-200">
                   <div className="flex items-center gap-2">
                     <Plus className="h-4 w-4 text-orange-500" />
                     <h3 className="font-semibold text-gray-700">
@@ -243,7 +254,7 @@ export default function CourseDetail() {
                             : "#"
                         }
                         key={lesson.id}
-                        className={`flex items-center justify-between p-2 hover:bg-gray-50 rounded-lg ${
+                        className={`flex items-center justify-between p-3 hover:bg-slate-50 rounded-lg transition-all duration-200 ${
                           isEnrolled || lesson.isFreePreview
                             ? "cursor-pointer"
                             : "cursor-not-allowed opacity-50"
@@ -258,11 +269,11 @@ export default function CourseDetail() {
                         }}
                       >
                         <div className="flex items-center gap-2">
-                          <Book className="h-4 w-4" />
-                          <span>{lesson.title}</span>
+                          <Book className="h-4 w-4 text-orange-500" />
+                          <span className="text-gray-700">{lesson.title}</span>
                         </div>
                         {lesson.isFreePreview && (
-                          <span className="text-xs bg-gray-200 text-black px-2 py-1 rounded">
+                          <span className="text-xs bg-orange-100 text-orange-600 px-2 py-1 rounded font-medium">
                             Preview
                           </span>
                         )}
@@ -277,13 +288,15 @@ export default function CourseDetail() {
 
         {/* Requirements */}
         {course.requirements && course.requirements.length > 0 && (
-          <div>
-            <h2 className="text-2xl font-semibold mb-4">Yêu cầu</h2>
-            <ul className="space-y-2">
+          <div className="bg-white rounded-lg shadow-sm p-6 transition-all hover:shadow-md">
+            <h2 className="text-2xl font-semibold mb-4 text-gray-800">
+              Yêu cầu
+            </h2>
+            <ul className="space-y-3">
               {course.requirements.map((requirement, index) => (
-                <li key={index} className="flex items-start gap-2">
-                  <div>•</div>
-                  <span>{requirement}</span>
+                <li key={index} className="flex items-start gap-3 group">
+                  <div className="mt-1.5 h-1.5 w-1.5 rounded-full bg-orange-500 group-hover:scale-110 transition-transform"></div>
+                  <span className="text-gray-700">{requirement}</span>
                 </li>
               ))}
             </ul>
@@ -292,8 +305,10 @@ export default function CourseDetail() {
 
         {/* Discussion Section */}
         {threadId && (
-          <div className="mt-8">
-            <h2 className="text-2xl font-semibold mb-4">Thảo luận</h2>
+          <div className="bg-white rounded-lg shadow-sm p-6 transition-all hover:shadow-md mt-8">
+            <h2 className="text-2xl font-semibold mb-4 text-gray-800">
+              Thảo luận
+            </h2>
             <Discussion threadId={threadId} />
           </div>
         )}
@@ -302,22 +317,22 @@ export default function CourseDetail() {
       {/* Right Column - Course Card */}
       <div className="w-1/3">
         <div className="sticky top-8">
-          <Card className="overflow-hidden">
+          <Card className="overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
             <div className="relative aspect-video w-full">
               <Image
                 src={course.thumbnailUrl || "/placeholder-course.jpg"}
                 alt={course.title}
                 fill
-                className="object-cover"
+                className="object-cover transition-transform duration-300 hover:scale-105"
               />
               {course.price > 0 && (
-                <div className="absolute top-2 right-2 rounded-lg px-1 py-1.5 bg-gray-500/35">
+                <div className="absolute top-2 right-2 rounded-lg px-2 py-1.5 bg-black/35 backdrop-blur-sm">
                   <Crown size={18} color="gold" />
                 </div>
               )}
             </div>
             <CardContent className="p-6">
-              <div className="space-y-4">
+              <div className="space-y-6">
                 {/* Price Display */}
                 <div className="flex items-center gap-2">
                   {course.price === 0 ? (
@@ -327,11 +342,7 @@ export default function CourseDetail() {
                   ) : (
                     <div className="space-y-1">
                       <p
-                        className={`font-semibold text-2xl ${
-                          course.promotionPrice
-                            ? "text-red-600"
-                            : "text-red-600"
-                        }`}
+                        className={`font-semibold text-2xl ${course.promotionPrice ? "text-red-600" : "text-red-600"}`}
                       >
                         {(
                           course.promotionPrice || course.price
@@ -340,7 +351,7 @@ export default function CourseDetail() {
                       </p>
                       {course.promotionPrice &&
                         course.promotionPrice < course.price && (
-                          <p className="text-gray-500 line-through">
+                          <p className="text-gray-500 line-through text-sm">
                             {course.price.toLocaleString()} {course.currency}
                           </p>
                         )}
@@ -351,7 +362,7 @@ export default function CourseDetail() {
                 {/* Enroll/Start Learning Button */}
                 {!isEnrolled ? (
                   <Button
-                    className="w-full"
+                    className="w-full bg-orange-500 hover:bg-orange-600 text-white transition-colors"
                     size="lg"
                     onClick={handleEnrollClick}
                   >
@@ -359,7 +370,7 @@ export default function CourseDetail() {
                   </Button>
                 ) : (
                   <Button
-                    className="w-full"
+                    className="w-full bg-orange-500 hover:bg-orange-600 text-white transition-colors"
                     size="lg"
                     onClick={handleStartLearningClick}
                   >
@@ -368,12 +379,11 @@ export default function CourseDetail() {
                 )}
 
                 {/* Course Stats */}
-                <div className="pt-4 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Book className="h-4 w-4 text-gray-500" />
+                <div className="pt-4 space-y-3">
+                  <div className="flex items-center gap-3 text-gray-700">
+                    <Book className="h-4 w-4 text-orange-500" />
                     <span>{course.totalLessons || 0} bài học</span>
                   </div>
-                  {/* Add more stats as needed */}
                 </div>
               </div>
             </CardContent>

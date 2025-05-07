@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { AxiosFactory } from "@/lib/axios";
 import { Course, LessonType } from "@/types/course/types";
 import {
   Collapsible,
@@ -15,21 +16,36 @@ import {
   ChevronLeft,
   ChevronRight,
   Menu,
+  Minus,
   Plus,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import ReactPlayer from "react-player";
 import { JSX } from "react/jsx-runtime";
+import { toast } from "sonner";
 
 import { getCourseById, getLessonById } from "@/actions/courseAction";
 import { getThreadByResourceId } from "@/actions/discussion.action";
 import { checkEnrollmentStatus } from "@/actions/enrollmentActions";
 
+import { useProgressStore } from "@/stores/useProgressStore";
 import useUserStore from "@/stores/useUserStore";
 
 import Discussion from "@/components/discussion";
 import { DiscussionType } from "@/components/discussion/type";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 
 interface Block {
   id: string;
@@ -327,9 +343,48 @@ export default function LessonDetail() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [threadId, setThreadId] = useState<string | null>(null);
+  const [enrollmentId, setEnrollmentId] = useState<string | null>(null);
   const { user } = useUserStore();
   const params = useParams();
+  const router = useRouter();
   const { data: session } = useSession();
+
+  // Progress store
+  const {
+    progress,
+    overallProgress,
+    setEnrollmentId: setProgressEnrollmentId,
+    fetchInitialProgress,
+    fetchOverallProgress,
+    updateLessonProgress,
+  } = useProgressStore();
+
+  const [expandedChapters, setExpandedChapters] = useState<
+    Record<string, boolean>
+  >({});
+
+  // Set all chapters to expanded by default when course data is loaded
+  useEffect(() => {
+    if (course?.chapters) {
+      const initialExpandedState = course.chapters.reduce(
+        (acc, chapter) => {
+          acc[chapter.id] = true;
+          return acc;
+        },
+        {} as Record<string, boolean>,
+      );
+      setExpandedChapters(initialExpandedState);
+    }
+  }, [course?.chapters]);
+
+  // Function to handle chapter expansion toggle
+  const toggleChapter = (chapterId: string) => {
+    setExpandedChapters((prev) => ({
+      ...prev,
+      [chapterId]: !prev[chapterId],
+    }));
+  };
+
   useEffect(() => {
     const checkEnrollment = async () => {
       if (session?.user?.id && course?.id) {
@@ -347,6 +402,7 @@ export default function LessonDetail() {
 
     checkEnrollment();
   }, [course?.id, session?.user?.id]);
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -392,6 +448,30 @@ export default function LessonDetail() {
       fetchOrCreateThread();
     }
   }, [params.lessonId, user, threadId, lesson]);
+
+  // Add new useEffect for fetching enrollment ID
+  useEffect(() => {
+    const fetchEnrollmentId = async () => {
+      if (session?.user?.id && course?.id) {
+        try {
+          const enrollmentApi = await AxiosFactory.getApiInstance("enrollment");
+          const response = await enrollmentApi.get(`/find/${course.id}`);
+          console.log("response.data", response.data);
+          if (response.data?.id) {
+            setEnrollmentId(response.data.id);
+            setProgressEnrollmentId(response.data.id);
+            // Fetch initial progress
+            await fetchInitialProgress();
+            await fetchOverallProgress();
+          }
+        } catch (err) {
+          console.error("Error fetching enrollment ID:", err);
+        }
+      }
+    };
+
+    fetchEnrollmentId();
+  }, [course?.id, session?.user?.id]);
 
   if (isLoading) {
     return (
@@ -471,6 +551,31 @@ export default function LessonDetail() {
     }
   }
 
+  const handleLessonCompletion = async () => {
+    if (!enrollmentId || !lesson) return;
+
+    try {
+      await updateLessonProgress({
+        progress: ((currentLessonIndex + 1) / totalLessons) * 100,
+        currentLesson: lesson.title,
+        lessonId: lesson.id,
+        isLessonCompleted: true,
+      });
+
+      toast.success("Tiến độ học tập đã được cập nhật!");
+
+      // Chuyển sang bài học tiếp theo nếu có
+      if (nextLesson) {
+        router.push(`/course/${course?.id}/lesson/${nextLesson.id}`);
+      }
+    } catch (err) {
+      toast.error("Không thể cập nhật tiến độ học tập");
+    }
+  };
+
+  // Calculate current lesson index and total lessons
+  const totalLessons = allLessons.length;
+
   return (
     <div className="w-full flex-1 flex flex-col min-h-screen relative">
       <div
@@ -538,7 +643,7 @@ export default function LessonDetail() {
       <div className="sticky bottom-0 left-0 right-0 bg-white border-t px-6 py-4 z-10">
         <div className="flex items-center justify-center gap-4">
           {previousLesson ? (
-            <Link href={`/course/${course.id}/lesson/${previousLesson.id}`}>
+            <Link href={`/course/${course?.id}/lesson/${previousLesson.id}`}>
               <Button variant="outline" className="w-40">
                 <ChevronLeft className="mr-2 h-4 w-4" /> Bài trước
               </Button>
@@ -548,12 +653,32 @@ export default function LessonDetail() {
               <ChevronLeft className="mr-2 h-4 w-4" /> Bài trước
             </Button>
           )}
+
           {nextLesson ? (
-            <Link href={`/course/${course.id}/lesson/${nextLesson.id}`}>
-              <Button variant="outline" className="w-40">
-                Học tiếp <ChevronRight className="ml-2 h-4 w-4" />
-              </Button>
-            </Link>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" className="w-40">
+                  Học tiếp <ChevronRight className="ml-2 h-4 w-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>
+                    Xác nhận hoàn thành bài học
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Bạn đã hoàn thành bài học này chưa? Hãy đảm bảo rằng bạn đã
+                    nắm vững kiến thức trước khi chuyển sang bài tiếp theo.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Chưa, tôi cần học lại</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleLessonCompletion}>
+                    Đã hoàn thành, học tiếp
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           ) : (
             <Button variant="outline" className="w-40" disabled>
               Học tiếp <ChevronRight className="ml-2 h-4 w-4" />
@@ -590,20 +715,32 @@ export default function LessonDetail() {
         <div className="p-6 h-full overflow-auto">
           <h2 className="text-xl font-semibold mb-6">Nội dung khoá học</h2>
           <div className="space-y-4">
-            {course.chapters?.map((chapter) => (
-              <Collapsible key={chapter.id}>
-                <CollapsibleTrigger className="flex items-center justify-between w-full p-4 bg-gray-100 hover:bg-gray-200 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <div className="text-gray-500">
-                      <Plus className="h-4 w-4 text-orange-500" />
+            {course?.chapters?.map((chapter) => (
+              <Collapsible
+                key={chapter.id}
+                open={expandedChapters[chapter.id]}
+                onOpenChange={() => toggleChapter(chapter.id)}
+              >
+                <CollapsibleTrigger className="flex items-center justify-between w-full p-4 bg-gray-100 hover:bg-gray-200 rounded-lg transition-all duration-200">
+                  <div className="flex items-center   gap-2 truncate ">
+                    <div className="text-gray-500 transition-transform duration-200">
+                      {expandedChapters[chapter.id] ? (
+                        <div className="transform transition-transform duration-200">
+                          <Minus className="h-4 w-4 text-orange-500" />
+                        </div>
+                      ) : (
+                        <Plus className="h-4 w-4 text-orange-500" />
+                      )}
                     </div>
-                    <h3 className="font-semibold text-gray-700">
+                    <h3 className=" font-semibold text-gray-700 ">
                       {chapter.title}
                     </h3>
                   </div>
-                  <span className="text-sm text-gray-600">
-                    {chapter.lessons?.length || 0} bài
-                  </span>
+                  <div className="flex items-center gap-2 pl-1">
+                    <span className="text-sm text-gray-600 truncate">
+                      {chapter.lessons?.length || 0} bài
+                    </span>
+                  </div>
                 </CollapsibleTrigger>
                 <CollapsibleContent className="pl-4">
                   <ul className="mt-2 space-y-2">
@@ -615,25 +752,35 @@ export default function LessonDetail() {
                             : "#"
                         }
                         key={lesson.id}
-                        className={`flex items-center justify-between p-2 rounded-lg transition-colors ${
+                        className={`block p-2 rounded-lg transition-colors ${
                           lesson.id === params.lessonId
                             ? "bg-orange-100"
                             : "hover:bg-gray-200"
-                        } ${!canAccessLesson(lesson) ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                        } ${
+                          !canAccessLesson(lesson)
+                            ? "opacity-50 cursor-not-allowed"
+                            : "cursor-pointer"
+                        }`}
                         onClick={(e) => {
                           if (!canAccessLesson(lesson)) {
                             e.preventDefault();
                           }
                         }}
                       >
-                        <div className="flex items-center justify-between w-full">
-                          <span
-                            className={`${lesson.id === params.lessonId ? "font-medium" : ""}`}
-                          >
-                            {lesson.title}
-                          </span>
+                        <div className="flex items-center gap-2 min-h-[32px]">
+                          <div className="flex-1 overflow-hidden">
+                            <span
+                              className={`block truncate ${
+                                lesson.id === params.lessonId
+                                  ? "font-medium"
+                                  : ""
+                              }`}
+                            >
+                              {lesson.title}
+                            </span>
+                          </div>
                           {lesson.isFreePreview && (
-                            <span className="text-xs bg-gray-200 px-2 py-1 rounded">
+                            <span className="flex-shrink-0 text-xs bg-gray-200 px-2 py-1 rounded">
                               Preview
                             </span>
                           )}

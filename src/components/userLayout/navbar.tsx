@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useParams, usePathname } from "next/navigation";
 import { useState } from "react";
 
 import { Bell, LogOut, Search, Settings, User } from "lucide-react";
 
+import CourseProgress from "@/components/course/CourseProgress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,23 +32,31 @@ export default function Navbar({
   onLogout,
 }: NavbarProps) {
   const [searchQuery, setSearchQuery] = useState("");
+  const pathname = usePathname();
+  const params = useParams();
+
+  // Check if we're in a lesson page
+  const isLessonPage =
+    pathname?.includes("/course/") && pathname?.includes("/lesson/");
 
   return (
     <header className="w-full border-b bg-white">
       <div className="container flex h-16 items-center justify-between px-4">
         {/* Logo and Brand */}
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-orange-500 text-white font-bold text-xl">
-            F8
-          </div>
+          <Link href="/">
+            <div className="flex h-10 w-10 items-center justify-center rounded-md bg-orange-500 text-white font-bold text-xl">
+              F8
+            </div>
+          </Link>
           <h1 className="hidden text-base font-medium md:block">
             Học Lập Trình Để Đi Làm
           </h1>
         </div>
 
-        {/* Search Bar */}
-        <div className="relative mx-4 flex-1 max-w-md">
-          <div className="relative">
+        {/* Search Bar and Progress */}
+        <div className="relative mx-4 flex-1 max-w-md flex items-center gap-4">
+          <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
             <Input
               type="search"
@@ -56,6 +66,7 @@ export default function Navbar({
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
+          {isLessonPage && <CourseProgress />}
         </div>
 
         {/* Auth Buttons or User Info */}

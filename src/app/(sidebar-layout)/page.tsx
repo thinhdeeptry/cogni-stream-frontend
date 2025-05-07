@@ -98,54 +98,61 @@ export default function Home() {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
-        Loading...
+      <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500"></div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex justify-center items-center min-h-screen text-red-500">
-        {error}
+      <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="bg-red-50 text-red-500 p-4 rounded-lg shadow-lg">
+          {error}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="p-5 flex-1 flex flex-col items-center w-full justify-start min-h-screen gap-12">
-      <div className="w-full relative rounded-3xl">
+    <div className="container mx-auto px-2 sm:px-6 lg:px-2 py-4 flex-1 flex flex-col items-center w-full justify-start min-h-screen gap-12">
+      {/* Hero Banner Section */}
+      <div className="w-full relative rounded-3xl bg-gradient-to-r from-slate-50 to-orange-50/50 p-4 sm:p-6">
         <Carousel
           setApi={setApi}
           opts={{
             align: "center",
             loop: true,
           }}
-          className="w-full"
+          className="w-full max-w-[1400px] mx-auto"
         >
           <CarouselContent className="rounded-3xl">
             {bannerImages.map((image, index) => (
               <CarouselItem key={index}>
-                <div className="relative h-[280px] w-full rounded-3xl overflow-hidden">
+                <div className="relative h-[200px] sm:h-[280px] w-full rounded-3xl overflow-hidden shadow-lg">
                   <Image
                     src={image}
                     alt={`Banner ${index + 1}`}
                     fill
-                    className="w-full h-[280px]"
+                    className="w-full object-cover transition-transform duration-500 hover:scale-105"
                     priority={index === 0}
                   />
                 </div>
               </CarouselItem>
             ))}
           </CarouselContent>
-          <CarouselPrevious className="-left-4 h-8 w-8" />
-          <CarouselNext className="-right-4 h-8 w-8" />
+          <CarouselPrevious className="hidden sm:-left-4 sm:flex h-8 w-8 sm:h-10 sm:w-10 opacity-70 hover:opacity-100 transition-opacity" />
+          <CarouselNext className="hidden sm:-right-4 sm:flex h-8 w-8 sm:h-10 sm:w-10 opacity-70 hover:opacity-100 transition-opacity" />
 
-          <div className="py-4 pl-12 text-center flex justify-start gap-2">
+          <div className="py-4 text-center flex justify-center sm:justify-start sm:pl-12 gap-2">
             {Array.from({ length: count }).map((_, index) => (
               <button
                 key={index}
-                className={`items-center rounded-md transition-all duration-300 ${index === current - 1 ? "w-10 bg-gray-400/65 h-2" : "w-6 h-1.5 bg-gray-200 hover:bg-gray-200/80"}`}
+                className={`items-center rounded-md transition-all duration-300 ${
+                  index === current - 1
+                    ? "w-8 sm:w-10 bg-orange-500/65 h-2"
+                    : "w-4 sm:w-6 h-1.5 bg-gray-200 hover:bg-orange-200"
+                }`}
                 aria-label={`Go to slide ${index + 1}`}
                 onClick={() => handleDotClick(index)}
               />
@@ -154,32 +161,60 @@ export default function Home() {
         </Carousel>
       </div>
 
-      <div className="w-full space-y-4 ">
-        <h2 className="text-2xl font-semibold">Khoá học Pro</h2>
-        <div className="w-full grid grid-cols-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 py-2 pb-4">
+      {/* Pro Courses Section */}
+      <div className="w-full space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl sm:text-3xl font-semibold text-gray-800 group">
+            Khoá học Pro
+            <div className="h-1 w-0 group-hover:w-full bg-orange-500 transition-all duration-300"></div>
+          </h2>
+          <button className="text-orange-500 hover:text-orange-600 transition-colors text-sm sm:text-base">
+            Xem tất cả →
+          </button>
+        </div>
+
+        <div className="w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 py-2 pb-4">
           {proCourses.map((course) => (
-            <CourseItem
+            <div
               key={course.id}
-              {...course}
-              enrollmentCount={0}
-              totalLessons={course.totalLessons}
-              ownerAvatarUrl="https://res.cloudinary.com/dxxsudprj/image/upload/v1733839978/Anime_Characters_cnkjji.jpg"
-            />
+              className="transform hover:-translate-y-1 transition-transform duration-300"
+            >
+              <CourseItem
+                {...course}
+                enrollmentCount={0}
+                totalLessons={course.totalLessons}
+                ownerAvatarUrl="https://res.cloudinary.com/dxxsudprj/image/upload/v1733839978/Anime_Characters_cnkjji.jpg"
+              />
+            </div>
           ))}
         </div>
       </div>
 
-      <div className="w-full ">
-        <h2 className="text-2xl font-semibold">Khoá học miễn phí</h2>
-        <div className="grid grid-cols-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 py-4 pb-6">
+      {/* Free Courses Section */}
+      <div className="w-full space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl sm:text-3xl font-semibold text-gray-800 group">
+            Khoá học miễn phí
+            <div className="h-1 w-0 group-hover:w-full bg-orange-500 transition-all duration-300"></div>
+          </h2>
+          <button className="text-orange-500 hover:text-orange-600 transition-colors text-sm sm:text-base">
+            Xem tất cả →
+          </button>
+        </div>
+
+        <div className="w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 py-2 pb-4">
           {freeCourses.map((course) => (
-            <CourseItem
+            <div
               key={course.id}
-              {...course}
-              enrollmentCount={0}
-              totalLessons={course.totalLessons}
-              ownerAvatarUrl="https://res.cloudinary.com/dxxsudprj/image/upload/v1733839978/Anime_Characters_cnkjji.jpg"
-            />
+              className="transform hover:-translate-y-1 transition-transform duration-300"
+            >
+              <CourseItem
+                {...course}
+                enrollmentCount={0}
+                totalLessons={course.totalLessons}
+                ownerAvatarUrl="https://res.cloudinary.com/dxxsudprj/image/upload/v1733839978/Anime_Characters_cnkjji.jpg"
+              />
+            </div>
           ))}
         </div>
       </div>

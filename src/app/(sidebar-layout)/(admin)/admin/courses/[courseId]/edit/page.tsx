@@ -420,7 +420,7 @@ export default function EditCoursePage({
           </div>
 
           <div className="space-y-4">
-            <Label>Kết quả học tập</Label>
+            <Label className="pr-2.5">Kết quả học tập</Label>
             {courseData.learningOutcomes.map((outcome, index) => (
               <div key={index} className="flex gap-2">
                 <Input
@@ -454,7 +454,7 @@ export default function EditCoursePage({
           </div>
 
           <div className="space-y-4">
-            <Label>Yêu cầu</Label>
+            <Label className="pr-2.5">Yêu cầu</Label>
             {courseData.requirements.map((requirement, index) => (
               <div key={index} className="flex gap-2">
                 <Input

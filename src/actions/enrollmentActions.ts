@@ -12,7 +12,7 @@ export const enrollCourse = async (enrollmentData: EnrollmentData) => {
   try {
     const enrollmentApi = await AxiosFactory.getApiInstance("enrollment");
     const response = await enrollmentApi.post("/", enrollmentData);
-
+    console.log("response", response);
     return {
       error: false,
       success: true,

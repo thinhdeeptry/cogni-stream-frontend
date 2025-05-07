@@ -270,7 +270,7 @@ export default function CreateCoursePage() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="px-1 overflow-hidden ">
+    <form onSubmit={handleSubmit} className="px-1 overflow-visible ">
       <div className="flex items-center gap-4 mb-6">
         <Link href="/admin/courses">
           <Button variant="outline" size="icon">
@@ -280,7 +280,7 @@ export default function CreateCoursePage() {
         <h1 className="text-2xl font-bold">Thêm khóa học mới</h1>
       </div>
 
-      <div className="grid grid-cols-3 gap-6">
+      <div className="grid grid-cols-3 gap-6 h-full">
         <div className="col-span-2 space-y-6">
           <div className="space-y-4">
             <div className="space-y-2">
@@ -396,7 +396,6 @@ export default function CreateCoursePage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="VND">VND</SelectItem>
-                  <SelectItem value="USD">USD</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -465,7 +464,7 @@ export default function CreateCoursePage() {
             </div>
 
             <div className="space-y-2">
-              <Label>Kết quả học tập</Label>
+              <Label className="pr-2.5">Kết quả đạt được</Label>
               {courseData.learningOutcomes.map((outcome, index) => (
                 <div key={index} className="flex gap-2">
                   <Input
@@ -494,12 +493,12 @@ export default function CreateCoursePage() {
                 onClick={() => addArrayItem("learningOutcomes")}
               >
                 <Plus className="h-4 w-4 mr-2" />
-                Thêm kết quả học tập
+                Thêm kết quả đạt được
               </Button>
             </div>
 
             <div className="space-y-2">
-              <Label>Yêu cầu</Label>
+              <Label className="pr-2.5">Yêu cầu khi học</Label>
               {courseData.requirements.map((requirement, index) => (
                 <div key={index} className="flex gap-2">
                   <Input
@@ -528,7 +527,7 @@ export default function CreateCoursePage() {
                 onClick={() => addArrayItem("requirements")}
               >
                 <Plus className="h-4 w-4 mr-2" />
-                Thêm yêu cầu
+                Thêm yêu cầu khi học
               </Button>
             </div>
           </div>
