@@ -5,6 +5,18 @@
  */
 export function extractPlainTextFromBlockNote(content: string): string {
   try {
+    // Kiểm tra xem content có phải là chuỗi không
+    if (!content || typeof content !== "string") {
+      return "No content available";
+    }
+
+    // Kiểm tra xem content có phải JSON không
+    // Thử tìm ký tự đầu tiên sau khi bỏ qua khoảng trắng
+    const trimmed = content.trim();
+    if (!trimmed || (trimmed[0] !== "[" && trimmed[0] !== "{")) {
+      return typeof content === "string" ? content : "Invalid content format";
+    }
+
     const parsedContent = JSON.parse(content);
     if (!Array.isArray(parsedContent)) return "No content available";
 
@@ -45,6 +57,10 @@ export function extractPlainTextFromBlockNote(content: string): string {
       .join("\n");
   } catch (error) {
     console.error("Error extracting plain text from BlockNote content:", error);
+    // Nếu lỗi parse JSON, trả về content gốc nếu là string
+    if (typeof content === "string") {
+      return content;
+    }
     return "Error parsing lesson content";
   }
 }

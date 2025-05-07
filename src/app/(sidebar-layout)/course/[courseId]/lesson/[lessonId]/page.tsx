@@ -513,20 +513,26 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
             // Use our server-side API route to fetch the transcript
             const response = await fetch(
               `/api/youtube-transcript?url=${encodeURIComponent(lessonData.videoUrl)}`,
+              {
+                signal: AbortSignal.timeout(8000), // Timeout sau 8 giây
+              },
             );
 
             if (!response.ok) {
-              throw new Error(
-                `Failed to fetch transcript: ${response.statusText}`,
+              console.warn(
+                `Transcript fetch failed: ${response.status} ${response.statusText}`,
               );
+              // Thay vì throw error, chỉ log và tiếp tục
+              setTimestampedTranscript([]);
+            } else {
+              const data = await response.json();
+              setTimestampedTranscript(data.timestampedTranscript || []);
+              console.log("Transcript fetched successfully");
             }
-
-            const data = await response.json();
-            setTimestampedTranscript(data.timestampedTranscript || []);
-            console.log("Transcript fetched successfully");
-            console.log("Timestamped transcript:", data.timestampedTranscript);
           } catch (error) {
+            // Log lỗi nhưng không làm crash component
             console.error("Error fetching transcript:", error);
+            setTimestampedTranscript([]);
           }
         }
       } catch (err) {
@@ -659,11 +665,21 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
   // Parse lesson content for BLOG or MIXED types
   let contentBlocks: Block[] = [];
   if (
-    lesson.content &&
+    lesson?.content &&
+    typeof lesson.content === "string" &&
     (lesson.type === LessonType.BLOG || lesson.type === LessonType.MIXED)
   ) {
     try {
-      contentBlocks = JSON.parse(lesson.content);
+      // Kiểm tra xem content có phải định dạng JSON không
+      const trimmedContent = lesson.content.trim();
+      if (
+        trimmedContent &&
+        (trimmedContent[0] === "[" || trimmedContent[0] === "{")
+      ) {
+        contentBlocks = JSON.parse(lesson.content);
+      } else {
+        console.warn("Lesson content is not in JSON format:", lesson.content);
+      }
     } catch (error) {
       console.error("Error parsing lesson content:", error);
     }
