@@ -22,6 +22,7 @@ export default function CreateSeriesPage() {
     coverImage: "",
     isPublished: false,
   });
+  const [coverUploading, setCoverUploading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,6 +49,13 @@ export default function CreateSeriesPage() {
       setLoading(false);
     }
   };
+
+  async function uploadImage(file: File): Promise<string> {
+    // TODO: call your API and return the image URL
+    return new Promise((resolve) =>
+      setTimeout(() => resolve("/demo-cover.jpg"), 1000),
+    );
+  }
 
   return (
     <div className="container mx-auto py-6">
@@ -87,13 +95,28 @@ export default function CreateSeriesPage() {
           <Label htmlFor="coverImage">Ảnh bìa</Label>
           <Input
             id="coverImage"
-            type="url"
-            value={formData.coverImage}
-            onChange={(e) =>
-              setFormData({ ...formData, coverImage: e.target.value })
-            }
-            placeholder="Nhập URL ảnh bìa"
+            type="file"
+            accept="image/*"
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                setCoverUploading(true);
+                const url = await uploadImage(file);
+                setFormData({ ...formData, coverImage: url });
+                setCoverUploading(false);
+              }
+            }}
           />
+          {coverUploading && (
+            <div className="text-sm text-gray-500">Đang tải ảnh...</div>
+          )}
+          {formData.coverImage && (
+            <img
+              src={formData.coverImage}
+              alt="cover"
+              className="w-48 h-32 object-cover rounded mt-2"
+            />
+          )}
         </div>
 
         <div className="flex items-center space-x-2">

@@ -32,6 +32,7 @@ export default function EditPostPage({ params }: EditPostPageProps) {
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [series, setSeries] = useState<Series[]>([]);
+  const [coverUploading, setCoverUploading] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
     content: "",
@@ -58,7 +59,7 @@ export default function EditPostPage({ params }: EditPostPageProps) {
           isPublished: postResponse.isPublished,
           seriesId: postResponse.seriesId || "",
         });
-        setSeries(seriesResponse.data);
+        setSeries(seriesResponse.data.content);
       } catch (error) {
         toast.error("Không thể tải thông tin bài viết");
         router.push("/admin/posts");
@@ -103,6 +104,14 @@ export default function EditPostPage({ params }: EditPostPageProps) {
     }
   };
 
+  // Dummy upload function, bạn sẽ tự xử lý nội dung hàm này
+  async function uploadImage(file: File): Promise<string> {
+    // TODO: call your API and return the image URL
+    return new Promise((resolve) =>
+      setTimeout(() => resolve("/demo-cover.jpg"), 1000),
+    );
+  }
+
   if (initialLoading) {
     return (
       <div className="container mx-auto py-6">
@@ -136,7 +145,7 @@ export default function EditPostPage({ params }: EditPostPageProps) {
         <div className="space-y-2">
           <Label htmlFor="content">Nội dung</Label>
           <Editor
-            apiKey="your-tinymce-api-key" // Replace with your TinyMCE API key
+            apiKey={process.env.NEXT_PUBLIC_TINYMCE_API_KEY}
             value={formData.content}
             onEditorChange={(content: string) =>
               setFormData({ ...formData, content })
@@ -177,13 +186,28 @@ export default function EditPostPage({ params }: EditPostPageProps) {
           <Label htmlFor="coverImage">Ảnh bìa</Label>
           <Input
             id="coverImage"
-            type="url"
-            value={formData.coverImage}
-            onChange={(e) =>
-              setFormData({ ...formData, coverImage: e.target.value })
-            }
-            placeholder="Nhập URL ảnh bìa"
+            type="file"
+            accept="image/*"
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                setCoverUploading(true);
+                const url = await uploadImage(file);
+                setFormData({ ...formData, coverImage: url });
+                setCoverUploading(false);
+              }
+            }}
           />
+          {coverUploading && (
+            <div className="text-sm text-gray-500">Đang tải ảnh...</div>
+          )}
+          {formData.coverImage && (
+            <img
+              src={formData.coverImage}
+              alt="cover"
+              className="w-48 h-32 object-cover rounded mt-2"
+            />
+          )}
         </div>
 
         <div className="space-y-2">
