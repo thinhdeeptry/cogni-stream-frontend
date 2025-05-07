@@ -24,7 +24,7 @@ interface OverallProgressResponse {
 
 export const getInitialProgress = async (enrollmentId: string) => {
   try {
-    const progressApi = await AxiosFactory.getApiInstance("enrollment");
+    const progressApi = await AxiosFactory.getApiInstance("courses");
     const response = await progressApi.get<ProgressResponse>(
       `/progress/${enrollmentId}`,
     );
@@ -50,7 +50,7 @@ export const updateProgress = async (
   progressData: ProgressData,
 ) => {
   try {
-    const progressApi = await AxiosFactory.getApiInstance("enrollment");
+    const progressApi = await AxiosFactory.getApiInstance("courses");
     const response = await progressApi.put<ProgressResponse>(
       `/progress/${enrollmentId}`,
       progressData,
@@ -76,7 +76,7 @@ export const updateProgress = async (
 
 export const getOverallProgress = async (enrollmentId: string) => {
   try {
-    const progressApi = await AxiosFactory.getApiInstance("enrollment");
+    const progressApi = await AxiosFactory.getApiInstance("courses");
     const response = await progressApi.get<OverallProgressResponse>(
       `/progress/overall/${enrollmentId}`,
     );
