@@ -41,7 +41,7 @@ const getMenuItems = (userRole: string) => {
     },
     {
       title: "Bài viết",
-      url: "/blog",
+      url: userRole === "ADMIN" ? "/admin/posts" : "/blogs",
       icon: BookOpen,
     },
   ];

@@ -89,9 +89,17 @@ export default function PostsPage() {
     <div className="container mx-auto py-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Quản lý bài viết</h1>
-        <Button onClick={() => router.push("/admin/posts/create")}>
-          Tạo bài viết mới
-        </Button>
+        <div className="flex gap-4">
+          <Button
+            variant="outline"
+            onClick={() => router.push("/admin/series")}
+          >
+            Quản lý Series
+          </Button>
+          <Button onClick={() => router.push("/admin/posts/create")}>
+            Tạo bài viết mới
+          </Button>
+        </div>
       </div>
 
       <div className="flex gap-4 mb-6">
