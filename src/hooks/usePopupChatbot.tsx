@@ -13,6 +13,8 @@ interface UsePopupChatbotOptions {
   cardClassName?: string;
   initialOpen?: boolean;
   position?: "bottom-right" | "bottom-left" | "top-right" | "top-left";
+  suggestedQuestions?: string[];
+  balloonText?: string;
 }
 
 /**
@@ -44,6 +46,8 @@ export function usePopupChatbot(options: UsePopupChatbotOptions = {}) {
           cardClassName={options.cardClassName}
           initialOpen={options.initialOpen}
           position={options.position}
+          suggestedQuestions={options.suggestedQuestions}
+          balloonText={options.balloonText}
         />
       );
     };
@@ -57,6 +61,8 @@ export function usePopupChatbot(options: UsePopupChatbotOptions = {}) {
     options.cardClassName,
     options.initialOpen,
     options.position,
+    options.suggestedQuestions,
+    options.balloonText,
   ]);
 
   return MemoizedChatbot;

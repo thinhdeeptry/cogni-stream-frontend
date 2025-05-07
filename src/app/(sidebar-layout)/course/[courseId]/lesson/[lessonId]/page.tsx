@@ -101,11 +101,11 @@ export default function LessonDetail() {
   // Use the memoized chatbot component
   const LessonChatbot = usePopupChatbot({
     initialOpen: false,
-    position: "top-left",
+    position: "bottom-right",
     referenceText,
     title: "Trợ lý học tập Eduforge AI",
     systemPrompt:
-      "Bạn là trợ lý AI hỗ trợ học tập. Hãy ưu tiên trả lời câu hỏi ngắn gọn, rõ ràng và chính xác dựa trên reference text (nội dung bài học được cung cấp). Nếu thông tin trong bài học không đủ, hãy đưa ra lời giải thích hợp lý dựa trên kiến thức phổ thông hoặc kỹ năng suy luận, và thông báo rõ khi bạn mở rộng ngoài nội dung reference. Mục tiêu là giúp người học hiểu bài và nắm vững kiến thức.",
+      "Bạn là trợ lý AI hỗ trợ học tập. Hãy ưu tiên trả lời câu hỏi ngắn gọn, rõ ràng và chính xác dựa trên reference text (nội dung bài học được cung cấp). Nếu thông tin trong bài học không đủ, hãy đưa ra lời giải thích hợp lý dựa trên kiến thức phổ thông hoặc kỹ năng suy luận, và thông báo rõ khi bạn mở rộng ngoài nội dung reference. Mục tiêu là giúp người học hiểu bài và nắm vững kiến thức. Format bằng markdown và đảm bảo định dạng đúng, dễ đọc, dễ hiểu cho người dùng",
   });
 
   useEffect(() => {

@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from "react";
 
 import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
-import { Bot, Send, Smile, X } from "lucide-react";
+import { Bot, Send, Smile, User, X } from "lucide-react";
+
+import useUserStore from "@/stores/useUserStore";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -32,10 +34,12 @@ interface PopupChatbotProps {
   cardClassName?: string;
   initialOpen?: boolean;
   position?: "bottom-right" | "bottom-left" | "top-right" | "top-left";
+  suggestedQuestions?: string[];
+  balloonText?: string;
 }
 
-// Suggested questions that users can click on
-const SUGGESTED_QUESTIONS = [
+// Suggested questions mặc định
+const DEFAULT_SUGGESTED_QUESTIONS = [
   "Bài học này nói về gì?",
   "Làm thế nào để áp dụng kiến thức này?",
   "Giải thích chi tiết hơn về chủ đề này",
@@ -43,7 +47,15 @@ const SUGGESTED_QUESTIONS = [
 ];
 
 // Dynamic avatar component for messages
-const MessageAvatar = ({ role }: { role: string }) => {
+const MessageAvatar = ({
+  role,
+  userId,
+  userImage,
+}: {
+  role: string;
+  userId?: string;
+  userImage?: string;
+}) => {
   if (role === "user") {
     return (
       <motion.div
@@ -51,9 +63,16 @@ const MessageAvatar = ({ role }: { role: string }) => {
         animate={{ scale: 1, opacity: 1 }}
         transition={{ duration: 0.2 }}
       >
-        <Avatar className="h-8 w-8 border shadow-sm">
-          <AvatarImage src="https://api.dicebear.com/7.x/avataaars/svg?seed=user" />
-          <AvatarFallback>U</AvatarFallback>
+        <Avatar className="w-8 h-8">
+          <AvatarImage
+            src={
+              userImage ||
+              `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId || "user"}`
+            }
+          />
+          <AvatarFallback>
+            {(userId || "U").slice(0, 2).toUpperCase()}
+          </AvatarFallback>
         </Avatar>
       </motion.div>
     );
@@ -137,9 +156,14 @@ export function PopupChatbot({
   cardClassName,
   initialOpen = false,
   position = "bottom-right",
+  suggestedQuestions,
+  balloonText = "Eduforge AI",
 }: PopupChatbotProps) {
   const [isOpen, setIsOpen] = useState(initialOpen);
+  const [isFirstOpen, setIsFirstOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const user = useUserStore((state) => state.user);
+  const userId = user?.id || "user";
 
   // Prepare initial messages with system prompt and reference text
   const initialMessages: { id: string; role: string; content: string }[] = [];
@@ -164,11 +188,23 @@ export function PopupChatbot({
 
   // Use a custom implementation instead of useChat
   const [messages, setMessages] = useState<
-    { role: string; content: string; id?: string }[]
+    {
+      role: string;
+      content: string;
+      id?: string;
+      userId?: string;
+      userImage?: string;
+    }[]
   >([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+
+  // Chọn mảng suggested questions phù hợp
+  const SUGGESTED_QUESTIONS =
+    suggestedQuestions && suggestedQuestions.length > 0
+      ? suggestedQuestions
+      : DEFAULT_SUGGESTED_QUESTIONS;
 
   // Handle input change
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -186,6 +222,8 @@ export function PopupChatbot({
       role: "user",
       content: input,
       id: Date.now().toString(),
+      userId: userId,
+      userImage: user?.image,
     };
     setMessages((prev) => [...prev, userMessage]);
 
@@ -271,11 +309,18 @@ export function PopupChatbot({
 
   // Determine position classes
   const positionClasses = {
-    "bottom-right": "bottom-8 right-8",
-    "bottom-left": "bottom-8 left-8",
+    "bottom-right": "bottom-20 right-8",
+    "bottom-left": "bottom-20 left-8",
     "top-right": "top-8 right-8",
     "top-left": "top-8 left-8",
   };
+
+  // Khi popup được mở, đánh dấu là đã mở lần đầu
+  useEffect(() => {
+    if (isOpen && !isFirstOpen) {
+      setIsFirstOpen(true);
+    }
+  }, [isOpen, isFirstOpen]);
 
   return (
     <>
@@ -293,7 +338,7 @@ export function PopupChatbot({
         <Button
           onClick={() => setIsOpen(true)}
           className={cn(
-            "bg-gradient-to-br from-primary to-primary/90 hover:bg-primary/90 rounded-full h-14 w-14 shadow-xl",
+            "bg-gradient-to-br from-primary to-primary/90 hover:bg-primary/90 rounded-full h-12 w-12 shadow-xl",
             buttonClassName,
           )}
           aria-label="Open AI chatbot"
@@ -329,9 +374,9 @@ export function PopupChatbot({
           initial={{ opacity: 0, y: 10, scale: 0.8 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ delay: 1, duration: 0.3 }}
-          className="absolute -top-10 right-0 bg-white dark:bg-gray-800 px-3 py-1.5 rounded-full shadow-md border border-primary/10 text-sm font-medium"
+          className="absolute -top-10 right-0 bg-white dark:bg-gray-800 px-3 py-1.5 rounded-full shadow-md border border-primary/10 text-sm font-medium text-nowrap"
         >
-          Hỏi AI
+          {balloonText}
           <div className="absolute -bottom-1.5 right-5 w-3 h-3 bg-white dark:bg-gray-800 border-r border-b border-primary/10 transform rotate-45"></div>
         </motion.div>
       </motion.div>
@@ -451,7 +496,11 @@ export function PopupChatbot({
                         transition={{ duration: 0.3 }}
                         className="flex items-start gap-3"
                       >
-                        <MessageAvatar role={message.role} />
+                        <MessageAvatar
+                          role={message.role}
+                          userId={message.userId}
+                          userImage={message.userImage}
+                        />
                         <motion.div
                           initial={{ opacity: 0, y: 10, scale: 0.95 }}
                           animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -497,37 +546,49 @@ export function PopupChatbot({
               </CardContent>
 
               <CardFooter className="pt-2 border-t p-4 bg-gradient-to-r from-primary/5 to-primary/10">
-                <form onSubmit={handleSubmit} className="w-full flex gap-2">
-                  <div className="relative flex-1">
-                    <Textarea
-                      value={input}
-                      onChange={handleInputChange}
-                      placeholder={placeholder}
-                      className="flex-1 resize-none min-h-[40px] max-h-[120px] pr-10 border-primary/20 focus-visible:ring-primary/30 rounded-lg shadow-sm"
-                      disabled={isLoading}
+                <form
+                  onSubmit={handleSubmit}
+                  className="w-full flex gap-2 items-start"
+                >
+                  <Avatar className="w-8 h-8 mt-1">
+                    <AvatarImage
+                      src={
+                        user?.image ||
+                        `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`
+                      }
                     />
+                    <AvatarFallback>
+                      {userId.slice(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1">
+                    <div className="bg-white border rounded-2xl w-full min-w-[200px] max-w-full">
+                      <div className="relative p-3">
+                        <Textarea
+                          value={input}
+                          onChange={handleInputChange}
+                          placeholder={placeholder}
+                          className="min-h-[35px] max-h-[120px] border-0 focus-visible:ring-0 shadow-none resize-none rounded-lg p-0 placeholder:text-foreground/50 placeholder:text-sm"
+                          disabled={isLoading}
+                        />
+                        <div className="absolute right-2 bottom-2 flex items-center gap-0.5">
+                          <Button
+                            type="submit"
+                            disabled={isLoading || !input.trim()}
+                            size="icon"
+                            className={cn(
+                              "h-7 w-7",
+                              input.trim() && !isLoading
+                                ? "bg-primary hover:bg-primary/90 hover:scale-105"
+                                : "bg-primary/70",
+                            )}
+                          >
+                            <Send className="h-4 w-4 text-white" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <Button
-                    type="submit"
-                    disabled={isLoading || !input.trim()}
-                    size="icon"
-                    className={cn(
-                      "h-10 w-10 rounded-full shadow-md transition-all duration-200",
-                      input.trim() && !isLoading
-                        ? "bg-primary hover:bg-primary/90 hover:scale-105"
-                        : "bg-primary/70",
-                    )}
-                  >
-                    <Send className="h-5 w-5" />
-                    {input.trim() && !isLoading && (
-                      <motion.div
-                        className="absolute inset-0 rounded-full bg-primary/20"
-                        initial={{ scale: 0.8, opacity: 0 }}
-                        animate={{ scale: 1.2, opacity: 0 }}
-                        transition={{ duration: 1, repeat: Infinity }}
-                      />
-                    )}
-                  </Button>
                 </form>
               </CardFooter>
             </Card>

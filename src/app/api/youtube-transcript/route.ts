@@ -68,9 +68,6 @@ export async function GET(request: NextRequest) {
         try {
           console.log(`Trying to fetch transcript with video ID: ${videoId}`);
           transcriptData = await YoutubeTranscript.fetchTranscript(videoId);
-          console.log(
-            `Successfully fetched transcript with video ID, got ${transcriptData.length} items`,
-          );
 
           // Check if we got valid data
           if (!transcriptData || transcriptData.length === 0) {
@@ -88,17 +85,6 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Log the first few items to understand the structure
-    console.log("Transcript data structure:");
-    console.log(
-      "First item (full):",
-      JSON.stringify(transcriptData[0], null, 2),
-    );
-    console.log(
-      "Available properties:",
-      Object.keys(transcriptData[0]).join(", "),
-    );
-
     // Log a few more items to see if they have different structures
     if (transcriptData.length > 1) {
       console.log(
@@ -110,26 +96,6 @@ export async function GET(request: NextRequest) {
       console.log(
         "Third item (full):",
         JSON.stringify(transcriptData[2], null, 2),
-      );
-    }
-
-    // Check if we have start property instead of offset
-    const firstItem = transcriptData[0] as any;
-    if (firstItem.start !== undefined) {
-      console.log("Using 'start' property for timestamps (in seconds)");
-      console.log(
-        "Sample start times:",
-        transcriptData.slice(0, 5).map((item: any) => item.start),
-      );
-    } else if (firstItem.offset !== undefined) {
-      console.log("Using 'offset' property for timestamps (in milliseconds)");
-      console.log(
-        "Sample offset times:",
-        transcriptData.slice(0, 5).map((item: any) => item.offset),
-      );
-    } else {
-      console.log(
-        "WARNING: Neither 'start' nor 'offset' property found in transcript data",
       );
     }
 
