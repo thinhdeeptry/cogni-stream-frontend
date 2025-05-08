@@ -117,7 +117,7 @@ export default function Home() {
   return (
     <div className="container mx-auto px-2 sm:px-6 lg:px-2 py-4 flex-1 flex flex-col items-center w-full justify-start min-h-screen gap-12">
       {/* Hero Banner Section */}
-      <div className="w-full relative rounded-3xl bg-gradient-to-r from-slate-50 to-orange-50/50 p-4 sm:p-6">
+      <div className="w-full relative rounded-3xl bg-gradient-to-r from-slate-50 to-orange-50/50 ">
         <Carousel
           setApi={setApi}
           opts={{

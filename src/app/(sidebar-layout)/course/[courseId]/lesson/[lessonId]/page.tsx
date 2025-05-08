@@ -12,6 +12,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@radix-ui/react-collapsible";
+import { motion } from "framer-motion";
 import {
   ArrowBigRight,
   ChevronLeft,
@@ -48,6 +49,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 
 interface Block {
@@ -367,6 +369,8 @@ export default function LessonDetail() {
   const {
     progress,
     overallProgress,
+    lessonId: lastLessonId,
+    currentLesson: lastLessonTitle,
     setEnrollmentId: setProgressEnrollmentId,
     fetchInitialProgress,
     fetchOverallProgress,
@@ -575,6 +579,22 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
     const fetchEnrollmentId = async () => {
       if (session?.user?.id && course?.id) {
         try {
+          // Kiểm tra xem lesson hiện tại có phải là preview không
+          const allCourseLessons =
+            course.chapters?.flatMap((chapter) => chapter.lessons || []) || [];
+          const currentLesson = allCourseLessons.find(
+            (lesson) => lesson?.id === params.lessonId,
+          );
+          const isCurrentLessonPreview = currentLesson?.isFreePreview || false;
+
+          // Nếu đang xem bài học preview mà chưa enrolled, không cần fetch enrollment
+          if (isCurrentLessonPreview && !isEnrolled) {
+            console.log(
+              "Viewing preview lesson without enrollment - skipping enrollment API call",
+            );
+            return;
+          }
+
           const enrollmentApi = await AxiosFactory.getApiInstance("enrollment");
           const response = await enrollmentApi.get(`/find/${course.id}`);
           console.log("response.data", response.data);
@@ -585,14 +605,42 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
             await fetchInitialProgress();
             await fetchOverallProgress();
           }
-        } catch (err) {
-          console.error("Error fetching enrollment ID:", err);
+        } catch (err: any) {
+          // Nếu lỗi 404, đây có thể là bài preview mà người dùng chưa đăng ký
+          if (err.response?.status === 404) {
+            console.log("User not enrolled in this course yet");
+            // Không hiển thị lỗi trong console cho trường hợp này
+          } else {
+            console.error("Error fetching enrollment ID:", err);
+          }
         }
       }
     };
 
     fetchEnrollmentId();
-  }, [course?.id, session?.user?.id]);
+  }, [
+    course,
+    session?.user?.id,
+    params.lessonId,
+    isEnrolled,
+    fetchInitialProgress,
+    fetchOverallProgress,
+    setProgressEnrollmentId,
+  ]);
+
+  // New state for video loading
+  const [isVideoLoading, setIsVideoLoading] = useState(true);
+
+  // New animation variants
+  const fadeIn = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1, transition: { duration: 0.5 } },
+  };
+
+  const slideUp = {
+    hidden: { y: 20, opacity: 0 },
+    visible: { y: 0, opacity: 1, transition: { duration: 0.5 } },
+  };
 
   if (isLoading) {
     return (
@@ -647,6 +695,9 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
     (lessonItem) => lessonItem?.id === params.lessonId,
   );
 
+  // Calculate total lessons
+  const totalLessons = allLessons.length;
+
   // Cập nhật logic tìm bài học trước/sau
   const previousLesson = findAccessibleLesson(
     allLessons,
@@ -658,9 +709,6 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
     currentLessonIndex,
     "next",
   );
-
-  // Calculate current lesson index and total lessons
-  const totalLessons = allLessons.length;
 
   // Parse lesson content for BLOG or MIXED types
   let contentBlocks: Block[] = [];
@@ -685,23 +733,49 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
     }
   }
 
+  // Handle lesson completion and navigation to next lesson
   const handleLessonCompletion = async () => {
-    if (!enrollmentId || !lesson) return;
+    if (!enrollmentId || !lesson || !nextLesson) return;
 
     try {
+      // Lấy index của bài học hiện tại
+      const currentLessonIndex = allLessons.findIndex(
+        (lessonItem) => lessonItem?.id === params.lessonId,
+      );
+
+      // Lấy thông tin bài học tiếp theo
+      const nextLessonIndex = allLessons.findIndex(
+        (lessonItem) => lessonItem?.id === nextLesson.id,
+      );
+
+      console.log("Progress check:", {
+        currentLessonIndex,
+        nextLessonIndex,
+        currentLessonId: params.lessonId,
+        nextLessonId: nextLesson.id,
+        lastLessonId,
+        progress,
+      });
+
+      // Luôn cập nhật tiến trình với thông tin của bài học tiếp theo
+      // vì chúng ta đang chuyển đến bài học đó
+      const newProgressPercentage = Math.max(
+        progress, // Current progress from store
+        ((nextLessonIndex + 1) / totalLessons) * 100,
+      );
+
+      // Cập nhật tiến trình với thông tin bài học TIẾP THEO
       await updateLessonProgress({
-        progress: ((currentLessonIndex + 1) / totalLessons) * 100,
-        currentLesson: lesson.title,
-        lessonId: lesson.id,
+        progress: newProgressPercentage,
+        currentLesson: nextLesson.title, // Sử dụng tên của bài học tiếp theo
+        lessonId: nextLesson.id, // Sử dụng ID của bài học tiếp theo
         isLessonCompleted: true,
       });
 
       toast.success("Tiến độ học tập đã được cập nhật!");
 
-      // Chuyển sang bài học tiếp theo nếu có
-      if (nextLesson) {
-        router.push(`/course/${course?.id}/lesson/${nextLesson.id}`);
-      }
+      // Navigate to next lesson
+      router.push(`/course/${course ? course.id : ""}/lesson/${nextLesson.id}`);
     } catch (err) {
       toast.error("Không thể cập nhật tiến độ học tập");
     }
@@ -709,81 +783,157 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
 
   return (
     <>
-      <div className="w-full flex-1 flex flex-col min-h-screen relative">
-        <div
-          className={`flex-1 p-6 ${isSidebarOpen ? "pr-[400px]" : ""} transition-all duration-300`}
+      <div className="w-full flex-1 flex flex-col min-h-screen relative px-1">
+        <motion.div
+          initial="hidden"
+          animate="visible"
+          variants={fadeIn}
+          className={`flex-1 ${isSidebarOpen ? "pr-[350px]" : ""} transition-all duration-300`}
         >
-          <div className="space-y-8">
+          <div className="space-y-6 mx-auto ">
+            {/* Course Navigation Breadcrumb */}
+            <motion.div
+              variants={slideUp}
+              className="flex items-center text-sm text-gray-500 px-4 pt-4"
+            >
+              <Link
+                href="/"
+                className="hover:text-orange-500 transition-colors"
+              >
+                Khóa học
+              </Link>
+              <ChevronRight className="h-4 w-4 mx-2" />
+              <Link
+                href={course ? `/course/${course.id}` : "#"}
+                className="hover:text-orange-500 transition-colors"
+              >
+                {course?.title}
+              </Link>
+              <ChevronRight className="h-4 w-4 mx-2" />
+              <span className="text-gray-700 font-medium truncate">
+                {lesson?.title}
+              </span>
+            </motion.div>
+
             {/* Video Content for VIDEO or MIXED */}
             {(lesson.type === LessonType.VIDEO ||
               lesson.type === LessonType.MIXED) &&
               lesson.videoUrl && (
-                <div className="aspect-video w-full bg-gray-100 rounded-lg mb-8">
+                <motion.div
+                  variants={slideUp}
+                  className="relative rounded-lg overflow-hidden shadow-lg w-full "
+                  style={{ aspectRatio: "16/9" }}
+                >
+                  {isVideoLoading && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-gray-900/30 backdrop-blur-sm">
+                      <div className="w-16 h-16 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                  )}
                   <ReactPlayer
                     url={lesson.videoUrl}
                     controls={true}
+                    onReady={() => setIsVideoLoading(false)}
                     config={{
                       youtube: {
                         playerVars: { showinfo: 1 },
                       },
                     }}
-                    className="react-player"
+                    className="react-player "
                     width="100%"
                     height="100%"
                   />
-                </div>
+                </motion.div>
               )}
 
             {/* Lesson Content */}
-            <div className="prose max-w-none">
-              <h1 className="text-2xl font-semibold mb-4">Nội dung bài học</h1>
-              <h1 className="text-xl font-semibold mb-4">
-                <span>{lesson.order}. </span>
-                {lesson.title}
-              </h1>
+            <motion.div variants={slideUp} className="prose max-w-none ">
+              <Card className="overflow-hidden border-none shadow-md rounded-xl">
+                <CardContent className="p-6">
+                  <h1 className="text-2xl font-bold bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent inline-block mb-4">
+                    Nội dung bài học
+                  </h1>
+                  <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
+                    <span className="bg-orange-100 text-orange-600 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold">
+                      {lesson.order}
+                    </span>
+                    <span>{lesson.title}</span>
+                  </h2>
 
-              {/* Render Parsed Content for BLOG or MIXED */}
-              {(lesson.type === LessonType.BLOG ||
-                lesson.type === LessonType.MIXED) &&
-                contentBlocks.length > 0 && (
-                  <div className="mt-4">
-                    {contentBlocks.map((block) => (
-                      <div key={block.id}>{renderBlockToHtml(block)}</div>
-                    ))}
-                  </div>
-                )}
+                  {/* Render Parsed Content for BLOG or MIXED */}
+                  {(lesson.type === LessonType.BLOG ||
+                    lesson.type === LessonType.MIXED) &&
+                    contentBlocks.length > 0 && (
+                      <div className="mt-4">
+                        {contentBlocks.map((block, index) => (
+                          <motion.div
+                            key={block.id}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.1 * index, duration: 0.3 }}
+                          >
+                            {renderBlockToHtml(block)}
+                          </motion.div>
+                        ))}
+                      </div>
+                    )}
 
-              {/* Fallback for VIDEO-only or empty content */}
-              {lesson.type === LessonType.VIDEO && !lesson.videoUrl && (
-                <p className="text-md text-gray-500">
-                  Không có nội dung video.
-                </p>
-              )}
-              {(lesson.type === LessonType.BLOG ||
-                lesson.type === LessonType.MIXED) &&
-                contentBlocks.length === 0 && (
-                  <p className="text-md text-gray-500">
-                    Không có nội dung bài viết.
-                  </p>
-                )}
-            </div>
+                  {/* Fallback for VIDEO-only or empty content */}
+                  {lesson.type === LessonType.VIDEO && !lesson.videoUrl && (
+                    <p className="text-md text-gray-500">
+                      Không có nội dung video.
+                    </p>
+                  )}
+                  {(lesson.type === LessonType.BLOG ||
+                    lesson.type === LessonType.MIXED) &&
+                    contentBlocks.length === 0 && (
+                      <p className="text-md text-gray-500">
+                        Không có nội dung bài viết.
+                      </p>
+                    )}
+                </CardContent>
+              </Card>
+            </motion.div>
 
             {/* Discussion Component */}
-            <Discussion threadId={threadId || ""} />
+            <motion.div variants={slideUp} className="mt-8  pb-16 ">
+              <Card className="overflow-hidden border-none shadow-md rounded-xl">
+                <CardContent className="p-6">
+                  <h2 className="text-xl font-bold bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent inline-block mb-4">
+                    Thảo luận
+                  </h2>
+                  <Discussion threadId={threadId || ""} />
+                </CardContent>
+              </Card>
+            </motion.div>
           </div>
-        </div>
+        </motion.div>
 
         {/* Fixed Navigation Bar */}
-        <div className="sticky bottom-0 left-0 right-0 bg-white border-t px-6 py-4 z-10">
+        <motion.div
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.3, duration: 0.4 }}
+          className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t px-6 py-3 z-1"
+        >
           <div className="flex items-center justify-center gap-4">
             {previousLesson ? (
-              <Link href={`/course/${course?.id}/lesson/${previousLesson.id}`}>
-                <Button variant="outline" className="w-40">
-                  <ChevronLeft className="mr-2 h-4 w-4" /> Bài trước
+              <Link
+                href={
+                  course
+                    ? `/course/${course.id}/lesson/${previousLesson.id}`
+                    : "#"
+                }
+              >
+                <Button
+                  variant="outline"
+                  className="w-40 group transition-all duration-300 hover:border-orange-500 hover:text-orange-600 hover:bg-orange-50"
+                >
+                  <ChevronLeft className="mr-2 h-4 w-4 group-hover:-translate-x-1 transition-transform" />
+                  Bài trước
                 </Button>
               </Link>
             ) : (
-              <Button variant="outline" className="w-40" disabled>
+              <Button variant="outline" className="w-40 opacity-50" disabled>
                 <ChevronLeft className="mr-2 h-4 w-4" /> Bài trước
               </Button>
             )}
@@ -791,34 +941,48 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
             {nextLesson ? (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button variant="outline" className="w-40">
-                    Học tiếp <ChevronRight className="ml-2 h-4 w-4" />
+                  <Button className="w-40 bg-gradient-to-r from-orange-500 to-red-500 text-white hover:from-orange-600 hover:to-red-600 transition-all duration-300 group">
+                    Học tiếp{" "}
+                    <ChevronRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
                   </Button>
                 </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>
-                      Xác nhận hoàn thành bài học
-                    </AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Bạn đã hoàn thành bài học này chưa? Hãy đảm bảo rằng bạn
-                      đã nắm vững kiến thức trước khi chuyển sang bài tiếp theo.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Chưa, tôi cần học lại</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleLessonCompletion}>
-                      Đã hoàn thành, học tiếp
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
+                <AlertDialogContent className="rounded-xl border-none shadow-xl">
+                  <motion.div
+                    initial={{ scale: 0.9, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <AlertDialogHeader>
+                      <AlertDialogTitle className="text-xl font-bold text-center bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">
+                        Xác nhận hoàn thành bài học
+                      </AlertDialogTitle>
+                      <AlertDialogDescription className="text-center text-gray-600 mt-2">
+                        Bạn đã hoàn thành bài học này chưa? Hãy đảm bảo rằng bạn
+                        đã nắm vững kiến thức trước khi chuyển sang bài tiếp
+                        theo.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="flex gap-3 mt-4">
+                      <AlertDialogCancel className="w-full">
+                        Chưa, tôi cần học lại
+                      </AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleLessonCompletion}
+                        className="w-full bg-gradient-to-r from-orange-500 to-red-500 text-white hover:from-orange-600 hover:to-red-600"
+                      >
+                        Đã hoàn thành, học tiếp
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </motion.div>
                 </AlertDialogContent>
               </AlertDialog>
             ) : (
-              <Button variant="outline" className="w-40" disabled>
+              <Button variant="outline" className="w-40 opacity-50" disabled>
                 Học tiếp <ChevronRight className="ml-2 h-4 w-4" />
               </Button>
             )}
           </div>
+
           <div className="absolute top-1/4 right-4 flex items-center">
             <span className="text-md text-gray-600 font-semibold pr-2">
               {course?.chapters?.find((chapter) =>
@@ -830,17 +994,17 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
             <Button
               variant="ghost"
               size="icon"
-              className="bg-white border shadow-sm"
+              className="bg-white border shadow-sm hover:bg-orange-50 hover:border-orange-200 transition-colors"
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
             >
               {isSidebarOpen ? (
-                <ArrowBigRight className="h-4 w-4" />
+                <ArrowBigRight className="h-4 w-4 text-orange-500" />
               ) : (
-                <Menu className="h-4 w-4" />
+                <Menu className="h-4 w-4 text-orange-500" />
               )}
             </Button>
           </div>
-        </div>
+        </motion.div>
 
         {/* Collapsible Sidebar */}
         <div
@@ -848,8 +1012,8 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
             isSidebarOpen ? "translate-x-0" : "translate-x-full"
           }`}
         >
-          <div className="p-6 h-full overflow-auto">
-            <h2 className="text-xl font-semibold mb-6">Nội dung khoá học</h2>
+          <div className="py-4 px-2.5 pr-4 h-full overflow-auto">
+            <h2 className="text-xl font-semibold mb-7">Nội dung khoá học</h2>
             <div className="space-y-4">
               {course?.chapters?.map((chapter) => (
                 <Collapsible
@@ -868,9 +1032,9 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
                           <Plus className="h-4 w-4 text-orange-500" />
                         )}
                       </div>
-                      <h3 className="font-semibold text-gray-700">
+                      <h4 className="font-semibold text-gray-700">
                         {chapter.title}
-                      </h3>
+                      </h4>
                     </div>
                     <div className="flex items-center gap-2 pl-1">
                       <span className="text-sm text-gray-600 truncate">
@@ -884,7 +1048,7 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
                         <Link
                           href={
                             canAccessLesson(lesson)
-                              ? `/course/${course?.id}/lesson/${lesson.id}`
+                              ? `/course/${course ? course.id : ""}/lesson/${lesson.id}`
                               : "#"
                           }
                           key={lesson.id}
@@ -906,7 +1070,7 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
                           <div className="flex items-center gap-2 min-h-[32px]">
                             <div className="flex-1 overflow-hidden">
                               <span
-                                className={`block truncate ${
+                                className={`block truncate text-[15px] ${
                                   lesson.id === params.lessonId
                                     ? "font-medium"
                                     : ""
@@ -915,11 +1079,18 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
                                 {lesson.title}
                               </span>
                             </div>
-                            {lesson.isFreePreview && (
-                              <span className="flex-shrink-0 text-xs bg-gray-200 px-2 py-1 rounded">
-                                Preview
-                              </span>
-                            )}
+                            <div className="flex items-center gap-1">
+                              {lesson.id === lastLessonId && (
+                                <span className="flex-shrink-0 text-xs px-1 py-0.5 rounded bg-orange-100 text-orange-600">
+                                  Đang học
+                                </span>
+                              )}
+                              {lesson.isFreePreview && (
+                                <span className="flex-shrink-0 text-xs bg-gray-200 px-2 py-1 rounded">
+                                  Miễn phí
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </Link>
                       ))}
