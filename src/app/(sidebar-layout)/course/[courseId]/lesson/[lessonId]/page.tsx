@@ -15,9 +15,11 @@ import {
 import { motion } from "framer-motion";
 import {
   ArrowBigRight,
+  BookOpen,
   ChevronLeft,
   ChevronRight,
   Menu,
+  MessageSquare,
   Minus,
   Plus,
 } from "lucide-react";
@@ -51,6 +53,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface Block {
   id: string;
@@ -644,8 +647,100 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
-        Loading...
+      <div className="w-full flex-1 flex flex-col min-h-screen relative px-1">
+        <div className="flex-1 pr-0 md:pr-[350px] transition-all duration-300">
+          <div className="space-y-6 mx-auto">
+            {/* Loading breadcrumb */}
+            <div className="flex items-center text-sm px-4 pt-4 gap-2">
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-4 w-4 rounded-full" />
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-4 w-4 rounded-full" />
+              <Skeleton className="h-4 w-40" />
+            </div>
+
+            {/* Loading video placeholder */}
+            <Skeleton
+              className="w-full rounded-lg"
+              style={{ aspectRatio: "16/9" }}
+            />
+
+            {/* Loading content card */}
+            <div className="prose max-w-none">
+              <Card className="overflow-hidden border-none shadow-md rounded-xl">
+                <CardContent className="p-6">
+                  <Skeleton className="h-8 w-48 mb-4" />
+                  <div className="flex items-center gap-2 mb-6">
+                    <Skeleton className="h-8 w-8 rounded-full" />
+                    <Skeleton className="h-7 w-64" />
+                  </div>
+
+                  <div className="space-y-4 mt-6">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-3/4" />
+                    <Skeleton className="h-20 w-full" />
+                    <Skeleton className="h-4 w-5/6" />
+                    <Skeleton className="h-4 w-full" />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Loading discussion */}
+            <div className="mt-8 pb-16">
+              <Card className="overflow-hidden border-none shadow-md rounded-xl">
+                <CardContent className="p-6">
+                  <Skeleton className="h-8 w-32 mb-4" />
+                  <div className="space-y-4">
+                    <Skeleton className="h-20 w-full rounded-lg" />
+                    <div className="flex items-start gap-3">
+                      <Skeleton className="h-10 w-10 rounded-full flex-shrink-0" />
+                      <div className="space-y-2 flex-1">
+                        <Skeleton className="h-4 w-32" />
+                        <Skeleton className="h-16 w-full rounded-md" />
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </div>
+
+        {/* Loading navigation bar */}
+        <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t px-6 py-3 z-1">
+          <div className="flex items-center justify-center gap-4">
+            <Skeleton className="h-10 w-40 rounded-md" />
+            <Skeleton className="h-10 w-40 rounded-md" />
+          </div>
+
+          <div className="absolute top-1/4 right-4 flex items-center">
+            <Skeleton className="h-6 w-24 mr-2" />
+            <Skeleton className="h-8 w-8 rounded-md" />
+          </div>
+        </div>
+
+        {/* Loading sidebar */}
+        <div className="fixed right-0 top-0 h-[calc(100vh-73px)] w-[350px] bg-gray-50 border-l hidden md:block">
+          <div className="py-4 px-2.5 pr-4 h-full overflow-auto">
+            <Skeleton className="h-8 w-48 mb-7" />
+            <div className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="space-y-2">
+                  <Skeleton className="h-14 w-full rounded-lg" />
+                  <div className="pl-4 space-y-2">
+                    {Array(i + 1)
+                      .fill(0)
+                      .map((_, j) => (
+                        <Skeleton key={j} className="h-10 w-full rounded-lg" />
+                      ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -821,24 +916,31 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
               lesson.videoUrl && (
                 <motion.div
                   variants={slideUp}
-                  className="relative rounded-lg overflow-hidden shadow-lg w-full "
+                  className="relative rounded-lg overflow-hidden shadow-lg w-full"
                   style={{ aspectRatio: "16/9" }}
                 >
                   {isVideoLoading && (
                     <div className="absolute inset-0 flex items-center justify-center bg-gray-900/30 backdrop-blur-sm">
-                      <div className="w-16 h-16 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+                      <div className="flex flex-col items-center">
+                        <div className="w-16 h-16 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+                        <p className="text-white mt-4 font-medium">
+                          Đang tải video...
+                        </p>
+                      </div>
                     </div>
                   )}
                   <ReactPlayer
                     url={lesson.videoUrl}
                     controls={true}
                     onReady={() => setIsVideoLoading(false)}
+                    onBuffer={() => setIsVideoLoading(true)}
+                    onBufferEnd={() => setIsVideoLoading(false)}
                     config={{
                       youtube: {
                         playerVars: { showinfo: 1 },
                       },
                     }}
-                    className="react-player "
+                    className="react-player"
                     width="100%"
                     height="100%"
                   />
@@ -846,10 +948,11 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
               )}
 
             {/* Lesson Content */}
-            <motion.div variants={slideUp} className="prose max-w-none ">
+            <motion.div variants={slideUp} className="prose max-w-none">
               <Card className="overflow-hidden border-none shadow-md rounded-xl">
                 <CardContent className="p-6">
-                  <h1 className="text-2xl font-bold bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent inline-block mb-4">
+                  <h1 className="text-2xl font-bold bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent inline-block mb-4  items-center">
+                    <BookOpen className="w-6 h-6 mr-2 text-orange-500" />
                     Nội dung bài học
                   </h1>
                   <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
@@ -895,10 +998,11 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
             </motion.div>
 
             {/* Discussion Component */}
-            <motion.div variants={slideUp} className="mt-8  pb-16 ">
+            <motion.div variants={slideUp} className="mt-8 pb-16">
               <Card className="overflow-hidden border-none shadow-md rounded-xl">
                 <CardContent className="p-6">
-                  <h2 className="text-xl font-bold bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent inline-block mb-4">
+                  <h2 className="text-xl font-bold bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent inline-block mb-4  items-center">
+                    <MessageSquare className="w-5 h-5 mr-2 text-blue-500" />
                     Thảo luận
                   </h2>
                   <Discussion threadId={threadId || ""} />

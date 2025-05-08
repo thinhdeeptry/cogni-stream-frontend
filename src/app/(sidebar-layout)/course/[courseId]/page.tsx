@@ -295,13 +295,13 @@ export default function CourseDetail() {
 
   return (
     <motion.div
-      className="w-full flex-1 flex gap-8 justify-center min-h-screen p-5"
+      className="w-full flex-1 flex gap-8 justify-center min-h-screen p-5 mb-16"
       initial="hidden"
       animate="visible"
       variants={fadeIn}
     >
       {/* Left Column */}
-      <div className="w-2/3 space-y-8">
+      <div className="w-2/3 space-y-8 pb-6">
         <motion.div
           className="bg-white rounded-lg shadow-sm p-6 transition-all hover:shadow-md"
           whileHover={{ y: -5 }}
@@ -482,21 +482,6 @@ export default function CourseDetail() {
             </motion.ul>
           </motion.div>
         )}
-
-        {/* Discussion Section */}
-        {threadId && (
-          <motion.div
-            className="bg-white rounded-lg shadow-sm p-6 transition-all hover:shadow-md mt-8"
-            whileHover={{ y: -5 }}
-            variants={itemVariant}
-          >
-            <h2 className="text-2xl font-semibold mb-4 text-gray-800 flex items-center gap-2">
-              <MessageSquare className="h-6 w-6 text-orange-500" />
-              Thảo luận
-            </h2>
-            <Discussion threadId={threadId} />
-          </motion.div>
-        )}
       </div>
 
       {/* Right Column - Course Card */}
@@ -635,6 +620,7 @@ export default function CourseDetail() {
           </Card>
         </motion.div>
       </div>
+      <Discussion threadId={threadId || ""} />
     </motion.div>
   );
 }
