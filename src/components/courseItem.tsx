@@ -97,7 +97,7 @@ export default function CourseItem({
           <div className="w-full flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Book className="h-4 w-4 text-orange-500" />
-              <span className="text-sm font-medium text-gray-700">
+              <span className="text-sm font-medium text-gray-600">
                 {totalLessons} bài học
               </span>
             </div>
