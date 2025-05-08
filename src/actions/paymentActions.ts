@@ -23,7 +23,7 @@ export const createPayment = async (paymentData: {
 }) => {
   try {
     const paymentApi = await AxiosFactory.getApiInstance("payment");
-    const response = await paymentApi.post("/payments", paymentData);
+    const response = await paymentApi.post("/", paymentData);
 
     if (response.data?.checkoutUrl) {
       return {
