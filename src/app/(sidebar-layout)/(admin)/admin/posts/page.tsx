@@ -23,122 +23,67 @@ import {
 } from "@/components/ui/table";
 
 export default function PostsPage() {
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
   const router = useRouter();
-
-  const fetchPosts = async () => {
-    try {
-      setLoading(true);
-      const response = await getAllPosts({
-        page: 1,
-        size: 10,
-        sortBy: "createdAt",
-        sortDir: "desc",
-      });
-      setPosts(response.data);
-    } catch (error) {
-      toast.error("Không thể tải danh sách bài viết");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) {
-      fetchPosts();
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const response = await searchPosts(searchQuery, {
-        page: 1,
-        size: 10,
-      });
-      setPosts(response.data);
-    } catch (error) {
-      toast.error("Không thể tìm kiếm bài viết");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDelete = async (postId: string) => {
-    if (!confirm("Bạn có chắc chắn muốn xóa bài viết này?")) return;
-
-    try {
-      const response = await deletePost(postId, "current-user-id"); // Replace with actual user ID
-      if (response.success) {
-        toast.success(response.message);
-        fetchPosts();
-      } else {
-        toast.error(response.message);
-      }
-    } catch (error) {
-      toast.error("Không thể xóa bài viết");
-    }
-  };
+  const [loading, setLoading] = useState(true);
+  const [posts, setPosts] = useState<any[]>([]);
 
   useEffect(() => {
+    const fetchPosts = async () => {
+      try {
+        const response = await getAllPosts();
+        // Kiểm tra và đảm bảo posts là một mảng
+        if (response.data && Array.isArray(response.data.content)) {
+          setPosts(response.data.content);
+        } else {
+          console.error("Invalid posts data:", response);
+          setPosts([]);
+        }
+      } catch (error) {
+        console.error("Error fetching posts:", error);
+        toast.error("Không thể tải danh sách bài viết");
+        setPosts([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchPosts();
   }, []);
+
+  if (loading) {
+    return (
+      <div className="container mx-auto py-6">
+        <div className="text-center">Đang tải...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto py-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Quản lý bài viết</h1>
-        <div className="flex gap-4">
-          <Button
-            variant="outline"
-            onClick={() => router.push("/admin/series")}
-          >
-            Quản lý Series
-          </Button>
-          <Button onClick={() => router.push("/admin/posts/create")}>
-            Tạo bài viết mới
-          </Button>
-        </div>
+        <Button onClick={() => router.push("/admin/posts/create")}>
+          Tạo bài viết mới
+        </Button>
       </div>
 
-      <div className="flex gap-4 mb-6">
-        <div className="relative flex-1">
-          <Input
-            placeholder="Tìm kiếm bài viết..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-          />
-          <Search
-            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 cursor-pointer"
-            onClick={handleSearch}
-          />
-        </div>
-      </div>
-
-      <div className="bg-white rounded-lg shadow">
+      <div className="rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Tiêu đề</TableHead>
               <TableHead>Trạng thái</TableHead>
               <TableHead>Tags</TableHead>
+              <TableHead>Series</TableHead>
               <TableHead>Ngày tạo</TableHead>
               <TableHead>Thao tác</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {loading ? (
+            {posts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center">
-                  Đang tải...
-                </TableCell>
-              </TableRow>
-            ) : posts.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center">
-                  Không có bài viết nào
+                <TableCell colSpan={6} className="text-center">
+                  Chưa có bài viết nào
                 </TableCell>
               </TableRow>
             ) : (
@@ -155,15 +100,16 @@ export default function PostsPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-1 flex-wrap">
-                      {post.tags.map((tag) => (
-                        <Badge key={tag} variant="outline">
+                      {post.tags.map((tag: string) => (
+                        <Badge key={tag} variant="secondary">
                           {tag}
                         </Badge>
                       ))}
                     </div>
                   </TableCell>
+                  <TableCell>{post.seriesTitle || "Không có series"}</TableCell>
                   <TableCell>
-                    {format(new Date(post.createdAt), "dd/MM/yyyy HH:mm")}
+                    {new Date(post.createdAt).toLocaleString()}
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
@@ -182,13 +128,6 @@ export default function PostsPage() {
                         }
                       >
                         Sửa
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleDelete(post.id)}
-                      >
-                        Xóa
                       </Button>
                     </div>
                   </TableCell>

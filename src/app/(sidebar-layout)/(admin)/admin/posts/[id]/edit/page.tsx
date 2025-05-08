@@ -9,6 +9,8 @@ import { toast } from "sonner";
 import { getPostById, updatePost } from "@/actions/postAction";
 import { Series, getAllSeries } from "@/actions/seriesAction";
 
+import { processMediaInContent, uploadCoverImage } from "@/utils/media";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -104,12 +106,14 @@ export default function EditPostPage({ params }: EditPostPageProps) {
     }
   };
 
-  // Dummy upload function, bạn sẽ tự xử lý nội dung hàm này
+  // Replace the dummy upload function with the real one
   async function uploadImage(file: File): Promise<string> {
-    // TODO: call your API and return the image URL
-    return new Promise((resolve) =>
-      setTimeout(() => resolve("/demo-cover.jpg"), 1000),
-    );
+    try {
+      return await uploadCoverImage(file);
+    } catch (error) {
+      toast.error("Không thể tải ảnh bìa lên");
+      throw error;
+    }
   }
 
   if (initialLoading) {

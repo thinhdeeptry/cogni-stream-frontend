@@ -84,15 +84,11 @@ export async function processMediaInContent(content: string): Promise<string> {
 /**
  * Uploads a cover image to storage
  * @param file The file to upload
- * @param type The type of cover image (blogs, series, etc.)
  * @returns Promise resolving to the uploaded file URL
  */
-export async function uploadCoverImage(
-  file: File,
-  type: "blogs" | "series",
-): Promise<string> {
+export async function uploadCoverImage(file: File): Promise<string> {
   try {
-    const response = await uploadFile(file, type, "covers");
+    const response = await uploadFile(file, "blogs", "covers");
     return response.url;
   } catch (error) {
     console.error("Failed to upload cover image:", error);

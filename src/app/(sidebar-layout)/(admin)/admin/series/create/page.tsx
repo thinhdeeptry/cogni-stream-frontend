@@ -7,6 +7,8 @@ import { toast } from "sonner";
 
 import { createSeries } from "@/actions/seriesAction";
 
+import { uploadCoverImage } from "@/utils/media";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -51,10 +53,12 @@ export default function CreateSeriesPage() {
   };
 
   async function uploadImage(file: File): Promise<string> {
-    // TODO: call your API and return the image URL
-    return new Promise((resolve) =>
-      setTimeout(() => resolve("/demo-cover.jpg"), 1000),
-    );
+    try {
+      return await uploadCoverImage(file, "blogs");
+    } catch (error) {
+      toast.error("Không thể tải ảnh bìa lên");
+      throw error;
+    }
   }
 
   return (
