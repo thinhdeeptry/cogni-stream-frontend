@@ -104,7 +104,7 @@ export default function EditPostPage({ params }: EditPostPageProps) {
           content: post.content || "",
           coverImage: post.coverImage || "",
           tags: Array.isArray(post.tags) ? post.tags.join(", ") : "",
-          isPublished: post.published || false,
+          isPublished: post.isPublished || false,
           seriesId: post.seriesId || "none",
         });
         setSeries(seriesResponse.data.content || []);

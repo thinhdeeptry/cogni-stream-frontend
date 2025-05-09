@@ -9,13 +9,16 @@ export interface Post {
   content: string;
   coverImage: string;
   tags: string[];
-  published: boolean;
+  totalLikes: number;
+  totalViews: number;
+  likedByCurrentUser: boolean;
+  viewedByCurrentUser: boolean;
+  isPublished: boolean;
   seriesId?: string;
   seriesTitle?: string;
+  orderInSeries?: number;
   createdAt: string;
   updatedAt: string;
-  likeCount: number;
-  likedByCurrentUser: boolean;
   author?: {
     id: string;
     name: string;
@@ -322,5 +325,33 @@ export const deletePost = async (postId: string, userId: string) => {
       message: "Đã xảy ra lỗi khi xóa bài viết",
       error,
     };
+  }
+};
+
+export const addPostView = async (
+  postId: string,
+  userId: string,
+): Promise<ApiResponse<Post>> => {
+  try {
+    const { data } = await axios.post(
+      `${API_URL}/posts/${postId}/view?userId=${userId}`,
+    );
+    return data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const togglePostLike = async (
+  postId: string,
+  userId: string,
+): Promise<ApiResponse<Post>> => {
+  try {
+    const { data } = await axios.post(
+      `${API_URL}/posts/${postId}/like?userId=${userId}`,
+    );
+    return data;
+  } catch (error) {
+    throw error;
   }
 };

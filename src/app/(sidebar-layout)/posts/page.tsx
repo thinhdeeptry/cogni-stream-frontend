@@ -5,8 +5,9 @@ import { useEffect, useState } from "react";
 
 import { formatDistanceToNow } from "date-fns";
 import { vi } from "date-fns/locale/vi";
+import { Eye, Heart } from "lucide-react";
 
-import { getAllPosts } from "@/actions/postAction";
+import { Post, getAllPosts } from "@/actions/postAction";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,7 +19,7 @@ function getReadingTime(content: string) {
 }
 
 export default function PublicPostsPage() {
-  const [posts, setPosts] = useState<any[]>([]);
+  const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
@@ -32,8 +33,7 @@ export default function PublicPostsPage() {
           sortBy: "createdAt",
           sortDir: "desc",
         });
-        const data = response.data as any;
-        setPosts(Array.isArray(data) ? data : data.content);
+        setPosts(response.data.content);
       } catch (error) {
         // handle error
       } finally {
@@ -79,8 +79,7 @@ export default function PublicPostsPage() {
                   {post.title}
                 </h2>
                 <p className="text-gray-600 mb-3 line-clamp-2">
-                  {post.description ||
-                    post.content?.replace(/<[^>]+>/g, "").slice(0, 120) + "..."}
+                  {post.content?.replace(/<[^>]+>/g, "").slice(0, 120) + "..."}
                 </p>
                 <div className="flex items-center gap-3 flex-wrap text-sm text-gray-500">
                   {post.tags && post.tags.length > 0 && (
@@ -94,6 +93,22 @@ export default function PublicPostsPage() {
                   </span>
                   <span>•</span>
                   <span>{getReadingTime(post.content)}</span>
+                  <span>•</span>
+                  <span className="flex items-center gap-1">
+                    <Eye className="w-4 h-4" />
+                    {post.totalViews}
+                  </span>
+                  <span>•</span>
+                  <span className="flex items-center gap-1">
+                    <Heart
+                      className={`w-4 h-4 ${
+                        post.likedByCurrentUser
+                          ? "fill-red-500 text-red-500"
+                          : ""
+                      }`}
+                    />
+                    {post.totalLikes}
+                  </span>
                 </div>
               </div>
               {post.coverImage && (
