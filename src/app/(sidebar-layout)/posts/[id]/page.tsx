@@ -5,6 +5,18 @@ import { useEffect, useState } from "react";
 
 import { formatDistanceToNow } from "date-fns";
 import { vi } from "date-fns/locale/vi";
+import Prism from "prismjs";
+import "prismjs/components/prism-bash";
+import "prismjs/components/prism-csharp";
+import "prismjs/components/prism-java";
+import "prismjs/components/prism-javascript";
+import "prismjs/components/prism-json";
+import "prismjs/components/prism-markdown";
+import "prismjs/components/prism-python";
+import "prismjs/components/prism-sql";
+import "prismjs/components/prism-typescript";
+import "prismjs/components/prism-yaml";
+import "prismjs/themes/prism-tomorrow.css";
 
 import { getPostById } from "@/actions/postAction";
 
@@ -17,7 +29,7 @@ function getReadingTime(content: string) {
 }
 
 interface PostDetailPageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export default function PostDetailPage({ params }: PostDetailPageProps) {
@@ -29,7 +41,8 @@ export default function PostDetailPage({ params }: PostDetailPageProps) {
     const fetchPost = async () => {
       setLoading(true);
       try {
-        const response = await getPostById(params.id);
+        const { id } = await params;
+        const response = await getPostById(id);
         setPost((response as any).data || response);
       } catch (error) {
         setPost(null);
@@ -38,7 +51,14 @@ export default function PostDetailPage({ params }: PostDetailPageProps) {
       }
     };
     fetchPost();
-  }, [params.id]);
+  }, [params]);
+
+  useEffect(() => {
+    if (post?.content) {
+      // Highlight all code blocks after content is loaded
+      Prism.highlightAll();
+    }
+  }, [post?.content]);
 
   if (loading) {
     return (
@@ -94,7 +114,7 @@ export default function PostDetailPage({ params }: PostDetailPageProps) {
           ))}
       </div>
       <div
-        className="prose max-w-none"
+        className="prose max-w-none prose-pre:bg-[#1e1e1e] prose-pre:text-[#d4d4d4] prose-pre:p-4 prose-pre:rounded-md prose-pre:font-mono"
         dangerouslySetInnerHTML={{ __html: post.content }}
       />
     </div>

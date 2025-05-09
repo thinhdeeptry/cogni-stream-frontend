@@ -9,28 +9,69 @@ export interface Post {
   content: string;
   coverImage: string;
   tags: string[];
-  isPublished: boolean;
+  published: boolean;
   seriesId?: string;
+  seriesTitle?: string;
   createdAt: string;
   updatedAt: string;
+  likeCount: number;
+  likedByCurrentUser: boolean;
+  author?: {
+    id: string;
+    name: string;
+    avatar?: string;
+    isFeatured?: boolean;
+    isVerified?: boolean;
+  };
 }
 
 export interface PostFilters {
   page?: number;
   size?: number;
   sortBy?: string;
-  sortDir?: "asc" | "desc";
+  sortDir?: string;
   currentUserId?: string;
 }
 
+export interface ApiResponse<T> {
+  success: boolean;
+  message: string;
+  data: T;
+  timestamp: string;
+}
+
 export interface PaginatedResponse<T> {
-  data: T[];
-  meta: {
-    total: number;
-    page: number;
-    limit: number;
+  success: boolean;
+  message: string;
+  data: {
+    content: T[];
+    pageable: {
+      pageNumber: number;
+      pageSize: number;
+      sort: {
+        empty: boolean;
+        unsorted: boolean;
+        sorted: boolean;
+      };
+      offset: number;
+      paged: boolean;
+      unpaged: boolean;
+    };
+    last: boolean;
     totalPages: number;
+    totalElements: number;
+    first: boolean;
+    size: number;
+    number: number;
+    sort: {
+      empty: boolean;
+      unsorted: boolean;
+      sorted: boolean;
+    };
+    numberOfElements: number;
+    empty: boolean;
   };
+  timestamp: string;
 }
 
 export const getAllPosts = async (
@@ -38,8 +79,10 @@ export const getAllPosts = async (
 ): Promise<PaginatedResponse<Post>> => {
   try {
     const params = new URLSearchParams();
-    if (filters.page) params.append("page", filters.page.toString());
-    if (filters.size) params.append("size", filters.size.toString());
+    if (filters.page !== undefined)
+      params.append("page", filters.page.toString());
+    if (filters.size !== undefined)
+      params.append("size", filters.size.toString());
     if (filters.sortBy) params.append("sortBy", filters.sortBy);
     if (filters.sortDir) params.append("sortDir", filters.sortDir);
     if (filters.currentUserId)
@@ -55,13 +98,154 @@ export const getAllPosts = async (
 export const getPostById = async (
   postId: string,
   currentUserId?: string,
-): Promise<Post> => {
+): Promise<ApiResponse<Post>> => {
   try {
     const params = new URLSearchParams();
     if (currentUserId) params.append("currentUserId", currentUserId);
 
     const { data } = await axios.get(
       `${API_URL}/posts/${postId}?${params.toString()}`,
+    );
+    return data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const getPostsByUserId = async (
+  userId: string,
+  filters: PostFilters = {},
+): Promise<PaginatedResponse<Post>> => {
+  try {
+    const params = new URLSearchParams();
+    if (filters.page !== undefined)
+      params.append("page", filters.page.toString());
+    if (filters.size !== undefined)
+      params.append("size", filters.size.toString());
+    if (filters.sortBy) params.append("sortBy", filters.sortBy);
+    if (filters.sortDir) params.append("sortDir", filters.sortDir);
+    if (filters.currentUserId)
+      params.append("currentUserId", filters.currentUserId);
+
+    const { data } = await axios.get(
+      `${API_URL}/posts/user/${userId}?${params.toString()}`,
+    );
+    console.log("User id: ", userId);
+    return data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const getPostsByTag = async (
+  tag: string,
+  filters: PostFilters = {},
+): Promise<PaginatedResponse<Post>> => {
+  try {
+    const params = new URLSearchParams();
+    if (filters.page !== undefined)
+      params.append("page", filters.page.toString());
+    if (filters.size !== undefined)
+      params.append("size", filters.size.toString());
+    if (filters.currentUserId)
+      params.append("currentUserId", filters.currentUserId);
+
+    const { data } = await axios.get(
+      `${API_URL}/posts/tag/${tag}?${params.toString()}`,
+    );
+    return data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const getPostsBySeriesId = async (
+  seriesId: string,
+  filters: PostFilters = {},
+): Promise<PaginatedResponse<Post>> => {
+  try {
+    const params = new URLSearchParams();
+    if (filters.page !== undefined)
+      params.append("page", filters.page.toString());
+    if (filters.size !== undefined)
+      params.append("size", filters.size.toString());
+    if (filters.sortBy) params.append("sortBy", filters.sortBy);
+    if (filters.sortDir) params.append("sortDir", filters.sortDir);
+    if (filters.currentUserId)
+      params.append("currentUserId", filters.currentUserId);
+
+    const { data } = await axios.get(
+      `${API_URL}/posts/series/${seriesId}?${params.toString()}`,
+    );
+    return data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const getPostsWithoutSeries = async (
+  filters: PostFilters = {},
+): Promise<PaginatedResponse<Post>> => {
+  try {
+    const params = new URLSearchParams();
+    if (filters.page !== undefined)
+      params.append("page", filters.page.toString());
+    if (filters.size !== undefined)
+      params.append("size", filters.size.toString());
+    if (filters.sortBy) params.append("sortBy", filters.sortBy);
+    if (filters.sortDir) params.append("sortDir", filters.sortDir);
+    if (filters.currentUserId)
+      params.append("currentUserId", filters.currentUserId);
+
+    const { data } = await axios.get(
+      `${API_URL}/posts/no-series?${params.toString()}`,
+    );
+    return data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const getUserPostsWithoutSeries = async (
+  userId: string,
+  filters: PostFilters = {},
+): Promise<PaginatedResponse<Post>> => {
+  try {
+    const params = new URLSearchParams();
+    if (filters.page !== undefined)
+      params.append("page", filters.page.toString());
+    if (filters.size !== undefined)
+      params.append("size", filters.size.toString());
+    if (filters.sortBy) params.append("sortBy", filters.sortBy);
+    if (filters.sortDir) params.append("sortDir", filters.sortDir);
+    if (filters.currentUserId)
+      params.append("currentUserId", filters.currentUserId);
+
+    const { data } = await axios.get(
+      `${API_URL}/posts/user/${userId}/no-series?${params.toString()}`,
+    );
+    return data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const searchPosts = async (
+  keyword: string,
+  filters: PostFilters = {},
+): Promise<PaginatedResponse<Post>> => {
+  try {
+    const params = new URLSearchParams();
+    params.append("keyword", keyword);
+    if (filters.page !== undefined)
+      params.append("page", filters.page.toString());
+    if (filters.size !== undefined)
+      params.append("size", filters.size.toString());
+    if (filters.currentUserId)
+      params.append("currentUserId", filters.currentUserId);
+
+    const { data } = await axios.get(
+      `${API_URL}/posts/search?${params.toString()}`,
     );
     return data;
   } catch (error) {
@@ -138,46 +322,5 @@ export const deletePost = async (postId: string, userId: string) => {
       message: "Đã xảy ra lỗi khi xóa bài viết",
       error,
     };
-  }
-};
-
-export const searchPosts = async (
-  keyword: string,
-  filters: PostFilters = {},
-): Promise<PaginatedResponse<Post>> => {
-  try {
-    const params = new URLSearchParams();
-    params.append("keyword", keyword);
-    if (filters.page) params.append("page", filters.page.toString());
-    if (filters.size) params.append("size", filters.size.toString());
-    if (filters.currentUserId)
-      params.append("currentUserId", filters.currentUserId);
-
-    const { data } = await axios.get(
-      `${API_URL}/posts/search?${params.toString()}`,
-    );
-    return data;
-  } catch (error) {
-    throw error;
-  }
-};
-
-export const getPostsByTag = async (
-  tag: string,
-  filters: PostFilters = {},
-): Promise<PaginatedResponse<Post>> => {
-  try {
-    const params = new URLSearchParams();
-    if (filters.page) params.append("page", filters.page.toString());
-    if (filters.size) params.append("size", filters.size.toString());
-    if (filters.currentUserId)
-      params.append("currentUserId", filters.currentUserId);
-
-    const { data } = await axios.get(
-      `${API_URL}/posts/tag/${tag}?${params.toString()}`,
-    );
-    return data;
-  } catch (error) {
-    throw error;
   }
 };

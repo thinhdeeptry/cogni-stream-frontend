@@ -7,6 +7,10 @@ import { toast } from "sonner";
 
 import { getSeriesById, updateSeries } from "@/actions/seriesAction";
 
+import useUserStore from "@/stores/useUserStore";
+
+import { uploadCoverImage } from "@/utils/media";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,6 +25,7 @@ interface EditSeriesPageProps {
 
 export default function EditSeriesPage({ params }: EditSeriesPageProps) {
   const router = useRouter();
+  const { user } = useUserStore();
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [formData, setFormData] = useState({
@@ -55,11 +60,16 @@ export default function EditSeriesPage({ params }: EditSeriesPageProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user?.id) {
+      toast.error("Vui lòng đăng nhập để chỉnh sửa series");
+      return;
+    }
+
     setLoading(true);
 
     try {
       const response = await updateSeries(params.id, {
-        userId: "current-user-id", // Replace with actual user ID
+        userId: user.id,
         title: formData.title,
         description: formData.description,
         coverImage: formData.coverImage,
@@ -80,12 +90,13 @@ export default function EditSeriesPage({ params }: EditSeriesPageProps) {
     }
   };
 
-  // Dummy upload function, bạn sẽ tự xử lý nội dung hàm này
   async function uploadImage(file: File): Promise<string> {
-    // TODO: call your API and return the image URL
-    return new Promise((resolve) =>
-      setTimeout(() => resolve("/demo-cover.jpg"), 1000),
-    );
+    try {
+      return await uploadCoverImage(file);
+    } catch (error) {
+      toast.error("Không thể tải ảnh bìa lên");
+      throw error;
+    }
   }
 
   if (initialLoading) {

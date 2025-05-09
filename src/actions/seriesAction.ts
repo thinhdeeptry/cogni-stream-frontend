@@ -99,6 +99,7 @@ export const getSeriesByUserId = async (
   filters?: SeriesFilters,
 ) => {
   try {
+    console.log(userId);
     const response = await axios.get<ApiResponse<PaginatedResponse<Series>>>(
       `${API_URL}/series/user/${userId}`,
       {

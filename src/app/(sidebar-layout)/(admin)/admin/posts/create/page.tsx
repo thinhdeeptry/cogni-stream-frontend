@@ -9,6 +9,8 @@ import { toast } from "sonner";
 import { createPost } from "@/actions/postAction";
 import { getAllSeries } from "@/actions/seriesAction";
 
+import useUserStore from "@/stores/useUserStore";
+
 import { processMediaInContent, uploadCoverImage } from "@/utils/media";
 
 import { Button } from "@/components/ui/button";
@@ -26,6 +28,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 export default function CreatePostPage() {
   const router = useRouter();
+  const { user } = useUserStore();
   const [loading, setLoading] = useState(false);
   const [series, setSeries] = useState<any[]>([]);
   const [formData, setFormData] = useState({
@@ -53,11 +56,16 @@ export default function CreatePostPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user?.id) {
+      toast.error("Vui lòng đăng nhập để tạo bài viết");
+      return;
+    }
+
     setLoading(true);
 
     try {
       const response = await createPost({
-        userId: "current-user-id", // Replace with actual user ID
+        userId: user.id,
         title: formData.title,
         content: formData.content,
         coverImage: formData.coverImage,
@@ -79,15 +87,20 @@ export default function CreatePostPage() {
     }
   };
 
-  // Replace the dummy upload function with the real one
-  async function uploadImage(file: File): Promise<string> {
+  const handleEditorChange = (content: string) => {
+    setFormData({ ...formData, content });
+  };
+
+  const handleImageUpload = async (blobInfo: any) => {
     try {
-      return await uploadCoverImage(file);
+      const file = blobInfo.blob();
+      const url = await uploadCoverImage(file);
+      return url;
     } catch (error) {
-      toast.error("Không thể tải ảnh bìa lên");
+      toast.error("Không thể tải ảnh lên");
       throw error;
     }
-  }
+  };
 
   return (
     <div className="container mx-auto py-6">
@@ -116,7 +129,7 @@ export default function CreatePostPage() {
           <Editor
             apiKey={process.env.NEXT_PUBLIC_TINYMCE_API_KEY}
             value={formData.content}
-            onEditorChange={(content) => setFormData({ ...formData, content })}
+            onEditorChange={handleEditorChange}
             init={{
               height: 500,
               menubar: true,
@@ -136,7 +149,7 @@ export default function CreatePostPage() {
                 "insertdatetime",
                 "media",
                 "table",
-                "code",
+                "codesample",
                 "help",
                 "wordcount",
               ],
@@ -144,7 +157,37 @@ export default function CreatePostPage() {
                 "undo redo | blocks | " +
                 "bold italic forecolor | alignleft aligncenter " +
                 "alignright alignjustify | bullist numlist outdent indent | " +
-                "removeformat | help",
+                "image codesample | removeformat | help",
+              images_upload_handler: handleImageUpload,
+              codesample_languages: [
+                { text: "HTML/XML", value: "markup" },
+                { text: "JavaScript", value: "javascript" },
+                { text: "TypeScript", value: "typescript" },
+                { text: "CSS", value: "css" },
+                { text: "PHP", value: "php" },
+                { text: "Python", value: "python" },
+                { text: "Java", value: "java" },
+                { text: "C", value: "c" },
+                { text: "C#", value: "csharp" },
+                { text: "SQL", value: "sql" },
+                { text: "Bash", value: "bash" },
+                { text: "JSON", value: "json" },
+                { text: "YAML", value: "yaml" },
+                { text: "Markdown", value: "markdown" },
+              ],
+              codesample_global_prismjs: true,
+              content_style: `
+                .mce-content-body pre {
+                  background-color: #1e1e1e;
+                  color: #d4d4d4;
+                  padding: 1em;
+                  border-radius: 4px;
+                  font-family: 'Fira Code', monospace;
+                }
+                .mce-content-body code {
+                  font-family: 'Fira Code', monospace;
+                }
+              `,
             }}
           />
         </div>

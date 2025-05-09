@@ -1,13 +1,20 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 
 import { Editor } from "@tinymce/tinymce-react";
 import { toast } from "sonner";
 
-import { getPostById, updatePost } from "@/actions/postAction";
-import { Series, getAllSeries } from "@/actions/seriesAction";
+import {
+  ApiResponse,
+  Post,
+  getPostById,
+  updatePost,
+} from "@/actions/postAction";
+import { Series, getSeriesByUserId } from "@/actions/seriesAction";
+
+import useUserStore from "@/stores/useUserStore";
 
 import { processMediaInContent, uploadCoverImage } from "@/utils/media";
 
@@ -24,13 +31,15 @@ import {
 import { Switch } from "@/components/ui/switch";
 
 interface EditPostPageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export default function EditPostPage({ params }: EditPostPageProps) {
+  const resolvedParams = use(params);
   const router = useRouter();
+  const { user } = useUserStore();
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [series, setSeries] = useState<Series[]>([]);
@@ -46,23 +55,61 @@ export default function EditPostPage({ params }: EditPostPageProps) {
 
   useEffect(() => {
     const fetchData = async () => {
+      if (!user?.id) {
+        console.log("No user ID found, redirecting...");
+        toast.error("Vui lòng đăng nhập để chỉnh sửa bài viết");
+        router.push("/admin/posts");
+        return;
+      }
+
       try {
         setInitialLoading(true);
+        console.log("Fetching post with ID:", resolvedParams.id);
         const [postResponse, seriesResponse] = await Promise.all([
-          getPostById(params.id),
-          getAllSeries(),
+          getPostById(resolvedParams.id),
+          getSeriesByUserId(user.id, {
+            page: 0,
+            size: 100,
+            sortBy: "createdAt",
+            sortDir: "desc",
+          }),
         ]);
 
+        if (!postResponse?.data) {
+          console.log("Post not found, redirecting...");
+          throw new Error("Không tìm thấy bài viết");
+        }
+
+        const post = postResponse.data;
+        console.log("Post data:", post);
+        console.log("Current user ID:", user.id);
+        console.log("Post user ID:", post.userId);
+
+        if (!post.userId) {
+          console.log("Post user ID is missing, redirecting...");
+          toast.error("Không thể xác định chủ sở hữu bài viết");
+          router.push("/admin/posts");
+          return;
+        }
+
+        if (post.userId !== user.id) {
+          console.log("User doesn't own the post, redirecting...");
+          toast.error("Bạn không có quyền chỉnh sửa bài viết này");
+          router.push("/admin/posts");
+          return;
+        }
+
         setFormData({
-          title: postResponse.title,
-          content: postResponse.content,
-          coverImage: postResponse.coverImage,
-          tags: postResponse.tags.join(", "),
-          isPublished: postResponse.isPublished,
-          seriesId: postResponse.seriesId || "",
+          title: post.title || "",
+          content: post.content || "",
+          coverImage: post.coverImage || "",
+          tags: Array.isArray(post.tags) ? post.tags.join(", ") : "",
+          isPublished: post.published || false,
+          seriesId: post.seriesId || "none",
         });
-        setSeries(seriesResponse.data.content);
+        setSeries(seriesResponse.data.content || []);
       } catch (error) {
+        console.error("Error fetching post data:", error);
         toast.error("Không thể tải thông tin bài viết");
         router.push("/admin/posts");
       } finally {
@@ -71,10 +118,15 @@ export default function EditPostPage({ params }: EditPostPageProps) {
     };
 
     fetchData();
-  }, [params.id, router]);
+  }, [resolvedParams.id, router, user?.id]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user?.id) {
+      toast.error("Vui lòng đăng nhập để cập nhật bài viết");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -83,14 +135,14 @@ export default function EditPostPage({ params }: EditPostPageProps) {
         .map((tag) => tag.trim())
         .filter((tag) => tag.length > 0);
 
-      const response = await updatePost(params.id, {
-        userId: "current-user-id", // Replace with actual user ID
+      const response = await updatePost(resolvedParams.id, {
+        userId: user.id,
         title: formData.title,
         content: formData.content,
         coverImage: formData.coverImage,
         tags,
         isPublished: formData.isPublished,
-        seriesId: formData.seriesId || undefined,
+        seriesId: formData.seriesId === "none" ? undefined : formData.seriesId,
       });
 
       if (response.success) {
@@ -100,13 +152,13 @@ export default function EditPostPage({ params }: EditPostPageProps) {
         toast.error(response.message);
       }
     } catch (error) {
+      console.error("Error updating post:", error);
       toast.error("Đã xảy ra lỗi khi cập nhật bài viết");
     } finally {
       setLoading(false);
     }
   };
 
-  // Replace the dummy upload function with the real one
   async function uploadImage(file: File): Promise<string> {
     try {
       return await uploadCoverImage(file);
@@ -236,7 +288,7 @@ export default function EditPostPage({ params }: EditPostPageProps) {
               <SelectValue placeholder="Chọn series" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Không có series</SelectItem>
+              <SelectItem value="none">Không có series</SelectItem>
               {series.map((s) => (
                 <SelectItem key={s.id} value={s.id}>
                   {s.title}

@@ -7,6 +7,8 @@ import { toast } from "sonner";
 
 import { createSeries } from "@/actions/seriesAction";
 
+import useUserStore from "@/stores/useUserStore";
+
 import { uploadCoverImage } from "@/utils/media";
 
 import { Button } from "@/components/ui/button";
@@ -17,6 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 export default function CreateSeriesPage() {
   const router = useRouter();
+  const { user } = useUserStore();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
@@ -28,11 +31,16 @@ export default function CreateSeriesPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user?.id) {
+      toast.error("Vui lòng đăng nhập để tạo series");
+      return;
+    }
+
     setLoading(true);
 
     try {
       const response = await createSeries({
-        userId: "current-user-id", // Replace with actual user ID
+        userId: user.id,
         title: formData.title,
         description: formData.description,
         coverImage: formData.coverImage,
@@ -54,7 +62,7 @@ export default function CreateSeriesPage() {
 
   async function uploadImage(file: File): Promise<string> {
     try {
-      return await uploadCoverImage(file, "blogs");
+      return await uploadCoverImage(file);
     } catch (error) {
       toast.error("Không thể tải ảnh bìa lên");
       throw error;

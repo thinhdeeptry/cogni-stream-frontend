@@ -11,8 +11,11 @@ import {
   Series,
   deleteSeries,
   getAllSeries,
+  getSeriesByUserId,
   searchSeries,
 } from "@/actions/seriesAction";
+
+import useUserStore from "@/stores/useUserStore";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,11 +34,13 @@ export default function SeriesPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const router = useRouter();
+  const { user } = useUserStore();
 
   const fetchSeries = async () => {
     try {
       setLoading(true);
-      const response = await getAllSeries({
+      console.log(user?.id);
+      const response = await getSeriesByUserId(user?.id || "", {
         page: 0,
         size: 10,
         sortBy: "createdAt",

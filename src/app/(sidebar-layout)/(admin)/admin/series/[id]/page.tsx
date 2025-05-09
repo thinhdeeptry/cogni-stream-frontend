@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 
 import { toast } from "sonner";
 
@@ -12,12 +12,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface SeriesDetailPageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export default function SeriesDetailPage({ params }: SeriesDetailPageProps) {
+  const resolvedParams = use(params);
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [series, setSeries] = useState<any>(null);
@@ -25,7 +26,7 @@ export default function SeriesDetailPage({ params }: SeriesDetailPageProps) {
   useEffect(() => {
     const fetchSeries = async () => {
       try {
-        const response = await getSeriesById(params.id);
+        const response = await getSeriesById(resolvedParams.id);
         setSeries(response.data);
       } catch (error) {
         toast.error("Không thể tải thông tin series");
@@ -36,7 +37,7 @@ export default function SeriesDetailPage({ params }: SeriesDetailPageProps) {
     };
 
     fetchSeries();
-  }, [params.id, router]);
+  }, [resolvedParams.id, router]);
 
   if (loading) {
     return (
@@ -63,7 +64,9 @@ export default function SeriesDetailPage({ params }: SeriesDetailPageProps) {
             Quay lại
           </Button>
           <Button
-            onClick={() => router.push(`/admin/series/${params.id}/edit`)}
+            onClick={() =>
+              router.push(`/admin/series/${resolvedParams.id}/edit`)
+            }
           >
             Chỉnh sửa
           </Button>
