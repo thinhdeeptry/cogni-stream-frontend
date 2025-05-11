@@ -3,9 +3,15 @@
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { AxiosFactory } from "@/lib/axios";
+import { usePayOS } from "@payos/payos-checkout";
 import { AlertCircle, CheckCircle, Clock, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+
+import {
+  createEnrollmentAfterPayment,
+  getOrderByCode,
+  updateOrderStatus,
+} from "@/actions/paymentActions";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -20,61 +26,84 @@ export default function PaymentPage() {
     "pending" | "success" | "error"
   >("pending");
   const [errorMessage, setErrorMessage] = useState("");
-  const [timeLeft, setTimeLeft] = useState(300); // 5 minutes in seconds
+  const [timeLeft, setTimeLeft] = useState(900); // 15 phút (900 giây)
+  const [isPayOSOpen, setIsPayOSOpen] = useState(false);
 
   // Get the orderId from URL params and convert to number
   const orderId = Number.parseInt(params.orderCode as string);
+
+  // PayOS configuration
+  const [payOSConfig, setPayOSConfig] = useState({
+    RETURN_URL: window.location.href,
+    ELEMENT_ID: "embedded-payment-container",
+    CHECKOUT_URL: null,
+    embedded: true,
+    onSuccess: (event) => {
+      handlePaymentSuccess();
+    },
+  });
+
+  const { open, exit } = usePayOS(payOSConfig);
 
   // Fetch payment data
   useEffect(() => {
     const fetchPaymentData = async () => {
       try {
-        console.log("Fetching payment data for orderId:", orderId);
-        const response = await AxiosFactory.getApiInstance("payment").get(
-          `/order/${orderId}`,
-        );
-        console.log("Payment data response:", response.data);
+        console.log("Fetching payment data for orderCode:", params.orderCode);
+        const response = await getOrderByCode(params.orderCode);
 
-        if (response.data) {
+        // In toàn bộ dữ liệu trả về để debug
+        console.log(
+          "FULL PAYMENT RESPONSE:",
+          JSON.stringify(response, null, 2),
+        );
+
+        if (response.success && response.data) {
+          console.log(
+            "FULL PAYMENT DATA:",
+            JSON.stringify(response.data, null, 2),
+          );
           setPaymentData(response.data);
+
+          // Set PayOS checkout URL
+          if (response.data.checkoutUrl) {
+            setPayOSConfig((prev) => ({
+              ...prev,
+              CHECKOUT_URL: response.data.checkoutUrl,
+            }));
+          }
 
           // Check if payment is already expired or completed
           if (response.data.status === "EXPIRED") {
-            router.push("/payment/expired");
+            router.push(
+              `/course/${response.data.metadata?.courseId || "/courses"}`,
+            );
             return;
           } else if (response.data.status === "COMPLETED") {
             setPaymentStatus("success");
 
-            // Redirect to success page with all necessary parameters
-            const redirectUrl = new URL(
-              response.data.returnUrl || "/payment/success",
-              window.location.origin,
-            );
-
-            // Add metadata as query parameters
-            if (response.data.metadata) {
-              Object.entries(response.data.metadata).forEach(([key, value]) => {
-                redirectUrl.searchParams.append(key, value as string);
-              });
-            }
-
-            // Add orderCode
-            redirectUrl.searchParams.append("orderCode", orderId.toString());
-
-            // Redirect after a short delay
+            // Redirect to course detail page
             setTimeout(() => {
-              router.push(redirectUrl.toString());
+              router.push(
+                `/course/${response.data.metadata?.courseId || "/courses"}`,
+              );
             }, 1500);
 
             return;
           }
+        } else {
+          setErrorMessage(
+            response.message || "Không thể tải thông tin thanh toán",
+          );
+          setPaymentStatus("error");
         }
 
         setLoading(false);
       } catch (error) {
         console.error("Failed to fetch payment data:", error);
+        console.error("Error details:", error.response?.data || error.message);
         setErrorMessage(
-          "Failed to load payment information. Please try again.",
+          "Không thể tải thông tin thanh toán. Vui lòng thử lại.",
         );
         setPaymentStatus("error");
         setLoading(false);
@@ -84,24 +113,23 @@ export default function PaymentPage() {
     fetchPaymentData();
   }, [orderId, router]);
 
+  // Open PayOS when checkout URL is available
+  useEffect(() => {
+    if (payOSConfig.CHECKOUT_URL && !isPayOSOpen) {
+      open();
+      setIsPayOSOpen(true);
+    }
+  }, [payOSConfig.CHECKOUT_URL, isPayOSOpen, open]);
+
   // Countdown timer for payment expiration
   useEffect(() => {
-    if (!loading && paymentStatus === "pending") {
-      const timer = setInterval(() => {
-        setTimeLeft((prevTime) => {
-          if (prevTime <= 1) {
-            clearInterval(timer);
-            // Mark payment as expired
-            handlePaymentExpired();
-            return 0;
-          }
-          return prevTime - 1;
-        });
-      }, 1000);
-
-      return () => clearInterval(timer);
+    if (timeLeft > 0) {
+      const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
+      return () => clearTimeout(timer);
+    } else if (timeLeft === 0 && paymentStatus === "pending") {
+      handlePaymentExpired();
     }
-  }, [loading, paymentStatus]);
+  }, [timeLeft, paymentStatus]);
 
   // Format time left as MM:SS
   const formatTimeLeft = () => {
@@ -113,65 +141,92 @@ export default function PaymentPage() {
   // Handle payment expiration
   const handlePaymentExpired = async () => {
     try {
-      // Update payment status to EXPIRED
-      await AxiosFactory.getApiInstance("payment").put(
-        `/order/${orderId}/status`,
-        {
-          status: "EXPIRED",
-        },
-      );
+      // Close PayOS if open
+      if (isPayOSOpen) {
+        exit();
+        setIsPayOSOpen(false);
+      }
 
-      // Redirect to expired page
-      router.push("/payment/expired");
+      // Update payment status to EXPIRED
+      const response = await updateOrderStatus(orderId, "EXPIRED");
+
+      if (response.success) {
+        toast.error("Thanh toán đã hết hạn");
+      } else {
+        setErrorMessage(
+          response.message || "Lỗi cập nhật trạng thái thanh toán",
+        );
+        toast.error(response.message || "Lỗi cập nhật trạng thái thanh toán");
+      }
+
+      // Redirect to course detail page
+      if (paymentData?.metadata?.courseId) {
+        router.push(`/course/${paymentData.metadata.courseId}`);
+      } else {
+        router.push("/courses");
+      }
     } catch (error) {
       console.error("Error marking payment as expired:", error);
       setErrorMessage("Có lỗi xảy ra khi cập nhật trạng thái thanh toán.");
       setPaymentStatus("error");
+
+      // Still redirect to course detail page in case of error
+      if (paymentData?.metadata?.courseId) {
+        router.push(`/course/${paymentData.metadata.courseId}`);
+      } else {
+        router.push("/courses");
+      }
     }
   };
 
-  // Xử lý khi thanh toán thành công
+  // Handle payment success
   const handlePaymentSuccess = async () => {
     try {
       console.log("Payment successful");
       setPaymentStatus("success");
 
       // Update payment status to COMPLETED
-      await AxiosFactory.getApiInstance("payment").put(
-        `/order/${orderId}/status`,
-        {
-          status: "COMPLETED",
-        },
-      );
+      const updateResponse = await updateOrderStatus(orderId, "COMPLETED");
 
-      // Hiển thị thông báo thành công
-      toast.success("Thanh toán thành công!");
+      if (updateResponse.success) {
+        toast.success("Thanh toán thành công!");
 
-      // Redirect to success page with all necessary parameters
-      const redirectUrl = new URL(
-        paymentData.returnUrl || "/payment/success",
-        window.location.origin,
-      );
+        // Create enrollment
+        if (paymentData) {
+          const enrollResponse =
+            await createEnrollmentAfterPayment(paymentData);
 
-      // Add all metadata as query parameters
-      if (paymentData.metadata) {
-        Object.entries(paymentData.metadata).forEach(([key, value]) => {
-          redirectUrl.searchParams.append(key, value as string);
-        });
+          if (!enrollResponse.success) {
+            console.error("Error creating enrollment:", enrollResponse.message);
+          }
+        }
+      } else {
+        setErrorMessage(
+          updateResponse.message || "Lỗi cập nhật trạng thái thanh toán",
+        );
+        toast.error(
+          updateResponse.message || "Lỗi cập nhật trạng thái thanh toán",
+        );
       }
 
-      // Thêm orderCode vào URL
-      redirectUrl.searchParams.append("orderCode", orderId);
-
-      // Delay redirect để người dùng thấy thông báo thành công
-      setTimeout(() => {
-        router.push(redirectUrl.toString());
-      }, 2000);
+      // Redirect to course detail page
+      if (paymentData?.metadata?.courseId) {
+        router.push(`/course/${paymentData.metadata.courseId}`);
+      } else {
+        router.push("/courses");
+      }
     } catch (error) {
       console.error("Error updating payment status:", error);
       setErrorMessage("Có lỗi xảy ra khi cập nhật trạng thái thanh toán");
       setPaymentStatus("error");
       toast.error("Có lỗi xảy ra khi xử lý thanh toán");
+
+      // Still redirect to course detail page in case of error
+      if (paymentData?.metadata?.courseId) {
+        router.push(`/course/${paymentData.metadata.courseId}`);
+      } else {
+        router.push("/courses");
+      }
     }
   };
 
@@ -180,6 +235,27 @@ export default function PaymentPage() {
       style: "currency",
       currency: "VND",
     }).format(price);
+  };
+
+  // Handle opening PayOS manually
+  const handleOpenPayOS = () => {
+    if (payOSConfig.CHECKOUT_URL) {
+      open();
+      setIsPayOSOpen(true);
+    } else {
+      // Fallback to opening checkout URL in new tab
+      if (paymentData?.checkoutUrl) {
+        window.open(paymentData.checkoutUrl, "_blank");
+      } else {
+        toast.error("Không tìm thấy liên kết thanh toán");
+      }
+    }
+  };
+
+  // Handle closing PayOS
+  const handleClosePayOS = () => {
+    exit();
+    setIsPayOSOpen(false);
   };
 
   return (
@@ -207,11 +283,6 @@ export default function PaymentPage() {
               <p className="text-sm text-muted-foreground text-center">
                 Đang chuyển hướng đến trang khóa học của bạn...
               </p>
-              {errorMessage && (
-                <p className="text-sm text-red-500 text-center mt-2">
-                  {errorMessage}
-                </p>
-              )}
             </div>
           </CardContent>
         </Card>
@@ -221,158 +292,123 @@ export default function PaymentPage() {
             <div className="flex flex-col items-center justify-center py-8 space-y-4">
               <AlertCircle className="h-16 w-16 text-red-500" />
               <p className="text-lg font-medium">Đã xảy ra lỗi</p>
-              <p className="text-sm text-red-500 text-center">{errorMessage}</p>
-              <Button onClick={() => router.push("/courses")}>
+              <p className="text-sm text-muted-foreground text-center">
+                {errorMessage}
+              </p>
+              <Button
+                onClick={() => {
+                  if (paymentData?.metadata?.courseId) {
+                    router.push(`/course/${paymentData.metadata.courseId}`);
+                  } else {
+                    router.push("/courses");
+                  }
+                }}
+              >
                 Quay lại trang khóa học
               </Button>
             </div>
           </CardContent>
         </Card>
       ) : paymentData ? (
-        <Card className="w-full max-w-5xl mx-auto">
-          <CardContent className="p-0">
-            <div className="grid grid-cols-1 md:grid-cols-2">
-              {/* Left side - Course information */}
-              <div className="p-6 space-y-6">
-                <div>
-                  <h2 className="text-2xl font-bold mb-4">
-                    Thanh toán khóa học
-                  </h2>
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <h3 className="font-medium text-lg">
-                        Thông tin khóa học
-                      </h3>
-                      <div className="space-y-3 p-4 border rounded-md">
-                        <div>
-                          <p className="text-sm text-muted-foreground">
-                            Khóa học
-                          </p>
-                          <p className="font-medium">
-                            {paymentData.description}
-                          </p>
-                        </div>
+        <Card className="w-full max-w-3xl mx-auto">
+          <CardContent className="p-6">
+            <h2 className="text-2xl font-bold text-center mb-6">
+              Thanh toán khóa học
+            </h2>
 
-                        {/* Display instructor, duration, level if available in metadata */}
-                        {paymentData.metadata?.instructor && (
-                          <div>
-                            <p className="text-sm text-muted-foreground">
-                              Giảng viên
-                            </p>
-                            <p className="font-medium">
-                              {paymentData.metadata.instructor}
-                            </p>
-                          </div>
-                        )}
-
-                        {paymentData.metadata?.duration && (
-                          <div>
-                            <p className="text-sm text-muted-foreground">
-                              Thời lượng
-                            </p>
-                            <p className="font-medium">
-                              {paymentData.metadata.duration}
-                            </p>
-                          </div>
-                        )}
-
-                        {paymentData.metadata?.level && (
-                          <div>
-                            <p className="text-sm text-muted-foreground">
-                              Trình độ
-                            </p>
-                            <p className="font-medium">
-                              {paymentData.metadata.level}
-                            </p>
-                          </div>
-                        )}
-
-                        <div>
-                          <p className="text-sm text-muted-foreground">
-                            Số tiền
-                          </p>
-                          <p className="font-medium">
-                            {formatPrice(paymentData.amount)}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="rounded-md bg-blue-50 p-4">
-                      <p className="text-sm text-blue-700">
-                        Lưu ý: Sau khi thanh toán thành công, vui lòng không
-                        đóng trang này cho đến khi hệ thống chuyển hướng tự
-                        động.
-                      </p>
-                    </div>
-
-                    {/* Cancel payment button */}
-                    <Button
-                      variant="outline"
-                      className="w-full"
-                      onClick={() => router.push("/courses")}
-                    >
-                      Hủy thanh toán
-                    </Button>
-                  </div>
-                </div>
+            {/* Payment info - Simplified */}
+            <div className="mb-6">
+              <h3 className="font-medium text-lg mb-2">Thông tin thanh toán</h3>
+              <div className="flex justify-between items-center mb-2">
+                <span>Mã đơn hàng:</span>
+                <span className="font-medium">{paymentData.id}</span>
               </div>
-
-              {/* Separator for mobile view */}
-              <div className="md:hidden px-6">
-                <Separator className="my-4" />
-              </div>
-
-              {/* Right side - Payment QR code */}
-              <div className="p-6 border-l border-border">
-                <div className="space-y-4">
-                  <h3 className="font-medium text-lg">
-                    Quét mã QR để thanh toán
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    Sử dụng ứng dụng ngân hàng để quét mã QR bên dưới và hoàn
-                    tất thanh toán
-                  </p>
-                  <div
-                    id="embedded-payment-container"
-                    className="h-[400px] border rounded-md flex items-center justify-center"
-                  >
-                    {paymentData.checkoutUrl ? (
-                      <iframe
-                        src={paymentData.checkoutUrl}
-                        className="w-full h-full border-0"
-                        onLoad={() => console.log("Payment iframe loaded")}
-                      />
-                    ) : (
-                      <div className="text-center p-4">
-                        <AlertCircle className="h-8 w-8 text-red-500 mx-auto mb-2" />
-                        <p>Không thể tải mã QR thanh toán</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
+              <div className="flex justify-between items-center mb-2">
+                <span>Số tiền:</span>
+                <span className="font-medium text-lg text-primary">
+                  {formatPrice(paymentData.amount)}
+                </span>
               </div>
             </div>
+
+            <Separator className="my-4" />
+
+            {/* PayOS Embedded Container */}
+            <div className="flex flex-col items-center mb-6">
+              <h3 className="font-medium text-lg mb-4">Thanh toán</h3>
+
+              {!isPayOSOpen ? (
+                <Button className="w-full mb-4" onClick={handleOpenPayOS}>
+                  Mở cổng thanh toán
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  className="w-full mb-4"
+                  onClick={handleClosePayOS}
+                >
+                  Đóng cổng thanh toán
+                </Button>
+              )}
+
+              <div
+                id="embedded-payment-container"
+                className="w-full h-[350px] border rounded-md"
+              ></div>
+
+              {isPayOSOpen && (
+                <p className="text-sm text-muted-foreground mt-2 text-center">
+                  Sau khi thanh toán thành công, vui lòng đợi 5-10 giây để hệ
+                  thống cập nhật.
+                </p>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="flex flex-col items-center gap-4">
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  if (paymentData?.metadata?.courseId) {
+                    router.push(`/course/${paymentData.metadata.courseId}`);
+                  } else {
+                    router.push("/courses");
+                  }
+                }}
+              >
+                Hủy thanh toán
+              </Button>
+            </div>
+
+            {/* Debug section - Chỉ hiển thị trong môi trường development */}
+            {process.env.NODE_ENV === "development" && (
+              <div className="mt-8 p-4 bg-gray-100 rounded-md">
+                <h4 className="font-medium mb-2">Debug Info:</h4>
+                <div className="text-xs overflow-auto max-h-40">
+                  <pre>
+                    {JSON.stringify(
+                      {
+                        qrUrl: paymentData.qrUrl,
+                        qrCode: paymentData.qrCode,
+                        checkoutUrl: paymentData.checkoutUrl,
+                        paymentFields: Object.keys(paymentData),
+                      },
+                      null,
+                      2,
+                    )}
+                  </pre>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       ) : (
-        <Card className="w-full max-w-3xl mx-auto">
-          <CardContent className="p-6">
-            <div className="flex flex-col items-center justify-center py-8 space-y-4">
-              <AlertCircle className="h-16 w-16 text-red-500" />
-              <p className="text-lg font-medium">
-                Không tìm thấy thông tin thanh toán
-              </p>
-              <p className="text-sm text-red-500 text-center">
-                Không thể tìm thấy thông tin thanh toán cho mã đơn hàng này. Vui
-                lòng thử lại.
-              </p>
-              <Button onClick={() => router.push("/courses")}>
-                Quay lại trang khóa học
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="flex justify-center items-center py-12">
+          <p className="text-muted-foreground">
+            Không tìm thấy thông tin thanh toán
+          </p>
+        </div>
       )}
     </div>
   );

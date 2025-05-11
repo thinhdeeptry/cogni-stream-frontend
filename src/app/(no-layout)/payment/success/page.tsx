@@ -108,9 +108,9 @@ export default function SuccessPage() {
               )}
 
               <div className="flex justify-center">
-                <Link href={courseId ? `/learning/${courseId}` : "/courses"}>
+                <Link href={courseId ? `/course/${courseId}` : "/courses"}>
                   <Button className="bg-orange-500 hover:bg-orange-600">
-                    Bắt đầu học ngay
+                    Xem khóa học
                   </Button>
                 </Link>
               </div>

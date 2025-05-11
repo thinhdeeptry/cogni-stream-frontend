@@ -25,10 +25,12 @@ import { toast } from "sonner";
 
 import { getCourseById } from "@/actions/courseAction";
 import { getThreadByResourceId } from "@/actions/discussion.action";
+import { enrollCourse } from "@/actions/enrollmentActions";
 import {
   checkEnrollmentStatus,
-  enrollCourse,
-} from "@/actions/enrollmentActions";
+  createPayment,
+  generateOrderCode,
+} from "@/actions/paymentActions";
 
 import { useProgressStore } from "@/stores/useProgressStore";
 import useUserStore from "@/stores/useUserStore";
@@ -73,7 +75,7 @@ const itemVariant = {
 export default function CourseDetail() {
   const [course, setCourse] = useState<Course | null>(null);
   const { user } = useUserStore();
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [firstLessonId, setFirstLessonId] = useState<string | null>(null);
@@ -132,26 +134,18 @@ export default function CourseDetail() {
   useEffect(() => {
     const checkEnrollment = async () => {
       if (session?.user?.id && course?.id) {
-        try {
-          const result = await checkEnrollmentStatus(
-            course.id,
-            session.user.id,
-          );
-
-          setIsEnrolled(result.data);
-
-          // If enrolled, fetch enrollment ID
-          if (result.data) {
-            await fetchEnrollmentId();
-          }
-        } catch (err) {
-          console.error("Error checking enrollment:", err);
+        const response = await checkEnrollmentStatus(
+          session.user.id,
+          course.id,
+        );
+        if (response.success) {
+          setIsEnrolled(response.isEnrolled);
         }
       }
     };
 
     checkEnrollment();
-  }, [session?.user?.id, course?.id]);
+  }, [session, course]);
 
   // Fetch enrollment ID and lesson progress
   const fetchEnrollmentId = async () => {
@@ -204,6 +198,8 @@ export default function CourseDetail() {
 
     if (!course) return;
 
+    setIsLoading(true); // Bắt đầu loading
+
     // Handle free courses directly
     if (course.promotionPrice === 0 || course.price === 0) {
       try {
@@ -232,10 +228,61 @@ export default function CourseDetail() {
       } catch (error) {
         toast.error("Có lỗi xảy ra khi đăng ký khóa học");
         console.error("Error enrolling in free course:", error);
+      } finally {
+        setIsLoading(false); // Kết thúc loading
       }
     } else {
-      // Redirect to enrollment page for paid courses
-      router.push(`/enrollment/${course.id}?courseID=${course.id}`);
+      // Xử lý thanh toán cho khóa học có phí - trực tiếp tạo payment
+      try {
+        // Show loading toast
+        const loadingToast = toast.loading("Đang tạo đơn thanh toán...");
+
+        const orderCode = generateOrderCode(); // Trả về số nguyên
+        console.log("order code vừa tạo: ", orderCode);
+
+        // Cập nhật dữ liệu thanh toán với metadata phù hợp
+        const paymentData = {
+          amount: course.promotionPrice || course.price,
+          method: "BANK_TRANSFER",
+          description: course.title,
+          orderCode: orderCode.toString(), // Chuyển đổi thành chuỗi
+          returnUrl: `/course/${course.id}`,
+          cancelUrl: `/course/${course.id}`,
+          metadata: {
+            courseId: course.id,
+            userId: session.user.id,
+            userName: session.user.name || session.user.email,
+            courseName: course.title,
+            level: course.level || "BEGINNER",
+            categoryName: course.category?.name || "",
+            serviceType: "Course",
+          },
+          serviceName: "Course Enrollment",
+          serviceId: course.id,
+          userId: session.user.id,
+        };
+
+        // Sử dụng hàm createPayment từ paymentActions
+        const paymentResponse = await createPayment(paymentData);
+
+        // Dismiss loading toast
+        toast.dismiss(loadingToast);
+
+        if (paymentResponse.success && paymentResponse.checkoutUrl) {
+          // Điều hướng trực tiếp đến trang thanh toán
+          console.log("Order code:", orderCode);
+          router.push(`/payment/${orderCode}`); // Sử dụng số nguyên orderCode
+        } else {
+          toast.error(
+            paymentResponse.message || "Không thể tạo trang thanh toán",
+          );
+        }
+      } catch (error) {
+        toast.error("Có lỗi xảy ra khi tạo đơn thanh toán");
+        console.error("Error creating payment:", error);
+      } finally {
+        setIsLoading(false); // Kết thúc loading
+      }
     }
   };
 
@@ -581,19 +628,37 @@ export default function CourseDetail() {
                 >
                   {!isEnrolled ? (
                     <Button
-                      className="w-full bg-orange-500 hover:bg-orange-600 text-white transition-colors"
+                      className="w-full bg-orange-500 hover:bg-orange-600 text-white transition-colors relative overflow-hidden group"
                       size="lg"
                       onClick={handleEnrollClick}
+                      disabled={isLoading}
                     >
-                      {course.price === 0 ? "Đăng ký ngay" : "Mua khóa học"}
+                      {isLoading ? (
+                        <div className="flex items-center justify-center">
+                          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                          <span>Đang xử lý...</span>
+                        </div>
+                      ) : (
+                        <>
+                          <span className="relative z-10">
+                            {course.price === 0
+                              ? "Đăng ký ngay"
+                              : "Mua khóa học"}
+                          </span>
+                          <span className="absolute inset-0 bg-gradient-to-r from-orange-400 to-orange-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
+                          <span className="absolute -inset-1 rounded-lg bg-gradient-to-r from-orange-400 via-orange-500 to-orange-400 opacity-0 group-hover:opacity-30 blur-md transition-opacity duration-300 animate-pulse"></span>
+                        </>
+                      )}
                     </Button>
                   ) : (
                     <Button
-                      className="w-full bg-orange-500 hover:bg-orange-600 text-white transition-colors"
+                      className="w-full bg-orange-500 hover:bg-orange-600 text-white transition-colors relative overflow-hidden group"
                       size="lg"
                       onClick={handleStartLearningClick}
                     >
-                      Bắt đầu học
+                      <span className="relative z-10">Bắt đầu học</span>
+                      <span className="absolute inset-0 bg-gradient-to-r from-orange-400 to-orange-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
+                      <span className="absolute -inset-1 rounded-lg bg-gradient-to-r from-orange-400 via-orange-500 to-orange-400 opacity-0 group-hover:opacity-30 blur-md transition-opacity duration-300 animate-pulse"></span>
                     </Button>
                   )}
                 </motion.div>

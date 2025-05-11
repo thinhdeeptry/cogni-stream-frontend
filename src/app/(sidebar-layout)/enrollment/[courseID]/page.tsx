@@ -73,26 +73,24 @@ export default function EnrollmentPage() {
       const orderCode = generateOrderCode();
       setOrderId(orderCode);
 
+      // Cập nhật dữ liệu thanh toán để bao gồm đầy đủ metadata
       const paymentData = {
-        amount: course.promotionPrice || course.price,
-        method: "BANK_TRANSFER",
-        serviceName: "Enrollment",
-        description: course.name,
-        orderCode: orderCode,
-        userId: session.user.id,
-        serviceId: course.id,
-        returnUrl: `${window.location.origin}/payment/success`,
-        cancelUrl: `${window.location.origin}/course/${course.id}`,
+        amount: course.price,
+        method: "VNPAY",
+        description: course.title,
+        returnUrl: `/course/${course.id}`,
+        cancelUrl: `/course/${course.id}`,
         metadata: {
           courseId: course.id,
           userId: session.user.id,
-          userName: session.user.name,
-          courseName: course.name,
-          serviceType: "COURSE_ENROLLMENT",
-          instructor: course.instructor,
-          duration: course.duration,
-          level: course.level,
+          userName: session.user.name || session.user.email,
+          instructor: course.instructor?.name || "Unknown",
+          duration: course.duration || "N/A",
+          level: course.level || "All levels",
+          courseName: course.title,
         },
+        serviceName: "Course Enrollment",
+        serviceId: course.id,
       };
 
       const response = await paymentApi.post("/", paymentData);
