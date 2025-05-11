@@ -102,6 +102,15 @@ export default function CreatePostPage() {
     }
   };
 
+  async function uploadImage(file: File): Promise<string> {
+    try {
+      return await uploadCoverImage(file);
+    } catch (error) {
+      toast.error("Không thể tải ảnh bìa lên");
+      throw error;
+    }
+  }
+
   return (
     <div className="container mx-auto py-6">
       <div className="flex justify-between items-center mb-6">

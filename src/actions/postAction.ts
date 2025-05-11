@@ -355,3 +355,25 @@ export const togglePostLike = async (
     throw error;
   }
 };
+
+export const getUserRecommendations = async (
+  userId: string,
+  filters: PostFilters = {},
+): Promise<PaginatedResponse<Post>> => {
+  try {
+    const params = new URLSearchParams();
+    if (filters.page !== undefined)
+      params.append("page", filters.page.toString());
+    if (filters.size !== undefined)
+      params.append("size", filters.size.toString());
+    if (filters.currentUserId)
+      params.append("currentUserId", filters.currentUserId);
+
+    const { data } = await axios.get(
+      `${API_URL}/v1/recommendations/users/${userId}?${params.toString()}`,
+    );
+    return data;
+  } catch (error) {
+    throw error;
+  }
+};
