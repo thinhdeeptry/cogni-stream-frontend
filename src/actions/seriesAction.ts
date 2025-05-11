@@ -18,7 +18,12 @@ export interface SeriesPost {
   postId: string;
   postTitle: string;
   postCoverImage: string;
+  content: string;
   order: number;
+  totalLikes: number;
+  totalViews: number;
+  likedByCurrentUser: boolean;
+  viewedByCurrentUser: boolean;
 }
 
 export interface SeriesFilters {
@@ -83,10 +88,15 @@ export const getAllSeries = async (filters?: SeriesFilters) => {
   }
 };
 
-export const getSeriesById = async (id: string) => {
+export const getSeriesById = async (id: string, currentUserId?: string) => {
   try {
     const response = await axios.get<ApiResponse<Series>>(
       `${API_URL}/series/${id}`,
+      {
+        params: {
+          currentUserId,
+        },
+      },
     );
     return response.data;
   } catch (error) {
