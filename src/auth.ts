@@ -103,7 +103,14 @@ export const {
     strategy: "jwt",
   },
   callbacks: {
-    async jwt({ token, user, account, profile }) {
+    async jwt({ token, user, account, trigger, session }) {
+      console.log("JWT callback - Trigger:", trigger);
+      console.log("JWT callback - Session:", session);
+      // Kiểm tra nếu trigger là "update" và session có user
+      if (trigger === "update" && session?.user) {
+        // Cập nhật token với dữ liệu user mới
+        return { ...token, ...session.user };
+      }
       // Check if access token exists and is expired
       if (token && token.accessToken && typeof token.accessToken === "string") {
         try {
@@ -146,6 +153,7 @@ export const {
         token.phone = user.phone;
         token.address = user.address;
         token.image = user.image;
+        token.createdAt = user.createdAt;
         // Lưu accessToken và refreshToken
         token.accessToken = user.accessToken;
         token.refreshToken = user.refreshToken;
@@ -189,7 +197,8 @@ export const {
           token.accountType = "GOOGLE";
           token.isActive = googleAuthResponse.user.isActive || true;
           token.image = googleAuthResponse.user.image || user.image;
-
+          token.createdAt =
+            googleAuthResponse.user.createdAt || new Date().toISOString();
           // Lưu accessToken và refreshToken từ backend
           token.accessToken =
             googleAuthResponse.accessToken || googleAuthResponse.access_token;
@@ -223,6 +232,7 @@ export const {
         phone: token.phone,
         address: token.address,
         image: token.image,
+        createdAt: token.createdAt,
       };
 
       // Lưu accessToken và refreshToken ở cấp session

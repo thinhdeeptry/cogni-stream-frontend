@@ -8,6 +8,8 @@ interface UserState {
   setUser: (user: IUser, accessToken: string) => void;
   setTokens: (accessToken: string, refreshToken: string) => void;
   clearUser: () => void;
+  hydrated: boolean;
+  setHydrated: (state: boolean) => void;
 }
 
 // Check if we're in a browser environment
@@ -19,24 +21,26 @@ const useUserStore = create<UserState>()(
       user: null,
       accessToken: null,
       refreshToken: null,
+      hydrated: false,
       setUser: (user, accessToken) => set({ user, accessToken }),
       setTokens: (accessToken, refreshToken) =>
         set({ accessToken, refreshToken }),
       clearUser: () =>
         set({ user: null, accessToken: null, refreshToken: null }),
+      setHydrated: (state) => set({ hydrated: state }),
     }),
     {
       name: "user-session",
-      // Only use storage in browser environment
+      // Use localStorage instead of sessionStorage for persistence across refreshes
       storage: isServer
         ? createJSONStorage(() => ({
             getItem: () => null,
             setItem: () => {},
             removeItem: () => {},
-          })) // Empty storage for server
-        : createJSONStorage(() => sessionStorage),
+          }))
+        : createJSONStorage(() => localStorage),
       // Skip persistence on server
-      skipHydration: isServer,
+      skipHydration: true, // Always skip initial hydration
     },
   ),
 );

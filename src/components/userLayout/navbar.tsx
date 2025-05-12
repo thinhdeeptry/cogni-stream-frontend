@@ -41,7 +41,6 @@ export default function Navbar({
   const searchParams = useSearchParams();
   const params = useParams();
   const [searchQuery, setSearchQuery] = useState("");
-
   // Initialize search query from URL on mount
   useEffect(() => {
     const query = searchParams.get("q");
@@ -136,7 +135,10 @@ export default function Navbar({
                       alt={userName}
                       onError={(e) => {
                         console.error("Avatar load error:", e);
-                        e.currentTarget.src = "/default-avatar.png"; // Add a default avatar image
+                        // Use a more reliable fallback mechanism
+                        const target = e.currentTarget as HTMLImageElement;
+                        target.onerror = null; // Prevent infinite error loop
+                        target.src = "/default-avatar.png";
                       }}
                     />
                     <AvatarFallback>{userName.charAt(0)}</AvatarFallback>
@@ -149,14 +151,18 @@ export default function Navbar({
                     </div>
                   </div>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      router.push("/user/profile");
+                    }}
+                  >
                     <User className="mr-2 h-4 w-4" />
                     <span>Trang cá nhân</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem>
+                  {/* <DropdownMenuItem>
                     <Settings className="mr-2 h-4 w-4" />
                     <span>Cài đặt</span>
-                  </DropdownMenuItem>
+                  </DropdownMenuItem> */}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={onLogout} className="text-red-600">
                     <LogOut className="mr-2 h-4 w-4" />
