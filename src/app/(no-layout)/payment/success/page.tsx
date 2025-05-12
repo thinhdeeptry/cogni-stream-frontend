@@ -45,9 +45,7 @@ export default function SuccessPage() {
 
         // 1. Lấy thông tin payment từ DB
         const paymentApi = AxiosFactory.getApiInstance("payment");
-        const paymentResponse = await paymentApi.get(
-          `/payments/order/${orderCode}`,
-        );
+        const paymentResponse = await paymentApi.get(`/order/${orderCode}`);
 
         if (!paymentResponse.data || !paymentResponse.data.id) {
           throw new Error("Không thể lấy thông tin thanh toán");
