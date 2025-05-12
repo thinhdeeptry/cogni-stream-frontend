@@ -155,6 +155,7 @@ class AuthApi {
   // Đăng nhập
   async login(email: string, password: string) {
     try {
+      console.log("Calling login API with data:", API_URL);
       const response = await fetch(`${API_URL}/auth/login`, {
         method: "POST",
         headers: {
@@ -469,7 +470,6 @@ class AuthApi {
       params.append("pageSize", pageSize.toString());
 
       const url = `${API_URL}/dashboard?${params.toString()}`;
-      console.log("API URL >>> ", url);
 
       const response = await fetch(url, {
         method: "GET",
@@ -533,6 +533,396 @@ class AuthApi {
         statusCode: 500,
         message:
           "Lỗi khi lấy dữ liệu: " +
+          (error instanceof Error ? error.message : "Unknown error"),
+        data: null,
+      };
+    }
+  }
+
+  // User CRUD operations
+  async getUserById(accessToken: string, userId: string) {
+    try {
+      const response = await fetch(`${API_URL}/dashboard/${userId}`, {
+        method: "GET",
+        headers: this.getHeaders(accessToken),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        return {
+          error: true,
+          statusCode: response.status,
+          message: error.message || "Failed to fetch user",
+          data: null,
+        };
+      }
+
+      const data = await response.json();
+      return {
+        error: false,
+        statusCode: 200,
+        message: "User fetched successfully",
+        data,
+      };
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      return {
+        error: true,
+        statusCode: 500,
+        message:
+          "Error fetching user: " +
+          (error instanceof Error ? error.message : "Unknown error"),
+        data: null,
+      };
+    }
+  }
+
+  async createUser(
+    accessToken: string,
+    userData: {
+      email: string;
+      password: string;
+      name: string;
+      role?: string;
+    },
+  ) {
+    try {
+      const response = await fetch(`${API_URL}/dashboard`, {
+        method: "POST",
+        headers: this.getHeaders(accessToken),
+        body: JSON.stringify(userData),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        return {
+          error: true,
+          statusCode: response.status,
+          message: error.message || "Failed to create user",
+          data: null,
+        };
+      }
+
+      const data = await response.json();
+      return {
+        error: false,
+        statusCode: 201,
+        message: "User created successfully",
+        data,
+      };
+    } catch (error) {
+      console.error("Error creating user:", error);
+      return {
+        error: true,
+        statusCode: 500,
+        message:
+          "Error creating user: " +
+          (error instanceof Error ? error.message : "Unknown error"),
+        data: null,
+      };
+    }
+  }
+
+  async updateUser(
+    accessToken: string,
+    userId: string,
+    userData: {
+      name?: string;
+      email?: string;
+      role?: string;
+      isActive?: boolean;
+    },
+  ) {
+    try {
+      const response = await fetch(`${API_URL}/dashboard/${userId}`, {
+        method: "PATCH",
+        headers: this.getHeaders(accessToken),
+        body: JSON.stringify(userData),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        return {
+          error: true,
+          statusCode: response.status,
+          message: error.message || "Failed to update user",
+          data: null,
+        };
+      }
+
+      const data = await response.json();
+      return {
+        error: false,
+        statusCode: 200,
+        message: "User updated successfully",
+        data,
+      };
+    } catch (error) {
+      console.error("Error updating user:", error);
+      return {
+        error: true,
+        statusCode: 500,
+        message:
+          "Error updating user: " +
+          (error instanceof Error ? error.message : "Unknown error"),
+        data: null,
+      };
+    }
+  }
+
+  async deleteUser(accessToken: string, userId: string) {
+    try {
+      const response = await fetch(`${API_URL}/dashboard/${userId}`, {
+        method: "DELETE",
+        headers: this.getHeaders(accessToken),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        return {
+          error: true,
+          statusCode: response.status,
+          message: error.message || "Failed to delete user",
+          data: null,
+        };
+      }
+
+      return {
+        error: false,
+        statusCode: 200,
+        message: "User deleted successfully",
+        data: null,
+      };
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      return {
+        error: true,
+        statusCode: 500,
+        message:
+          "Error deleting user: " +
+          (error instanceof Error ? error.message : "Unknown error"),
+        data: null,
+      };
+    }
+  }
+
+  async changeUserPassword(
+    accessToken: string,
+    userId: string,
+    passwords: {
+      currentPassword: string;
+      newPassword: string;
+    },
+  ) {
+    try {
+      const response = await fetch(
+        `${API_URL}/users/${userId}/change-password`,
+        {
+          method: "POST",
+          headers: this.getHeaders(accessToken),
+          body: JSON.stringify(passwords),
+        },
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        return {
+          error: true,
+          statusCode: response.status,
+          message: error.message || "Failed to change password",
+          data: null,
+        };
+      }
+
+      return {
+        error: false,
+        statusCode: 200,
+        message: "Password changed successfully",
+        data: null,
+      };
+    } catch (error) {
+      console.error("Error changing password:", error);
+      return {
+        error: true,
+        statusCode: 500,
+        message:
+          "Error changing password: " +
+          (error instanceof Error ? error.message : "Unknown error"),
+        data: null,
+      };
+    }
+  }
+
+  /**
+   * Update user profile information
+   */
+  async updateProfile(profileData: {
+    name?: string;
+    phone?: string;
+    address?: string;
+  }) {
+    try {
+      const { getState } = useUserStore;
+      const accessToken = getState().accessToken;
+
+      if (!accessToken) {
+        return {
+          error: true,
+          statusCode: 401,
+          message: "Bạn cần đăng nhập để thực hiện chức năng này",
+        };
+      }
+
+      const response = await fetch(`${API_URL}/auth/profile`, {
+        method: "PATCH",
+        headers: this.getHeaders(accessToken),
+        body: JSON.stringify(profileData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return {
+          error: true,
+          statusCode: response.status,
+          message: data.message || "Cập nhật thông tin thất bại",
+        };
+      }
+
+      // Update user in store
+      if (data.user) {
+        // Get current user from store and merge with updated data
+        const currentUser = useUserStore.getState().user;
+        const updatedUser = {
+          ...currentUser,
+          ...data.user,
+        };
+
+        // Update the store with merged data
+        useUserStore.getState().setUser(updatedUser, accessToken);
+
+        // Dispatch event to update session
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("profile-updated"));
+        }
+      }
+
+      return {
+        error: false,
+        statusCode: 200,
+        message: "Cập nhật thông tin thành công",
+        data: data.user,
+      };
+    } catch (error) {
+      console.error("Update profile error:", error);
+      return {
+        error: true,
+        statusCode: 500,
+        message:
+          "Lỗi khi cập nhật thông tin: " +
+          (error instanceof Error ? error.message : "Unknown error"),
+      };
+    }
+  }
+
+  /**
+   * Update user avatar
+   */
+  async updateAvatar(imageUrl: string) {
+    try {
+      const { getState } = useUserStore;
+      const accessToken = getState().accessToken;
+
+      if (!accessToken) {
+        return {
+          error: true,
+          statusCode: 401,
+          message: "Bạn cần đăng nhập để thực hiện chức năng này",
+        };
+      }
+
+      const response = await fetch(`${API_URL}/auth/profile/avatar`, {
+        method: "POST",
+        headers: this.getHeaders(accessToken),
+        body: JSON.stringify({ imageUrl }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return {
+          error: true,
+          statusCode: response.status,
+          message: data.message || "Cập nhật ảnh đại diện thất bại",
+        };
+      }
+
+      // Update user in store
+      if (data.user) {
+        // Get current user from store and merge with updated data
+        const currentUser = useUserStore.getState().user;
+        const updatedUser = {
+          ...currentUser,
+          ...data.user,
+        };
+
+        // Update the store with merged data
+        useUserStore.getState().setUser(updatedUser, accessToken);
+
+        // Dispatch event to update session
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("profile-updated"));
+        }
+      }
+
+      return {
+        error: false,
+        statusCode: 200,
+        message: "Cập nhật ảnh đại diện thành công",
+        data: data.user,
+      };
+    } catch (error) {
+      console.error("Update avatar error:", error);
+      return {
+        error: true,
+        statusCode: 500,
+        message:
+          "Lỗi khi cập nhật ảnh đại diện: " +
+          (error instanceof Error ? error.message : "Unknown error"),
+      };
+    }
+  }
+  async getCurrentUser(accessToken: string) {
+    try {
+      const response = await fetch(`${API_URL}/auth/profile`, {
+        method: "GET",
+        headers: this.getHeaders(accessToken),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        return {
+          error: true,
+          statusCode: response.status,
+          message: error.message || "Failed to fetch current user",
+          data: null,
+        };
+      }
+
+      const data = await response.json();
+      return {
+        error: false,
+        statusCode: 200,
+        message: "User fetched successfully",
+        data: data.user,
+      };
+    } catch (error) {
+      console.error("Error fetching current user:", error);
+      return {
+        error: true,
+        statusCode: 500,
+        message:
+          "Error fetching current user: " +
           (error instanceof Error ? error.message : "Unknown error"),
         data: null,
       };
