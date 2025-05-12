@@ -88,13 +88,19 @@ export default function QuestionsPage() {
         const result = await getUserCourseStructureWithDetails(user.id);
 
         if (result.success && result.data) {
-          if (result.data.value) {
-            setCourses(result.data.value);
-          } else if (Array.isArray(result.data)) {
-            setCourses(result.data);
-          } else {
-            setError("Cấu trúc dữ liệu API không đúng định dạng");
+          // Handle both possible response formats
+          const courseData = Array.isArray(result.data)
+            ? result.data
+            : result.data.value
+              ? result.data.value
+              : [];
+
+          if (courseData.length === 0) {
+            setError("Không tìm thấy khóa học nào");
+            return;
           }
+
+          setCourses(courseData);
         } else {
           setError(result.message || "Không thể lấy dữ liệu khóa học");
         }

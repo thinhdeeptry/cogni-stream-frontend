@@ -336,14 +336,25 @@ export const deleteChapter = async (chapterId: string) => {
 
 export const getUserCourseStructureWithDetails = async (userId: string) => {
   try {
+    console.log("Calling API with URL:", `/courses/user/${userId}/structure`);
+    console.log("User ID:", userId);
+
     const { data } = await courseApi.get(`/courses/user/${userId}/structure`);
+    console.log("API Response:", data);
+
     return {
       success: true,
       data: data,
       message: "Lấy cấu trúc khóa học thành công",
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching course structure:", error);
+    console.error("Error details:", {
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      url: error.config?.url,
+    });
     return {
       success: false,
       message: "Đã xảy ra lỗi khi lấy cấu trúc khóa học",
@@ -351,7 +362,6 @@ export const getUserCourseStructureWithDetails = async (userId: string) => {
     };
   }
 };
-
 export const createLesson = async (
   courseId: string,
   chapterId: string,

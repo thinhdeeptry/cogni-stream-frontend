@@ -36,16 +36,19 @@ function transformCoursesToTreeData(courses: Course[]) {
   return courses.map((course) => ({
     id: course.id,
     name: course.title,
+    level: 0,
     children:
       course.chapters && Array.isArray(course.chapters)
         ? course.chapters.map((chapter) => ({
             id: chapter.id,
             name: chapter.title,
+            level: 1,
             children:
               chapter.lessons && Array.isArray(chapter.lessons)
                 ? chapter.lessons.map((lesson) => ({
                     id: lesson.id,
                     name: lesson.title,
+                    level: 2,
                   }))
                 : [],
           }))
