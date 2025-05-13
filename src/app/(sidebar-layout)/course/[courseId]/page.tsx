@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { AxiosFactory } from "@/lib/axios";
@@ -16,6 +16,7 @@ import {
   Crown,
   Info,
   ListChecks,
+  Loader2,
   MessageSquare,
   Plus,
   Target,
@@ -28,8 +29,10 @@ import { getThreadByResourceId } from "@/actions/discussion.action";
 import { enrollCourse } from "@/actions/enrollmentActions";
 import {
   checkEnrollmentStatus,
+  createEnrollmentAfterPayment,
   createPayment,
   generateOrderCode,
+  getOrderByCode,
 } from "@/actions/paymentActions";
 
 import { useProgressStore } from "@/stores/useProgressStore";
@@ -37,6 +40,7 @@ import useUserStore from "@/stores/useUserStore";
 
 import Discussion from "@/components/discussion";
 import { DiscussionType } from "@/components/discussion/type";
+import { SandboxInfo } from "@/components/payment/SandboxInfo";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -82,6 +86,7 @@ export default function CourseDetail() {
   const [threadId, setThreadId] = useState<string | null>(null);
   const [enrollmentId, setEnrollmentId] = useState<string | null>(null);
   const [isCollapsed, setIsCollapsed] = useState<Record<string, boolean>>({});
+  const [isCheckingPayment, setIsCheckingPayment] = useState(false);
 
   // Progress store
   const {
@@ -91,8 +96,67 @@ export default function CourseDetail() {
   } = useProgressStore();
 
   const params = useParams();
+  const searchParams = useSearchParams();
   const { data: session } = useSession();
   const router = useRouter();
+
+  // Kiểm tra trạng thái thanh toán từ URL query parameter
+  useEffect(() => {
+    const checkPaymentStatus = async () => {
+      const orderCode = searchParams.get("orderCode");
+
+      if (orderCode && session?.user?.id && course?.id) {
+        setIsCheckingPayment(true);
+        try {
+          // Kiểm tra trạng thái đơn hàng
+          const orderResponse = await getOrderByCode(orderCode);
+
+          if (orderResponse.success && orderResponse.data) {
+            const paymentData = orderResponse.data;
+
+            // Nếu thanh toán đã hoàn tất
+            if (paymentData.status === "COMPLETED") {
+              // Tạo enrollment nếu chưa có
+              const enrollResponse =
+                await createEnrollmentAfterPayment(paymentData);
+
+              if (enrollResponse.success) {
+                toast.success("Bạn đã đăng ký khóa học thành công!");
+                setIsEnrolled(true);
+
+                // Cập nhật enrollmentId
+                if (enrollResponse.data?.id) {
+                  setEnrollmentId(enrollResponse.data.id);
+                  setProgressEnrollmentId(enrollResponse.data.id);
+                  await fetchInitialProgress();
+                }
+
+                // Xóa query parameter
+                const newUrl = window.location.pathname;
+                window.history.replaceState({}, document.title, newUrl);
+              }
+            } else if (paymentData.status === "PENDING") {
+              toast.info(
+                "Đơn hàng của bạn đang chờ xử lý. Vui lòng hoàn tất thanh toán.",
+              );
+            }
+          }
+        } catch (error) {
+          console.error("Error checking payment status:", error);
+        } finally {
+          setIsCheckingPayment(false);
+        }
+      }
+    };
+
+    checkPaymentStatus();
+  }, [
+    searchParams,
+    session,
+    course,
+    setProgressEnrollmentId,
+    fetchInitialProgress,
+  ]);
 
   // Fetch course data
   useEffect(() => {
@@ -232,22 +296,21 @@ export default function CourseDetail() {
         setIsLoading(false); // Kết thúc loading
       }
     } else {
-      // Xử lý thanh toán cho khóa học có phí - trực tiếp tạo payment
+      // Xử lý thanh toán cho khóa học có phí - trực tiếp mở link checkout
       try {
         // Show loading toast
         const loadingToast = toast.loading("Đang tạo đơn thanh toán...");
 
         const orderCode = generateOrderCode(); // Trả về số nguyên
-        console.log("order code vừa tạo: ", orderCode);
 
-        // Cập nhật dữ liệu thanh toán với metadata phù hợp
+        // Cập nhật dữ liệu thanh toán với metadata phù hợp và returnUrl trỏ trực tiếp về trang khóa học
         const paymentData = {
           amount: course.promotionPrice || course.price,
           method: "BANK_TRANSFER",
           description: course.title,
           orderCode: orderCode.toString(), // Chuyển đổi thành chuỗi
-          returnUrl: `/course/${course.id}`,
-          cancelUrl: `/course/${course.id}`,
+          returnUrl: `${window.location.origin}/course/${course.id}?orderCode=${orderCode}`,
+          cancelUrl: `${window.location.origin}/course/${course.id}`,
           metadata: {
             courseId: course.id,
             userId: session.user.id,
@@ -269,9 +332,14 @@ export default function CourseDetail() {
         toast.dismiss(loadingToast);
 
         if (paymentResponse.success && paymentResponse.checkoutUrl) {
-          // Điều hướng trực tiếp đến trang thanh toán
-          console.log("Order code:", orderCode);
-          router.push(`/payment/${orderCode}`); // Sử dụng số nguyên orderCode
+          // Mở trực tiếp URL thanh toán trong cửa sổ mới
+          window.open(paymentResponse.checkoutUrl, "_blank");
+
+          // Hiển thị thông báo hướng dẫn
+          toast.info(
+            "Trang thanh toán đã được mở trong cửa sổ mới. Đây là môi trường sandbox, bạn có thể sử dụng thẻ test để thanh toán mà không bị trừ tiền thật. Sau khi thanh toán thành công, vui lòng quay lại trang này và làm mới để xem trạng thái đăng ký.",
+            { duration: 10000 },
+          );
         } else {
           toast.error(
             paymentResponse.message || "Không thể tạo trang thanh toán",
@@ -539,6 +607,9 @@ export default function CourseDetail() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 0.5 }}
         >
+          {/* Hiển thị thông tin sandbox nếu ở môi trường development */}
+          <SandboxInfo />
+
           <Card className="overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300">
             <motion.div
               className="relative aspect-video w-full overflow-hidden"
@@ -631,12 +702,16 @@ export default function CourseDetail() {
                       className="w-full bg-orange-500 hover:bg-orange-600 text-white transition-colors relative overflow-hidden group"
                       size="lg"
                       onClick={handleEnrollClick}
-                      disabled={isLoading}
+                      disabled={isLoading || isCheckingPayment}
                     >
-                      {isLoading ? (
+                      {isLoading || isCheckingPayment ? (
                         <div className="flex items-center justify-center">
                           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                          <span>Đang xử lý...</span>
+                          <span>
+                            {isCheckingPayment
+                              ? "Đang kiểm tra thanh toán..."
+                              : "Đang xử lý..."}
+                          </span>
                         </div>
                       ) : (
                         <>
