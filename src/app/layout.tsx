@@ -1,5 +1,7 @@
 import { Inter } from "next/font/google";
 
+import ClientProvider from "@/providers/clientProvider";
+import { QueryProvider } from "@/providers/query-provider";
 import type { Metadata } from "next";
 import { SessionProvider } from "next-auth/react";
 
@@ -27,10 +29,10 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${inter.variable} ${inter.className} antialiased`}>
         {/* //render auth sync component */}
-        <SessionProvider>
+        <ClientProvider>
           <AuthSync />
           {children}
-        </SessionProvider>
+        </ClientProvider>
       </body>
     </html>
   );

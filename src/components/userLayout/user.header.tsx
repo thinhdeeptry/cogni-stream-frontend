@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { useOtherUser } from "@/hooks/useOtherUser";
 import { signOut } from "next-auth/react";
 import { toast } from "sonner";
 
@@ -13,11 +14,15 @@ import Navbar from "./navbar";
 export default function UserHeader() {
   const [mounted, setMounted] = useState(false);
   const { user, accessToken, clearUser } = useUserStore();
+  // const { otherUserData, isLoading } = useOtherUser("68036a847ccacdc40db6b727");
   const router = useRouter();
-
   useEffect(() => {
     setMounted(true);
-  }, []);
+    console.log("User data:", {
+      image: user?.image,
+      fullUser: user,
+    });
+  }, [user]);
 
   const handleLogout = async () => {
     try {
