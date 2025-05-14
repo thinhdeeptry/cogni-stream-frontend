@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -236,9 +237,12 @@ export default function Home() {
               Khoá học Pro
               <div className="h-1 w-0 group-hover:w-full bg-orange-500 transition-all duration-300"></div>
             </h2>
-            <button className="text-orange-500 hover:text-orange-600 transition-colors text-sm sm:text-base">
+            <Link
+              href="/courses"
+              className="text-orange-500 hover:text-orange-600 transition-colors text-sm sm:text-base"
+            >
               Xem tất cả →
-            </button>
+            </Link>
           </div>
 
           <div className="w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 py-2 pb-4">
@@ -267,9 +271,12 @@ export default function Home() {
               Khoá học miễn phí
               <div className="h-1 w-0 group-hover:w-full bg-orange-500 transition-all duration-300"></div>
             </h2>
-            <button className="text-orange-500 hover:text-orange-600 transition-colors text-sm sm:text-base">
+            <Link
+              href="/courses"
+              className="text-orange-500 hover:text-orange-600 transition-colors text-sm sm:text-base"
+            >
               Xem tất cả →
-            </button>
+            </Link>
           </div>
 
           <div className="w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 py-2 pb-4">
