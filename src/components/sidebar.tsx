@@ -46,7 +46,7 @@ const getMenuItems = (userRole: string) => {
     },
     {
       title: "Bài viết",
-      url: "/blog",
+      url: userRole === "ADMIN" ? "/admin/posts" : "/posts",
       icon: BookOpen,
       color: "text-amber-500",
       bgColor: "bg-amber-50",

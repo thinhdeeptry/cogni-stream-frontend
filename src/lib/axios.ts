@@ -19,7 +19,8 @@ type ServiceName =
   | "notification"
   | "report"
   | "discussion"
-  | "gateway";
+  | "gateway"
+  | "storage";
 
 const paths: Record<ServiceName, string> = {
   users: "users",
@@ -31,6 +32,7 @@ const paths: Record<ServiceName, string> = {
   report: "report",
   discussion: "discussion",
   gateway: "gateway",
+  storage: "storage",
 };
 
 class AxiosFactory {
