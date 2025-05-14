@@ -41,6 +41,13 @@ export default function Navbar({
   const searchParams = useSearchParams();
   const params = useParams();
   const [searchQuery, setSearchQuery] = useState("");
+  // Initialize search query from URL on mount
+  useEffect(() => {
+    const query = searchParams.get("q");
+    if (query) {
+      setSearchQuery(query);
+    }
+  }, [searchParams]);
 
   // Initialize search query from URL on mount
   useEffect(() => {
@@ -77,11 +84,9 @@ export default function Navbar({
       <div className="container flex h-16 items-center justify-between px-4">
         {/* Logo and Brand */}
         <div className="flex items-center gap-3">
-          <Link href="/">
-            <div className="flex h-10 w-10 items-center justify-center rounded-md bg-orange-500 text-white font-bold text-xl">
-              F8
-            </div>
-          </Link>
+          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-orange-500 text-white font-bold text-xl">
+            EF
+          </div>
           <h1 className="hidden text-base font-medium md:block">
             Học Lập Trình Để Đi Làm
           </h1>
@@ -124,16 +129,27 @@ export default function Navbar({
               <span className="hidden text-sm font-medium md:block">
                 Khóa học của tôi
               </span>
-              <Button variant="ghost" size="icon" className="relative">
+              {/* <Button variant="ghost" size="icon" className="relative">
                 <Bell className="h-5 w-5" />
                 <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">
                   3
                 </span>
-              </Button>
+              </Button> */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Avatar className="h-8 w-8 border cursor-pointer">
                     <AvatarImage src={image} alt={userName} />
+                    <AvatarImage
+                      src={image}
+                      alt={userName}
+                      onError={(e) => {
+                        console.error("Avatar load error:", e);
+                        // Use a more reliable fallback mechanism
+                        const target = e.currentTarget as HTMLImageElement;
+                        target.onerror = null; // Prevent infinite error loop
+                        target.src = "/default-avatar.png";
+                      }}
+                    />
                     <AvatarFallback>{userName.charAt(0)}</AvatarFallback>
                   </Avatar>
                 </DropdownMenuTrigger>
@@ -144,14 +160,18 @@ export default function Navbar({
                     </div>
                   </div>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      router.push("/user/profile");
+                    }}
+                  >
                     <User className="mr-2 h-4 w-4" />
                     <span>Trang cá nhân</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem>
+                  {/* <DropdownMenuItem>
                     <Settings className="mr-2 h-4 w-4" />
                     <span>Cài đặt</span>
-                  </DropdownMenuItem>
+                  </DropdownMenuItem> */}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={onLogout} className="text-red-600">
                     <LogOut className="mr-2 h-4 w-4" />
