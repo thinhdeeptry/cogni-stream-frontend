@@ -104,8 +104,8 @@ export const {
   },
   callbacks: {
     async jwt({ token, user, account, trigger, session }) {
-      console.log("JWT callback - Trigger:", trigger);
-      console.log("JWT callback - Session:", session);
+      // console.log("JWT callback - Trigger:", trigger);
+      // console.log("JWT callback - Session:", session);
       // Kiểm tra nếu trigger là "update" và session có user
       if (trigger === "update" && session?.user) {
         // Cập nhật token với dữ liệu user mới
@@ -215,7 +215,7 @@ export const {
           console.error("Error processing Google login:", error);
         }
       } else {
-        console.log("JWT callback - No user or unknown provider");
+        // console.log("JWT callback - No user or unknown provider");
       }
 
       return token;

@@ -33,6 +33,8 @@ import {
   createPayment,
   generateOrderCode,
   getOrderByCode,
+  updateEnrollmentStatus,
+  updateOrderStatus,
 } from "@/actions/paymentActions";
 
 import { useProgressStore } from "@/stores/useProgressStore";
@@ -40,7 +42,6 @@ import useUserStore from "@/stores/useUserStore";
 
 import Discussion from "@/components/discussion";
 import { DiscussionType } from "@/components/discussion/type";
-import { SandboxInfo } from "@/components/payment/SandboxInfo";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -100,63 +101,75 @@ export default function CourseDetail() {
   const { data: session } = useSession();
   const router = useRouter();
 
+  // Fetch enrollment ID and lesson progress
+  const fetchEnrollmentId = async () => {
+    if (session?.user?.id && course?.id) {
+      try {
+        const enrollmentApi = await AxiosFactory.getApiInstance("enrollment");
+        const response = await enrollmentApi.get(`/find/${course.id}`);
+
+        if (response.data?.id) {
+          setEnrollmentId(response.data.id);
+          setProgressEnrollmentId(response.data.id);
+
+          // Fetch progress data to get the last studied lesson
+          await fetchInitialProgress();
+        }
+      } catch (err) {
+        console.error("Error fetching enrollment ID:", err);
+      }
+    }
+  };
+
   // Kiểm tra trạng thái thanh toán từ URL query parameter
   useEffect(() => {
     const checkPaymentStatus = async () => {
       const orderCode = searchParams.get("orderCode");
 
-      if (orderCode && session?.user?.id && course?.id) {
-        setIsCheckingPayment(true);
-        try {
-          // Kiểm tra trạng thái đơn hàng
-          const orderResponse = await getOrderByCode(orderCode);
+      // Nếu không có orderCode, không tiếp tục
+      if (!orderCode) {
+        setIsCheckingPayment(false);
+        return;
+      }
 
-          if (orderResponse.success && orderResponse.data) {
-            const paymentData = orderResponse.data;
+      // Nếu thiếu thông tin cần thiết, không tiếp tục
+      if (!session?.user?.id || !course?.id) {
+        setIsCheckingPayment(false);
+        return;
+      }
 
-            // Nếu thanh toán đã hoàn tất
-            if (paymentData.status === "COMPLETED") {
-              // Tạo enrollment nếu chưa có
-              const enrollResponse =
-                await createEnrollmentAfterPayment(paymentData);
+      setIsCheckingPayment(true);
+      try {
+        // Chỉ kiểm tra trạng thái enrollment, không xử lý thanh toán
+        // vì thanh toán đã được xử lý ở trang success
+        const response = await checkEnrollmentStatus(
+          session.user.id,
+          course.id,
+        );
 
-              if (enrollResponse.success) {
-                toast.success("Bạn đã đăng ký khóa học thành công!");
-                setIsEnrolled(true);
+        console.log("Enrollment check after payment:", response);
 
-                // Cập nhật enrollmentId
-                if (enrollResponse.data?.id) {
-                  setEnrollmentId(enrollResponse.data.id);
-                  setProgressEnrollmentId(enrollResponse.data.id);
-                  await fetchInitialProgress();
-                }
-
-                // Xóa query parameter
-                const newUrl = window.location.pathname;
-                window.history.replaceState({}, document.title, newUrl);
-              }
-            } else if (paymentData.status === "PENDING") {
-              toast.info(
-                "Đơn hàng của bạn đang chờ xử lý. Vui lòng hoàn tất thanh toán.",
-              );
-            }
+        if (response.success) {
+          setIsEnrolled(response.isEnrolled);
+          if (response.isEnrolled) {
+            await fetchEnrollmentId();
+            // Hiển thị thông báo thành công nếu đã enrolled
+            toast.success("Bạn đã đăng ký khóa học thành công!");
           }
-        } catch (error) {
-          console.error("Error checking payment status:", error);
-        } finally {
-          setIsCheckingPayment(false);
         }
+
+        // Xóa query parameter sau khi xử lý xong
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, document.title, newUrl);
+      } catch (error) {
+        console.error("Error checking enrollment status:", error);
+      } finally {
+        setIsCheckingPayment(false);
       }
     };
 
     checkPaymentStatus();
-  }, [
-    searchParams,
-    session,
-    course,
-    setProgressEnrollmentId,
-    fetchInitialProgress,
-  ]);
+  }, [searchParams, session, course, fetchInitialProgress]);
 
   // Fetch course data
   useEffect(() => {
@@ -194,42 +207,49 @@ export default function CourseDetail() {
     }
   }, [params.courseId]);
 
-  // Check enrollment status
+  // Kiểm tra trạng thái enrollment
   useEffect(() => {
     const checkEnrollment = async () => {
-      if (session?.user?.id && course?.id) {
-        const response = await checkEnrollmentStatus(
-          session.user.id,
-          course.id,
+      if (!session?.user?.id || !course?.id) return;
+
+      try {
+        console.log("Checking enrollment status for course:", course.id);
+
+        // Thêm timestamp để tránh cache
+        const timestamp = new Date().getTime();
+        const enrollmentApi = await AxiosFactory.getApiInstance("enrollment");
+
+        // Kiểm tra trạng thái enrollment
+        const response = await enrollmentApi.get(
+          `/check/${session.user.id}/${course.id}?_t=${timestamp}`,
         );
-        if (response.success) {
-          setIsEnrolled(response.isEnrolled);
+
+        console.log("Enrollment check response:", response.data);
+
+        // Cập nhật trạng thái enrolled dựa trên kết quả API
+        const isUserEnrolled = response.data.enrolled === true;
+        console.log("User is enrolled:", isUserEnrolled);
+
+        setIsEnrolled(isUserEnrolled);
+
+        // Nếu đã enrolled, cập nhật enrollmentId
+        if (isUserEnrolled) {
+          await fetchEnrollmentId();
         }
+      } catch (error) {
+        console.error("Error checking enrollment status:", error);
       }
     };
 
+    // Gọi hàm kiểm tra ngay khi component mount
     checkEnrollment();
-  }, [session, course]);
 
-  // Fetch enrollment ID and lesson progress
-  const fetchEnrollmentId = async () => {
-    if (session?.user?.id && course?.id) {
-      try {
-        const enrollmentApi = await AxiosFactory.getApiInstance("enrollment");
-        const response = await enrollmentApi.get(`/find/${course.id}`);
+    // Thiết lập interval để kiểm tra định kỳ (mỗi 5 giây)
+    const intervalId = setInterval(checkEnrollment, 5000);
 
-        if (response.data?.id) {
-          setEnrollmentId(response.data.id);
-          setProgressEnrollmentId(response.data.id);
-
-          // Fetch progress data to get the last studied lesson
-          await fetchInitialProgress();
-        }
-      } catch (err) {
-        console.error("Error fetching enrollment ID:", err);
-      }
-    }
-  };
+    // Cleanup interval khi component unmount
+    return () => clearInterval(intervalId);
+  }, [session, course, fetchEnrollmentId]);
 
   // Handle discussion thread
   useEffect(() => {
@@ -298,18 +318,40 @@ export default function CourseDetail() {
     } else {
       // Xử lý thanh toán cho khóa học có phí - trực tiếp mở link checkout
       try {
+        // Trước tiên, kiểm tra xem đã có enrollment nào chưa và cập nhật nếu cần
+        const updateResult = await updateEnrollmentStatus(
+          session.user.id,
+          course.id,
+        );
+        console.log("Update enrollment result:", updateResult);
+
+        // Nếu cập nhật thành công, kiểm tra lại trạng thái enrollment
+        if (updateResult.success) {
+          const checkResult = await checkEnrollmentStatus(
+            session.user.id,
+            course.id,
+          );
+          if (checkResult.success && checkResult.isEnrolled) {
+            setIsEnrolled(true);
+            toast.success("Bạn đã được đăng ký vào khóa học!");
+            setIsLoading(false);
+            return;
+          }
+        }
+
+        // Nếu không có enrollment hoặc cập nhật không thành công, tiếp tục với thanh toán
         // Show loading toast
         const loadingToast = toast.loading("Đang tạo đơn thanh toán...");
 
         const orderCode = generateOrderCode(); // Trả về số nguyên
 
-        // Cập nhật dữ liệu thanh toán với metadata phù hợp và returnUrl trỏ trực tiếp về trang khóa học
+        // Cập nhật dữ liệu thanh toán với metadata phù hợp và returnUrl trỏ về trang success
         const paymentData = {
           amount: course.promotionPrice || course.price,
           method: "BANK_TRANSFER",
           description: course.title,
           orderCode: orderCode.toString(), // Chuyển đổi thành chuỗi
-          returnUrl: `${window.location.origin}/course/${course.id}?orderCode=${orderCode}`,
+          returnUrl: `${window.location.origin}/payment/success?orderCode=${orderCode}&courseId=${course.id}&userId=${session.user.id}&userName=${encodeURIComponent(session.user.name || session.user.email || "")}&courseName=${encodeURIComponent(course.title)}`,
           cancelUrl: `${window.location.origin}/course/${course.id}`,
           metadata: {
             courseId: course.id,
@@ -337,7 +379,7 @@ export default function CourseDetail() {
 
           // Hiển thị thông báo hướng dẫn
           toast.info(
-            "Trang thanh toán đã được mở trong cửa sổ mới. Đây là môi trường sandbox, bạn có thể sử dụng thẻ test để thanh toán mà không bị trừ tiền thật. Sau khi thanh toán thành công, vui lòng quay lại trang này và làm mới để xem trạng thái đăng ký.",
+            "Trang thanh toán đã được mở trong cửa sổ mới. Sau khi thanh toán thành công, vui lòng quay lại trang này và làm mới để xem trạng thái đăng ký.",
             { duration: 10000 },
           );
         } else {
@@ -607,8 +649,7 @@ export default function CourseDetail() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 0.5 }}
         >
-          {/* Hiển thị thông tin sandbox nếu ở môi trường development */}
-          <SandboxInfo />
+          {/* Bỏ component SandboxInfo */}
 
           <Card className="overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300">
             <motion.div

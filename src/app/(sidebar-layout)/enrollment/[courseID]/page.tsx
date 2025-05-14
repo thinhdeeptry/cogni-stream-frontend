@@ -68,15 +68,13 @@ export default function EnrollmentPage() {
         return;
       }
 
-      // Xử lý thanh toán cho khóa học có phí
+      // Xử lý thanh toán cho khóa học có phí - trực tiếp mở link checkout
       const paymentApi = await AxiosFactory.getApiInstance("payment");
-      const orderCode = generateOrderCode();
-      setOrderId(orderCode);
 
       // Cập nhật dữ liệu thanh toán để bao gồm đầy đủ metadata
       const paymentData = {
-        amount: course.price,
-        method: "VNPAY",
+        amount: course.promotionPrice || course.price,
+        method: "BANK_TRANSFER",
         description: course.title,
         returnUrl: `/course/${course.id}`,
         cancelUrl: `/course/${course.id}`,
@@ -84,10 +82,10 @@ export default function EnrollmentPage() {
           courseId: course.id,
           userId: session.user.id,
           userName: session.user.name || session.user.email,
-          instructor: course.instructor?.name || "Unknown",
-          duration: course.duration || "N/A",
-          level: course.level || "All levels",
           courseName: course.title,
+          level: course.level || "BEGINNER",
+          categoryName: course.category?.name || "",
+          serviceType: "Course",
         },
         serviceName: "Course Enrollment",
         serviceId: course.id,
@@ -95,7 +93,10 @@ export default function EnrollmentPage() {
 
       const response = await paymentApi.post("/", paymentData);
       if (response.data?.checkoutUrl) {
-        router.push(`/payment/${orderCode}`);
+        // Mở trực tiếp URL thanh toán
+        window.open(response.data.checkoutUrl, "_blank");
+        // Quay lại trang khóa học
+        router.push(`/course/${course.id}`);
       } else {
         throw new Error("Không thể tạo trang thanh toán");
       }
