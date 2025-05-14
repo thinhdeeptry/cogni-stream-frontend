@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-import useReportStore, { Report } from "@/stores/useReportStore";
+import useReportStore, { type Report } from "@/stores/useReportStore";
 
 import { ReportAnalysis } from "@/components/ReportAnalysis";
 import { Button } from "@/components/ui/button";
@@ -93,8 +93,6 @@ export default function ReportsPage() {
   const [newReportTitle, setNewReportTitle] = useState("");
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
-  // selectedReportId được sử dụng để hiển thị tab báo cáo được chọn
-
   // Lấy danh sách báo cáo khi trang được tải
   useEffect(() => {
     fetchReports();
@@ -119,7 +117,7 @@ export default function ReportsPage() {
       const newReport = await addReport({
         title: newReportTitle,
         date: now.toISOString(),
-        data: sampleReportData, // Sử dụng dữ liệu mẫu
+        data: sampleReportData,
       });
 
       setNewReportTitle("");
@@ -184,6 +182,11 @@ export default function ReportsPage() {
       toast.error("Có lỗi xảy ra khi cập nhật phân tích báo cáo");
     }
   };
+
+  // Lấy báo cáo hiện tại dựa trên selectedReportId
+  const selectedReport = reports.find(
+    (report) => report.id === selectedReportId,
+  );
 
   return (
     <div className="container space-y-6">
@@ -265,7 +268,6 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      {/* Hiển thị thông báo lỗi nếu có */}
       {error && (
         <div className="bg-destructive/10 text-destructive p-4 rounded-lg">
           <p>{error}</p>
@@ -279,7 +281,6 @@ export default function ReportsPage() {
         </div>
       )}
 
-      {/* Hiển thị loading nếu đang tải dữ liệu */}
       {isLoading && reports.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
@@ -319,12 +320,12 @@ export default function ReportsPage() {
         </div>
       ) : (
         <Tabs
-          value={selectedReportId || reports[0].id}
+          value={selectedReportId || (reports.length > 0 ? reports[0].id : "")}
           onValueChange={setSelectedReportId}
           className="w-full"
         >
           <div className="flex items-center justify-between mb-4">
-            <TabsList className="grid grid-flow-col auto-cols-max gap-2">
+            <TabsList className="grid grid-flow-col auto-cols-max gap-2 overflow-x-auto">
               {reports.map((report) => (
                 <TabsTrigger
                   key={report.id}
@@ -358,7 +359,7 @@ export default function ReportsPage() {
             <TabsContent
               key={report.id}
               value={report.id}
-              className="space-y-6"
+              className="mt-0 space-y-6"
             >
               <Card>
                 <CardHeader>
@@ -390,76 +391,87 @@ export default function ReportsPage() {
                 <CardContent>
                   <div className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                      <Card key="revenue">
-                        <CardHeader className="py-4">
-                          <CardTitle className="text-sm font-medium">
-                            Tổng doanh thu
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="text-2xl font-bold">
-                            {report.data.revenue.total.toLocaleString("vi-VN")}đ
-                          </div>
-                          <p className="text-xs text-muted-foreground">
-                            {report.data.revenue.last30Days.toLocaleString(
-                              "vi-VN",
-                            )}
-                            đ trong 30 ngày qua
-                          </p>
-                        </CardContent>
-                      </Card>
+                      <div key="revenue" className="card-wrapper">
+                        <Card>
+                          <CardHeader className="py-4">
+                            <CardTitle className="text-sm font-medium">
+                              Tổng doanh thu
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-2xl font-bold">
+                              {report.data.revenue.total.toLocaleString(
+                                "vi-VN",
+                              )}
+                              đ
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              {report.data.revenue.last30Days.toLocaleString(
+                                "vi-VN",
+                              )}
+                              đ trong 30 ngày qua
+                            </p>
+                          </CardContent>
+                        </Card>
+                      </div>
 
-                      <Card key="enrollments">
-                        <CardHeader className="py-4">
-                          <CardTitle className="text-sm font-medium">
-                            Tổng học viên
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="text-2xl font-bold">
-                            {report.data.enrollments.total}
-                          </div>
-                          <p className="text-xs text-muted-foreground">
-                            {report.data.enrollments.last30Days} trong 30 ngày
-                            qua
-                          </p>
-                        </CardContent>
-                      </Card>
+                      <div key="enrollments" className="card-wrapper">
+                        <Card>
+                          <CardHeader className="py-4">
+                            <CardTitle className="text-sm font-medium">
+                              Tổng học viên
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-2xl font-bold">
+                              {report.data.enrollments.total}
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              {report.data.enrollments.last30Days} trong 30 ngày
+                              qua
+                            </p>
+                          </CardContent>
+                        </Card>
+                      </div>
 
-                      <Card key="courses">
-                        <CardHeader className="py-4">
-                          <CardTitle className="text-sm font-medium">
-                            Số khóa học
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="text-2xl font-bold">
-                            {report.data.courses.total}
-                          </div>
-                          <p className="text-xs text-muted-foreground">
-                            {report.data.courses.active} đang hoạt động
-                          </p>
-                        </CardContent>
-                      </Card>
+                      <div key="courses" className="card-wrapper">
+                        <Card>
+                          <CardHeader className="py-4">
+                            <CardTitle className="text-sm font-medium">
+                              Số khóa học
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-2xl font-bold">
+                              {report.data.courses.total}
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              {report.data.courses.active} đang hoạt động
+                            </p>
+                          </CardContent>
+                        </Card>
+                      </div>
 
-                      <Card key="completion-rate">
-                        <CardHeader className="py-4">
-                          <CardTitle className="text-sm font-medium">
-                            Tỷ lệ hoàn thành
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="text-2xl font-bold">
-                            {Math.round(
-                              report.data.courses.completionRate * 100,
-                            )}
-                            %
-                          </div>
-                          <p className="text-xs text-muted-foreground">
-                            Trung bình các khóa học
-                          </p>
-                        </CardContent>
-                      </Card>
+                      <div key="completion-rate" className="card-wrapper">
+                        <Card>
+                          <CardHeader className="py-4">
+                            <CardTitle className="text-sm font-medium">
+                              Tỷ lệ hoàn thành
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-2xl font-bold">
+                              {Math.round(
+                                report.data.courses.completionRate * 100,
+                              )}
+                              %
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              Trung bình các khóa học
+                            </p>
+                          </CardContent>
+                        </Card>
+                      </div>
                     </div>
 
                     <div className="mt-8">

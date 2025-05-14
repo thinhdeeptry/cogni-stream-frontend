@@ -75,7 +75,13 @@ const useReportStore = create<ReportState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await axios.get(`${API_URL}/reports`);
-      set({ reports: response.data, isLoading: false });
+      set({
+        reports: response.data.map((report: any) => ({
+          ...report,
+          id: report._id,
+        })),
+        isLoading: false,
+      });
     } catch (error) {
       console.error("Error fetching reports:", error);
       set({
@@ -163,6 +169,7 @@ const useReportStore = create<ReportState>((set, get) => ({
   ) => {
     set({ isLoading: true, error: null });
     try {
+      console.log("Updating report analysis:", id, aiAnalysis);
       await axios.post(`${API_URL}/reports/${id}/analysis`, aiAnalysis);
       set((state) => ({
         reports: state.reports.map((report) =>
