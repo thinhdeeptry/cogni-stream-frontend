@@ -2,20 +2,16 @@
 
 import { useEffect, useState } from "react";
 
-import { cn } from "@/lib/utils";
-import {
-  Question,
-  QuestionDifficulty,
-  QuestionType,
-} from "@/types/assessment/types";
+import { Question } from "@/types/assessment/types";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Trash2 } from "lucide-react";
-import { SubmitHandler, useForm } from "react-hook-form";
+import { Editor } from "@tinymce/tinymce-react";
+import { Trash2 } from "lucide-react";
+import { useFieldArray, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import * as z from "zod";
 
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Form,
   FormControl,
@@ -25,6 +21,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -32,105 +29,66 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 
-import { ContentEditor } from "../content-editor";
-
-const contentItemSchema = z.object({
-  text: z.string(),
-  image: z.string().optional(),
-  audio: z.string().optional(),
-});
-
-const answerOptionSchema = z.object({
-  content: contentItemSchema,
-  order: z.number(),
-  isCorrect: z.boolean(),
-});
-
-const referenceAnswerSchema = z.object({
-  content: contentItemSchema,
-  notes: z.string().optional(),
-});
-
-const baseQuestionSchema = z.object({
-  type: z.nativeEnum(QuestionType),
-  content: contentItemSchema,
-  explanation: z.string().optional(),
-  questionSetterId: z.string().optional(),
-  courseId: z.string().optional(),
-  chapterId: z.string().optional(),
-  lessonId: z.string(),
-  difficulty: z.nativeEnum(QuestionDifficulty),
-});
-
-const multipleChoiceSchema = baseQuestionSchema.extend({
-  options: z
-    .array(answerOptionSchema)
-    .min(2, "Phải có ít nhất 2 đáp án")
-    .refine(
-      (options) => options.some((option) => option.isCorrect),
-      "Phải có ít nhất 1 đáp án đúng",
-    ),
-});
-
-const essaySchema = baseQuestionSchema.extend({
-  referenceAnswer: referenceAnswerSchema,
-});
-
-const questionSchema = z.discriminatedUnion("type", [
-  multipleChoiceSchema.extend({ type: z.literal(QuestionType.SINGLE_CHOICE) }),
-  multipleChoiceSchema.extend({
-    type: z.literal(QuestionType.MULTIPLE_CHOICE),
-  }),
-  multipleChoiceSchema.extend({ type: z.literal(QuestionType.TRUE_FALSE) }),
-  essaySchema.extend({ type: z.literal(QuestionType.ESSAY) }),
-]);
-
-type QuestionFormValues = z.infer<typeof questionSchema>;
-
-// Function to transform Question to QuestionFormValues
-function transformQuestionToFormValues(question: Question): QuestionFormValues {
-  const baseQuestion = {
-    type: question.type,
-    content: question.content,
-    explanation: question.explanation,
-    questionSetterId: question.questionSetterId,
-    courseId: question.courseId,
-    chapterId: question.chapterId,
-    lessonId: question.lessonId || "",
-    difficulty: question.difficulty,
-  };
-
-  if (question.type === QuestionType.ESSAY) {
-    return {
-      ...baseQuestion,
-      type: QuestionType.ESSAY,
-      referenceAnswer: question.referenceAnswer || {
-        content: { text: "" },
-        notes: "",
-      },
-    };
-  } else {
-    return {
-      ...baseQuestion,
-      type: question.type as
-        | QuestionType.SINGLE_CHOICE
-        | QuestionType.MULTIPLE_CHOICE
-        | QuestionType.TRUE_FALSE,
-      options: question.options || [
-        { content: { text: "" }, order: 1, isCorrect: false },
-        { content: { text: "" }, order: 2, isCorrect: false },
-      ],
-    };
-  }
+enum QuestionType {
+  SINGLE_CHOICE = "SINGLE_CHOICE",
+  MULTIPLE_CHOICE = "MULTIPLE_CHOICE",
+  TRUE_FALSE = "TRUE_FALSE",
+  ESSAY = "ESSAY",
 }
+
+enum QuestionDifficulty {
+  REMEMBERING = "REMEMBERING",
+  UNDERSTANDING = "UNDERSTANDING",
+  APPLYING = "APPLYING",
+  ANALYZING = "ANALYZING",
+  EVALUATING = "EVALUATING",
+  CREATING = "CREATING",
+}
+
+const questionFormSchema = z.object({
+  type: z.nativeEnum(QuestionType),
+  content: z.object({
+    text: z.string().min(1, "Vui lòng nhập nội dung câu hỏi"),
+  }),
+  questionSetterId: z.string().optional(),
+  courseId: z.string().uuid().optional(),
+  chapterId: z.string().uuid().optional(),
+  lessonId: z.string().uuid().optional(),
+  difficulty: z.nativeEnum(QuestionDifficulty),
+  options: z
+    .array(
+      z.object({
+        content: z.object({
+          text: z.string().min(1, "Vui lòng nhập nội dung câu trả lời"),
+        }),
+        order: z.number().optional(),
+        isCorrect: z.boolean(),
+      }),
+    )
+    .optional(),
+  referenceAnswer: z
+    .object({
+      content: z.object({
+        text: z.string().min(1, "Vui lòng nhập đáp án tham khảo"),
+      }),
+      notes: z.string().optional(),
+    })
+    .optional(),
+});
+
+type QuestionFormValues = z.infer<typeof questionFormSchema>;
 
 interface QuestionFormProps {
   courseId?: string;
   chapterId?: string;
   lessonId?: string;
-  onSubmit?: (data: QuestionFormValues) => void;
+  onSubmit: (data: QuestionFormValues) => Promise<void>;
+  editorConfig?: any;
   initialData?: Question;
+  isSubmitting?: boolean;
 }
 
 export function QuestionForm({
@@ -138,380 +96,422 @@ export function QuestionForm({
   chapterId,
   lessonId,
   onSubmit,
+  editorConfig,
   initialData,
+  isSubmitting = false,
 }: QuestionFormProps) {
   const [questionType, setQuestionType] = useState<QuestionType>(
     initialData?.type || QuestionType.SINGLE_CHOICE,
   );
 
-  // Đảm bảo các giá trị mặc định luôn nhất quán
-  const defaultValues = initialData
-    ? transformQuestionToFormValues(initialData)
-    : {
-        type: QuestionType.SINGLE_CHOICE,
-        content: {
-          text: "",
-        },
-        courseId: courseId ?? "", // Sử dụng nullish coalescing để đảm bảo luôn có giá trị
-        chapterId: chapterId ?? "",
-        lessonId: lessonId ?? "",
-        difficulty: QuestionDifficulty.REMEMBERING,
-        options: [
-          { content: { text: "" }, order: 1, isCorrect: false },
-          { content: { text: "" }, order: 2, isCorrect: false },
-        ],
-      };
-
   const form = useForm<QuestionFormValues>({
-    resolver: zodResolver(questionSchema),
-    defaultValues,
+    resolver: zodResolver(questionFormSchema),
+    defaultValues: {
+      content: initialData?.content || { text: "" },
+      type: initialData?.type || QuestionType.SINGLE_CHOICE,
+      courseId: courseId || initialData?.courseId,
+      chapterId: chapterId || initialData?.chapterId,
+      lessonId: lessonId || initialData?.lessonId,
+      options: initialData?.options || [
+        { content: { text: "" }, isCorrect: false },
+        { content: { text: "" }, isCorrect: false },
+      ],
+      difficulty: initialData?.difficulty || QuestionDifficulty.UNDERSTANDING,
+      questionSetterId: initialData?.questionSetterId,
+      referenceAnswer: initialData?.referenceAnswer,
+    },
   });
 
-  // Reset form when question type changes
-  useEffect(() => {
-    if (questionType === QuestionType.ESSAY) {
-      form.setValue("options", [] as any);
-    } else {
-      form.setValue("referenceAnswer", {
-        content: { text: "" },
-        notes: "",
-      });
-      if (!form.getValues("options")?.length) {
-        form.setValue("options", [
-          { content: { text: "" }, order: 1, isCorrect: false },
-          { content: { text: "" }, order: 2, isCorrect: false },
-        ]);
-      }
-    }
-  }, [questionType, form]);
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "options",
+  });
 
-  const getNextOrder = () => {
-    const options = form.getValues("options") || [];
-    if (options.length === 0) return 1;
-    const orders = options.map((option) => option.order);
-    return Math.max(...orders) + 1;
+  const watchQuestionType = form.watch("type");
+
+  useEffect(() => {
+    setQuestionType(watchQuestionType);
+
+    // Reset options based on question type
+    if (watchQuestionType === QuestionType.TRUE_FALSE) {
+      form.setValue("options", [
+        { content: { text: "Đúng" }, isCorrect: false },
+        { content: { text: "Sai" }, isCorrect: false },
+      ]);
+    } else if (watchQuestionType === QuestionType.ESSAY) {
+      form.setValue("options", []);
+    } else if (!form.getValues("options")?.length) {
+      form.setValue("options", [
+        { content: { text: "" }, isCorrect: false },
+        { content: { text: "" }, isCorrect: false },
+      ]);
+    }
+  }, [watchQuestionType, form]);
+
+  const onSubmitForm = async (data: QuestionFormValues) => {
+    console.log("onSubmitForm called with data:", data);
+
+    try {
+      // Validate SINGLE_CHOICE: only one correct answer
+      if (data.type === QuestionType.SINGLE_CHOICE) {
+        const correctAnswers =
+          data.options?.filter((opt) => opt.isCorrect) || [];
+        if (correctAnswers.length !== 1) {
+          console.log(
+            "Validation error: SINGLE_CHOICE needs exactly one correct answer",
+          );
+          toast.error("Câu hỏi một lựa chọn phải có đúng một đáp án đúng");
+          return;
+        }
+      }
+
+      // Validate TRUE_FALSE: must have exactly 2 options and one correct
+      if (data.type === QuestionType.TRUE_FALSE) {
+        if (data.options?.length !== 2) {
+          console.log("Validation error: TRUE_FALSE needs exactly 2 options");
+          toast.error("Câu hỏi Đúng/Sai phải có đúng 2 lựa chọn");
+          return;
+        }
+        const correctAnswers = data.options.filter((opt) => opt.isCorrect);
+        if (correctAnswers.length !== 1) {
+          console.log(
+            "Validation error: TRUE_FALSE needs exactly one correct answer",
+          );
+          toast.error("Câu hỏi Đúng/Sai phải có đúng một đáp án đúng");
+          return;
+        }
+      }
+
+      console.log("Form data before submission:", data);
+      console.log("Calling parent onSubmit function...");
+
+      await onSubmit(data);
+      console.log("Parent onSubmit completed successfully");
+    } catch (error) {
+      console.error("Error in form submission:", error);
+      toast.error("Có lỗi xảy ra khi xử lý form");
+    }
   };
 
-  const handleSubmit: SubmitHandler<QuestionFormValues> = (data) => {
-    if (data.type === QuestionType.SINGLE_CHOICE) {
-      const correctAnswers = data.options?.filter((opt) => opt.isCorrect) || [];
-      if (correctAnswers.length !== 1) {
-        toast.error(
-          "Câu hỏi trắc nghiệm một đáp án phải có đúng 1 đáp án đúng",
-        );
-        return;
-      }
+  // Handle option selection for SINGLE_CHOICE
+  const handleSingleChoiceSelect = (index: number, checked: boolean) => {
+    if (questionType === QuestionType.SINGLE_CHOICE && checked) {
+      const options = form.getValues("options") || [];
+      options.forEach((_, i) => {
+        if (i !== index) {
+          form.setValue(`options.${i}.isCorrect`, false);
+        }
+      });
     }
-
-    if (data.type === QuestionType.TRUE_FALSE) {
-      if (data.options?.length !== 2) {
-        toast.error("Câu hỏi Đúng/Sai phải có đúng 2 đáp án");
-        return;
-      }
-      const correctAnswers = data.options?.filter((opt) => opt.isCorrect) || [];
-      if (correctAnswers.length !== 1) {
-        toast.error("Câu hỏi Đúng/Sai phải có đúng 1 đáp án đúng");
-        return;
-      }
-    }
-
-    onSubmit?.(data);
   };
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-8">
-        <div className="space-y-6">
-          <div>
-            <h3 className="text-lg font-medium mb-4">Thông tin câu hỏi</h3>
-            <div className="space-y-6">
-              <FormField
-                control={form.control}
-                name="type"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-base">Loại câu hỏi</FormLabel>
-                    <Select
-                      onValueChange={(value: QuestionType) => {
-                        field.onChange(value);
-                        setQuestionType(value);
-                      }}
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger className="h-12 text-base">
-                          <SelectValue placeholder="Chọn loại câu hỏi" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value={QuestionType.SINGLE_CHOICE}>
-                          Trắc nghiệm một đáp án
-                        </SelectItem>
-                        <SelectItem value={QuestionType.MULTIPLE_CHOICE}>
-                          Trắc nghiệm nhiều đáp án
-                        </SelectItem>
-                        <SelectItem value={QuestionType.TRUE_FALSE}>
-                          Đúng/Sai
-                        </SelectItem>
-                        <SelectItem value={QuestionType.ESSAY}>
-                          Tự luận
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+      <div className="space-y-8">
+        <div className="grid gap-6">
+          <FormField
+            control={form.control}
+            name="content.text"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Nội dung câu hỏi</FormLabel>
+                <FormControl>
+                  <Editor
+                    apiKey={process.env.NEXT_PUBLIC_TINYMCE_API_KEY}
+                    init={{
+                      ...editorConfig,
+                      height: 300,
+                    }}
+                    value={field.value}
+                    onEditorChange={(content) => {
+                      console.log("Content changed:", content);
+                      field.onChange(content);
+                    }}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-              <FormField
-                control={form.control}
-                name="difficulty"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-base">Độ khó</FormLabel>
-                    <Select
-                      onValueChange={(value: QuestionDifficulty) => {
-                        field.onChange(value);
-                      }}
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger className="h-12 text-base">
-                          <SelectValue placeholder="Chọn độ khó" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value={QuestionDifficulty.REMEMBERING}>
-                          Ghi nhớ
-                        </SelectItem>
-                        <SelectItem value={QuestionDifficulty.UNDERSTANDING}>
-                          Thông hiểu
-                        </SelectItem>
-                        <SelectItem value={QuestionDifficulty.APPLYING}>
-                          Vận dụng
-                        </SelectItem>
-                        <SelectItem value={QuestionDifficulty.ANALYZING}>
-                          Phân tích
-                        </SelectItem>
-                        <SelectItem value={QuestionDifficulty.EVALUATING}>
-                          Đánh giá
-                        </SelectItem>
-                        <SelectItem value={QuestionDifficulty.CREATING}>
-                          Sáng tạo
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="content"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-base">
-                      Nội dung câu hỏi
-                    </FormLabel>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="type"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Loại câu hỏi</FormLabel>
+                  <Select
+                    onValueChange={(value: QuestionType) => {
+                      console.log("Question type changed:", value);
+                      field.onChange(value);
+                    }}
+                    value={field.value}
+                  >
                     <FormControl>
-                      <ContentEditor
-                        value={field.value}
-                        onChange={field.onChange}
-                        placeholder="Nhập nội dung câu hỏi..."
-                      />
+                      <SelectTrigger>
+                        <SelectValue placeholder="Chọn loại câu hỏi" />
+                      </SelectTrigger>
                     </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+                    <SelectContent>
+                      <SelectItem value={QuestionType.SINGLE_CHOICE}>
+                        Một lựa chọn
+                      </SelectItem>
+                      <SelectItem value={QuestionType.MULTIPLE_CHOICE}>
+                        Nhiều lựa chọn
+                      </SelectItem>
+                      <SelectItem value={QuestionType.TRUE_FALSE}>
+                        Đúng/Sai
+                      </SelectItem>
+                      <SelectItem value={QuestionType.ESSAY}>
+                        Tự luận
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="difficulty"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Độ khó</FormLabel>
+                  <Select
+                    onValueChange={(value) => {
+                      console.log("Difficulty changed:", value);
+                      field.onChange(value);
+                    }}
+                    value={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Chọn độ khó" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value={QuestionDifficulty.REMEMBERING}>
+                        Ghi nhớ
+                      </SelectItem>
+                      <SelectItem value={QuestionDifficulty.UNDERSTANDING}>
+                        Hiểu
+                      </SelectItem>
+                      <SelectItem value={QuestionDifficulty.APPLYING}>
+                        Áp dụng
+                      </SelectItem>
+                      <SelectItem value={QuestionDifficulty.ANALYZING}>
+                        Phân tích
+                      </SelectItem>
+                      <SelectItem value={QuestionDifficulty.EVALUATING}>
+                        Đánh giá
+                      </SelectItem>
+                      <SelectItem value={QuestionDifficulty.CREATING}>
+                        Sáng tạo
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </div>
 
           {questionType !== QuestionType.ESSAY && (
-            <div>
-              <h3 className="text-lg font-medium mb-4">Danh sách đáp án</h3>
-              <div className="space-y-6">
-                {form.watch("options")?.map((_, index) => (
-                  <div
-                    key={index}
-                    className={cn(
-                      "rounded-lg border p-6",
-                      form.watch(`options.${index}.isCorrect`) &&
-                        "bg-emerald-50",
-                    )}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label>Các lựa chọn</Label>
+                {questionType !== QuestionType.TRUE_FALSE && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      console.log("Adding new option");
+                      append({ content: { text: "" }, isCorrect: false });
+                    }}
                   >
-                    <FormField
-                      control={form.control}
-                      name={`options.${index}.content`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <div className="mb-4 flex items-center justify-between">
-                            <FormLabel className="text-base">
-                              Đáp án {index + 1}
-                            </FormLabel>
-                            <div className="flex items-center gap-4">
-                              <FormField
-                                control={form.control}
-                                name={`options.${index}.isCorrect`}
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormControl>
-                                      <div className="flex items-center space-x-2">
-                                        <Checkbox
-                                          checked={field.value}
-                                          onCheckedChange={(checked) => {
-                                            if (
-                                              questionType ===
-                                                QuestionType.SINGLE_CHOICE &&
-                                              checked
-                                            ) {
-                                              const options =
-                                                form.getValues("options") || [];
-                                              options.forEach((_, i) => {
-                                                if (i !== index) {
-                                                  form.setValue(
-                                                    `options.${i}.isCorrect`,
-                                                    false,
-                                                  );
-                                                }
-                                              });
-                                            }
-                                            field.onChange(checked);
-                                          }}
-                                        />
-                                        <span className="text-base">
-                                          Đáp án đúng
-                                        </span>
-                                      </div>
-                                    </FormControl>
-                                  </FormItem>
-                                )}
-                              />
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="h-9 w-9 hover:text-red-500"
-                                onClick={() => {
-                                  const options =
-                                    form.getValues("options") || [];
-                                  form.setValue(
-                                    "options",
-                                    options.filter((_, i) => i !== index),
-                                  );
-                                }}
-                              >
-                                <Trash2 className="h-5 w-5" />
-                              </Button>
-                            </div>
-                          </div>
-                          <FormControl>
-                            <ContentEditor
-                              value={field.value}
-                              onChange={field.onChange}
-                              placeholder={`Nhập nội dung đáp án ${index + 1}...`}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                ))}
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full h-12 text-base"
-                  onClick={() =>
-                    form.setValue("options", [
-                      ...(form.getValues("options") || []),
-                      {
-                        content: { text: "" },
-                        order: getNextOrder(),
-                        isCorrect: false,
-                      },
-                    ])
-                  }
-                >
-                  <Plus className="mr-2 h-5 w-5" />
-                  Thêm đáp án
-                </Button>
+                    Thêm lựa chọn
+                  </Button>
+                )}
               </div>
+
+              {fields.map((field, index) => (
+                <Card key={field.id}>
+                  <CardContent className="pt-6">
+                    <div className="flex gap-4">
+                      <div className="flex-1">
+                        <FormField
+                          control={form.control}
+                          name={`options.${index}.content.text`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormControl>
+                                <Editor
+                                  apiKey={
+                                    process.env.NEXT_PUBLIC_TINYMCE_API_KEY
+                                  }
+                                  init={{
+                                    ...editorConfig,
+                                    height: 200,
+                                  }}
+                                  value={field.value}
+                                  onEditorChange={(content) => {
+                                    console.log(
+                                      `Option ${index} content changed:`,
+                                      content,
+                                    );
+                                    field.onChange(content);
+                                  }}
+                                  disabled={
+                                    questionType === QuestionType.TRUE_FALSE
+                                  }
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      <div className="flex flex-col justify-start gap-2">
+                        <FormField
+                          control={form.control}
+                          name={`options.${index}.isCorrect`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormControl>
+                                <div className="flex items-center space-x-2">
+                                  <Switch
+                                    checked={field.value}
+                                    onCheckedChange={(checked) => {
+                                      console.log(
+                                        `Option ${index} isCorrect changed:`,
+                                        checked,
+                                      );
+                                      field.onChange(checked);
+                                      handleSingleChoiceSelect(index, checked);
+                                    }}
+                                  />
+                                  <Label>Đáp án đúng</Label>
+                                </div>
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+
+                        {questionType !== QuestionType.TRUE_FALSE && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="text-destructive"
+                            onClick={() => {
+                              console.log(`Removing option ${index}`);
+                              remove(index);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           )}
 
           {questionType === QuestionType.ESSAY && (
-            <div>
-              <h3 className="text-lg font-medium mb-4">Đáp án tham khảo</h3>
-              <FormField
-                control={form.control}
-                name="referenceAnswer"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <div className="space-y-4">
-                        <ContentEditor
-                          value={field.value?.content || { text: "" }}
-                          onChange={(content) =>
-                            field.onChange({
-                              ...field.value,
-                              content,
-                            })
-                          }
-                          placeholder="Nhập đáp án tham khảo..."
-                        />
-                        <Input
-                          placeholder="Ghi chú cho đáp án tham khảo..."
-                          value={field.value?.notes || ""}
-                          onChange={(e) =>
-                            field.onChange({
-                              ...field.value,
-                              notes: e.target.value,
-                            })
-                          }
-                          className="h-12 text-base"
-                        />
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-          )}
-
-          <div>
-            <h3 className="text-lg font-medium mb-4">Giải thích</h3>
             <FormField
               control={form.control}
-              name="explanation"
+              name="referenceAnswer.content.text"
               render={({ field }) => (
                 <FormItem>
+                  <FormLabel>Đáp án tham khảo</FormLabel>
                   <FormControl>
-                    <Input
-                      placeholder="Nhập giải thích cho đáp án..."
-                      {...field}
-                      className="h-12 text-base"
+                    <Editor
+                      apiKey={process.env.NEXT_PUBLIC_TINYMCE_API_KEY}
+                      init={{
+                        ...editorConfig,
+                        height: 300,
+                      }}
+                      value={field.value}
+                      onEditorChange={(content) => {
+                        console.log("Reference answer changed:", content);
+                        field.onChange(content);
+                      }}
                     />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-          </div>
+          )}
         </div>
-
-        <div className="flex justify-end">
+        <div className="flex justify-end space-x-4">
           <Button
-            type="submit"
+            type="button"
             size="lg"
-            className="min-w-[140px] h-12 text-base"
+            disabled={isSubmitting}
+            onClick={async () => {
+              console.log("Direct submit button clicked");
+
+              // Get current form values without validation
+              const rawValues = form.getValues();
+              console.log("Raw form values:", rawValues);
+
+              // Call parent onSubmit directly with current values
+              try {
+                if (rawValues.type === QuestionType.SINGLE_CHOICE) {
+                  const correctAnswers =
+                    rawValues.options?.filter((opt) => opt.isCorrect) || [];
+                  if (correctAnswers.length !== 1) {
+                    toast.error(
+                      "Câu hỏi một lựa chọn phải có đúng một đáp án đúng",
+                    );
+                    return;
+                  }
+                }
+
+                if (rawValues.type === QuestionType.TRUE_FALSE) {
+                  if (rawValues.options?.length !== 2) {
+                    toast.error("Câu hỏi Đúng/Sai phải có đúng 2 lựa chọn");
+                    return;
+                  }
+                  const correctAnswers = rawValues.options.filter(
+                    (opt) => opt.isCorrect,
+                  );
+                  if (correctAnswers.length !== 1) {
+                    toast.error(
+                      "Câu hỏi Đúng/Sai phải có đúng một đáp án đúng",
+                    );
+                    return;
+                  }
+                }
+
+                // Direct call to parent
+                await onSubmit(rawValues);
+              } catch (err) {
+                console.error("Error in direct submission:", err);
+                toast.error("Có lỗi xảy ra khi gửi form");
+              }
+            }}
           >
-            {initialData ? "Cập nhật" : "Thêm câu hỏi"}
+            {isSubmitting ? (
+              <>
+                <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent"></div>
+                {initialData ? "Đang cập nhật..." : "Đang tạo..."}
+              </>
+            ) : initialData ? (
+              "Cập nhật câu hỏi"
+            ) : (
+              "Tạo câu hỏi"
+            )}
           </Button>
         </div>
-      </form>
+      </div>
     </Form>
   );
 }

@@ -3,7 +3,7 @@
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { Question } from "@/types/assessment/types";
+import { Question, QuestionFormValues } from "@/types/assessment/types";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 
@@ -14,24 +14,36 @@ import { Button } from "@/components/ui/button";
 
 export default function EditQuestionPage() {
   const router = useRouter();
-  const params = useParams(); // Lấy params từ URL
+  const params = useParams();
+  const questionId =
+    typeof params.id === "string"
+      ? params.id
+      : Array.isArray(params.id)
+        ? params.id[0]
+        : null;
   const [question, setQuestion] = useState<Question | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Fetch dữ liệu câu hỏi khi component mount
   useEffect(() => {
     const fetchQuestion = async () => {
       try {
-        const result = await getQuestionById(params.id as string);
+        if (!questionId) {
+          throw new Error("Không tìm thấy ID câu hỏi");
+        }
+
+        const result = await getQuestionById(questionId);
+        console.log("Fetched question:", result);
 
         if (result.success && result.data) {
           setQuestion(result.data);
         } else {
           throw new Error(result.message || "Không thể lấy thông tin câu hỏi");
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error fetching question:", error);
-        toast.error("Có lỗi xảy ra khi tải thông tin câu hỏi");
+        toast.error(error.message || "Có lỗi xảy ra khi tải thông tin câu hỏi");
         router.push("/assessment/questions");
       } finally {
         setIsLoading(false);
@@ -39,44 +51,61 @@ export default function EditQuestionPage() {
     };
 
     fetchQuestion();
-  }, [params.id, router]);
+  }, [questionId, router]);
 
   // Hàm xử lý submit form
-  const handleSubmit = async (formData: any) => {
+  const handleSubmit = async (formData: QuestionFormValues): Promise<void> => {
+    console.log("EditQuestionPage handleSubmit called with data:", formData);
+
+    if (!questionId) {
+      toast.error("Không tìm thấy ID câu hỏi");
+      return;
+    }
+
+    if (isSubmitting) {
+      return;
+    }
+
     try {
-      // Chuyển đổi dữ liệu từ form về định dạng API cần
+      setIsSubmitting(true);
+
+      // Simplify the data conversion
       const requestData = {
-        ...formData,
-        content: {
-          text: formData.content.text,
-        },
+        id: questionId, // Make sure ID is included
+        type: formData.type,
+        content: formData.content,
+        difficulty: formData.difficulty,
+        courseId: formData.courseId,
+        chapterId: formData.chapterId,
+        lessonId: formData.lessonId,
         options: formData.options?.map((option: any) => ({
-          ...option,
-          content: {
-            text: option.content.text,
-          },
+          content: option.content,
+          isCorrect: option.isCorrect,
+          order: option.order,
         })),
-        referenceAnswer: formData.referenceAnswer
-          ? {
-              ...formData.referenceAnswer,
-              content: {
-                text: formData.referenceAnswer.content.text,
-              },
-            }
-          : undefined,
+        referenceAnswer: formData.referenceAnswer,
       };
 
-      const result = await updateQuestion(params.id as string, requestData);
+      console.log(
+        "Converted request data:",
+        JSON.stringify(requestData, null, 2),
+      );
+
+      // Direct API call
+      const result = await updateQuestion(questionId, requestData);
+      console.log("API response:", result);
 
       if (result.success) {
         toast.success("Cập nhật câu hỏi thành công");
         router.push("/assessment/questions");
       } else {
-        throw new Error(result.message || "Không thể cập nhật câu hỏi");
+        toast.error(result.message || "Không thể cập nhật câu hỏi");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error updating question:", error);
-      toast.error("Có lỗi xảy ra khi cập nhật câu hỏi");
+      toast.error(error.message || "Có lỗi xảy ra khi cập nhật câu hỏi");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -110,7 +139,11 @@ export default function EditQuestionPage() {
           <p className="text-muted-foreground">Chỉnh sửa thông tin câu hỏi</p>
         </div>
       </div>
-      <QuestionForm initialData={question} onSubmit={handleSubmit} />
+      <QuestionForm
+        initialData={question}
+        onSubmit={handleSubmit}
+        isSubmitting={isSubmitting}
+      />
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 
+import { ScoringPolicy, TestType } from "@/actions/assessmentAction";
 import { getUserCourseStructureWithDetails } from "@/actions/courseAction";
 
 import useUserStore from "@/stores/useUserStore";
@@ -30,34 +31,22 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 
-enum TestType {
-  PRACTICE = "PRACTICE",
-  QUIZ = "QUIZ",
-  FINAL = "FINAL",
-  ASSIGNMENT = "ASSIGNMENT",
-}
-
-enum ScoringPolicy {
-  HIGHEST = "HIGHEST",
-  AVERAGE = "AVERAGE",
-  LATEST = "LATEST",
-}
-
 const testFormSchema = z.object({
   title: z.string().min(1, "Vui lòng nhập tiêu đề"),
-  description: z.string(),
+  description: z.string().optional(),
   courseId: z.string().min(1, "Vui lòng chọn khóa học"),
   chapterId: z.string().optional(),
   lessonId: z.string().optional(),
-  duration: z.number().min(1, "Thời gian làm bài phải lớn hơn 0"),
+  duration: z.number().min(1, "Thời gian làm bài phải lớn hơn 0").optional(),
+  maxScore: z.number().min(0).default(100),
   testType: z.nativeEnum(TestType),
   shuffleQuestions: z.boolean(),
-  maxAttempts: z.number().min(0, "Số lần làm lại không được âm"),
+  maxAttempts: z.number().min(0, "Số lần làm lại không được âm").optional(),
   cooldownPeriod: z.number().min(0, "Thời gian chờ không được âm").optional(),
   scoringPolicy: z.nativeEnum(ScoringPolicy),
   allowReview: z.boolean(),
-  testStart: z.string(),
-  testEnd: z.string(),
+  enforceTimeLimit: z.boolean(),
+  unlimitedAttempts: z.boolean(),
 });
 
 type TestFormValues = z.infer<typeof testFormSchema>;
@@ -97,14 +86,15 @@ export function TestForm({ onSubmit }: TestFormProps) {
       title: "",
       description: "",
       duration: 60,
+      maxScore: 100,
       testType: TestType.PRACTICE,
       shuffleQuestions: false,
       maxAttempts: 1,
       cooldownPeriod: 24,
       scoringPolicy: ScoringPolicy.HIGHEST,
       allowReview: true,
-      testStart: "",
-      testEnd: "",
+      enforceTimeLimit: true,
+      unlimitedAttempts: false,
     },
   });
 
@@ -126,9 +116,7 @@ export function TestForm({ onSubmit }: TestFormProps) {
     const fetchCourses = async () => {
       try {
         setIsLoading(true);
-
         const result = await getUserCourseStructureWithDetails(user.id);
-
         if (result.success && result.data) {
           if (result.data.value) {
             setCourses(result.data.value);
@@ -159,52 +147,13 @@ export function TestForm({ onSubmit }: TestFormProps) {
   );
 
   const handleSubmit = (data: TestFormValues) => {
-    if (!data.testStart || !data.testEnd) {
-      form.setError("testStart", {
-        type: "manual",
-        message: "Vui lòng nhập thời gian bắt đầu và kết thúc",
-      });
-      return;
-    }
+    const formattedData = {
+      ...data,
+      testStart: new Date(),
+      testCreator: user?.id || "unknown",
+    };
 
-    try {
-      const startTime = new Date(data.testStart);
-      const endTime = new Date(data.testEnd);
-
-      if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
-        form.setError("testStart", {
-          type: "manual",
-          message: "Thời gian không hợp lệ",
-        });
-        return;
-      }
-
-      const durationInMs = data.duration * 60 * 1000;
-
-      if (endTime.getTime() - startTime.getTime() < durationInMs) {
-        form.setError("testEnd", {
-          type: "manual",
-          message:
-            "Thời gian kết thúc phải lớn hơn thời gian bắt đầu + thời gian làm bài",
-        });
-        return;
-      }
-
-      const formattedData = {
-        ...data,
-        testStart: startTime.toISOString(),
-        testEnd: endTime.toISOString(),
-        testCreator: user?.id || "unknown",
-      };
-
-      onSubmit(formattedData);
-    } catch (error) {
-      console.log("Error processing date/time values");
-      form.setError("testStart", {
-        type: "manual",
-        message: "Có lỗi xảy ra khi xử lý thời gian",
-      });
-    }
+    onSubmit(formattedData);
   };
 
   return (
@@ -387,6 +336,7 @@ export function TestForm({ onSubmit }: TestFormProps) {
                     <Input
                       type="number"
                       {...field}
+                      disabled={!form.watch("enforceTimeLimit")}
                       value={field.value || ""}
                       onChange={(e) => {
                         const val = e.target.value
@@ -403,31 +353,23 @@ export function TestForm({ onSubmit }: TestFormProps) {
 
             <FormField
               control={form.control}
-              name="testType"
+              name="maxScore"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Loại bài kiểm tra</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Chọn loại bài kiểm tra" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value={TestType.PRACTICE}>
-                        Luyện tập
-                      </SelectItem>
-                      <SelectItem value={TestType.QUIZ}>
-                        Kiểm tra nhanh
-                      </SelectItem>
-                      <SelectItem value={TestType.FINAL}>
-                        Kiểm tra cuối kỳ
-                      </SelectItem>
-                      <SelectItem value={TestType.ASSIGNMENT}>
-                        Bài tập
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <FormLabel>Điểm tối đa</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      {...field}
+                      value={field.value || ""}
+                      onChange={(e) => {
+                        const val = e.target.value
+                          ? parseInt(e.target.value, 10)
+                          : "";
+                        field.onChange(val);
+                      }}
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -445,6 +387,7 @@ export function TestForm({ onSubmit }: TestFormProps) {
                     <Input
                       type="number"
                       {...field}
+                      disabled={form.watch("unlimitedAttempts")}
                       value={field.value || ""}
                       onChange={(e) => {
                         const val = e.target.value
@@ -469,8 +412,11 @@ export function TestForm({ onSubmit }: TestFormProps) {
                     <Input
                       type="number"
                       {...field}
+                      disabled={
+                        form.watch("unlimitedAttempts") ||
+                        form.watch("maxAttempts") === 0
+                      }
                       value={field.value || ""}
-                      disabled={form.watch("maxAttempts") === 0}
                       onChange={(e) => {
                         const val = e.target.value
                           ? parseInt(e.target.value, 10)
@@ -478,36 +424,6 @@ export function TestForm({ onSubmit }: TestFormProps) {
                         field.onChange(val);
                       }}
                     />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <FormField
-              control={form.control}
-              name="testStart"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Thời gian bắt đầu</FormLabel>
-                  <FormControl>
-                    <Input type="datetime-local" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="testEnd"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Thời gian kết thúc</FormLabel>
-                  <FormControl>
-                    <Input type="datetime-local" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -558,6 +474,59 @@ export function TestForm({ onSubmit }: TestFormProps) {
 
             <FormField
               control={form.control}
+              name="enforceTimeLimit"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                  <div className="space-y-0.5">
+                    <FormLabel className="text-base">
+                      Giới hạn thời gian
+                    </FormLabel>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={(checked) => {
+                        field.onChange(checked);
+                        if (!checked) {
+                          form.setValue("duration", undefined);
+                        }
+                      }}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="unlimitedAttempts"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                  <div className="space-y-0.5">
+                    <FormLabel className="text-base">
+                      Không giới hạn số lần làm lại
+                    </FormLabel>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={(checked) => {
+                        field.onChange(checked);
+                        if (checked) {
+                          form.setValue("maxAttempts", undefined);
+                          form.setValue("cooldownPeriod", undefined);
+                        }
+                      }}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
               name="scoringPolicy"
               render={({ field }) => (
                 <FormItem>
@@ -565,7 +534,10 @@ export function TestForm({ onSubmit }: TestFormProps) {
                   <Select
                     onValueChange={field.onChange}
                     value={field.value}
-                    disabled={form.watch("maxAttempts") === 0}
+                    disabled={
+                      !form.watch("unlimitedAttempts") &&
+                      form.watch("maxAttempts") === 0
+                    }
                   >
                     <FormControl>
                       <SelectTrigger>
