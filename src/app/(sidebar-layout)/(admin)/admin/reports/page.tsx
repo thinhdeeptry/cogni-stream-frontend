@@ -5,15 +5,14 @@ import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import {
-  BarChart2,
   Calendar,
   FileText,
   Loader2,
   Plus,
+  RefreshCw,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { v4 as uuidv4 } from "uuid";
 
 import useReportStore, { Report } from "@/stores/useReportStore";
 
@@ -23,7 +22,6 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -41,83 +39,89 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 
-// Dữ liệu mẫu cho báo cáo
+// Dữ liệu mẫu cho báo cáo mới
 const sampleReportData = {
   revenue: {
-    months: ["Tháng 1", "Tháng 2", "Tháng 3"],
-    values: [1500000, 2200000, 1800000],
-  },
-  students: {
-    months: ["Tháng 1", "Tháng 2", "Tháng 3"],
-    values: [15, 22, 18],
-    categories: {
-      "Lập trình": 25,
-      "Thiết kế": 18,
-      Marketing: 12,
+    total: 5500000,
+    last30Days: 1800000,
+    averageTransaction: 55,
+    failedRate: 0.04,
+    byMethod: {
+      creditCard: 650,
+      paypal: 350,
+      bankTransfer: 120,
     },
   },
-  courses: {
-    total: 12,
-    active: 8,
-    completed: 4,
+  enrollments: {
+    total: 1100,
+    last30Days: 320,
+    dropoutRate: 0.14,
+    byCourse: [
+      { courseId: 1, enrollments: 220 },
+      { courseId: 2, enrollments: 170 },
+    ],
+    averageTimeToComplete: 43,
+    completionRate: 0.68,
   },
-  completionRate: 0.78,
+  courses: {
+    total: 52,
+    active: 42,
+    completionRate: 0.67,
+    popular: [
+      { courseId: 1, title: "Introduction to Programming", enrollments: 220 },
+      { courseId: 2, title: "Web Development Basics", enrollments: 170 },
+    ],
+    viewsLast30Days: 5500,
+  },
 };
 
 export default function ReportsPage() {
   const {
     reports,
+    isLoading,
+    error,
+    fetchReports,
     addReport,
     updateReportAnalysis,
+    deleteReport,
+    generateReport,
     clearReports,
-    getReportById,
   } = useReportStore();
+
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [isAddingReport, setIsAddingReport] = useState(false);
   const [newReportTitle, setNewReportTitle] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
-  // Lấy báo cáo đã chọn
-  const selectedReport = selectedReportId
-    ? getReportById(selectedReportId)
-    : null;
+  // selectedReportId được sử dụng để hiển thị tab báo cáo được chọn
 
-  // Thêm báo cáo mẫu khi trang được tải nếu không có báo cáo nào
+  // Lấy danh sách báo cáo khi trang được tải
   useEffect(() => {
-    if (reports.length === 0) {
-      const sampleReport: Report = {
-        id: uuidv4(),
-        title: "Báo cáo hoạt động Q1/2024",
-        date: format(new Date(), "yyyy-MM-dd"),
-        data: sampleReportData,
-      };
-      addReport(sampleReport);
-    }
+    fetchReports();
+  }, [fetchReports]);
 
-    // Chọn báo cáo đầu tiên nếu có
+  // Chọn báo cáo đầu tiên nếu có và chưa có báo cáo nào được chọn
+  useEffect(() => {
     if (reports.length > 0 && !selectedReportId) {
       setSelectedReportId(reports[0].id);
     }
-  }, [reports, addReport, selectedReportId]);
+  }, [reports, selectedReportId]);
 
   // Xử lý thêm báo cáo mới
-  const handleAddReport = () => {
+  const handleAddReport = async () => {
     if (!newReportTitle.trim()) {
       toast.error("Vui lòng nhập tiêu đề báo cáo");
       return;
     }
 
-    setIsLoading(true);
-
     try {
-      const newReport: Report = {
-        id: uuidv4(),
+      const now = new Date();
+      const newReport = await addReport({
         title: newReportTitle,
-        date: format(new Date(), "yyyy-MM-dd"),
+        date: now.toISOString(),
         data: sampleReportData, // Sử dụng dữ liệu mẫu
-      };
+      });
 
-      addReport(newReport);
       setNewReportTitle("");
       setIsAddingReport(false);
       setSelectedReportId(newReport.id);
@@ -125,23 +129,60 @@ export default function ReportsPage() {
     } catch (error) {
       console.error("Error adding report:", error);
       toast.error("Có lỗi xảy ra khi thêm báo cáo");
+    }
+  };
+
+  // Xử lý tạo báo cáo tự động
+  const handleGenerateReport = async () => {
+    try {
+      setIsGeneratingReport(true);
+      const newReport = await generateReport();
+      setSelectedReportId(newReport.id);
+      toast.success("Đã tạo báo cáo tự động");
+    } catch (error) {
+      console.error("Error generating report:", error);
+      toast.error("Có lỗi xảy ra khi tạo báo cáo tự động");
     } finally {
-      setIsLoading(false);
+      setIsGeneratingReport(false);
+    }
+  };
+
+  // Xử lý xóa báo cáo
+  const handleDeleteReport = async (id: string) => {
+    if (!confirm("Bạn có chắc chắn muốn xóa báo cáo này?")) return;
+
+    try {
+      await deleteReport(id);
+
+      // Nếu báo cáo đang được chọn bị xóa, chọn báo cáo đầu tiên trong danh sách
+      if (selectedReportId === id) {
+        setSelectedReportId(reports.length > 1 ? reports[0].id : null);
+      }
+
+      toast.success("Đã xóa báo cáo");
+    } catch (error) {
+      console.error("Error deleting report:", error);
+      toast.error("Có lỗi xảy ra khi xóa báo cáo");
     }
   };
 
   // Xử lý khi phân tích báo cáo hoàn tất
-  const handleAnalysisComplete = (
+  const handleAnalysisComplete = async (
     reportId: string,
     aiAnalysis: Report["aiAnalysis"],
   ) => {
-    updateReportAnalysis(reportId, {
-      ...aiAnalysis,
-      rawAnalysis: aiAnalysis
-        ? "Phân tích chi tiết từ AI sẽ được hiển thị ở đây."
-        : undefined,
-    });
-    toast.success("Đã cập nhật phân tích báo cáo");
+    try {
+      await updateReportAnalysis(reportId, {
+        ...aiAnalysis,
+        rawAnalysis: aiAnalysis
+          ? "Phân tích chi tiết từ AI sẽ được hiển thị ở đây."
+          : undefined,
+      });
+      toast.success("Đã cập nhật phân tích báo cáo");
+    } catch (error) {
+      console.error("Error updating report analysis:", error);
+      toast.error("Có lỗi xảy ra khi cập nhật phân tích báo cáo");
+    }
   };
 
   return (
@@ -154,76 +195,131 @@ export default function ReportsPage() {
           </p>
         </div>
 
-        <Dialog open={isAddingReport} onOpenChange={setIsAddingReport}>
-          <DialogTrigger asChild>
-            <Button className="flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              <span>Thêm báo cáo</span>
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Thêm báo cáo mới</DialogTitle>
-              <DialogDescription>
-                Nhập thông tin cho báo cáo mới. Dữ liệu mẫu sẽ được sử dụng.
-              </DialogDescription>
-            </DialogHeader>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={handleGenerateReport}
+            disabled={isGeneratingReport || isLoading}
+            className="flex items-center gap-2"
+          >
+            {isGeneratingReport ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
+            <span>
+              {isGeneratingReport ? "Đang tạo..." : "Tạo báo cáo tự động"}
+            </span>
+          </Button>
 
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="title">Tiêu đề báo cáo</Label>
-                <Input
-                  id="title"
-                  placeholder="Nhập tiêu đề báo cáo"
-                  value={newReportTitle}
-                  onChange={(e) => setNewReportTitle(e.target.value)}
-                />
+          <Dialog open={isAddingReport} onOpenChange={setIsAddingReport}>
+            <DialogTrigger asChild>
+              <Button className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                <span>Thêm báo cáo</span>
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Thêm báo cáo mới</DialogTitle>
+                <DialogDescription>
+                  Nhập thông tin cho báo cáo mới. Dữ liệu mẫu sẽ được sử dụng.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="title">Tiêu đề báo cáo</Label>
+                  <Input
+                    id="title"
+                    placeholder="Nhập tiêu đề báo cáo"
+                    value={newReportTitle}
+                    onChange={(e) => setNewReportTitle(e.target.value)}
+                  />
+                </div>
               </div>
-            </div>
 
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setIsAddingReport(false)}
-              >
-                Hủy
-              </Button>
-              <Button
-                onClick={handleAddReport}
-                disabled={isLoading || !newReportTitle.trim()}
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Đang thêm...
-                  </>
-                ) : (
-                  "Thêm báo cáo"
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsAddingReport(false)}
+                >
+                  Hủy
+                </Button>
+                <Button
+                  onClick={handleAddReport}
+                  disabled={isLoading || !newReportTitle.trim()}
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Đang thêm...
+                    </>
+                  ) : (
+                    "Thêm báo cáo"
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
-      {reports.length === 0 ? (
+      {/* Hiển thị thông báo lỗi nếu có */}
+      {error && (
+        <div className="bg-destructive/10 text-destructive p-4 rounded-lg">
+          <p>{error}</p>
+          <Button
+            onClick={() => fetchReports()}
+            className="mt-4 flex items-center gap-2"
+          >
+            <RefreshCw className="h-4 w-4" />
+            <span>Thử lại</span>
+          </Button>
+        </div>
+      )}
+
+      {/* Hiển thị loading nếu đang tải dữ liệu */}
+      {isLoading && reports.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+          <p>Đang tải dữ liệu...</p>
+        </div>
+      ) : reports.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12">
           <FileText className="h-16 w-16 text-muted-foreground mb-4" />
           <h2 className="text-xl font-semibold mb-2">Chưa có báo cáo nào</h2>
           <p className="text-muted-foreground mb-6">
-            Thêm báo cáo mới để bắt đầu phân tích
+            Thêm báo cáo mới hoặc tạo báo cáo tự động để bắt đầu phân tích
           </p>
-          <Button
-            onClick={() => setIsAddingReport(true)}
-            className="flex items-center gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Thêm báo cáo</span>
-          </Button>
+          <div className="flex items-center gap-4">
+            <Button
+              onClick={() => setIsAddingReport(true)}
+              className="flex items-center gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Thêm báo cáo</span>
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleGenerateReport}
+              disabled={isGeneratingReport}
+              className="flex items-center gap-2"
+            >
+              {isGeneratingReport ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+              <span>
+                {isGeneratingReport ? "Đang tạo..." : "Tạo báo cáo tự động"}
+              </span>
+            </Button>
+          </div>
         </div>
       ) : (
         <Tabs
-          defaultValue={selectedReportId || reports[0].id}
+          value={selectedReportId || reports[0].id}
           onValueChange={setSelectedReportId}
           className="w-full"
         >
@@ -278,13 +374,23 @@ export default function ReportsPage() {
                         </span>
                       </CardDescription>
                     </div>
-                    <BarChart2 className="h-6 w-6 text-primary" />
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleDeleteReport(report.id)}
+                        className="flex items-center gap-1"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        <span>Xóa</span>
+                      </Button>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                      <Card>
+                      <Card key="revenue">
                         <CardHeader className="py-4">
                           <CardTitle className="text-sm font-medium">
                             Tổng doanh thu
@@ -292,18 +398,18 @@ export default function ReportsPage() {
                         </CardHeader>
                         <CardContent>
                           <div className="text-2xl font-bold">
-                            {report.data.revenue.values
-                              .reduce((sum, value) => sum + value, 0)
-                              .toLocaleString("vi-VN")}
-                            đ
+                            {report.data.revenue.total.toLocaleString("vi-VN")}đ
                           </div>
                           <p className="text-xs text-muted-foreground">
-                            {report.data.revenue.months.length} tháng gần nhất
+                            {report.data.revenue.last30Days.toLocaleString(
+                              "vi-VN",
+                            )}
+                            đ trong 30 ngày qua
                           </p>
                         </CardContent>
                       </Card>
 
-                      <Card>
+                      <Card key="enrollments">
                         <CardHeader className="py-4">
                           <CardTitle className="text-sm font-medium">
                             Tổng học viên
@@ -311,18 +417,16 @@ export default function ReportsPage() {
                         </CardHeader>
                         <CardContent>
                           <div className="text-2xl font-bold">
-                            {report.data.students.values.reduce(
-                              (sum, value) => sum + value,
-                              0,
-                            )}
+                            {report.data.enrollments.total}
                           </div>
                           <p className="text-xs text-muted-foreground">
-                            {report.data.students.months.length} tháng gần nhất
+                            {report.data.enrollments.last30Days} trong 30 ngày
+                            qua
                           </p>
                         </CardContent>
                       </Card>
 
-                      <Card>
+                      <Card key="courses">
                         <CardHeader className="py-4">
                           <CardTitle className="text-sm font-medium">
                             Số khóa học
@@ -333,13 +437,12 @@ export default function ReportsPage() {
                             {report.data.courses.total}
                           </div>
                           <p className="text-xs text-muted-foreground">
-                            {report.data.courses.active} đang hoạt động,{" "}
-                            {report.data.courses.completed} đã hoàn thành
+                            {report.data.courses.active} đang hoạt động
                           </p>
                         </CardContent>
                       </Card>
 
-                      <Card>
+                      <Card key="completion-rate">
                         <CardHeader className="py-4">
                           <CardTitle className="text-sm font-medium">
                             Tỷ lệ hoàn thành
@@ -347,7 +450,10 @@ export default function ReportsPage() {
                         </CardHeader>
                         <CardContent>
                           <div className="text-2xl font-bold">
-                            {Math.round(report.data.completionRate * 100)}%
+                            {Math.round(
+                              report.data.courses.completionRate * 100,
+                            )}
+                            %
                           </div>
                           <p className="text-xs text-muted-foreground">
                             Trung bình các khóa học
