@@ -104,8 +104,8 @@ export const {
   },
   callbacks: {
     async jwt({ token, user, account, trigger, session }) {
-      console.log("JWT callback - Trigger:", trigger);
-      console.log("JWT callback - Session:", session);
+      // console.log("JWT callback - Trigger:", trigger);
+      // console.log("JWT callback - Session:", session);
       // Kiểm tra nếu trigger là "update" và session có user
       if (trigger === "update" && session?.user) {
         // Cập nhật token với dữ liệu user mới
@@ -158,17 +158,17 @@ export const {
         token.accessToken = user.accessToken;
         token.refreshToken = user.refreshToken;
 
-        console.log("JWT callback - Credentials login, updated token:", {
-          id: token.id,
-          email: token.email,
-          accessToken: token.accessToken ? "[EXISTS]" : "[MISSING]",
-          refreshToken: token.refreshToken ? "[EXISTS]" : "[MISSING]",
-        });
+        // console.log("JWT callback - Credentials login, updated token:", {
+        //   id: token.id,
+        //   email: token.email,
+        //   accessToken: token.accessToken ? "[EXISTS]" : "[MISSING]",
+        //   refreshToken: token.refreshToken ? "[EXISTS]" : "[MISSING]",
+        // });
       }
       // Nếu đăng nhập bằng Google
       else if (account && account.provider === "google" && user) {
         try {
-          console.log("JWT callback - Google login, calling backend API");
+          // console.log("JWT callback - Google login, calling backend API");
 
           // Gọi API backend để xử lý đăng nhập Google và lấy token
           const googleAuthResponse = await authApi.loginWithGoogle({
@@ -205,17 +205,17 @@ export const {
           token.refreshToken =
             googleAuthResponse.refreshToken || googleAuthResponse.refresh_token;
 
-          console.log("JWT callback - Google login, updated token:", {
-            id: token.id,
-            email: token.email,
-            accessToken: token.accessToken ? "[EXISTS]" : "[MISSING]",
-            refreshToken: token.refreshToken ? "[EXISTS]" : "[MISSING]",
-          });
+          // console.log("JWT callback - Google login, updated token:", {
+          //   id: token.id,
+          //   email: token.email,
+          //   accessToken: token.accessToken ? "[EXISTS]" : "[MISSING]",
+          //   refreshToken: token.refreshToken ? "[EXISTS]" : "[MISSING]",
+          // });
         } catch (error) {
           console.error("Error processing Google login:", error);
         }
       } else {
-        console.log("JWT callback - No user or unknown provider");
+        // console.log("JWT callback - No user or unknown provider");
       }
 
       return token;
