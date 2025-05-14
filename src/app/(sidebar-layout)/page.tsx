@@ -124,6 +124,10 @@ export default function Home() {
   const proCourses = filteredCourses.filter((course) => course.price > 0);
   const freeCourses = filteredCourses.filter((course) => course.price === 0);
 
+  // Limit the number of courses displayed for each section
+  const limitedProCourses = proCourses.slice(0, 8);
+  const limitedFreeCourses = freeCourses.slice(0, 8);
+
   if (isLoading) {
     return (
       <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-50">
@@ -246,7 +250,7 @@ export default function Home() {
           </div>
 
           <div className="w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 py-2 pb-4">
-            {proCourses.map((course) => (
+            {limitedProCourses.map((course) => (
               <div
                 key={course.id}
                 className="transform hover:-translate-y-1 transition-transform duration-300"
@@ -280,7 +284,7 @@ export default function Home() {
           </div>
 
           <div className="w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 py-2 pb-4">
-            {freeCourses.map((course) => (
+            {limitedFreeCourses.map((course) => (
               <div
                 key={course.id}
                 className="transform hover:-translate-y-1 transition-transform duration-300"

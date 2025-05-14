@@ -5,7 +5,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { Course } from "@/types/course/types";
-import { Filter, Search, SlidersHorizontal, X } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Filter,
+  Search,
+  SlidersHorizontal,
+  X,
+} from "lucide-react";
 
 import { getAllCategories, getAllCourses } from "@/actions/courseAction";
 
@@ -58,6 +65,24 @@ export default function AllCoursesPage() {
   const [sortBy, setSortBy] = useState<string>("newest");
   const [courseType, setCourseType] = useState<string>("all");
   const [showFilters, setShowFilters] = useState(false);
+
+  // New states for collapsible sidebar and pagination
+  const [isFilterVisible, setIsFilterVisible] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 12;
+
+  // Load filter visibility state from localStorage
+  useEffect(() => {
+    const savedFilterVisibility = localStorage.getItem("coursesFilterVisible");
+    if (savedFilterVisibility !== null) {
+      setIsFilterVisible(savedFilterVisibility === "true");
+    }
+  }, []);
+
+  // Save filter visibility state to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem("coursesFilterVisible", isFilterVisible.toString());
+  }, [isFilterVisible]);
 
   // Load initial filter values from URL
   useEffect(() => {
@@ -186,7 +211,21 @@ export default function AllCoursesPage() {
     }
 
     setFilteredCourses(filtered);
+    setCurrentPage(1); // Reset to first page when filters change
   }, [courses, searchQuery, selectedCategory, priceRange, sortBy, courseType]);
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredCourses.length / itemsPerPage);
+  const paginatedCourses = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredCourses.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredCourses, currentPage]);
+
+  // Handle page change
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   // Handle filter changes
   const applyFilters = () => {
@@ -262,129 +301,131 @@ export default function AllCoursesPage() {
       {/* Main content with sidebar filters for desktop and sheet for mobile */}
       <div className="flex flex-col md:flex-row gap-6">
         {/* Filter sidebar for desktop */}
-        <div className="hidden md:block w-64 shrink-0">
-          <Card className="sticky top-24">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg font-medium flex items-center justify-between">
-                <span>Bộ lọc</span>
-                {activeFiltersCount > 0 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={resetFilters}
-                    className="h-8 text-orange-500 hover:text-orange-700"
+        {isFilterVisible && (
+          <div className="hidden md:block w-64 shrink-0">
+            <Card className="sticky top-24">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg font-medium flex items-center justify-between">
+                  <span>Bộ lọc</span>
+                  {activeFiltersCount > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={resetFilters}
+                      className="h-8 text-orange-500 hover:text-orange-700"
+                    >
+                      Xóa ({activeFiltersCount})
+                    </Button>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Category filter */}
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium">Danh mục</h3>
+                  <Select
+                    value={selectedCategory}
+                    onValueChange={setSelectedCategory}
                   >
-                    Xóa ({activeFiltersCount})
-                  </Button>
-                )}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Category filter */}
-              <div className="space-y-2">
-                <h3 className="text-sm font-medium">Danh mục</h3>
-                <Select
-                  value={selectedCategory}
-                  onValueChange={setSelectedCategory}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Tất cả danh mục" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Tất cả danh mục</SelectItem>
-                    {categories.map((category) => (
-                      <SelectItem key={category.id} value={category.id}>
-                        {category.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Price range filter */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-medium">Mức giá</h3>
-                  <span className="text-xs text-gray-500">
-                    {priceRange[0].toLocaleString()} -{" "}
-                    {priceRange[1].toLocaleString()} VND
-                  </span>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Tất cả danh mục" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tất cả danh mục</SelectItem>
+                      {categories.map((category) => (
+                        <SelectItem key={category.id} value={category.id}>
+                          {category.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-                <div className="flex flex-col gap-2 mt-6">
-                  <input
-                    type="range"
-                    min={0}
-                    max={5000000}
-                    step={100000}
-                    value={priceRange[0]}
-                    onChange={(e) =>
-                      setPriceRange([Number(e.target.value), priceRange[1]])
-                    }
-                    className="w-full"
-                  />
-                  <input
-                    type="range"
-                    min={0}
-                    max={5000000}
-                    step={100000}
-                    value={priceRange[1]}
-                    onChange={(e) =>
-                      setPriceRange([priceRange[0], Number(e.target.value)])
-                    }
-                    className="w-full"
-                  />
+
+                {/* Price range filter */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-medium">Mức giá</h3>
+                    <span className="text-xs text-gray-500">
+                      {priceRange[0].toLocaleString()} -{" "}
+                      {priceRange[1].toLocaleString()} VND
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-2 mt-6">
+                    <input
+                      type="range"
+                      min={0}
+                      max={5000000}
+                      step={100000}
+                      value={priceRange[0]}
+                      onChange={(e) =>
+                        setPriceRange([Number(e.target.value), priceRange[1]])
+                      }
+                      className="w-full"
+                    />
+                    <input
+                      type="range"
+                      min={0}
+                      max={5000000}
+                      step={100000}
+                      value={priceRange[1]}
+                      onChange={(e) =>
+                        setPriceRange([priceRange[0], Number(e.target.value)])
+                      }
+                      className="w-full"
+                    />
+                  </div>
                 </div>
-              </div>
 
-              {/* Course type filter */}
-              <div className="space-y-2">
-                <h3 className="text-sm font-medium">Loại khóa học</h3>
-                <RadioGroup
-                  value={courseType}
-                  onValueChange={setCourseType}
-                  className="flex flex-col space-y-1"
+                {/* Course type filter */}
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium">Loại khóa học</h3>
+                  <RadioGroup
+                    value={courseType}
+                    onValueChange={setCourseType}
+                    className="flex flex-col space-y-1"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="all" id="all" />
+                      <Label htmlFor="all">Tất cả</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="free" id="free" />
+                      <Label htmlFor="free">Miễn phí</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="paid" id="paid" />
+                      <Label htmlFor="paid">Trả phí</Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+
+                {/* Sort filter */}
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium">Sắp xếp theo</h3>
+                  <Select value={sortBy} onValueChange={setSortBy}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Mới nhất" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="newest">Mới nhất</SelectItem>
+                      <SelectItem value="oldest">Cũ nhất</SelectItem>
+                      <SelectItem value="price-asc">Giá tăng dần</SelectItem>
+                      <SelectItem value="price-desc">Giá giảm dần</SelectItem>
+                      <SelectItem value="popular">Phổ biến nhất</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <Button
+                  className="w-full bg-orange-500 hover:bg-orange-600 text-white"
+                  onClick={applyFilters}
                 >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="all" id="all" />
-                    <Label htmlFor="all">Tất cả</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="free" id="free" />
-                    <Label htmlFor="free">Miễn phí</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="paid" id="paid" />
-                    <Label htmlFor="paid">Trả phí</Label>
-                  </div>
-                </RadioGroup>
-              </div>
-
-              {/* Sort filter */}
-              <div className="space-y-2">
-                <h3 className="text-sm font-medium">Sắp xếp theo</h3>
-                <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Mới nhất" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="newest">Mới nhất</SelectItem>
-                    <SelectItem value="oldest">Cũ nhất</SelectItem>
-                    <SelectItem value="price-asc">Giá tăng dần</SelectItem>
-                    <SelectItem value="price-desc">Giá giảm dần</SelectItem>
-                    <SelectItem value="popular">Phổ biến nhất</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <Button
-                className="w-full bg-orange-500 hover:bg-orange-600 text-white"
-                onClick={applyFilters}
-              >
-                Áp dụng
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
+                  Áp dụng
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Mobile filter button and active filters */}
         <div className="md:hidden sticky top-0 z-10 bg-white py-4 flex items-center justify-between">
@@ -562,38 +603,49 @@ export default function AllCoursesPage() {
 
         {/* Courses grid with applied filters */}
         <div className="flex-1">
-          {/* Search box for desktop */}
-          <div className="hidden md:flex mb-6 items-center">
-            <form
-              onSubmit={handleQuickSearch}
-              className="flex items-center flex-1 max-w-md"
-            >
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  type="search"
-                  placeholder="Tìm kiếm khóa học..."
-                  className="pl-10 pr-10"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-                {searchQuery && (
-                  <button
-                    type="button"
-                    className="absolute right-3 top-1/2 -translate-y-1/2"
-                    onClick={() => setSearchQuery("")}
-                  >
-                    <X className="h-4 w-4 text-gray-400" />
-                  </button>
-                )}
-              </div>
-              <Button
-                type="submit"
-                className="ml-2 bg-orange-500 hover:bg-orange-600 text-white"
+          {/* Search box and filter toggle for desktop */}
+          <div className="hidden md:flex mb-6 items-center justify-between">
+            <div className="flex items-center">
+              <form
+                onSubmit={handleQuickSearch}
+                className="flex items-center flex-1 max-w-md"
               >
-                Tìm kiếm
-              </Button>
-            </form>
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    type="search"
+                    placeholder="Tìm kiếm khóa học..."
+                    className="pl-10 pr-10"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      className="absolute right-3 top-1/2 -translate-y-1/2"
+                      onClick={() => setSearchQuery("")}
+                    >
+                      <X className="h-4 w-4 text-gray-400" />
+                    </button>
+                  )}
+                </div>
+                <Button
+                  type="submit"
+                  className="ml-2 bg-orange-500 hover:bg-orange-600 text-white"
+                >
+                  Tìm kiếm
+                </Button>
+              </form>
+            </div>
+
+            {/* Toggle filter button */}
+            <Button
+              variant="outline"
+              onClick={() => setIsFilterVisible(!isFilterVisible)}
+              className="ml-4"
+            >
+              {isFilterVisible ? "Ẩn bộ lọc" : "Hiện bộ lọc"}
+            </Button>
           </div>
 
           {/* Active filters display */}
@@ -692,17 +744,20 @@ export default function AllCoursesPage() {
               <Skeleton className="w-24 h-4" />
             ) : (
               <p className="text-gray-600 text-sm">
-                Hiển thị {filteredCourses.length} khóa học
+                Hiển thị {paginatedCourses.length} / {filteredCourses.length}{" "}
+                khóa học
               </p>
             )}
           </div>
 
-          {/* Course grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {/* Course grid - adjust grid columns based on filter visibility */}
+          <div
+            className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${!isFilterVisible ? "xl:grid-cols-4" : "xl:grid-cols-3"} gap-6`}
+          >
             {isLoading ? (
               <CourseSkeletons />
-            ) : filteredCourses.length > 0 ? (
-              filteredCourses.map((course) => (
+            ) : paginatedCourses.length > 0 ? (
+              paginatedCourses.map((course) => (
                 <div
                   key={course.id}
                   className="transform hover:-translate-y-1 transition-transform duration-300"
@@ -748,6 +803,64 @@ export default function AllCoursesPage() {
               </div>
             )}
           </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex justify-center mt-8">
+              <div className="flex space-x-2">
+                <Button
+                  variant="outline"
+                  onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
+                  className="flex items-center"
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  Trước
+                </Button>
+
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  // Logic to show correct page numbers around current page
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+
+                  return (
+                    <Button
+                      key={pageNum}
+                      variant={currentPage === pageNum ? "default" : "outline"}
+                      onClick={() => handlePageChange(pageNum)}
+                      className={
+                        currentPage === pageNum
+                          ? "bg-orange-500 hover:bg-orange-600"
+                          : ""
+                      }
+                    >
+                      {pageNum}
+                    </Button>
+                  );
+                })}
+
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    handlePageChange(Math.min(totalPages, currentPage + 1))
+                  }
+                  disabled={currentPage === totalPages}
+                  className="flex items-center"
+                >
+                  Tiếp
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
