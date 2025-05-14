@@ -89,6 +89,7 @@ export function TestForm({ onSubmit }: TestFormProps) {
   const [selectedChapterId, setSelectedChapterId] = useState<string>("");
   const [courses, setCourses] = useState<Course[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isBrowser, setIsBrowser] = useState(false);
 
   const form = useForm<TestFormValues>({
     resolver: zodResolver(testFormSchema),
@@ -107,38 +108,42 @@ export function TestForm({ onSubmit }: TestFormProps) {
     },
   });
 
-  // Lấy thông tin user từ store
   const user = useUserStore((state) => state.user);
 
   useEffect(() => {
+    setIsBrowser(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isBrowser) return;
+
+    if (!user?.id) {
+      setIsLoading(false);
+      setCourses([]);
+      return;
+    }
+
     const fetchCourses = async () => {
       try {
         setIsLoading(true);
 
-        if (!user?.id) {
-          console.error("User not logged in");
-          setCourses([]);
-          return;
-        }
-
         const result = await getUserCourseStructureWithDetails(user.id);
 
-        // Xử lý dữ liệu trả về tùy thuộc vào cấu trúc
         if (result.success && result.data) {
           if (result.data.value) {
             setCourses(result.data.value);
           } else if (Array.isArray(result.data)) {
             setCourses(result.data);
           } else {
-            console.error("Unexpected API response structure:", result.data);
+            console.log("Unexpected API response structure");
             setCourses([]);
           }
         } else {
-          console.error("Error fetching courses:", result.message);
+          console.log("Error fetching courses");
           setCourses([]);
         }
       } catch (error) {
-        console.error("Error fetching courses:", error);
+        console.log("Error fetching courses");
         setCourses([]);
       } finally {
         setIsLoading(false);
@@ -146,7 +151,7 @@ export function TestForm({ onSubmit }: TestFormProps) {
     };
 
     fetchCourses();
-  }, [user?.id]);
+  }, [user?.id, isBrowser]);
 
   const selectedCourse = courses.find((c) => c.id === selectedCourseId);
   const selectedChapter = selectedCourse?.chapters.find(
@@ -154,29 +159,52 @@ export function TestForm({ onSubmit }: TestFormProps) {
   );
 
   const handleSubmit = (data: TestFormValues) => {
-    // Validate test end time
-    const startTime = new Date(data.testStart);
-    const endTime = new Date(data.testEnd);
-    const durationInMs = data.duration * 60 * 1000; // Convert minutes to milliseconds
-
-    if (endTime.getTime() - startTime.getTime() < durationInMs) {
-      form.setError("testEnd", {
+    if (!data.testStart || !data.testEnd) {
+      form.setError("testStart", {
         type: "manual",
-        message:
-          "Thời gian kết thúc phải lớn hơn thời gian bắt đầu + thời gian làm bài",
+        message: "Vui lòng nhập thời gian bắt đầu và kết thúc",
       });
       return;
     }
 
-    // Convert to ISO string
-    const formattedData = {
-      ...data,
-      testStart: startTime.toISOString(),
-      testEnd: endTime.toISOString(),
-      testCreator: user?.id || "unknown",
-    };
+    try {
+      const startTime = new Date(data.testStart);
+      const endTime = new Date(data.testEnd);
 
-    onSubmit(formattedData);
+      if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
+        form.setError("testStart", {
+          type: "manual",
+          message: "Thời gian không hợp lệ",
+        });
+        return;
+      }
+
+      const durationInMs = data.duration * 60 * 1000;
+
+      if (endTime.getTime() - startTime.getTime() < durationInMs) {
+        form.setError("testEnd", {
+          type: "manual",
+          message:
+            "Thời gian kết thúc phải lớn hơn thời gian bắt đầu + thời gian làm bài",
+        });
+        return;
+      }
+
+      const formattedData = {
+        ...data,
+        testStart: startTime.toISOString(),
+        testEnd: endTime.toISOString(),
+        testCreator: user?.id || "unknown",
+      };
+
+      onSubmit(formattedData);
+    } catch (error) {
+      console.log("Error processing date/time values");
+      form.setError("testStart", {
+        type: "manual",
+        message: "Có lỗi xảy ra khi xử lý thời gian",
+      });
+    }
   };
 
   return (
@@ -359,9 +387,13 @@ export function TestForm({ onSubmit }: TestFormProps) {
                     <Input
                       type="number"
                       {...field}
-                      onChange={(e) =>
-                        field.onChange(parseInt(e.target.value, 10))
-                      }
+                      value={field.value || ""}
+                      onChange={(e) => {
+                        const val = e.target.value
+                          ? parseInt(e.target.value, 10)
+                          : "";
+                        field.onChange(val);
+                      }}
                     />
                   </FormControl>
                   <FormMessage />
@@ -413,9 +445,13 @@ export function TestForm({ onSubmit }: TestFormProps) {
                     <Input
                       type="number"
                       {...field}
-                      onChange={(e) =>
-                        field.onChange(parseInt(e.target.value, 10))
-                      }
+                      value={field.value || ""}
+                      onChange={(e) => {
+                        const val = e.target.value
+                          ? parseInt(e.target.value, 10)
+                          : "";
+                        field.onChange(val);
+                      }}
                     />
                   </FormControl>
                   <FormMessage />
@@ -433,10 +469,14 @@ export function TestForm({ onSubmit }: TestFormProps) {
                     <Input
                       type="number"
                       {...field}
+                      value={field.value || ""}
                       disabled={form.watch("maxAttempts") === 0}
-                      onChange={(e) =>
-                        field.onChange(parseInt(e.target.value, 10))
-                      }
+                      onChange={(e) => {
+                        const val = e.target.value
+                          ? parseInt(e.target.value, 10)
+                          : "";
+                        field.onChange(val);
+                      }}
                     />
                   </FormControl>
                   <FormMessage />
