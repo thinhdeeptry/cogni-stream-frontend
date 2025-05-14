@@ -9,7 +9,13 @@ import {
 } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 
+import { Course } from "@/types/course/types";
 import { Bell, LogOut, Search, Settings, User, X } from "lucide-react";
+import { useSession } from "next-auth/react";
+
+import { checkEnrollmentStatus } from "@/actions/enrollmentActions";
+
+import { useProgressStore } from "@/stores/useProgressStore";
 
 import CourseProgress from "@/components/course/CourseProgress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -41,6 +47,16 @@ export default function Navbar({
   const searchParams = useSearchParams();
   const params = useParams();
   const [searchQuery, setSearchQuery] = useState("");
+  const { data: session } = useSession();
+  const { enrollmentId, currentCourseId } = useProgressStore();
+  const [isCurrentCourseEnrolled, setIsCurrentCourseEnrolled] = useState(false);
+
+  // Check if we're in a lesson page
+  const isLessonPage =
+    pathname?.includes("/course/") && pathname?.includes("/lesson/");
+
+  // Check if we're on the home page
+  const isHomePage = pathname === "/";
 
   // Initialize search query from URL on mount
   useEffect(() => {
@@ -50,12 +66,43 @@ export default function Navbar({
     }
   }, [searchParams]);
 
-  // Check if we're in a lesson page
-  const isLessonPage =
-    pathname?.includes("/course/") && pathname?.includes("/lesson/");
+  // Check enrollment status for current course and compare with store
+  useEffect(() => {
+    const pageCourseId = params?.courseId as string;
 
-  // Check if we're on the home page
-  const isHomePage = pathname === "/";
+    const checkCurrentCourseEnrollment = async () => {
+      if (pageCourseId && session?.user?.id && isLessonPage) {
+        try {
+          // Chỉ hiển thị progress nếu khóa học đang xem trùng với khóa học trong store
+          // và có enrollmentId (đã đăng ký)
+          if (pageCourseId === currentCourseId && enrollmentId) {
+            setIsCurrentCourseEnrolled(true);
+          } else {
+            const result = await checkEnrollmentStatus(
+              pageCourseId,
+              session.user.id,
+            );
+            setIsCurrentCourseEnrolled(
+              result.data && pageCourseId === currentCourseId,
+            );
+          }
+        } catch (err) {
+          console.error("Error checking enrollment for current course:", err);
+          setIsCurrentCourseEnrolled(false);
+        }
+      } else {
+        setIsCurrentCourseEnrolled(false);
+      }
+    };
+
+    checkCurrentCourseEnrollment();
+  }, [
+    params.courseId,
+    session?.user?.id,
+    isLessonPage,
+    currentCourseId,
+    enrollmentId,
+  ]);
 
   const handleSearch = (e: FormEvent) => {
     e.preventDefault();
@@ -114,7 +161,10 @@ export default function Navbar({
               </button>
             )}
           </form>
-          {isLessonPage && <CourseProgress />}
+          {isLessonPage &&
+            isLoggedIn &&
+            isCurrentCourseEnrolled &&
+            enrollmentId && <CourseProgress />}
         </div>
 
         {/* Auth Buttons or User Info */}

@@ -10,6 +10,7 @@ import {
 
 interface ProgressState {
   enrollmentId: string | null;
+  currentCourseId: string | null;
   progress: number;
   currentLesson: string;
   lessonId: string;
@@ -22,6 +23,8 @@ interface ProgressState {
 
   // Actions
   setEnrollmentId: (enrollmentId: string) => void;
+  setCurrentCourseId: (courseId: string | null) => void;
+  clearProgress: () => void;
   fetchInitialProgress: () => Promise<void>;
   fetchOverallProgress: () => Promise<void>;
   updateLessonProgress: (progressData: {
@@ -38,6 +41,7 @@ export const useProgressStore = create<ProgressState>()(
     (set, get) => ({
       // Initial state
       enrollmentId: null,
+      currentCourseId: null,
       progress: 0,
       currentLesson: "",
       lessonId: "",
@@ -50,6 +54,21 @@ export const useProgressStore = create<ProgressState>()(
 
       // Actions
       setEnrollmentId: (enrollmentId) => set({ enrollmentId }),
+      setCurrentCourseId: (courseId) => set({ currentCourseId: courseId }),
+
+      clearProgress: () =>
+        set({
+          enrollmentId: null,
+          progress: 0,
+          currentLesson: "",
+          lessonId: "",
+          isLessonCompleted: false,
+          lastUpdated: "",
+          overallProgress: 0,
+          isCompleted: false,
+          status: "",
+          error: null,
+        }),
 
       fetchInitialProgress: async () => {
         const { enrollmentId } = get();
