@@ -231,7 +231,7 @@ export const updateCourse = async (
     categoryId: string;
     level: string;
     price: number;
-    promotionPrice?: number;
+    promotionPrice?: number | null;
     currency: string;
     isPublished: boolean;
     isHasCertificate: boolean;

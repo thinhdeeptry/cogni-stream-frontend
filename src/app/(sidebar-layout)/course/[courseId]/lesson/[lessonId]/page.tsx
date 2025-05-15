@@ -378,6 +378,7 @@ export default function LessonDetail() {
     fetchInitialProgress,
     fetchOverallProgress,
     updateLessonProgress,
+    setCurrentCourseId,
   } = useProgressStore();
 
   const [expandedChapters, setExpandedChapters] = useState<
@@ -590,6 +591,10 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
           );
           const isCurrentLessonPreview = currentLesson?.isFreePreview || false;
 
+          // Luôn cập nhật currentCourseId trong progress store
+          useProgressStore.getState().clearProgress(); // Reset all progress data
+          setCurrentCourseId(course.id);
+
           // Nếu đang xem bài học preview mà chưa enrolled, không cần fetch enrollment
           if (isCurrentLessonPreview && !isEnrolled) {
             console.log(
@@ -613,6 +618,7 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
           if (err.response?.status === 404) {
             console.log("User not enrolled in this course yet");
             // Không hiển thị lỗi trong console cho trường hợp này
+            useProgressStore.getState().clearProgress();
           } else {
             console.error("Error fetching enrollment ID:", err);
           }
@@ -629,6 +635,7 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
     fetchInitialProgress,
     fetchOverallProgress,
     setProgressEnrollmentId,
+    setCurrentCourseId,
   ]);
 
   // New state for video loading
@@ -1075,6 +1082,46 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
                         className="w-full bg-gradient-to-r from-orange-500 to-red-500 text-white hover:from-orange-600 hover:to-red-600"
                       >
                         Đã hoàn thành, học tiếp
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </motion.div>
+                </AlertDialogContent>
+              </AlertDialog>
+            ) : isEnrolled &&
+              currentLessonIndex === allLessons.length - 1 &&
+              overallProgress >= 100 ? (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button className="w-40 bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 transition-all duration-300 group">
+                    Hoàn thành{" "}
+                    <ChevronRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent className="rounded-xl border-none shadow-xl">
+                  <motion.div
+                    initial={{ scale: 0.9, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <AlertDialogHeader>
+                      <AlertDialogTitle className="text-xl font-bold text-center bg-gradient-to-r from-green-500 to-emerald-500 bg-clip-text text-transparent">
+                        Chúc mừng bạn đã hoàn thành khóa học!
+                      </AlertDialogTitle>
+                      <AlertDialogDescription className="text-center text-gray-600 mt-2">
+                        Bạn đã hoàn thành toàn bộ bài học trong khóa. Bạn có thể
+                        quay lại trang khóa học để xem lại nội dung hoặc khám
+                        phá các khóa học khác.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="flex gap-3 mt-4">
+                      <AlertDialogCancel className="w-full">
+                        Ở lại trang này
+                      </AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => router.push(`/course/${course?.id}`)}
+                        className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600"
+                      >
+                        Về trang khóa học
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </motion.div>
