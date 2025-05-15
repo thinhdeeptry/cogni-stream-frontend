@@ -2,6 +2,8 @@
 import axios from "axios";
 import { create } from "zustand";
 
+import useUserStore from "./useUserStore";
+
 // Định nghĩa cấu trúc dữ liệu cho báo cáo
 export interface Report {
   id: string;
@@ -215,7 +217,7 @@ const useReportStore = create<ReportState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await axios.post(`${API_URL}/reports/generate`, {
-        userId: "user123", // Thay thế bằng ID người dùng thực tế
+        userId: useUserStore.getState().user?.id || "",
       });
       const newReport = response.data;
       set((state) => ({

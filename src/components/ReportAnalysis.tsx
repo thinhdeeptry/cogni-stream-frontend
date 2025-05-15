@@ -78,13 +78,30 @@ Vui lòng trả về kết quả dưới dạng JSON với cấu trúc đã đ�
       setIsAnalyzing(false);
     }
   };
-
   // Khi có kết quả phân tích từ AI, gọi callback để cập nhật store
+  const [lastProcessedOutput, setLastProcessedOutput] = useState<string | null>(
+    null,
+  );
+
   useEffect(() => {
-    if (lastStructuredOutput && !isLoading && onAnalysisComplete) {
+    if (
+      lastStructuredOutput &&
+      !isLoading &&
+      onAnalysisComplete &&
+      JSON.stringify(lastStructuredOutput) !== lastProcessedOutput
+    ) {
+      // Lưu lại output đã xử lý để tránh xử lý lại
+      setLastProcessedOutput(JSON.stringify(lastStructuredOutput));
+
+      // Gọi callback để cập nhật store
       onAnalysisComplete(lastStructuredOutput);
     }
-  }, [lastStructuredOutput, isLoading, onAnalysisComplete]);
+  }, [
+    lastStructuredOutput,
+    isLoading,
+    onAnalysisComplete,
+    lastProcessedOutput,
+  ]);
 
   // Render biểu đồ doanh thu
   const renderRevenueChart = () => {

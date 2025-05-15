@@ -12,7 +12,7 @@ import {
   RefreshCw,
   Trash2,
 } from "lucide-react";
-import { toast } from "sonner";
+import { Toaster, toast } from "sonner";
 
 import useReportStore, { type Report } from "@/stores/useReportStore";
 
@@ -170,12 +170,24 @@ export default function ReportsPage() {
     aiAnalysis: Report["aiAnalysis"],
   ) => {
     try {
-      await updateReportAnalysis(reportId, {
+      // Thêm kiểm tra để tránh gọi API nếu phân tích không thay đổi
+      const currentReport = reports.find((r) => r.id === reportId);
+      if (
+        currentReport &&
+        JSON.stringify(currentReport.aiAnalysis) === JSON.stringify(aiAnalysis)
+      ) {
+        return; // Không cập nhật nếu dữ liệu không thay đổi
+      }
+      // Sử dụng một biến tạm thời để tránh re-render trong quá trình cập nhật
+      const analysisToUpdate = {
         ...aiAnalysis,
         rawAnalysis: aiAnalysis
           ? "Phân tích chi tiết từ AI sẽ được hiển thị ở đây."
           : undefined,
-      });
+      };
+
+      // Gọi API để cập nhật phân tích báo cáo
+      await updateReportAnalysis(reportId, analysisToUpdate);
       toast.success("Đã cập nhật phân tích báo cáo");
     } catch (error) {
       console.error("Error updating report analysis:", error);
@@ -190,6 +202,7 @@ export default function ReportsPage() {
 
   return (
     <div className="container space-y-6">
+      <Toaster position="top-right" richColors />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Báo cáo</h1>
@@ -276,7 +289,7 @@ export default function ReportsPage() {
             className="mt-4 flex items-center gap-2"
           >
             <RefreshCw className="h-4 w-4" />
-            <span>Thử lại</span>
+            <span>Thử lại</span>Biểu đồ số học viên
           </Button>
         </div>
       )}
