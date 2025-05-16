@@ -211,7 +211,7 @@ const renderBlockToHtml = (block: Block): JSX.Element => {
     case "codeBlock":
       return (
         <pre
-          className="bg-gray-100 p-4 rounded-lg overflow-x-auto my-4"
+          className="bg-gray-800 p-4 rounded-lg overflow-x-auto my-4"
           style={baseStyles}
         >
           <code className="language-text">{renderContent()}</code>

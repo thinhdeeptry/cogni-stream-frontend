@@ -10,6 +10,7 @@ import { Course } from "@/types/course/types";
 import { getAllCourses } from "@/actions/courseAction";
 
 import CourseItem from "@/components/courseItem";
+import { HomeJsonLd } from "@/components/jsonld/home-jsonld";
 import {
   Carousel,
   CarouselApi,
@@ -128,6 +129,16 @@ export default function Home() {
   const limitedProCourses = proCourses.slice(0, 8);
   const limitedFreeCourses = freeCourses.slice(0, 8);
 
+  // Chuẩn bị dữ liệu cho JSON-LD
+  const jsonLdCourses = filteredCourses.map((course) => ({
+    title: course.title,
+    description: course.description || "",
+    url: `https://eduforge.io.vn/courses/${course.id}`,
+    image: course.thumbnailUrl || "",
+    price: course.price || 0,
+    category: course.categoryId || "",
+  }));
+
   if (isLoading) {
     return (
       <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-50">
@@ -148,6 +159,9 @@ export default function Home() {
 
   return (
     <div className="container mx-auto px-2 sm:px-6 lg:px-2 py-4 flex-1 flex flex-col items-center w-full justify-start min-h-screen gap-12">
+      {/* Add JSON-LD for SEO */}
+      <HomeJsonLd courses={jsonLdCourses} />
+
       {/* Only show carousel if not searching */}
       {!searchQuery && (
         <div className="w-full relative rounded-3xl bg-gradient-to-r from-slate-50 to-orange-50/50">

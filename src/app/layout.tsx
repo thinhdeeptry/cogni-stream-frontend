@@ -15,9 +15,32 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Eduforge - Your Next Education Platform",
+  metadataBase: new URL("https://eduforge.com"),
+  title: {
+    default: "Eduforge - Nền tảng học trực tuyến hàng đầu Việt Nam",
+    template: "%s | Eduforge",
+  },
   description:
-    "Eduforge is a platform for educators and students to collaborate and learn together.",
+    "Eduforge là nền tảng học trực tuyến với hàng nghìn khóa học chất lượng cao về lập trình, thiết kế, marketing và nhiều lĩnh vực khác.",
+  applicationName: "Eduforge",
+  authors: [{ name: "Eduforge Team" }],
+  generator: "Next.js",
+  keywords: [
+    "eduforge",
+    "học trực tuyến",
+    "khóa học online",
+    "lập trình",
+    "elearning",
+    "việt nam",
+  ],
+  referrer: "origin-when-cross-origin",
+  creator: "Eduforge Team",
+  publisher: "Eduforge",
+  formatDetection: {
+    email: false,
+    address: false,
+    telephone: false,
+  },
 };
 
 export default function RootLayout({
@@ -26,7 +49,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="vi">
       <body className={`${inter.variable} ${inter.className} antialiased`}>
         {/* //render auth sync component */}
         <ClientProvider>
