@@ -1,7 +1,15 @@
 // "use server"
 import { AxiosFactory } from "@/lib/axios";
+import axios from "axios";
 
-const assessmentApi = await AxiosFactory.getApiInstance("assessment");
+// const assessmentApi = await AxiosFactory.getApiInstance("assessment");
+let assessmentApi = axios.create({
+  baseURL: "http://localhost:3005/api/v1",
+  timeout: 30000,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
 
 export async function getTests(params: {
   courseId?: string;
@@ -41,6 +49,30 @@ export async function getTestAttempts(params: {
     return {
       success: false,
       message: "Đã xảy ra lỗi khi lấy danh sách lần làm bài",
+      error,
+    };
+  }
+}
+
+export async function getHighestScoreAttempt(params: {
+  testId: string;
+  testTakerId: string;
+}) {
+  console.log("params", params);
+  try {
+    const { data } = await assessmentApi.get("/test-attempts/highest-score", {
+      params,
+    });
+    return {
+      success: true,
+      data,
+      message: "Lấy lần làm bài điểm cao nhất thành công",
+    };
+  } catch (error) {
+    console.error("Error fetching highest score attempt:", error);
+    return {
+      success: false,
+      message: "Đã xảy ra lỗi khi lấy lần làm bài điểm cao nhất",
       error,
     };
   }
@@ -109,13 +141,18 @@ export async function saveTestAnswer(
   attemptId: string,
   data: {
     questionId: string;
-    answerData: any;
+    answerData: string;
   },
 ) {
   try {
+    console.log("Saving answer:", { attemptId, data });
     const response = await assessmentApi.post(
       `/test-attempts/${attemptId}/answers`,
-      data,
+      {
+        questionId: data.questionId,
+        answerData: data.answerData,
+        submittedAt: new Date().toISOString(),
+      },
     );
     return {
       success: true,
