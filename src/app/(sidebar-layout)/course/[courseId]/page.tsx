@@ -232,23 +232,48 @@ export default function CourseDetail() {
 
         setIsEnrolled(isUserEnrolled);
 
-        // Nếu đã enrolled, cập nhật enrollmentId
+        // Nếu đã enrolled, cập nhật enrollmentId và dừng kiểm tra định kỳ
         if (isUserEnrolled) {
           await fetchEnrollmentId();
+          return true; // Trả về true nếu đã enrolled
         }
+
+        return false; // Trả về false nếu chưa enrolled
       } catch (error) {
         console.error("Error checking enrollment status:", error);
+        return false;
       }
     };
 
-    // Gọi hàm kiểm tra ngay khi component mount
-    checkEnrollment();
+    // Biến để lưu interval ID
+    let intervalId: NodeJS.Timeout;
 
-    // Thiết lập interval để kiểm tra định kỳ (mỗi 5 giây)
-    const intervalId = setInterval(checkEnrollment, 5000);
+    // Hàm kiểm tra ban đầu và thiết lập interval nếu cần
+    const initialCheck = async () => {
+      // Kiểm tra lần đầu
+      const isEnrolled = await checkEnrollment();
+
+      // Nếu chưa enrolled, thiết lập interval để kiểm tra định kỳ
+      if (!isEnrolled) {
+        intervalId = setInterval(async () => {
+          const enrolled = await checkEnrollment();
+          // Nếu đã enrolled, dừng interval
+          if (enrolled) {
+            clearInterval(intervalId);
+          }
+        }, 30000);
+      }
+    };
+
+    // Gọi hàm kiểm tra ban đầu
+    initialCheck();
 
     // Cleanup interval khi component unmount
-    return () => clearInterval(intervalId);
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
   }, [session, course, fetchEnrollmentId]);
 
   // Handle discussion thread
@@ -349,7 +374,7 @@ export default function CourseDetail() {
         const paymentData = {
           amount: course.promotionPrice || course.price,
           method: "BANK_TRANSFER",
-          description: course.title,
+          description: course.title.substring(0, 25), // Giới hạn 25 ký tự
           orderCode: orderCode.toString(), // Chuyển đổi thành chuỗi
           returnUrl: `${window.location.origin}/payment/success?orderCode=${orderCode}&courseId=${course.id}&userId=${session.user.id}&userName=${encodeURIComponent(session.user.name || session.user.email || "")}&courseName=${encodeURIComponent(course.title)}`,
           cancelUrl: `${window.location.origin}/course/${course.id}`,
@@ -374,14 +399,8 @@ export default function CourseDetail() {
         toast.dismiss(loadingToast);
 
         if (paymentResponse.success && paymentResponse.checkoutUrl) {
-          // Mở trực tiếp URL thanh toán trong cửa sổ mới
-          window.open(paymentResponse.checkoutUrl, "_blank");
-
-          // Hiển thị thông báo hướng dẫn
-          toast.info(
-            "Trang thanh toán đã được mở trong cửa sổ mới. Sau khi thanh toán thành công, vui lòng quay lại trang này và làm mới để xem trạng thái đăng ký.",
-            { duration: 10000 },
-          );
+          // Chuyển hướng trực tiếp đến trang thanh toán
+          window.location.href = paymentResponse.checkoutUrl;
         } else {
           toast.error(
             paymentResponse.message || "Không thể tạo trang thanh toán",

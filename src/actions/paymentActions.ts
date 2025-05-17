@@ -24,9 +24,13 @@ export const createPayment = async (paymentData: {
   };
 }) => {
   try {
+    // Giới hạn mô tả tối đa 25 ký tự
+    const truncatedDescription = paymentData.description.substring(0, 25);
+
     // Chuyển đổi orderCode thành ordercode để khớp với backend
     const validatedPaymentData = {
       ...paymentData,
+      description: truncatedDescription, // Sử dụng mô tả đã cắt ngắn
       method: "BANK_TRANSFER",
       ordercode: paymentData.orderCode, // Chuyển đổi tên trường
     };
