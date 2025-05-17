@@ -5,7 +5,7 @@ import React, { useEffect, useState } from "react";
 
 import { toast } from "@/hooks/use-toast";
 import { Course, CourseLevel } from "@/types/course/types";
-import { Edit, Eye, Filter, Plus, Trash } from "lucide-react";
+import { BookOpen, Edit, Eye, Filter, Play, Plus, Trash } from "lucide-react";
 
 import {
   CourseFilters,
@@ -400,11 +400,25 @@ export default function AdminCoursesPage() {
             </DialogContent>
           </Dialog>
 
-          <Link href="/admin/courses/create">
-            <Button className="bg-orange-500 hover:bg-orange-600 text-white">
-              <Plus className="mr-2 h-4 w-4" /> Thêm khoá học
-            </Button>
-          </Link>
+          <div className="flex gap-2">
+            <Link href="/assessment/questions">
+              <Button variant="outline" className="flex items-center gap-2">
+                <BookOpen className="h-4 w-4" />
+                Ngân hàng câu hỏi
+              </Button>
+            </Link>
+            <Link href="/assessment/tests">
+              <Button variant="outline" className="flex items-center gap-2">
+                <Play className="h-4 w-4" />
+                Quản lý bài kiểm tra
+              </Button>
+            </Link>
+            <Link href="/admin/courses/create">
+              <Button className="bg-orange-500 hover:bg-orange-600 text-white">
+                <Plus className="mr-2 h-4 w-4" /> Thêm khoá học
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
 

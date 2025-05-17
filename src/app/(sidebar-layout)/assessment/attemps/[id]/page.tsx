@@ -1,9 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { use, useEffect, useState } from "react";
 
 import { Question } from "@/types/assessment/types";
+import { BookOpen, Play } from "lucide-react";
 import { toast } from "sonner";
 
 import { getQuestionsById } from "@/actions/assessmentAction";
@@ -15,6 +17,7 @@ import {
 
 import { QuestionGrid } from "@/components/assessment/question-grid";
 import { QuestionView } from "@/components/assessment/question-view";
+import { Button } from "@/components/ui/button";
 
 interface TestAttempt {
   id: string;
@@ -40,6 +43,8 @@ interface TestAttempt {
     duration: number;
     maxScore: number;
     testType: string;
+    courseId: string;
+    lessonId: string;
   };
 }
 
@@ -166,8 +171,16 @@ function AttemptPageClient({ id }: { id: string }) {
       }
 
       toast.success("Đã nộp bài thành công");
-      // Chuyển hướng đến trang kết quả
-      router.push(`/assessment/results/${id}`);
+
+      // Redirect back to the lesson page
+      if (attempt?.test?.courseId && attempt?.test?.lessonId) {
+        router.push(
+          `/course/${attempt.test.courseId}/lesson/${attempt.test.lessonId}`,
+        );
+      } else {
+        // Fallback to results page if lesson info is not available
+        router.push(`/assessment/results/${id}`);
+      }
     } catch (error) {
       console.error("Error submitting attempt:", error);
       toast.error("Có lỗi xảy ra khi nộp bài");
@@ -202,10 +215,9 @@ function AttemptPageClient({ id }: { id: string }) {
       {/* Right column - Question grid */}
       <div className="w-2/3 flex flex-col">
         <div className="p-6 border-b">
-          <h2 className="text-2xl font-semibold">{attempt.test.title}</h2>
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
-            <p>Lần thử #{attempt.attemptNumber}</p>
-            <p>Thời gian: {attempt.test.duration} phút</p>
+            {/* <p>Lần thử #{attempt.attemptNumber}</p>
+            <p>Thời gian: {attempt.test.duration} phút</p> */}
             <p>Điểm tối đa: {attempt.test.maxScore}</p>
           </div>
         </div>

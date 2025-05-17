@@ -169,7 +169,13 @@ export function QuestionSelectionForm({
                       onCheckedChange={() => handleToggleSelect(question.id!)}
                     />
                   </TableCell>
-                  <TableCell>{question.content.text}</TableCell>
+                  <TableCell>
+                    <div
+                      dangerouslySetInnerHTML={{
+                        __html: question.content.text,
+                      }}
+                    />
+                  </TableCell>
                   <TableCell>
                     {question.type === "SINGLE_CHOICE" &&
                       "Trắc nghiệm một đáp án"}
