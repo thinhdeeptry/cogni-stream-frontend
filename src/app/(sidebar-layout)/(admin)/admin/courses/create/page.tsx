@@ -238,7 +238,8 @@ export default function CreateCoursePage() {
       const courseDataToSubmit = {
         ...courseData,
         price: roundedPrice,
-        promotionPrice: roundedPromotionPrice,
+        promotionPrice:
+          roundedPromotionPrice === 0 ? null : roundedPromotionPrice,
         ownerId: user?.id || "",
         thumbnailUrl: selectedImage, // Sử dụng URL hình ảnh đã upload
       };
