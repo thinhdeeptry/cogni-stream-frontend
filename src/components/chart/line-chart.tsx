@@ -27,6 +27,15 @@ export function LineChart({
   valueFormatter = (value: number) => `${value}`,
   className,
 }: LineChartProps) {
+  // Custom chart colors from HSL variables
+  const chartColors = [
+    "hsl(var(--chart-1))",
+    "hsl(var(--chart-2))",
+    "hsl(var(--chart-3))",
+    "hsl(var(--chart-4))",
+    "hsl(var(--chart-5))",
+  ];
+
   return (
     <ResponsiveContainer width="100%" height="100%" className={className}>
       <RechartsLineChart
@@ -49,6 +58,7 @@ export function LineChart({
           tickFormatter={(value) => valueFormatter(value)}
         />
         <Tooltip
+          cursor={false}
           content={({ active, payload }) => {
             if (active && payload && payload.length) {
               return (
@@ -69,7 +79,11 @@ export function LineChart({
                         </span>
                         <span
                           className="font-bold"
-                          style={{ color: colors[i % colors.length] }}
+                          style={{
+                            color:
+                              chartColors[i % chartColors.length] ||
+                              `hsl(var(--${colors[i % colors.length]}-9))`,
+                          }}
                         >
                           {valueFormatter(payload[0].payload[category])}
                         </span>
@@ -85,12 +99,16 @@ export function LineChart({
         {categories.map((category, i) => (
           <Line
             key={category}
-            type="monotone"
+            type="natural"
             dataKey={category}
-            stroke={`hsl(var(--${colors[i % colors.length]}-9))`}
+            stroke={
+              chartColors[i % chartColors.length] ||
+              `hsl(var(--${colors[i % colors.length]}-9))`
+            }
             strokeWidth={2}
-            dot={{ r: 4, strokeWidth: 2 }}
-            activeDot={{ r: 6, strokeWidth: 2 }}
+            dot={{ r: 3, strokeWidth: 2, fill: "#fff" }}
+            activeDot={{ r: 5, strokeWidth: 2 }}
+            connectNulls={true}
           />
         ))}
       </RechartsLineChart>

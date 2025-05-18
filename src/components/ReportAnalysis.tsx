@@ -152,7 +152,6 @@ Vui lòng trả về kết quả dưới dạng JSON với cấu trúc đã đ�
             valueFormatter={(value) => `${value} học viên`}
             category="value"
             className="h-full"
-            colors={["sky", "indigo", "violet", "purple", "fuchsia", "pink"]}
           />
         </div>
       </div>

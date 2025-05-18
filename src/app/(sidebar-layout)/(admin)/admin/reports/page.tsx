@@ -12,7 +12,7 @@ import {
   RefreshCw,
   Trash2,
 } from "lucide-react";
-import { Toaster, toast } from "sonner";
+import { toast } from "sonner";
 
 import useReportStore, { type Report } from "@/stores/useReportStore";
 
@@ -170,24 +170,12 @@ export default function ReportsPage() {
     aiAnalysis: Report["aiAnalysis"],
   ) => {
     try {
-      // Thêm kiểm tra để tránh gọi API nếu phân tích không thay đổi
-      const currentReport = reports.find((r) => r.id === reportId);
-      if (
-        currentReport &&
-        JSON.stringify(currentReport.aiAnalysis) === JSON.stringify(aiAnalysis)
-      ) {
-        return; // Không cập nhật nếu dữ liệu không thay đổi
-      }
-      // Sử dụng một biến tạm thời để tránh re-render trong quá trình cập nhật
-      const analysisToUpdate = {
+      await updateReportAnalysis(reportId, {
         ...aiAnalysis,
         rawAnalysis: aiAnalysis
           ? "Phân tích chi tiết từ AI sẽ được hiển thị ở đây."
           : undefined,
-      };
-
-      // Gọi API để cập nhật phân tích báo cáo
-      await updateReportAnalysis(reportId, analysisToUpdate);
+      });
       toast.success("Đã cập nhật phân tích báo cáo");
     } catch (error) {
       console.error("Error updating report analysis:", error);
@@ -202,7 +190,6 @@ export default function ReportsPage() {
 
   return (
     <div className="container space-y-6">
-      <Toaster position="top-right" richColors />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Báo cáo</h1>
@@ -289,7 +276,7 @@ export default function ReportsPage() {
             className="mt-4 flex items-center gap-2"
           >
             <RefreshCw className="h-4 w-4" />
-            <span>Thử lại</span>Biểu đồ số học viên
+            <span>Thử lại</span>
           </Button>
         </div>
       )}
@@ -405,85 +392,170 @@ export default function ReportsPage() {
                   <div className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                       <div key="revenue" className="card-wrapper">
-                        <Card>
-                          <CardHeader className="py-4">
-                            <CardTitle className="text-sm font-medium">
-                              Tổng doanh thu
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="text-2xl font-bold">
-                              {report.data.revenue.total.toLocaleString(
-                                "vi-VN",
-                              )}
-                              đ
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                              {report.data.revenue.last30Days.toLocaleString(
-                                "vi-VN",
-                              )}
-                              đ trong 30 ngày qua
-                            </p>
-                          </CardContent>
-                        </Card>
+                        <div className="rounded-lg overflow-hidden bg-purple-100 p-4">
+                          <div className="flex justify-between items-start mb-2">
+                            <span className="text-xs font-medium text-gray-500 bg-white px-2 py-1 rounded-full">
+                              {format(new Date(), "dd/MM/yy")}
+                            </span>
+                            <button className="text-gray-400 hover:text-gray-600">
+                              <svg
+                                width="16"
+                                height="16"
+                                viewBox="0 0 16 16"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path
+                                  d="M8 3.5C7.58579 3.5 7.25 3.16421 7.25 2.75C7.25 2.33579 7.58579 2 8 2C8.41421 2 8.75 2.33579 8.75 2.75C8.75 3.16421 8.41421 3.5 8 3.5Z"
+                                  fill="currentColor"
+                                />
+                                <path
+                                  d="M8 8.5C7.58579 8.5 7.25 8.16421 7.25 7.75C7.25 7.33579 7.58579 7 8 7C8.41421 7 8.75 7.33579 8.75 7.75C8.75 8.16421 8.41421 8.5 8 8.5Z"
+                                  fill="currentColor"
+                                />
+                                <path
+                                  d="M8 13.5C7.58579 13.5 7.25 13.1642 7.25 12.75C7.25 12.3358 7.58579 12 8 12C8.41421 12 8.75 12.3358 8.75 12.75C8.75 13.1642 8.41421 13.5 8 13.5Z"
+                                  fill="currentColor"
+                                />
+                              </svg>
+                            </button>
+                          </div>
+                          <div className="text-3xl font-bold mb-1">
+                            {report.data.revenue.total.toLocaleString("vi-VN")}đ
+                          </div>
+                          <p className="text-sm text-gray-600">
+                            Tổng doanh thu
+                          </p>
+                          <p className="text-xs text-gray-500 mt-2">
+                            {report.data.revenue.last30Days.toLocaleString(
+                              "vi-VN",
+                            )}
+                            đ trong 30 ngày qua
+                          </p>
+                        </div>
                       </div>
 
                       <div key="enrollments" className="card-wrapper">
-                        <Card>
-                          <CardHeader className="py-4">
-                            <CardTitle className="text-sm font-medium">
-                              Tổng học viên
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="text-2xl font-bold">
-                              {report.data.enrollments.total}
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                              {report.data.enrollments.last30Days} trong 30 ngày
-                              qua
-                            </p>
-                          </CardContent>
-                        </Card>
+                        <div className="rounded-lg overflow-hidden bg-yellow-100 p-4">
+                          <div className="flex justify-between items-start mb-2">
+                            <span className="text-xs font-medium text-gray-500 bg-white px-2 py-1 rounded-full">
+                              {format(new Date(), "dd/MM/yy")}
+                            </span>
+                            <button className="text-gray-400 hover:text-gray-600">
+                              <svg
+                                width="16"
+                                height="16"
+                                viewBox="0 0 16 16"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path
+                                  d="M8 3.5C7.58579 3.5 7.25 3.16421 7.25 2.75C7.25 2.33579 7.58579 2 8 2C8.41421 2 8.75 2.33579 8.75 2.75C8.75 3.16421 8.41421 3.5 8 3.5Z"
+                                  fill="currentColor"
+                                />
+                                <path
+                                  d="M8 8.5C7.58579 8.5 7.25 8.16421 7.25 7.75C7.25 7.33579 7.58579 7 8 7C8.41421 7 8.75 7.33579 8.75 7.75C8.75 8.16421 8.41421 8.5 8 8.5Z"
+                                  fill="currentColor"
+                                />
+                                <path
+                                  d="M8 13.5C7.58579 13.5 7.25 13.1642 7.25 12.75C7.25 12.3358 7.58579 12 8 12C8.41421 12 8.75 12.3358 8.75 12.75C8.75 13.1642 8.41421 13.5 8 13.5Z"
+                                  fill="currentColor"
+                                />
+                              </svg>
+                            </button>
+                          </div>
+                          <div className="text-3xl font-bold mb-1">
+                            {report.data.enrollments.total}
+                          </div>
+                          <p className="text-sm text-gray-600">Tổng học viên</p>
+                          <p className="text-xs text-gray-500 mt-2">
+                            {report.data.enrollments.last30Days} trong 30 ngày
+                            qua
+                          </p>
+                        </div>
                       </div>
 
                       <div key="courses" className="card-wrapper">
-                        <Card>
-                          <CardHeader className="py-4">
-                            <CardTitle className="text-sm font-medium">
-                              Số khóa học
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="text-2xl font-bold">
-                              {report.data.courses.total}
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                              {report.data.courses.active} đang hoạt động
-                            </p>
-                          </CardContent>
-                        </Card>
+                        <div className="rounded-lg overflow-hidden bg-purple-100 p-4">
+                          <div className="flex justify-between items-start mb-2">
+                            <span className="text-xs font-medium text-gray-500 bg-white px-2 py-1 rounded-full">
+                              {format(new Date(), "dd/MM/yy")}
+                            </span>
+                            <button className="text-gray-400 hover:text-gray-600">
+                              <svg
+                                width="16"
+                                height="16"
+                                viewBox="0 0 16 16"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path
+                                  d="M8 3.5C7.58579 3.5 7.25 3.16421 7.25 2.75C7.25 2.33579 7.58579 2 8 2C8.41421 2 8.75 2.33579 8.75 2.75C8.75 3.16421 8.41421 3.5 8 3.5Z"
+                                  fill="currentColor"
+                                />
+                                <path
+                                  d="M8 8.5C7.58579 8.5 7.25 8.16421 7.25 7.75C7.25 7.33579 7.58579 7 8 7C8.41421 7 8.75 7.33579 8.75 7.75C8.75 8.16421 8.41421 8.5 8 8.5Z"
+                                  fill="currentColor"
+                                />
+                                <path
+                                  d="M8 13.5C7.58579 13.5 7.25 13.1642 7.25 12.75C7.25 12.3358 7.58579 12 8 12C8.41421 12 8.75 12.3358 8.75 12.75C8.75 13.1642 8.41421 13.5 8 13.5Z"
+                                  fill="currentColor"
+                                />
+                              </svg>
+                            </button>
+                          </div>
+                          <div className="text-3xl font-bold mb-1">
+                            {report.data.courses.total}
+                          </div>
+                          <p className="text-sm text-gray-600">Số khóa học</p>
+                          <p className="text-xs text-gray-500 mt-2">
+                            {report.data.courses.active} đang hoạt động
+                          </p>
+                        </div>
                       </div>
 
                       <div key="completion-rate" className="card-wrapper">
-                        <Card>
-                          <CardHeader className="py-4">
-                            <CardTitle className="text-sm font-medium">
-                              Tỷ lệ hoàn thành
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="text-2xl font-bold">
-                              {Math.round(
-                                report.data.courses.completionRate * 100,
-                              )}
-                              %
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                              Trung bình các khóa học
-                            </p>
-                          </CardContent>
-                        </Card>
+                        <div className="rounded-lg overflow-hidden bg-yellow-100 p-4">
+                          <div className="flex justify-between items-start mb-2">
+                            <span className="text-xs font-medium text-gray-500 bg-white px-2 py-1 rounded-full">
+                              {format(new Date(), "dd/MM/yy")}
+                            </span>
+                            <button className="text-gray-400 hover:text-gray-600">
+                              <svg
+                                width="16"
+                                height="16"
+                                viewBox="0 0 16 16"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path
+                                  d="M8 3.5C7.58579 3.5 7.25 3.16421 7.25 2.75C7.25 2.33579 7.58579 2 8 2C8.41421 2 8.75 2.33579 8.75 2.75C8.75 3.16421 8.41421 3.5 8 3.5Z"
+                                  fill="currentColor"
+                                />
+                                <path
+                                  d="M8 8.5C7.58579 8.5 7.25 8.16421 7.25 7.75C7.25 7.33579 7.58579 7 8 7C8.41421 7 8.75 7.33579 8.75 7.75C8.75 8.16421 8.41421 8.5 8 8.5Z"
+                                  fill="currentColor"
+                                />
+                                <path
+                                  d="M8 13.5C7.58579 13.5 7.25 13.1642 7.25 12.75C7.25 12.3358 7.58579 12 8 12C8.41421 12 8.75 12.3358 8.75 12.75C8.75 13.1642 8.41421 13.5 8 13.5Z"
+                                  fill="currentColor"
+                                />
+                              </svg>
+                            </button>
+                          </div>
+                          <div className="text-3xl font-bold mb-1">
+                            {Math.round(
+                              report.data.courses.completionRate * 100,
+                            )}
+                            %
+                          </div>
+                          <p className="text-sm text-gray-600">
+                            Tỷ lệ hoàn thành
+                          </p>
+                          <p className="text-xs text-gray-500 mt-2">
+                            Trung bình các khóa học
+                          </p>
+                        </div>
                       </div>
                     </div>
 

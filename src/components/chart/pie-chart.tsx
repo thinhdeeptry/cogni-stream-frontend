@@ -26,6 +26,15 @@ export function PieChart({
   valueFormatter = (value: number) => `${value}`,
   className,
 }: PieChartProps) {
+  // Custom chart colors from HSL variables
+  const chartColors = [
+    "hsl(var(--chart-1))",
+    "hsl(var(--chart-2))",
+    "hsl(var(--chart-3))",
+    "hsl(var(--chart-4))",
+    "hsl(var(--chart-5))",
+  ];
+
   return (
     <ResponsiveContainer width="100%" height="100%" className={className}>
       <RechartsPieChart>
@@ -44,7 +53,10 @@ export function PieChart({
           {data.map((entry, index) => (
             <Cell
               key={`cell-${index}`}
-              fill={`hsl(var(--${colors[index % colors.length]}-9))`}
+              fill={
+                chartColors[index % chartColors.length] ||
+                `hsl(var(--${colors[index % colors.length]}-9))`
+              }
             />
           ))}
         </Pie>
