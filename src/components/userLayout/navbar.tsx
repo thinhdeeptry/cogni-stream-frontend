@@ -18,6 +18,7 @@ import { checkEnrollmentStatus } from "@/actions/enrollmentActions";
 import { useProgressStore } from "@/stores/useProgressStore";
 
 import CourseProgress from "@/components/course/CourseProgress";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -184,12 +185,7 @@ export default function Navbar({
               <span className="hidden text-sm font-medium md:block">
                 Khóa học của tôi
               </span>
-              {/* <Button variant="ghost" size="icon" className="relative">
-                <Bell className="h-5 w-5" />
-                <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">
-                  3
-                </span>
-              </Button> */}
+              <NotificationBell userId={session?.user?.id || ""} />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Avatar className="h-8 w-8 border cursor-pointer">
