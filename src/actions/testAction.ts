@@ -206,3 +206,57 @@ export async function createTest(testData: any) {
     };
   }
 }
+
+export async function updateTest(id: string, updateData: any) {
+  try {
+    const response = await assessmentApi.patch(`/tests/${id}`, updateData);
+    return {
+      success: true,
+      data: response.data,
+      message: "Cập nhật bài kiểm tra thành công",
+    };
+  } catch (error) {
+    console.error("Error updating test:", error);
+    return {
+      success: false,
+      message: "Đã xảy ra lỗi khi cập nhật bài kiểm tra",
+      error,
+    };
+  }
+}
+
+export async function deleteTest(id: string) {
+  try {
+    const response = await assessmentApi.delete(`/tests/${id}`);
+    return {
+      success: true,
+      data: response.data,
+      message: "Xóa bài kiểm tra thành công",
+    };
+  } catch (error) {
+    console.error("Error deleting test:", error);
+    return {
+      success: false,
+      message: "Đã xảy ra lỗi khi xóa bài kiểm tra",
+      error,
+    };
+  }
+}
+
+export async function getTestById(id: string) {
+  try {
+    const { data } = await assessmentApi.get(`/tests/${id}`);
+    return {
+      success: true,
+      data,
+      message: "Lấy thông tin bài kiểm tra thành công",
+    };
+  } catch (error) {
+    console.error("Error fetching test:", error);
+    return {
+      success: false,
+      message: "Đã xảy ra lỗi khi lấy thông tin bài kiểm tra",
+      error,
+    };
+  }
+}

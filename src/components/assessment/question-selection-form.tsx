@@ -23,7 +23,17 @@ interface QuestionSelectionFormProps {
   courseId: string;
   chapterId?: string;
   lessonId?: string;
-  onSubmit: (data: {
+  defaultQuestions?: Array<{
+    questionId: string;
+    maxScore: number;
+  }>;
+  defaultOrder?: string[];
+  onQuestionsSelected?: (data: {
+    testQuestions: Array<{ questionId: string; maxScore: number }>;
+    questionOrder: string[];
+    maxScore: number;
+  }) => void;
+  onSubmit?: (data: {
     testQuestions: Array<{ questionId: string; maxScore: number }>;
     questionOrder: string[];
     maxScore: number;
@@ -39,6 +49,9 @@ export function QuestionSelectionForm({
   courseId,
   chapterId,
   lessonId,
+  defaultQuestions,
+  defaultOrder,
+  onQuestionsSelected,
   onSubmit,
 }: QuestionSelectionFormProps) {
   const [questions, setQuestions] = useState<QuestionWithScore[]>([]);
@@ -48,7 +61,7 @@ export function QuestionSelectionForm({
     const fetchQuestions = async () => {
       try {
         setIsLoading(true);
-        let params = {};
+        let params: any = {};
 
         if (courseId) {
           params = { courseId };
@@ -66,13 +79,19 @@ export function QuestionSelectionForm({
           throw new Error(result.message || "Không thể lấy danh sách câu hỏi");
         }
 
-        setQuestions(
-          result.data.map((q: Question) => ({
+        // Map the questions and mark selected ones based on defaultQuestions
+        const mappedQuestions = result.data.map((q: Question) => {
+          const defaultQuestion = defaultQuestions?.find(
+            (dq) => dq.questionId === q.id,
+          );
+          return {
             ...q,
-            selected: false,
-            maxScore: 25,
-          })),
-        );
+            selected: !!defaultQuestion,
+            maxScore: defaultQuestion?.maxScore || 25,
+          };
+        });
+
+        setQuestions(mappedQuestions);
       } catch (error) {
         console.error("Error fetching questions:", error);
         toast.error("Có lỗi xảy ra khi tải danh sách câu hỏi");
@@ -82,30 +101,35 @@ export function QuestionSelectionForm({
     };
 
     fetchQuestions();
-  }, [courseId, chapterId, lessonId]);
+  }, [courseId, chapterId, lessonId, defaultQuestions]);
 
-  const handleSubmit = () => {
+  useEffect(() => {
+    // When questions change, notify parent component
     const selectedQuestions = questions.filter((q) => q.selected);
+    if (selectedQuestions.length > 0) {
+      const testQuestions = selectedQuestions.map((q) => ({
+        questionId: q.id!,
+        maxScore: q.maxScore,
+      }));
 
-    if (selectedQuestions.length === 0) {
-      toast.error("Vui lòng chọn ít nhất một câu hỏi");
-      return;
+      const questionOrder = selectedQuestions.map((q) => q.id!);
+      const maxScore = selectedQuestions.reduce(
+        (sum, q) => sum + q.maxScore,
+        0,
+      );
+
+      const data = {
+        testQuestions,
+        questionOrder,
+        maxScore,
+      };
+
+      // Support both callback names
+      if (onQuestionsSelected) {
+        onQuestionsSelected(data);
+      }
     }
-
-    const testQuestions = selectedQuestions.map((q) => ({
-      questionId: q.id!,
-      maxScore: q.maxScore,
-    }));
-
-    const questionOrder = selectedQuestions.map((q) => q.id!);
-    const maxScore = selectedQuestions.reduce((sum, q) => sum + q.maxScore, 0);
-
-    onSubmit({
-      testQuestions,
-      questionOrder,
-      maxScore,
-    });
-  };
+  }, [questions, onQuestionsSelected]);
 
   const handleScoreChange = (questionId: string, value: string) => {
     const score = parseInt(value, 10);
@@ -124,6 +148,33 @@ export function QuestionSelectionForm({
     );
   };
 
+  const handleSubmit = () => {
+    if (onSubmit) {
+      const selectedQuestions = questions.filter((q) => q.selected);
+      if (selectedQuestions.length === 0) {
+        toast.error("Vui lòng chọn ít nhất một câu hỏi");
+        return;
+      }
+
+      const testQuestions = selectedQuestions.map((q) => ({
+        questionId: q.id!,
+        maxScore: q.maxScore,
+      }));
+
+      const questionOrder = selectedQuestions.map((q) => q.id!);
+      const maxScore = selectedQuestions.reduce(
+        (sum, q) => sum + q.maxScore,
+        0,
+      );
+
+      onSubmit({
+        testQuestions,
+        questionOrder,
+        maxScore,
+      });
+    }
+  };
+
   const selectedCount = questions.filter((q) => q.selected).length;
   const totalScore = questions
     .filter((q) => q.selected)
@@ -138,6 +189,11 @@ export function QuestionSelectionForm({
             Đã chọn {selectedCount} câu hỏi - Tổng điểm: {totalScore}
           </p>
         </div>
+        {onSubmit && (
+          <Button onClick={handleSubmit} disabled={selectedCount === 0}>
+            Tiếp tục
+          </Button>
+        )}
       </div>
 
       {isLoading ? (
@@ -209,17 +265,6 @@ export function QuestionSelectionForm({
           </Table>
         </div>
       )}
-
-      <div className="flex justify-end">
-        <Button
-          type="button"
-          size="lg"
-          onClick={handleSubmit}
-          disabled={selectedCount === 0}
-        >
-          Tạo bài kiểm tra
-        </Button>
-      </div>
     </div>
   );
 }
