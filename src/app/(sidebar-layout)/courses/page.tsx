@@ -15,6 +15,10 @@ import {
 } from "lucide-react";
 
 import { getAllCategories, getAllCourses } from "@/actions/courseAction";
+import {
+  EnrollmentStats,
+  getEnrollmentStats,
+} from "@/actions/enrollmentActions";
 
 import CourseItem from "@/components/courseItem";
 import { Badge } from "@/components/ui/badge";
@@ -57,6 +61,9 @@ export default function AllCoursesPage() {
   const [filteredCourses, setFilteredCourses] = useState<Course[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [enrollmentStats, setEnrollmentStats] =
+    useState<EnrollmentStats | null>(null);
 
   // Filter states
   const [searchQuery, setSearchQuery] = useState("");
@@ -91,31 +98,39 @@ export default function AllCoursesPage() {
 
   // Fetch courses and categories
   useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
+    const fetchCoursesAndStats = async () => {
       try {
-        // Fetch all courses
-        const coursesResult = await getAllCourses({
+        setIsLoading(true);
+        const response = await getAllCourses({
           isPublished: true,
           skipPagination: true,
         });
 
-        // Fetch all categories
-        const categoriesResult = await getAllCategories();
+        // Ensure we only display published courses
+        const publishedCourses = response.data.filter(
+          (course) => course.isPublished === true,
+        );
 
-        setCourses(coursesResult.data);
-        setCategories(categoriesResult);
+        setCourses(publishedCourses);
+        console.log("Loaded courses:", publishedCourses.length);
+
+        // Fetch enrollment stats
+        const statsResponse = await getEnrollmentStats();
+        if (statsResponse.success) {
+          setEnrollmentStats(statsResponse.data);
+        }
 
         // Sau khi lấy dữ liệu, áp dụng tự động các bộ lọc từ URL
         applyFiltersFromURL();
-      } catch (error) {
-        console.error("Error fetching data:", error);
+      } catch (err) {
+        console.error("Error fetching courses:", err);
+        setError(err instanceof Error ? err.message : "An error occurred");
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchData();
+    fetchCoursesAndStats();
   }, []);
 
   // Tách hàm áp dụng filter từ URL để sử dụng lại
@@ -134,7 +149,19 @@ export default function AllCoursesPage() {
     setCourseType(type);
   };
 
-  // Apply filters
+  // Helper function to get enrollment count for a course
+  const getEnrollmentCount = (courseId: string): number => {
+    if (!enrollmentStats) return 0;
+
+    // Tìm trong enrollmentsByCourse
+    const courseEnrollment = enrollmentStats.enrollmentsByCourse.find(
+      (item) => item.courseId === courseId,
+    );
+
+    return courseEnrollment?.enrollments || 0;
+  };
+
+  // Tạo filtered courses với thông tin enrollment count
   useEffect(() => {
     if (!courses.length) return;
 
@@ -142,7 +169,7 @@ export default function AllCoursesPage() {
 
     // Filter by search query
     if (searchQuery) {
-      const query = searchQuery.toLowerCase();
+      const query = searchQuery.toLowerCase().trim();
       filtered = filtered.filter(
         (course) =>
           course.title.toLowerCase().includes(query) ||
@@ -159,17 +186,31 @@ export default function AllCoursesPage() {
     }
 
     // Filter by price range
-    filtered = filtered.filter((course) => {
-      const coursePrice = course.promotionPrice || course.price || 0;
-      return coursePrice >= priceRange[0] && coursePrice <= priceRange[1];
-    });
-
-    // Filter by course type (free/paid)
-    if (courseType === "free") {
-      filtered = filtered.filter((course) => (course.price || 0) === 0);
-    } else if (courseType === "paid") {
-      filtered = filtered.filter((course) => (course.price || 0) > 0);
+    if (typeof priceRange === "string") {
+      if (priceRange === "free") {
+        filtered = filtered.filter((course) => course.price === 0);
+      } else if (priceRange === "paid") {
+        filtered = filtered.filter((course) => course.price > 0);
+      }
+    } else if (Array.isArray(priceRange)) {
+      filtered = filtered.filter((course) => {
+        const coursePrice = course.promotionPrice || course.price || 0;
+        return coursePrice >= priceRange[0] && coursePrice <= priceRange[1];
+      });
     }
+
+    // Filter by course type
+    if (courseType === "free") {
+      filtered = filtered.filter((course) => course.price === 0);
+    } else if (courseType === "paid") {
+      filtered = filtered.filter((course) => course.price > 0);
+    }
+
+    // Enrich courses with enrollment count data
+    filtered = filtered.map((course) => ({
+      ...course,
+      enrollmentCount: getEnrollmentCount(course.id),
+    }));
 
     // Sort courses
     switch (sortBy) {
@@ -212,7 +253,15 @@ export default function AllCoursesPage() {
 
     setFilteredCourses(filtered);
     setCurrentPage(1); // Reset to first page when filters change
-  }, [courses, searchQuery, selectedCategory, priceRange, sortBy, courseType]);
+  }, [
+    courses,
+    searchQuery,
+    selectedCategory,
+    priceRange,
+    sortBy,
+    courseType,
+    enrollmentStats,
+  ]);
 
   // Pagination logic
   const totalPages = Math.ceil(filteredCourses.length / itemsPerPage);
