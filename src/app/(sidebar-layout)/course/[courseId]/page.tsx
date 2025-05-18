@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { AxiosFactory } from "@/lib/axios";
@@ -16,6 +16,7 @@ import {
   Crown,
   Info,
   ListChecks,
+  Loader2,
   MessageSquare,
   Plus,
   Target,
@@ -25,10 +26,16 @@ import { toast } from "sonner";
 
 import { getCourseById } from "@/actions/courseAction";
 import { getThreadByResourceId } from "@/actions/discussion.action";
+import { enrollCourse } from "@/actions/enrollmentActions";
 import {
   checkEnrollmentStatus,
-  enrollCourse,
-} from "@/actions/enrollmentActions";
+  createEnrollmentAfterPayment,
+  createPayment,
+  generateOrderCode,
+  getOrderByCode,
+  updateEnrollmentStatus,
+  updateOrderStatus,
+} from "@/actions/paymentActions";
 
 import { useProgressStore } from "@/stores/useProgressStore";
 import useUserStore from "@/stores/useUserStore";
@@ -73,13 +80,14 @@ const itemVariant = {
 export default function CourseDetail() {
   const [course, setCourse] = useState<Course | null>(null);
   const { user } = useUserStore();
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [firstLessonId, setFirstLessonId] = useState<string | null>(null);
   const [threadId, setThreadId] = useState<string | null>(null);
   const [enrollmentId, setEnrollmentId] = useState<string | null>(null);
   const [isCollapsed, setIsCollapsed] = useState<Record<string, boolean>>({});
+  const [isCheckingPayment, setIsCheckingPayment] = useState(false);
 
   // Progress store
   const {
@@ -89,8 +97,79 @@ export default function CourseDetail() {
   } = useProgressStore();
 
   const params = useParams();
+  const searchParams = useSearchParams();
   const { data: session } = useSession();
   const router = useRouter();
+
+  // Fetch enrollment ID and lesson progress
+  const fetchEnrollmentId = async () => {
+    if (session?.user?.id && course?.id) {
+      try {
+        const enrollmentApi = await AxiosFactory.getApiInstance("enrollment");
+        const response = await enrollmentApi.get(`/find/${course.id}`);
+
+        if (response.data?.id) {
+          setEnrollmentId(response.data.id);
+          setProgressEnrollmentId(response.data.id);
+
+          // Fetch progress data to get the last studied lesson
+          await fetchInitialProgress();
+        }
+      } catch (err) {
+        console.error("Error fetching enrollment ID:", err);
+      }
+    }
+  };
+
+  // Kiểm tra trạng thái thanh toán từ URL query parameter
+  useEffect(() => {
+    const checkPaymentStatus = async () => {
+      const orderCode = searchParams.get("orderCode");
+
+      // Nếu không có orderCode, không tiếp tục
+      if (!orderCode) {
+        setIsCheckingPayment(false);
+        return;
+      }
+
+      // Nếu thiếu thông tin cần thiết, không tiếp tục
+      if (!session?.user?.id || !course?.id) {
+        setIsCheckingPayment(false);
+        return;
+      }
+
+      setIsCheckingPayment(true);
+      try {
+        // Chỉ kiểm tra trạng thái enrollment, không xử lý thanh toán
+        // vì thanh toán đã được xử lý ở trang success
+        const response = await checkEnrollmentStatus(
+          session.user.id,
+          course.id,
+        );
+
+        console.log("Enrollment check after payment:", response);
+
+        if (response.success) {
+          setIsEnrolled(response.isEnrolled);
+          if (response.isEnrolled) {
+            await fetchEnrollmentId();
+            // Hiển thị thông báo thành công nếu đã enrolled
+            toast.success("Bạn đã đăng ký khóa học thành công!");
+          }
+        }
+
+        // Xóa query parameter sau khi xử lý xong
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, document.title, newUrl);
+      } catch (error) {
+        console.error("Error checking enrollment status:", error);
+      } finally {
+        setIsCheckingPayment(false);
+      }
+    };
+
+    checkPaymentStatus();
+  }, [searchParams, session, course, fetchInitialProgress]);
 
   // Fetch course data
   useEffect(() => {
@@ -128,50 +207,74 @@ export default function CourseDetail() {
     }
   }, [params.courseId]);
 
-  // Check enrollment status
+  // Kiểm tra trạng thái enrollment
   useEffect(() => {
     const checkEnrollment = async () => {
-      if (session?.user?.id && course?.id) {
-        try {
-          const result = await checkEnrollmentStatus(
-            course.id,
-            session.user.id,
-          );
+      if (!session?.user?.id || !course?.id) return;
 
-          setIsEnrolled(result.data);
+      try {
+        console.log("Checking enrollment status for course:", course.id);
 
-          // If enrolled, fetch enrollment ID
-          if (result.data) {
-            await fetchEnrollmentId();
-          }
-        } catch (err) {
-          console.error("Error checking enrollment:", err);
+        // Thêm timestamp để tránh cache
+        const timestamp = new Date().getTime();
+        const enrollmentApi = await AxiosFactory.getApiInstance("enrollment");
+
+        // Kiểm tra trạng thái enrollment
+        const response = await enrollmentApi.get(
+          `/check/${session.user.id}/${course.id}?_t=${timestamp}`,
+        );
+
+        console.log("Enrollment check response:", response.data);
+
+        // Cập nhật trạng thái enrolled dựa trên kết quả API
+        const isUserEnrolled = response.data.enrolled === true;
+        console.log("User is enrolled:", isUserEnrolled);
+
+        setIsEnrolled(isUserEnrolled);
+
+        // Nếu đã enrolled, cập nhật enrollmentId và dừng kiểm tra định kỳ
+        if (isUserEnrolled) {
+          await fetchEnrollmentId();
+          return true; // Trả về true nếu đã enrolled
         }
+
+        return false; // Trả về false nếu chưa enrolled
+      } catch (error) {
+        console.error("Error checking enrollment status:", error);
+        return false;
       }
     };
 
-    checkEnrollment();
-  }, [session?.user?.id, course?.id]);
+    // Biến để lưu interval ID
+    let intervalId: NodeJS.Timeout;
 
-  // Fetch enrollment ID and lesson progress
-  const fetchEnrollmentId = async () => {
-    if (session?.user?.id && course?.id) {
-      try {
-        const enrollmentApi = await AxiosFactory.getApiInstance("enrollment");
-        const response = await enrollmentApi.get(`/find/${course.id}`);
+    // Hàm kiểm tra ban đầu và thiết lập interval nếu cần
+    const initialCheck = async () => {
+      // Kiểm tra lần đầu
+      const isEnrolled = await checkEnrollment();
 
-        if (response.data?.id) {
-          setEnrollmentId(response.data.id);
-          setProgressEnrollmentId(response.data.id);
-
-          // Fetch progress data to get the last studied lesson
-          await fetchInitialProgress();
-        }
-      } catch (err) {
-        console.error("Error fetching enrollment ID:", err);
+      // Nếu chưa enrolled, thiết lập interval để kiểm tra định kỳ
+      if (!isEnrolled) {
+        intervalId = setInterval(async () => {
+          const enrolled = await checkEnrollment();
+          // Nếu đã enrolled, dừng interval
+          if (enrolled) {
+            clearInterval(intervalId);
+          }
+        }, 30000);
       }
-    }
-  };
+    };
+
+    // Gọi hàm kiểm tra ban đầu
+    initialCheck();
+
+    // Cleanup interval khi component unmount
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [session, course, fetchEnrollmentId]);
 
   // Handle discussion thread
   useEffect(() => {
@@ -204,6 +307,8 @@ export default function CourseDetail() {
 
     if (!course) return;
 
+    setIsLoading(true); // Bắt đầu loading
+
     // Handle free courses directly
     if (course.promotionPrice === 0 || course.price === 0) {
       try {
@@ -232,10 +337,81 @@ export default function CourseDetail() {
       } catch (error) {
         toast.error("Có lỗi xảy ra khi đăng ký khóa học");
         console.error("Error enrolling in free course:", error);
+      } finally {
+        setIsLoading(false); // Kết thúc loading
       }
     } else {
-      // Redirect to enrollment page for paid courses
-      router.push(`/enrollment/${course.id}?courseID=${course.id}`);
+      // Xử lý thanh toán cho khóa học có phí - trực tiếp mở link checkout
+      try {
+        // Trước tiên, kiểm tra xem đã có enrollment nào chưa và cập nhật nếu cần
+        const updateResult = await updateEnrollmentStatus(
+          session.user.id,
+          course.id,
+        );
+        console.log("Update enrollment result:", updateResult);
+
+        // Nếu cập nhật thành công, kiểm tra lại trạng thái enrollment
+        if (updateResult.success) {
+          const checkResult = await checkEnrollmentStatus(
+            session.user.id,
+            course.id,
+          );
+          if (checkResult.success && checkResult.isEnrolled) {
+            setIsEnrolled(true);
+            toast.success("Bạn đã được đăng ký vào khóa học!");
+            setIsLoading(false);
+            return;
+          }
+        }
+
+        // Nếu không có enrollment hoặc cập nhật không thành công, tiếp tục với thanh toán
+        // Show loading toast
+        const loadingToast = toast.loading("Đang tạo đơn thanh toán...");
+
+        const orderCode = generateOrderCode(); // Trả về số nguyên
+
+        // Cập nhật dữ liệu thanh toán với metadata phù hợp và returnUrl trỏ về trang success
+        const paymentData = {
+          amount: course.promotionPrice || course.price,
+          method: "BANK_TRANSFER",
+          description: course.title.substring(0, 25), // Giới hạn 25 ký tự
+          orderCode: orderCode.toString(), // Chuyển đổi thành chuỗi
+          returnUrl: `${window.location.origin}/payment/success?orderCode=${orderCode}&courseId=${course.id}&userId=${session.user.id}&userName=${encodeURIComponent(session.user.name || session.user.email || "")}&courseName=${encodeURIComponent(course.title)}`,
+          cancelUrl: `${window.location.origin}/course/${course.id}`,
+          metadata: {
+            courseId: course.id,
+            userId: session.user.id,
+            userName: session.user.name || session.user.email,
+            courseName: course.title,
+            level: course.level || "BEGINNER",
+            categoryName: course.category?.name || "",
+            serviceType: "Course",
+          },
+          serviceName: "Course Enrollment",
+          serviceId: course.id,
+          userId: session.user.id,
+        };
+
+        // Sử dụng hàm createPayment từ paymentActions
+        const paymentResponse = await createPayment(paymentData);
+
+        // Dismiss loading toast
+        toast.dismiss(loadingToast);
+
+        if (paymentResponse.success && paymentResponse.checkoutUrl) {
+          // Chuyển hướng trực tiếp đến trang thanh toán
+          window.location.href = paymentResponse.checkoutUrl;
+        } else {
+          toast.error(
+            paymentResponse.message || "Không thể tạo trang thanh toán",
+          );
+        }
+      } catch (error) {
+        toast.error("Có lỗi xảy ra khi tạo đơn thanh toán");
+        console.error("Error creating payment:", error);
+      } finally {
+        setIsLoading(false); // Kết thúc loading
+      }
     }
   };
 
@@ -492,6 +668,8 @@ export default function CourseDetail() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 0.5 }}
         >
+          {/* Bỏ component SandboxInfo */}
+
           <Card className="overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300">
             <motion.div
               className="relative aspect-video w-full overflow-hidden"
@@ -581,19 +759,41 @@ export default function CourseDetail() {
                 >
                   {!isEnrolled ? (
                     <Button
-                      className="w-full bg-orange-500 hover:bg-orange-600 text-white transition-colors"
+                      className="w-full bg-orange-500 hover:bg-orange-600 text-white transition-colors relative overflow-hidden group"
                       size="lg"
                       onClick={handleEnrollClick}
+                      disabled={isLoading || isCheckingPayment}
                     >
-                      {course.price === 0 ? "Đăng ký ngay" : "Mua khóa học"}
+                      {isLoading || isCheckingPayment ? (
+                        <div className="flex items-center justify-center">
+                          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                          <span>
+                            {isCheckingPayment
+                              ? "Đang kiểm tra thanh toán..."
+                              : "Đang xử lý..."}
+                          </span>
+                        </div>
+                      ) : (
+                        <>
+                          <span className="relative z-10">
+                            {course.price === 0
+                              ? "Đăng ký ngay"
+                              : "Mua khóa học"}
+                          </span>
+                          <span className="absolute inset-0 bg-gradient-to-r from-orange-400 to-orange-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
+                          <span className="absolute -inset-1 rounded-lg bg-gradient-to-r from-orange-400 via-orange-500 to-orange-400 opacity-0 group-hover:opacity-30 blur-md transition-opacity duration-300 animate-pulse"></span>
+                        </>
+                      )}
                     </Button>
                   ) : (
                     <Button
-                      className="w-full bg-orange-500 hover:bg-orange-600 text-white transition-colors"
+                      className="w-full bg-orange-500 hover:bg-orange-600 text-white transition-colors relative overflow-hidden group"
                       size="lg"
                       onClick={handleStartLearningClick}
                     >
-                      Bắt đầu học
+                      <span className="relative z-10">Bắt đầu học</span>
+                      <span className="absolute inset-0 bg-gradient-to-r from-orange-400 to-orange-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
+                      <span className="absolute -inset-1 rounded-lg bg-gradient-to-r from-orange-400 via-orange-500 to-orange-400 opacity-0 group-hover:opacity-30 blur-md transition-opacity duration-300 animate-pulse"></span>
                     </Button>
                   )}
                 </motion.div>
