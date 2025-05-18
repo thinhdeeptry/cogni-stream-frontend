@@ -190,6 +190,7 @@ const useAI = (options: UseAIOptions = {}): UseAIResult => {
         }
 
         setIsLoading(false);
+        setLastOutput(text);
         return text;
       } catch (error) {
         const errorMessage =

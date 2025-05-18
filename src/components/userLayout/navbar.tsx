@@ -50,6 +50,22 @@ export default function Navbar({
   }, [searchParams]);
 
   // Check if we're in a lesson page
+  const clearSearch = () => {
+    setSearchQuery("");
+    if (searchParams.has("q")) {
+      router.push("/");
+    }
+  };
+
+  // Initialize search query from URL on mount
+  useEffect(() => {
+    const query = searchParams.get("q");
+    if (query) {
+      setSearchQuery(query);
+    }
+  }, [searchParams]);
+
+  // Check if we're in a lesson page
   const isLessonPage =
     pathname?.includes("/course/") && pathname?.includes("/lesson/");
 
@@ -61,13 +77,6 @@ export default function Navbar({
     if (searchQuery.trim()) {
       // Redirect to home page with search query
       router.push(`/?q=${encodeURIComponent(searchQuery.trim())}`);
-    }
-  };
-
-  const clearSearch = () => {
-    setSearchQuery("");
-    if (searchParams.has("q")) {
-      router.push("/");
     }
   };
 
