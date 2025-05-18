@@ -43,6 +43,9 @@ export default function Navbar({
   const [searchQuery, setSearchQuery] = useState("");
   // Initialize search query from URL on mount
   useEffect(() => {
+    console.log("Image URL:", image);
+  }, [image]);
+  useEffect(() => {
     const query = searchParams.get("q");
     if (query) {
       setSearchQuery(query);

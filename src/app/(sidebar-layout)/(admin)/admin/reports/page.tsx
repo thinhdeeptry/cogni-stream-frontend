@@ -5,12 +5,21 @@ import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import {
+  AlertTriangle,
+  Award,
+  BarChart2,
+  BookOpen,
   Calendar,
+  CheckCircle,
+  Clock,
+  DollarSign,
   FileText,
   Loader2,
   Plus,
   RefreshCw,
   Trash2,
+  TrendingUp,
+  Users,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -92,12 +101,30 @@ export default function ReportsPage() {
   const [isAddingReport, setIsAddingReport] = useState(false);
   const [newReportTitle, setNewReportTitle] = useState("");
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  // State để kiểm soát animation
+  const [animate, setAnimate] = useState(false);
 
+  // Kích hoạt animation sau khi component được render
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setAnimate(true);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
   // Lấy danh sách báo cáo khi trang được tải
   useEffect(() => {
     fetchReports();
   }, [fetchReports]);
-
+  // Reset và kích hoạt lại animation khi chọn báo cáo khác
+  useEffect(() => {
+    if (selectedReportId) {
+      setAnimate(false);
+      const timer = setTimeout(() => {
+        setAnimate(true);
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [selectedReportId]);
   // Chọn báo cáo đầu tiên nếu có và chưa có báo cáo nào được chọn
   useEffect(() => {
     if (reports.length > 0 && !selectedReportId) {
@@ -183,14 +210,367 @@ export default function ReportsPage() {
     }
   };
 
-  // Lấy báo cáo hiện tại dựa trên selectedReportId
-  const selectedReport = reports.find(
-    (report) => report.id === selectedReportId,
-  );
+  // Render thông tin tổng quan của báo cáo
+  const renderReportOverview = (report: Report) => {
+    if (!report.data) return null;
+
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        {/* Thông tin doanh thu */}
+        <Card
+          className={`overflow-hidden border-0 shadow-md transform transition-all duration-500 ${
+            animate ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
+          }`}
+          style={{ transitionDelay: "0ms" }}
+        >
+          <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="bg-white/20 p-2 rounded-lg mr-3 transform transition-transform duration-300 hover:rotate-12">
+                  <DollarSign className="h-6 w-6 text-white" />
+                </div>
+                <h3 className="text-xl font-bold text-white">Doanh thu</h3>
+              </div>
+              <div className="bg-white/20 p-1.5 rounded-md transform transition-transform duration-300 hover:scale-110">
+                <TrendingUp className="h-4 w-4 text-white" />
+              </div>
+            </div>
+          </div>
+          <CardContent className="p-5 bg-white">
+            <div className="space-y-4">
+              <div className="flex justify-between items-center border-b pb-3">
+                <div className="flex items-center">
+                  <span className="text-gray-600 text-sm">Tổng doanh thu</span>
+                </div>
+                <span className="text-lg font-bold text-blue-600">
+                  {new Intl.NumberFormat("vi-VN").format(
+                    report.data.revenue.total,
+                  )}
+                  đ
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center">
+                <span className="text-gray-500 text-sm">30 ngày qua</span>
+                <span className="font-medium">
+                  {new Intl.NumberFormat("vi-VN").format(
+                    report.data.revenue.last30Days,
+                  )}
+                  đ
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center">
+                <span className="text-gray-500 text-sm">
+                  Giá trị giao dịch TB
+                </span>
+                <span className="font-medium">
+                  {new Intl.NumberFormat("vi-VN").format(
+                    report.data.revenue.averageTransaction,
+                  )}
+                  đ
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center">
+                <div className="flex items-center">
+                  <AlertTriangle className="h-4 w-4 text-amber-500 mr-1.5" />
+                  <span className="text-gray-500 text-sm">Tỷ lệ thất bại</span>
+                </div>
+                <span className="font-medium text-amber-600">
+                  {(report.data.revenue.failedRate * 100).toFixed(1)}%
+                </span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Thông tin học viên */}
+        <Card
+          className={`overflow-hidden border-0 shadow-md transform transition-all duration-500 ${
+            animate ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
+          }`}
+          style={{ transitionDelay: "150ms" }}
+        >
+          <div className="bg-gradient-to-r from-purple-500 to-purple-600 p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="bg-white/20 p-2 rounded-lg mr-3 transform transition-transform duration-300 hover:rotate-12">
+                  <Users className="h-6 w-6 text-white" />
+                </div>
+                <h3 className="text-xl font-bold text-white">Học viên</h3>
+              </div>
+              <div className="bg-white/20 p-1.5 rounded-md transform transition-transform duration-300 hover:scale-110">
+                <BarChart2 className="h-4 w-4 text-white" />
+              </div>
+            </div>
+          </div>
+          <CardContent className="p-5 bg-white">
+            <div className="space-y-4">
+              <div className="flex justify-between items-center border-b pb-3">
+                <div className="flex items-center">
+                  <span className="text-gray-600 text-sm">Tổng số đăng ký</span>
+                </div>
+                <span className="text-lg font-bold text-purple-600">
+                  {report.data.enrollments.total.toLocaleString()}
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center">
+                <span className="text-gray-500 text-sm">30 ngày qua</span>
+                <span className="font-medium">
+                  {report.data.enrollments.last30Days.toLocaleString()}
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center">
+                <div className="flex items-center">
+                  <AlertTriangle className="h-4 w-4 text-amber-500 mr-1.5" />
+                  <span className="text-gray-500 text-sm">Tỷ lệ bỏ học</span>
+                </div>
+                <span className="font-medium text-amber-600">
+                  {(report.data.enrollments.dropoutRate * 100).toFixed(1)}%
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center">
+                <div className="flex items-center">
+                  <CheckCircle className="h-4 w-4 text-green-500 mr-1.5" />
+                  <span className="text-gray-500 text-sm">
+                    Tỷ lệ hoàn thành
+                  </span>
+                </div>
+                <span className="font-medium text-green-600">
+                  {(report.data.enrollments.completionRate * 100).toFixed(1)}%
+                </span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Thông tin khóa học */}
+        <Card
+          className={`overflow-hidden border-0 shadow-md transform transition-all duration-500 ${
+            animate ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
+          }`}
+          style={{ transitionDelay: "300ms" }}
+        >
+          <div className="bg-gradient-to-r from-amber-500 to-amber-600 p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="bg-white/20 p-2 rounded-lg mr-3 transform transition-transform duration-300 hover:rotate-12">
+                  <BookOpen className="h-6 w-6 text-white" />
+                </div>
+                <h3 className="text-xl font-bold text-white">Khóa học</h3>
+              </div>
+              <div className="bg-white/20 p-1.5 rounded-md transform transition-transform duration-300 hover:scale-110">
+                <BarChart2 className="h-4 w-4 text-white" />
+              </div>
+            </div>
+          </div>
+          <CardContent className="p-5 bg-white">
+            <div className="space-y-4">
+              <div className="flex justify-between items-center border-b pb-3">
+                <div className="flex items-center">
+                  <span className="text-gray-600 text-sm">
+                    Tổng số khóa học
+                  </span>
+                </div>
+                <span className="text-lg font-bold text-amber-600">
+                  {report.data.courses.total}
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center">
+                <div className="flex items-center">
+                  <CheckCircle className="h-4 w-4 text-green-500 mr-1.5" />
+                  <span className="text-gray-500 text-sm">Đang hoạt động</span>
+                </div>
+                <span className="font-medium text-green-600">
+                  {report.data.courses.active}
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center">
+                <div className="flex items-center">
+                  <Clock className="h-4 w-4 text-blue-500 mr-1.5" />
+                  <span className="text-gray-500 text-sm">
+                    Thời gian hoàn thành TB
+                  </span>
+                </div>
+                <span className="font-medium">
+                  {report.data.enrollments.averageTimeToComplete} ngày
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center">
+                <div className="flex items-center">
+                  <TrendingUp className="h-4 w-4 text-blue-500 mr-1.5" />
+                  <span className="text-gray-500 text-sm">
+                    Lượt xem (30 ngày)
+                  </span>
+                </div>
+                <span className="font-medium">
+                  {report.data.enrollments.last30Days.toLocaleString()}
+                </span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+
+  // Render khóa học phổ biến
+  const renderPopularCourses = (report: Report) => {
+    if (!report.data?.enrollments?.popularCourses?.length) return null;
+
+    // Tính toán giá trị lớn nhất để làm cơ sở cho thanh tiến trình
+    const maxEnrollments = Math.max(
+      ...report.data.enrollments.popularCourses.map(
+        (course: { enrollments: number }) => course.enrollments,
+      ),
+    );
+
+    return (
+      <Card className="mb-6 border-0 shadow-md overflow-hidden transform transition-all duration-300 hover:shadow-lg">
+        <div className="bg-gradient-to-r from-indigo-500 to-indigo-600 p-5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <div className="bg-white/20 p-2 rounded-lg mr-3 transform transition-transform duration-500 hover:rotate-12">
+                <Award className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-white">
+                  Khóa học phổ biến
+                </h3>
+                <p className="text-indigo-100 text-sm mt-1">
+                  Các khóa học có số lượng đăng ký cao nhất
+                </p>
+              </div>
+            </div>
+            <div className="bg-white/20 p-1.5 rounded-md transform transition-transform duration-300 hover:scale-110">
+              <TrendingUp className="h-4 w-4 text-white" />
+            </div>
+          </div>
+        </div>
+        <CardContent className="p-6 bg-white">
+          <div className="space-y-6">
+            {report.data.enrollments.popularCourses.map(
+              (course: any, index: number) => {
+                // Tính toán phần trăm cho thanh tiến trình
+                const progressPercent =
+                  (course.enrollments / maxEnrollments) * 100;
+
+                // Xác định màu sắc dựa trên thứ hạng
+                const colors = {
+                  0: {
+                    badge: "bg-yellow-500",
+                    progress: "bg-yellow-500",
+                    text: "text-yellow-700",
+                    light: "bg-yellow-50",
+                  },
+                  1: {
+                    badge: "bg-gray-400",
+                    progress: "bg-gray-400",
+                    text: "text-gray-700",
+                    light: "bg-gray-50",
+                  },
+                  2: {
+                    badge: "bg-amber-600",
+                    progress: "bg-amber-600",
+                    text: "text-amber-700",
+                    light: "bg-amber-50",
+                  },
+                  default: {
+                    badge: "bg-blue-500",
+                    progress: "bg-blue-500",
+                    text: "text-blue-700",
+                    light: "bg-blue-50",
+                  },
+                };
+
+                const color =
+                  colors[index as keyof typeof colors] || colors.default;
+
+                return (
+                  <div
+                    key={course.courseId}
+                    className="relative transform transition-all duration-300 hover:translate-x-1 hover:shadow-sm rounded-lg p-2 -mx-2"
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`w-9 h-9 rounded-full flex items-center justify-center ${color.badge} text-white font-bold shadow-sm transform transition-transform duration-300 hover:scale-110`}
+                        >
+                          {index + 1}
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-gray-900">
+                            {course.title}
+                          </h4>
+                          <div className="flex items-center mt-1 text-sm text-gray-500">
+                            <BookOpen className="h-3.5 w-3.5 mr-1" />
+                            <span>ID: {course.courseId}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end">
+                        <div className="flex items-center">
+                          <Users className={`h-4 w-4 mr-1.5 ${color.text}`} />
+                          <span className="font-semibold text-gray-900">
+                            {course.enrollments}
+                          </span>
+                        </div>
+                        <span className="text-xs text-gray-500 mt-0.5">
+                          học viên
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Thanh tiến trình với animation */}
+                    <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full ${color.progress} rounded-full transition-all duration-1000 ease-out`}
+                        style={{
+                          width: animate ? `${progressPercent}%` : "0%",
+                          transitionDelay: `${index * 150}ms`,
+                        }}
+                      ></div>
+                    </div>
+
+                    {/* Thẻ xếp hạng với animation */}
+                    {index < 3 && (
+                      <div
+                        className={`absolute -left-2 -top-2 ${
+                          color.light
+                        } ${color.text} text-xs font-medium px-2 py-0.5 rounded-full border border-white shadow-sm transform transition-all duration-500 ${
+                          animate
+                            ? "opacity-100 translate-y-0"
+                            : "opacity-0 -translate-y-4"
+                        }`}
+                        style={{ transitionDelay: `${300 + index * 100}ms` }}
+                      >
+                        {index === 0
+                          ? "Top #1"
+                          : index === 1
+                            ? "Top #2"
+                            : "Top #3"}
+                      </div>
+                    )}
+                  </div>
+                );
+              },
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
 
   return (
     <div className="container space-y-6">
-      <div className="flex items-center justify-between">
+      {/* <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Báo cáo</h1>
           <p className="text-muted-foreground">
@@ -266,7 +646,7 @@ export default function ReportsPage() {
             </DialogContent>
           </Dialog>
         </div>
-      </div>
+      </div> */}
 
       {error && (
         <div className="bg-destructive/10 text-destructive p-4 rounded-lg">
@@ -389,7 +769,12 @@ export default function ReportsPage() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
+                  {/* Thêm phần tổng quan báo cáo */}
+                  {renderReportOverview(report)}
+
+                  {/* Thêm phần khóa học phổ biến */}
+                  {renderPopularCourses(report)}
+                  {/* <div className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                       <div key="revenue" className="card-wrapper">
                         <div className="rounded-lg overflow-hidden bg-purple-100 p-4">
@@ -570,7 +955,7 @@ export default function ReportsPage() {
                         rows={10}
                       />
                     </div>
-                  </div>
+                  </div> */}
                 </CardContent>
               </Card>
 

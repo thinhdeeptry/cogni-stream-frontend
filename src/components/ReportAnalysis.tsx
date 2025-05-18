@@ -57,6 +57,15 @@ export function ReportAnalysis({
 
     setIsAnalyzing(true);
     try {
+      // Tạo dữ liệu biểu đồ từ dữ liệu báo cáo nếu chưa có phân tích AI
+      if (!report.aiAnalysis) {
+        // Tạo dữ liệu biểu đồ mặc định từ dữ liệu báo cáo
+        const defaultAnalysis = generateDefaultAnalysis(report.data);
+        if (onAnalysisComplete) {
+          onAnalysisComplete(defaultAnalysis);
+        }
+      }
+
       // Chuyển đổi dữ liệu báo cáo thành chuỗi để gửi cho AI
       const reportDataString = JSON.stringify(report.data, null, 2);
 
@@ -77,6 +86,87 @@ Vui lòng trả về kết quả dưới dạng JSON với cấu trúc đã đ�
     } finally {
       setIsAnalyzing(false);
     }
+  };
+
+  // Tạo phân tích mặc định từ dữ liệu báo cáo
+  const generateDefaultAnalysis = (data: any) => {
+    // Dữ liệu biểu đồ doanh thu
+    const revenueLabels = Object.keys(data.revenue.byMethod || {});
+    const revenueData = Object.values(data.revenue.byMethod || {}) as number[];
+
+    // Dữ liệu biểu đồ học viên
+    const studentLabels =
+      data.enrollments.popularCourses?.map((course: any) => course.title) || [];
+    const studentData =
+      data.enrollments.popularCourses?.map(
+        (course: any) => course.enrollments,
+      ) || [];
+
+    return {
+      chartData: {
+        revenue: {
+          labels: revenueLabels,
+          datasets: [
+            {
+              label: "Doanh thu theo phương thức thanh toán",
+              data: revenueData,
+              backgroundColor: ["#4C51BF", "#38B2AC", "#ED8936"],
+            },
+          ],
+        },
+        students: {
+          labels: studentLabels,
+          datasets: [
+            {
+              label: "Số lượng học viên theo khóa học",
+              data: studentData,
+              backgroundColor: [
+                "#4C51BF",
+                "#38B2AC",
+                "#ED8936",
+                "#667EEA",
+                "#F6AD55",
+              ],
+            },
+          ],
+        },
+      },
+      predictions: {
+        revenue: [
+          {
+            month: "Tháng tới",
+            value: Math.round(data.revenue.last30Days * 1.05),
+          },
+          {
+            month: "Tháng sau",
+            value: Math.round(data.revenue.last30Days * 1.1),
+          },
+          {
+            month: "Tháng thứ 3",
+            value: Math.round(data.revenue.last30Days * 1.15),
+          },
+        ],
+        students: [
+          {
+            month: "Tháng tới",
+            value: Math.round(data.enrollments.newEnrollmentsLast30Days * 1.05),
+          },
+          {
+            month: "Tháng sau",
+            value: Math.round(data.enrollments.newEnrollmentsLast30Days * 1.1),
+          },
+          {
+            month: "Tháng thứ 3",
+            value: Math.round(data.enrollments.newEnrollmentsLast30Days * 1.15),
+          },
+        ],
+      },
+      recommendations: [
+        "Tăng cường marketing cho các khóa học có tỷ lệ đăng ký thấp",
+        "Cải thiện trải nghiệm thanh toán để giảm tỷ lệ giao dịch thất bại",
+        "Phát triển thêm nội dung cho các khóa học phổ biến",
+      ],
+    };
   };
   // Khi có kết quả phân tích từ AI, gọi callback để cập nhật store
   const [lastProcessedOutput, setLastProcessedOutput] = useState<string | null>(
