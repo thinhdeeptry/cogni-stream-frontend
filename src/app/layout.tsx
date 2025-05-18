@@ -1,4 +1,5 @@
 import { Inter } from "next/font/google";
+import { Great_Vibes, Playfair_Display } from "next/font/google";
 
 import ClientProvider from "@/providers/clientProvider";
 import { QueryProvider } from "@/providers/query-provider";
@@ -12,6 +13,21 @@ import "./globals.css";
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
+});
+
+export const playfair = Playfair_Display({
+  subsets: ["latin"],
+  variable: "--font-playfair",
+  weight: ["400", "500", "600", "700", "800", "900"],
+  style: ["normal", "italic"],
+  display: "swap",
+});
+
+export const greatVibes = Great_Vibes({
+  subsets: ["latin"],
+  variable: "--font-great-vibes",
+  weight: ["400"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -50,7 +66,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="vi">
-      <body className={`${inter.variable} ${inter.className} antialiased`}>
+      <body
+        className={`${inter.variable} ${playfair.variable} ${greatVibes.variable} ${inter.className} antialiased`}
+      >
         {/* //render auth sync component */}
         <ClientProvider>
           <AuthSync />

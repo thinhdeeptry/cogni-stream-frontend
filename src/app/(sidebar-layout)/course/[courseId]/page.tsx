@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { Course } from "@/types/course/types";
 import { motion } from "framer-motion";
 import {
+  Award,
   Book,
   BookOpen,
   CheckCircle2,
@@ -121,46 +122,45 @@ export default function CourseDetail() {
     }
   };
 
-  // Kiểm tra trạng thái thanh toán từ URL query parameter
   useEffect(() => {
-    const checkPaymentStatus = async () => {
+    const checkStatusOnce = async () => {
+      // Only proceed if we have the necessary data
+      if (!session?.user?.id || !course?.id) return;
+
       const orderCode = searchParams.get("orderCode");
+      const hasOrderCode = !!orderCode;
 
-      // Nếu không có orderCode, không tiếp tục
-      if (!orderCode) {
-        setIsCheckingPayment(false);
-        return;
+      if (hasOrderCode) {
+        setIsCheckingPayment(true);
       }
 
-      // Nếu thiếu thông tin cần thiết, không tiếp tục
-      if (!session?.user?.id || !course?.id) {
-        setIsCheckingPayment(false);
-        return;
-      }
-
-      setIsCheckingPayment(true);
       try {
-        // Chỉ kiểm tra trạng thái enrollment, không xử lý thanh toán
-        // vì thanh toán đã được xử lý ở trang success
-        const response = await checkEnrollmentStatus(
-          session.user.id,
-          course.id,
+        console.log("Checking enrollment status for course:", course.id);
+
+        // Single API call to check enrollment status
+        const timestamp = new Date().getTime();
+        const enrollmentApi = await AxiosFactory.getApiInstance("enrollment");
+        const response = await enrollmentApi.get(
+          `/check/${session.user.id}/${course.id}?_t=${timestamp}`,
         );
 
-        console.log("Enrollment check after payment:", response);
+        console.log("Enrollment check response:", response.data);
+        const isUserEnrolled = response.data.enrolled === true;
+        setIsEnrolled(isUserEnrolled);
 
-        if (response.success) {
-          setIsEnrolled(response.isEnrolled);
-          if (response.isEnrolled) {
-            await fetchEnrollmentId();
-            // Hiển thị thông báo thành công nếu đã enrolled
+        // If enrolled, update enrollment ID
+        if (isUserEnrolled) {
+          await fetchEnrollmentId();
+
+          // Show success message if coming from payment
+          if (hasOrderCode) {
             toast.success("Bạn đã đăng ký khóa học thành công!");
+
+            // Remove query parameter after processing
+            const newUrl = window.location.pathname;
+            window.history.replaceState({}, document.title, newUrl);
           }
         }
-
-        // Xóa query parameter sau khi xử lý xong
-        const newUrl = window.location.pathname;
-        window.history.replaceState({}, document.title, newUrl);
       } catch (error) {
         console.error("Error checking enrollment status:", error);
       } finally {
@@ -168,8 +168,11 @@ export default function CourseDetail() {
       }
     };
 
-    checkPaymentStatus();
-  }, [searchParams, session, course, fetchInitialProgress]);
+    // Only run once when component mounts or when critical dependencies change
+    checkStatusOnce();
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.courseId, session?.user?.id, course?.id]);
 
   // Fetch course data
   useEffect(() => {
@@ -206,75 +209,6 @@ export default function CourseDetail() {
       fetchCourse();
     }
   }, [params.courseId]);
-
-  // Kiểm tra trạng thái enrollment
-  useEffect(() => {
-    const checkEnrollment = async () => {
-      if (!session?.user?.id || !course?.id) return;
-
-      try {
-        console.log("Checking enrollment status for course:", course.id);
-
-        // Thêm timestamp để tránh cache
-        const timestamp = new Date().getTime();
-        const enrollmentApi = await AxiosFactory.getApiInstance("enrollment");
-
-        // Kiểm tra trạng thái enrollment
-        const response = await enrollmentApi.get(
-          `/check/${session.user.id}/${course.id}?_t=${timestamp}`,
-        );
-
-        console.log("Enrollment check response:", response.data);
-
-        // Cập nhật trạng thái enrolled dựa trên kết quả API
-        const isUserEnrolled = response.data.enrolled === true;
-        console.log("User is enrolled:", isUserEnrolled);
-
-        setIsEnrolled(isUserEnrolled);
-
-        // Nếu đã enrolled, cập nhật enrollmentId và dừng kiểm tra định kỳ
-        if (isUserEnrolled) {
-          await fetchEnrollmentId();
-          return true; // Trả về true nếu đã enrolled
-        }
-
-        return false; // Trả về false nếu chưa enrolled
-      } catch (error) {
-        console.error("Error checking enrollment status:", error);
-        return false;
-      }
-    };
-
-    // Biến để lưu interval ID
-    let intervalId: NodeJS.Timeout;
-
-    // Hàm kiểm tra ban đầu và thiết lập interval nếu cần
-    const initialCheck = async () => {
-      // Kiểm tra lần đầu
-      const isEnrolled = await checkEnrollment();
-
-      // Nếu chưa enrolled, thiết lập interval để kiểm tra định kỳ
-      if (!isEnrolled) {
-        intervalId = setInterval(async () => {
-          const enrolled = await checkEnrollment();
-          // Nếu đã enrolled, dừng interval
-          if (enrolled) {
-            clearInterval(intervalId);
-          }
-        }, 30000);
-      }
-    };
-
-    // Gọi hàm kiểm tra ban đầu
-    initialCheck();
-
-    // Cleanup interval khi component unmount
-    return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
-      }
-    };
-  }, [session, course, fetchEnrollmentId]);
 
   // Handle discussion thread
   useEffect(() => {
