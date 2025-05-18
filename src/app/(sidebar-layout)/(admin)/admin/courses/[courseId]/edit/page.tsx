@@ -217,10 +217,11 @@ export default function EditCoursePage({
         roundedPromotionPrice = roundedPrice;
       }
 
-      // If price is 0, promotionPrice should also be 0
-      if (roundedPrice === 0) {
-        roundedPromotionPrice = 0;
-      }
+      // Set promotionPrice to null if it's 0 or price is 0
+      const finalPromotionPrice =
+        roundedPrice === 0 || roundedPromotionPrice === 0
+          ? null
+          : roundedPromotionPrice;
 
       const result = await updateCourse(resolvedParams.courseId, {
         title: courseData.title,
@@ -228,8 +229,8 @@ export default function EditCoursePage({
         categoryId: courseData.categoryId,
         level: courseData.level || "BEGINNER",
         price: roundedPrice,
-        promotionPrice: roundedPromotionPrice,
-        currency: courseData.currency,
+        promotionPrice: finalPromotionPrice,
+        currency: "VND",
         isPublished: courseData.isPublished,
         isHasCertificate: courseData.isHasCertificate,
         tags: courseData.tags,
