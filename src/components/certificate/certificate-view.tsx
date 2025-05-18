@@ -277,7 +277,7 @@ export default function CertificateView({
                     {categories.map((category) => (
                       <span
                         key={category}
-                        className="rounded-full border border-gray-300 bg-transparent px-4 py-1 text-sm font-medium text-gray-700 font-playfair"
+                        className="rounded-full border border-gray-300 bg-transparent px-4 py-1 text-sm font-medium text-gray-700 font-playfair inline-flex items-center justify-center"
                       >
                         {category}
                       </span>
