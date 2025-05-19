@@ -37,7 +37,15 @@ export interface Report {
       revenue?: { month: string; value: number }[];
       students?: { month: string; value: number }[];
     };
-    recommendations?: string[];
+    recommendations?: Array<
+      | string
+      | {
+          problem: string;
+          solution: string;
+          benefit: string;
+          steps: string[] | string;
+        }
+    >;
     rawAnalysis?: string;
   };
   formattedData?: string;

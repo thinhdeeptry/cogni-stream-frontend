@@ -818,7 +818,7 @@ export default function ReportsPage() {
     );
   };
   return (
-    <div className="container space-y-6">
+    <div className="container mx-auto py-6 overflow-visible">
       {/* <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Báo cáo</h1>

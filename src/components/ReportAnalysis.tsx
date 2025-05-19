@@ -57,30 +57,79 @@ export function ReportAnalysis({
 
     setIsAnalyzing(true);
     try {
-      // Tạo dữ liệu biểu đồ từ dữ liệu báo cáo nếu chưa có phân tích AI
-      if (!report.aiAnalysis) {
-        // Tạo dữ liệu biểu đồ mặc định từ dữ liệu báo cáo
-        const defaultAnalysis = generateDefaultAnalysis(report.data);
-        if (onAnalysisComplete) {
-          onAnalysisComplete(defaultAnalysis);
-        }
-      }
+      // Lấy thông tin tháng hiện tại và 2 tháng tiếp theo
+      const currentDate = new Date();
+      const currentMonth = currentDate.getMonth();
+      const months = [
+        "Tháng 1",
+        "Tháng 2",
+        "Tháng 3",
+        "Tháng 4",
+        "Tháng 5",
+        "Tháng 6",
+        "Tháng 7",
+        "Tháng 8",
+        "Tháng 9",
+        "Tháng 10",
+        "Tháng 11",
+        "Tháng 12",
+      ];
+
+      const nextMonths = [
+        months[currentMonth],
+        months[(currentMonth + 1) % 12],
+        months[(currentMonth + 2) % 12],
+      ];
 
       // Chuyển đổi dữ liệu báo cáo thành chuỗi để gửi cho AI
       const reportDataString = JSON.stringify(report.data, null, 2);
 
       // Tạo prompt cho AI
       const prompt = `Phân tích dữ liệu báo cáo sau và tạo dữ liệu biểu đồ, dự đoán xu hướng 3 tháng tới, và đề xuất cải thiện:
-
-${reportDataString}
-
-Vui lòng trả về kết quả dưới dạng JSON với cấu trúc đã định nghĩa, bao gồm:
-1. Dữ liệu biểu đồ (chartData) cho doanh thu và số học viên
-2. Dự đoán (predictions) cho 3 tháng tiếp theo
-3. Các đề xuất cải thiện (recommendations)`;
+  
+  ${reportDataString}
+  
+  Vui lòng trả về kết quả dưới dạng JSON với cấu trúc đã định nghĩa, bao gồm:
+  1. Dự đoán (predictions) cho 3 tháng tiếp theo bắt đầu từ tháng hiện tại (${nextMonths[0]}) và 2 tháng tiếp theo (${nextMonths[1]} và ${nextMonths[2]})
+  2. Các đề xuất cải thiện chi tiết (recommendations) với ít nhất 5 đề xuất cụ thể, mỗi đề xuất cần:
+     - Mô tả vấn đề hiện tại dựa trên dữ liệu
+     - Giải pháp đề xuất chi tiết
+     - Lợi ích kỳ vọng khi áp dụng giải pháp
+     - Các bước thực hiện cụ thể
+  
+  Lưu ý quan trọng: Đảm bảo dự đoán bắt đầu từ tháng hiện tại (${nextMonths[0]}) chứ không phải từ tháng 1. Tên tháng trong dự đoán phải chính xác là: "${nextMonths[0]}", "${nextMonths[1]}", "${nextMonths[2]}".`;
 
       // Gửi prompt cho AI và nhận kết quả
-      await processInput(prompt, true);
+      const result = await processInput(prompt, true);
+
+      // Xử lý kết quả để đảm bảo tháng đúng
+      if (result && typeof result === "object") {
+        // Tạo bản sao của kết quả để chỉnh sửa
+        const processedResult = { ...result };
+
+        // Đảm bảo tên tháng đúng trong dự đoán doanh thu
+        if (processedResult.predictions?.revenue) {
+          processedResult.predictions.revenue =
+            processedResult.predictions.revenue.map((item, index) => ({
+              ...item,
+              month: nextMonths[index],
+            }));
+        }
+
+        // Đảm bảo tên tháng đúng trong dự đoán học viên
+        if (processedResult.predictions?.students) {
+          processedResult.predictions.students =
+            processedResult.predictions.students.map((item, index) => ({
+              ...item,
+              month: nextMonths[index],
+            }));
+        }
+
+        // Cập nhật kết quả đã xử lý
+        if (onAnalysisComplete) {
+          onAnalysisComplete(processedResult);
+        }
+      }
     } catch (err) {
       console.error("Error analyzing report:", err);
     } finally {
@@ -88,86 +137,103 @@ Vui lòng trả về kết quả dưới dạng JSON với cấu trúc đã đ�
     }
   };
 
-  // Tạo phân tích mặc định từ dữ liệu báo cáo
-  const generateDefaultAnalysis = (data: any) => {
-    // Dữ liệu biểu đồ doanh thu
-    const revenueLabels = Object.keys(data.revenue.byMethod || {});
-    const revenueData = Object.values(data.revenue.byMethod || {}) as number[];
+  // // Tạo phân tích mặc định từ dữ liệu báo cáo
+  // const generateDefaultAnalysis = (data: any) => {
+  //   // Dữ liệu biểu đồ doanh thu
+  //   const revenueLabels = Object.keys(data.revenue.byMethod || {});
+  //   const revenueData = Object.values(data.revenue.byMethod || {}) as number[];
 
-    // Dữ liệu biểu đồ học viên
-    const studentLabels =
-      data.enrollments.popularCourses?.map((course: any) => course.title) || [];
-    const studentData =
-      data.enrollments.popularCourses?.map(
-        (course: any) => course.enrollments,
-      ) || [];
+  //   // Dữ liệu biểu đồ học viên
+  //   const studentLabels =
+  //     data.enrollments.popularCourses?.map((course: any) => course.title) || [];
+  //   const studentData =
+  //     data.enrollments.popularCourses?.map(
+  //       (course: any) => course.enrollments,
+  //     ) || [];
 
-    return {
-      chartData: {
-        revenue: {
-          labels: revenueLabels,
-          datasets: [
-            {
-              label: "Doanh thu theo phương thức thanh toán",
-              data: revenueData,
-              backgroundColor: ["#4C51BF", "#38B2AC", "#ED8936"],
-            },
-          ],
-        },
-        students: {
-          labels: studentLabels,
-          datasets: [
-            {
-              label: "Số lượng học viên theo khóa học",
-              data: studentData,
-              backgroundColor: [
-                "#4C51BF",
-                "#38B2AC",
-                "#ED8936",
-                "#667EEA",
-                "#F6AD55",
-              ],
-            },
-          ],
-        },
-      },
-      predictions: {
-        revenue: [
-          {
-            month: "Tháng tới",
-            value: Math.round(data.revenue.last30Days * 1.05),
-          },
-          {
-            month: "Tháng sau",
-            value: Math.round(data.revenue.last30Days * 1.1),
-          },
-          {
-            month: "Tháng thứ 3",
-            value: Math.round(data.revenue.last30Days * 1.15),
-          },
-        ],
-        students: [
-          {
-            month: "Tháng tới",
-            value: Math.round(data.enrollments.newEnrollmentsLast30Days * 1.05),
-          },
-          {
-            month: "Tháng sau",
-            value: Math.round(data.enrollments.newEnrollmentsLast30Days * 1.1),
-          },
-          {
-            month: "Tháng thứ 3",
-            value: Math.round(data.enrollments.newEnrollmentsLast30Days * 1.15),
-          },
-        ],
-      },
-      recommendations: [
-        "Tăng cường marketing cho các khóa học có tỷ lệ đăng ký thấp",
-        "Cải thiện trải nghiệm thanh toán để giảm tỷ lệ giao dịch thất bại",
-        "Phát triển thêm nội dung cho các khóa học phổ biến",
-      ],
-    };
-  };
+  //   // Lấy tháng hiện tại và 2 tháng tiếp theo
+  //   const currentDate = new Date();
+  //   const currentMonth = currentDate.getMonth();
+  //   const months = ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10", "T11", "T12"];
+
+  //   const nextMonths = [
+  //     months[currentMonth],
+  //     months[(currentMonth + 1) % 12],
+  //     months[(currentMonth + 2) % 12]
+  //   ];
+
+  //   const monthNames = [
+  //     "Tháng hiện tại",
+  //     "Tháng sau",
+  //     "Tháng thứ 3"
+  //   ];
+
+  //   return {
+  //     chartData: {
+  //       revenue: {
+  //         labels: revenueLabels,
+  //         datasets: [
+  //           {
+  //             label: "Doanh thu theo phương thức thanh toán",
+  //             data: revenueData,
+  //             backgroundColor: ["#4C51BF", "#38B2AC", "#ED8936"],
+  //           },
+  //         ],
+  //       },
+  //       students: {
+  //         labels: studentLabels,
+  //         datasets: [
+  //           {
+  //             label: "Số lượng học viên theo khóa học",
+  //             data: studentData,
+  //             backgroundColor: [
+  //               "#4C51BF",
+  //               "#38B2AC",
+  //               "#ED8936",
+  //               "#667EEA",
+  //               "#F6AD55",
+  //             ],
+  //           },
+  //         ],
+  //       },
+  //     },
+  //     predictions: {
+  //       revenue: [
+  //         {
+  //           month: `${monthNames[0]} (${nextMonths[0]})`,
+  //           value: Math.round(data.revenue.last30Days * 1.05),
+  //         },
+  //         {
+  //           month: `${monthNames[1]} (${nextMonths[1]})`,
+  //           value: Math.round(data.revenue.last30Days * 1.1),
+  //         },
+  //         {
+  //           month: `${monthNames[2]} (${nextMonths[2]})`,
+  //           value: Math.round(data.revenue.last30Days * 1.15),
+  //         },
+  //       ],
+  //       students: [
+  //         {
+  //           month: `${monthNames[0]} (${nextMonths[0]})`,
+  //           value: Math.round(data.enrollments.newEnrollmentsLast30Days * 1.05),
+  //         },
+  //         {
+  //           month: `${monthNames[1]} (${nextMonths[1]})`,
+  //           value: Math.round(data.enrollments.newEnrollmentsLast30Days * 1.1),
+  //         },
+  //         {
+  //           month: `${monthNames[2]} (${nextMonths[2]})`,
+  //           value: Math.round(data.enrollments.newEnrollmentsLast30Days * 1.15),
+  //         },
+  //       ],
+  //     },
+  //     recommendations: [
+  //       "Tăng cường marketing cho các khóa học có tỷ lệ đăng ký thấp",
+  //       "Cải thiện trải nghiệm thanh toán để giảm tỷ lệ giao dịch thất bại",
+  //       "Phát triển thêm nội dung cho các khóa học phổ biến",
+  //     ],
+  //   };
+  // };
   // Khi có kết quả phân tích từ AI, gọi callback để cập nhật store
   const [lastProcessedOutput, setLastProcessedOutput] = useState<string | null>(
     null,
@@ -194,59 +260,59 @@ Vui lòng trả về kết quả dưới dạng JSON với cấu trúc đã đ�
   ]);
 
   // Render biểu đồ doanh thu
-  const renderRevenueChart = () => {
-    const chartData = report.aiAnalysis?.chartData?.revenue;
-    if (!chartData) return null;
+  // const renderRevenueChart = () => {
+  //   const chartData = report.aiAnalysis?.chartData?.revenue;
+  //   if (!chartData) return null;
 
-    // Format data for Shadcn UI BarChart
-    const data = chartData.labels.map((label, index) => ({
-      name: label,
-      [chartData.datasets[0].label]: chartData.datasets[0].data[index],
-    }));
+  //   // Format data for Shadcn UI BarChart
+  //   const data = chartData.labels.map((label, index) => ({
+  //     name: label,
+  //     [chartData.datasets[0].label]: chartData.datasets[0].data[index],
+  //   }));
 
-    return (
-      <div className="space-y-2">
-        <h3 className="text-lg font-medium">Biểu đồ doanh thu</h3>
-        <div className="h-[300px] w-full">
-          <BarChart
-            data={data}
-            index="name"
-            categories={[chartData.datasets[0].label]}
-            colors={["blue"]}
-            valueFormatter={(value) => `${value.toLocaleString()} VND`}
-            className="h-full"
-          />
-        </div>
-      </div>
-    );
-  };
+  //   return (
+  //     <div className="space-y-2">
+  //       <h3 className="text-lg font-medium">Biểu đồ doanh thu</h3>
+  //       <div className="h-[300px] w-full">
+  //         <BarChart
+  //           data={data}
+  //           index="name"
+  //           categories={[chartData.datasets[0].label]}
+  //           colors={["blue"]}
+  //           valueFormatter={(value) => `${value.toLocaleString()} VND`}
+  //           className="h-full"
+  //         />
+  //       </div>
+  //     </div>
+  //   );
+  // };
 
   // Render biểu đồ số học viên
-  const renderStudentsChart = () => {
-    const chartData = report.aiAnalysis?.chartData?.students;
-    if (!chartData) return null;
+  // const renderStudentsChart = () => {
+  //   const chartData = report.aiAnalysis?.chartData?.students;
+  //   if (!chartData) return null;
 
-    // Format data for Shadcn UI PieChart
-    const data = chartData.labels.map((label, index) => ({
-      name: label,
-      value: chartData.datasets[0].data[index],
-    }));
+  //   // Format data for Shadcn UI PieChart
+  //   const data = chartData.labels.map((label, index) => ({
+  //     name: label,
+  //     value: chartData.datasets[0].data[index],
+  //   }));
 
-    return (
-      <div className="space-y-2">
-        <h3 className="text-lg font-medium">Biểu đồ số học viên</h3>
-        <div className="h-[300px] w-full">
-          <PieChart
-            data={data}
-            index="name"
-            valueFormatter={(value) => `${value} học viên`}
-            category="value"
-            className="h-full"
-          />
-        </div>
-      </div>
-    );
-  };
+  //   return (
+  //     <div className="space-y-2">
+  //       <h3 className="text-lg font-medium">Biểu đồ số học viên</h3>
+  //       <div className="h-[300px] w-full">
+  //         <PieChart
+  //           data={data}
+  //           index="name"
+  //           valueFormatter={(value) => `${value} học viên`}
+  //           category="value"
+  //           className="h-full"
+  //         />
+  //       </div>
+  //     </div>
+  //   );
+  // };
 
   // Render dự đoán
   const renderPredictions = () => {
@@ -257,43 +323,45 @@ Vui lòng trả về kết quả dưới dạng JSON với cấu trúc đã đ�
       <div className="space-y-4">
         <h3 className="text-lg font-medium">Dự đoán 3 tháng tới</h3>
 
-        {predictions.revenue && (
-          <div className="space-y-2">
-            <h4 className="text-md font-medium">Doanh thu</h4>
-            <div className="h-[200px] w-full">
-              <LineChart
-                data={predictions.revenue.map((item) => ({
-                  month: item.month,
-                  "Doanh thu": item.value,
-                }))}
-                index="month"
-                categories={["Doanh thu"]}
-                colors={["blue"]}
-                valueFormatter={(value) => `${value.toLocaleString()} VND`}
-                className="h-full"
-              />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {predictions.revenue && (
+            <div className="space-y-2">
+              <h4 className="text-md font-medium">Doanh thu</h4>
+              <div className="h-[200px] w-full">
+                <LineChart
+                  data={predictions.revenue.map((item) => ({
+                    month: item.month,
+                    "Doanh thu": item.value,
+                  }))}
+                  index="month"
+                  categories={["Doanh thu"]}
+                  colors={["blue"]}
+                  valueFormatter={(value) => `${value.toLocaleString()} VND`}
+                  className="h-full"
+                />
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {predictions.students && (
-          <div className="space-y-2">
-            <h4 className="text-md font-medium">Số học viên</h4>
-            <div className="h-[200px] w-full">
-              <LineChart
-                data={predictions.students.map((item) => ({
-                  month: item.month,
-                  "Số học viên": item.value,
-                }))}
-                index="month"
-                categories={["Số học viên"]}
-                colors={["green"]}
-                valueFormatter={(value) => `${value} học viên`}
-                className="h-full"
-              />
+          {predictions.students && (
+            <div className="space-y-2">
+              <h4 className="text-md font-medium">Số học viên</h4>
+              <div className="h-[200px] w-full">
+                <LineChart
+                  data={predictions.students.map((item) => ({
+                    month: item.month,
+                    "Số học viên": item.value,
+                  }))}
+                  index="month"
+                  categories={["Số học viên"]}
+                  colors={["green"]}
+                  valueFormatter={(value) => `${value} học viên`}
+                  className="h-full"
+                />
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     );
   };
@@ -306,21 +374,80 @@ Vui lòng trả về kết quả dưới dạng JSON với cấu trúc đã đ�
     return (
       <div className="space-y-2">
         <h3 className="text-lg font-medium">Đề xuất cải thiện</h3>
-        <ul className="space-y-2">
-          {recommendations.map((recommendation, index) => (
-            <li key={index} className="flex items-start gap-2">
-              <ArrowRight className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-              <span>{recommendation}</span>
-            </li>
-          ))}
-        </ul>
+        <div className="max-h-[500px] overflow-y-auto pr-2">
+          <ul className="space-y-4">
+            {recommendations.map((recommendation, index) => {
+              // Kiểm tra nếu recommendation là đối tượng có cấu trúc phức tạp
+              if (
+                typeof recommendation === "object" &&
+                recommendation !== null
+              ) {
+                return (
+                  <li key={index} className="border rounded-md p-4 bg-slate-50">
+                    <div className="space-y-2">
+                      {recommendation.problem && (
+                        <div>
+                          <h4 className="font-medium text-red-600">Vấn đề:</h4>
+                          <p>{recommendation.problem}</p>
+                        </div>
+                      )}
+
+                      {recommendation.solution && (
+                        <div>
+                          <h4 className="font-medium text-green-600">
+                            Giải pháp:
+                          </h4>
+                          <p>{recommendation.solution}</p>
+                        </div>
+                      )}
+
+                      {recommendation.benefit && (
+                        <div>
+                          <h4 className="font-medium text-blue-600">
+                            Lợi ích:
+                          </h4>
+                          <p>{recommendation.benefit}</p>
+                        </div>
+                      )}
+
+                      {recommendation.steps && (
+                        <div>
+                          <h4 className="font-medium text-purple-600">
+                            Các bước thực hiện:
+                          </h4>
+                          <ol className="list-decimal pl-5 space-y-1">
+                            {Array.isArray(recommendation.steps) ? (
+                              recommendation.steps.map((step, stepIndex) => (
+                                <li key={stepIndex}>{step}</li>
+                              ))
+                            ) : (
+                              <li>{recommendation.steps}</li>
+                            )}
+                          </ol>
+                        </div>
+                      )}
+                    </div>
+                  </li>
+                );
+              } else {
+                // Xử lý trường hợp recommendation là chuỗi đơn giản (định dạng cũ)
+                return (
+                  <li key={index} className="flex items-start gap-2">
+                    <ArrowRight className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                    <span>{recommendation}</span>
+                  </li>
+                );
+              }
+            })}
+          </ul>
+        </div>
       </div>
     );
   };
 
   // Rest of the component remains the same
   return (
-    <Card className="w-full">
+    <Card className="w-full overflow-visible max-h-full">
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <span>Phân tích báo cáo: {report.title}</span>
@@ -331,7 +458,7 @@ Vui lòng trả về kết quả dưới dạng JSON với cấu trúc đã đ�
         </CardDescription>
       </CardHeader>
 
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 overflow-visible">
         {!report.aiAnalysis ? (
           <div className="flex flex-col items-center justify-center py-8">
             <p className="text-muted-foreground mb-4 text-center">
@@ -408,7 +535,7 @@ Vui lòng trả về kết quả dưới dạng JSON với cấu trúc đã đ�
         )}
       </CardContent>
 
-      <CardFooter className="flex justify-between">
+      <CardFooter className="flex justify-between overflow-visible">
         {report.aiAnalysis && (
           <Button
             variant="outline"
