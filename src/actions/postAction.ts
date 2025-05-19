@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_URL = "https://posts.eduforge.io.vn/api";
+const API_URL = "http://eduforge.io.vn:8081/api";
 
 export interface Post {
   id: string;
