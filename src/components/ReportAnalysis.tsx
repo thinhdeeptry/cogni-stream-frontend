@@ -43,7 +43,7 @@ export function ReportAnalysis({
 }: ReportAnalysisProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-
+  const [showCharts, setShowCharts] = useState(false);
   // Sử dụng hook useAI với cấu hình phù hợp cho phân tích báo cáo
   const { processInput, isLoading, lastStructuredOutput, error } = useAI({
     systemPrompt:
@@ -358,10 +358,10 @@ Vui lòng trả về kết quả dưới dạng JSON với cấu trúc đã đ�
         ) : (
           <div className="space-y-6">
             {/* Biểu đồ */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {renderRevenueChart()}
               {renderStudentsChart()}
-            </div>
+            </div> */}
 
             {/* Dự đoán */}
             {renderPredictions()}

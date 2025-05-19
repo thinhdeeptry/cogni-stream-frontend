@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import useAI from "@/hooks/useAI";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import {
@@ -26,6 +27,9 @@ import { toast } from "sonner";
 import useReportStore, { type Report } from "@/stores/useReportStore";
 
 import { ReportAnalysis } from "@/components/ReportAnalysis";
+import { BarChart } from "@/components/chart/bar-chart";
+import { ChartLayout } from "@/components/chart/chart-layout";
+import { PieChart } from "@/components/chart/pie-chart";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -95,7 +99,13 @@ export default function ReportsPage() {
     deleteReport,
     generateReport,
     clearReports,
+    updateFormattedData,
   } = useReportStore();
+  const { processInput, isLoading: isAILoading } = useAI({
+    systemPrompt:
+      "Bạn là trợ lý AI chuyên phân tích dữ liệu giáo dục. Hãy chuyển đổi dữ liệu JSON thành văn bản có định dạng HTML dễ đọc. Tổ chức thông tin theo các mục chính: Doanh thu, Học viên, và Khóa học. Sử dụng định dạng tiền tệ VND cho các giá trị tiền. Sử dụng định dạng phần trăm cho các tỷ lệ.",
+    structured: false, // We want HTML output, not JSON
+  });
 
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [isAddingReport, setIsAddingReport] = useState(false);
@@ -129,6 +139,19 @@ export default function ReportsPage() {
   useEffect(() => {
     if (reports.length > 0 && !selectedReportId) {
       setSelectedReportId(reports[0].id);
+      const selectedReport = reports.find(
+        (report) => report.id === selectedReportId,
+      );
+      if (
+        selectedReport &&
+        selectedReport.data &&
+        !selectedReport.formattedData
+      ) {
+        // Chỉ format dữ liệu nếu báo cáo chưa được format
+        if (selectedReportId) {
+          handleFormatData(selectedReportId, selectedReport.data);
+        }
+      }
     }
   }, [reports, selectedReportId]);
 
@@ -567,7 +590,233 @@ export default function ReportsPage() {
       </Card>
     );
   };
+  // Xử lý định dạng dữ liệu bằng AI
+  const handleFormatData = async (reportId: string, data: any) => {
+    try {
+      toast.info("Đang xử lý dữ liệu...");
 
+      // Tạo prompt cho AI
+      const prompt = `
+      Hãy chuyển đổi dữ liệu JSON thành HTML có định dạng đẹp và dễ đọc.
+      
+      Yêu cầu:
+      - Sử dụng thẻ HTML (h1, h2, h3, ul, li, p, strong, span) để tạo cấu trúc rõ ràng
+      - Tổ chức theo 3 mục: Doanh thu, Học viên, và Khóa học
+      - Định dạng tiền tệ: thêm dấu phẩy ngăn cách hàng nghìn và đơn vị "VND"
+      - Định dạng phần trăm với ký hiệu %
+      - Chỉ hiển thị 5 khóa học phổ biến nhất, sắp xếp theo số lượng học viên
+      - Sử dụng màu sắc phù hợp cho các tiêu đề và số liệu quan trọng
+      - Tạo giao diện sạch sẽ, chuyên nghiệp
+      
+      Dữ liệu JSON: ${JSON.stringify(data, null, 2)}
+      `;
+
+      // Gọi API AI để xử lý dữ liệu
+      // Giả định có một hàm callAI trong useReportStore
+      const formattedData = await processInput(prompt);
+
+      // Cập nhật báo cáo với dữ liệu đã định dạng
+      // toast.success("Đã định dạng dữ liệu thành công");
+      useReportStore.getState().updateFormattedData(reportId, formattedData);
+    } catch (error) {
+      console.error("Error formatting data:", error);
+      toast.error("Có lỗi xảy ra khi định dạng dữ liệu");
+    }
+  };
+  const generateChartData = (report: Report) => {
+    if (!report.data) return null;
+
+    // 1. Bar Chart: Tổng quan doanh thu
+    const revenueOverviewData = [
+      {
+        name: "Doanh thu",
+        "Tổng doanh thu": report.data.revenue.total,
+        "30 ngày qua": report.data.revenue.last30Days,
+      },
+    ];
+
+    // 2. Pie Chart: Phân tích phương thức thanh toán
+    const paymentMethodsData = [
+      {
+        name: "Thẻ tín dụng",
+        value: report.data.revenue.byMethod.creditCard || 0,
+      },
+      { name: "PayPal", value: report.data.revenue.byMethod.paypal || 0 },
+      {
+        name: "Chuyển khoản",
+        value: report.data.revenue.byMethod.bankTransfer || 0,
+      },
+    ];
+
+    // 3. Bar Chart: Số lượt đăng ký theo thời gian
+    const enrollmentData = [
+      {
+        name: "Học viên",
+        "Tổng học viên": report.data.enrollments.total,
+        "30 ngày qua": report.data.enrollments.last30Days,
+      },
+    ];
+
+    // 4. Horizontal Bar Chart: Khóa học phổ biến
+    // Lấy 5 khóa học phổ biến nhất
+    const popularCoursesData = report.data.enrollments.popularCourses
+      .slice(0, 5)
+      .map((course: { title: string; enrollments: number }) => ({
+        name: course.title,
+        value: course.enrollments,
+      }))
+      .sort((a: { value: number }, b: { value: number }) => b.value - a.value); // Sắp xếp giảm dần theo số lượng học viên
+
+    // 5. Pie Chart: Tỷ lệ khóa học đang hoạt động
+    const activeCourses = report.data.courses.active;
+    const inactiveCourses =
+      report.data.courses.total - report.data.courses.active;
+    const courseStatusData = [
+      { name: "Đang hoạt động", value: activeCourses },
+      { name: "Không hoạt động", value: inactiveCourses },
+    ];
+
+    return {
+      revenueOverview: revenueOverviewData,
+      paymentMethods: paymentMethodsData,
+      enrollments: enrollmentData,
+      popularCourses: popularCoursesData,
+      courseStatus: courseStatusData,
+    };
+  };
+
+  // Add this function to render charts
+  const renderReportCharts = (report: Report) => {
+    if (!report.data) return null;
+
+    const chartData = generateChartData(report);
+    if (!chartData) return null;
+
+    return (
+      <div className="space-y-8 mt-8">
+        <h2 className="text-2xl font-bold">Biểu đồ phân tích</h2>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* 1. Revenue Overview Bar Chart */}
+          <Card className="border-0 shadow-md overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+              <CardTitle>Tổng quan doanh thu</CardTitle>
+              <CardDescription className="text-blue-100">
+                So sánh tổng doanh thu với doanh thu 30 ngày qua
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-6 h-[350px]">
+              <BarChart
+                data={chartData.revenueOverview}
+                index="name"
+                categories={["Tổng doanh thu", "30 ngày qua"]}
+                valueFormatter={(value) =>
+                  `${new Intl.NumberFormat("vi-VN").format(value)}đ`
+                }
+                title="Phân tích doanh thu"
+              />
+            </CardContent>
+          </Card>
+
+          {/* 2. Payment Methods Pie Chart */}
+          <Card className="border-0 shadow-md overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-purple-500 to-purple-600 text-white">
+              <CardTitle>Phương thức thanh toán</CardTitle>
+              <CardDescription className="text-purple-100">
+                Phân bổ theo phương thức thanh toán
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-6 h-[350px]">
+              <PieChart
+                data={chartData.paymentMethods}
+                index="name"
+                category="value"
+                valueFormatter={(value) =>
+                  `${new Intl.NumberFormat("vi-VN").format(value)}đ`
+                }
+              />
+            </CardContent>
+          </Card>
+
+          {/* 3. Enrollments Bar Chart */}
+          <Card className="border-0 shadow-md overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-amber-500 to-amber-600 text-white">
+              <CardTitle>Số lượt đăng ký</CardTitle>
+              <CardDescription className="text-amber-100">
+                So sánh tổng số lượt đăng ký với số lượt đăng ký mới
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-6 h-[350px]">
+              <BarChart
+                data={chartData.enrollments}
+                index="name"
+                categories={["Tổng học viên", "30 ngày qua"]}
+                valueFormatter={(value) => value.toLocaleString()}
+                title="Số lượng học viên"
+              />
+            </CardContent>
+          </Card>
+
+          {/* 4. Popular Courses Horizontal Bar Chart */}
+          <Card className="border-0 shadow-md overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-green-500 to-green-600 text-white">
+              <CardTitle>Khóa học phổ biến</CardTitle>
+              <CardDescription className="text-green-100">
+                Top 5 khóa học có nhiều học viên nhất
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-6 h-[350px]">
+              <div className="h-full flex flex-col justify-center">
+                {chartData.popularCourses.map(
+                  (course: { name: string; value: number }, index: number) => (
+                    <div key={index} className="mb-4">
+                      <div className="flex justify-between items-center mb-1">
+                        <span
+                          className="text-sm font-medium truncate max-w-[70%]"
+                          title={course.name}
+                        >
+                          {course.name}
+                        </span>
+                        <span className="text-sm font-bold">
+                          {course.value}
+                        </span>
+                      </div>
+                      <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-green-500 rounded-full"
+                          style={{
+                            width: `${(course.value / chartData.popularCourses[0].value) * 100}%`,
+                          }}
+                        ></div>
+                      </div>
+                    </div>
+                  ),
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 5. Course Status Pie Chart */}
+          <Card className="border-0 shadow-md overflow-hidden md:col-span-2">
+            <CardHeader className="bg-gradient-to-r from-indigo-500 to-indigo-600 text-white">
+              <CardTitle>Trạng thái khóa học</CardTitle>
+              <CardDescription className="text-indigo-100">
+                Tỷ lệ khóa học đang hoạt động và không hoạt động
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-6 h-[350px]">
+              <PieChart
+                data={chartData.courseStatus}
+                index="name"
+                category="value"
+                valueFormatter={(value) => `${value} khóa học`}
+              />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  };
   return (
     <div className="container space-y-6">
       {/* <div className="flex items-center justify-between">
@@ -773,9 +1022,11 @@ export default function ReportsPage() {
                   {renderReportOverview(report)}
 
                   {/* Thêm phần khóa học phổ biến */}
-                  {renderPopularCourses(report)}
-                  {/* <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {/* {renderPopularCourses(report)} */}
+                  {/* Add charts directly from report data */}
+                  <ChartLayout report={report} />
+                  <div className="space-y-4">
+                    {/* <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                       <div key="revenue" className="card-wrapper">
                         <div className="rounded-lg overflow-hidden bg-purple-100 p-4">
                           <div className="flex justify-between items-start mb-2">
@@ -942,20 +1193,64 @@ export default function ReportsPage() {
                           </p>
                         </div>
                       </div>
-                    </div>
+                    </div> */}
 
-                    <div className="mt-8">
+                    {/* <div className="mt-8">
                       <h3 className="text-lg font-medium mb-4">
                         Dữ liệu chi tiết
                       </h3>
-                      <Textarea
-                        className="font-mono text-sm"
-                        value={JSON.stringify(report.data, null, 2)}
-                        readOnly
-                        rows={10}
-                      />
-                    </div>
-                  </div> */}
+                      <div className="space-y-4">
+                        <Tabs defaultValue="formatted" className="w-full">
+                          <TabsList>
+                            <TabsTrigger value="formatted">Định dạng văn bản</TabsTrigger>
+                            <TabsTrigger value="json">JSON gốc</TabsTrigger>
+                          </TabsList>
+                          <TabsContent value="formatted">
+                            <Card>
+                              <CardContent className="pt-6">
+                                {report.formattedData ? (
+                                  <div className="prose max-w-none">
+                                    <div dangerouslySetInnerHTML={{ __html: report.formattedData }} />
+                                  </div>
+                                ) : (
+                                  <div className="flex flex-col items-center justify-center py-8 space-y-4">
+                                    <Button
+                                      onClick={() => handleFormatData(report.id, report.data)}
+                                      className="flex items-center gap-2"
+                                      disabled={isAILoading}
+                                    >
+                                      {isAILoading ? (
+                                        <>
+                                          <Loader2 className="h-4 w-4 animate-spin" />
+                                          <span>Đang xử lý...</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <RefreshCw className="h-4 w-4" />
+                                          <span>{report.formattedData ? "Cập nhật định dạng" : "Định dạng dữ liệu bằng AI"}</span>
+                                        </>
+                                      )}
+                                    </Button>
+                                    <p className="text-sm text-muted-foreground">
+                                      Sử dụng AI để chuyển đổi dữ liệu JSON sang định dạng văn bản dễ đọc
+                                    </p>
+                                  </div>
+                                )}
+                              </CardContent>
+                            </Card>
+                          </TabsContent>
+                          <TabsContent value="json">
+                            <Textarea
+                              className="font-mono text-sm"
+                              value={JSON.stringify(report.data, null, 2)}
+                              readOnly
+                              rows={10}
+                            />
+                          </TabsContent>
+                        </Tabs>
+                      </div>
+                    </div> */}
+                  </div>
                 </CardContent>
               </Card>
 
