@@ -120,3 +120,27 @@ export const verifyCourseCompletion = async (enrollmentId: string) => {
     };
   }
 };
+
+export const getUserProgress = async (userId: string) => {
+  try {
+    const progressApi = await AxiosFactory.getApiInstance("courses");
+    const response = await progressApi.get<Record<string, number>>(
+      `/progress/user/${userId}`,
+    );
+
+    return {
+      error: false,
+      success: true,
+      data: response.data,
+    };
+  } catch (error: any) {
+    return {
+      error: true,
+      success: false,
+      message:
+        error.response?.data?.message ||
+        "Không thể lấy tiến trình của người dùng.",
+      data: null,
+    };
+  }
+};

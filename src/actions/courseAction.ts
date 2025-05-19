@@ -482,3 +482,23 @@ export const uploadImage = async (
     };
   }
 };
+
+export const createCategory = async (categoryData: {
+  name: string;
+  description?: string;
+}): Promise<Category> => {
+  try {
+    const { data } = await courseApi.post("/categories", categoryData);
+    return data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const deleteCategory = async (categoryId: string): Promise<void> => {
+  try {
+    await courseApi.delete(`/categories/${categoryId}`);
+  } catch (error) {
+    throw error;
+  }
+};

@@ -130,14 +130,19 @@ export default function Navbar({
     <header className="w-full border-b bg-white">
       <div className="container flex h-16 items-center justify-between px-4">
         {/* Logo and Brand */}
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-orange-500 text-white font-bold text-xl">
+        <Link href="/" className="flex items-center gap-3">
+          {/* <div className="flex h-10 w-10 items-center justify-center rounded-md bg-orange-500 text-white font-bold text-xl">
             EF
-          </div>
-          <h1 className="hidden text-base font-medium md:block">
-            Học Lập Trình Để Đi Làm
+          </div> */}
+          <img
+            src="/images/logo.jpg"
+            alt="logo"
+            className="h-10 w-10 rounded-lg"
+          />
+          <h1 className="hidden text-lg font-semibold md:block hover:cursor-pointer text-orange-400">
+            Edu Forge
           </h1>
-        </div>
+        </Link>
 
         {/* Search Bar and Progress */}
         <div className="relative mx-4 flex-1 max-w-md flex items-center gap-4">

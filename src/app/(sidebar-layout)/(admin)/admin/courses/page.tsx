@@ -9,6 +9,8 @@ import { Edit, Eye, Filter, Plus, Trash } from "lucide-react";
 
 import {
   CourseFilters,
+  createCategory,
+  deleteCategory,
   deleteCourse,
   getAllCategories,
   getAllCourses,
@@ -71,6 +73,12 @@ export default function AdminCoursesPage() {
     [],
   );
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
+  const [isAddingCategory, setIsAddingCategory] = useState(false);
+  const [isDeletingCategory, setIsDeletingCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [newCategoryDescription, setNewCategoryDescription] = useState("");
+  const [categoryToDelete, setCategoryToDelete] = useState<string | null>(null);
 
   const [pagination, setPagination] = useState({
     page: 1,
@@ -209,6 +217,74 @@ export default function AdminCoursesPage() {
     setFilters({});
     fetchCourses(1, pagination.limit, {});
     setIsFilterOpen(false);
+  };
+
+  const handleAddCategory = async () => {
+    if (!newCategoryName.trim()) {
+      toast({
+        title: "Lỗi",
+        description: "Tên danh mục không được để trống",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setIsAddingCategory(true);
+      const newCategory = await createCategory({
+        name: newCategoryName.trim(),
+        description: newCategoryDescription.trim() || undefined,
+      });
+
+      setCategories((prev) => [...prev, newCategory]);
+      setNewCategoryName("");
+      setNewCategoryDescription("");
+      setIsCategoryDialogOpen(false);
+
+      toast({
+        title: "Thành công",
+        description: "Thêm danh mục thành công",
+      });
+    } catch (error) {
+      console.error("Error adding category:", error);
+      toast({
+        title: "Lỗi",
+        description: "Không thể thêm danh mục",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAddingCategory(false);
+    }
+  };
+
+  const handleDeleteCategory = async (categoryId: string) => {
+    if (!categoryId) return;
+    setCategoryToDelete(categoryId);
+  };
+
+  const confirmDeleteCategory = async () => {
+    if (!categoryToDelete) return;
+
+    try {
+      setIsDeletingCategory(true);
+      await deleteCategory(categoryToDelete);
+      setCategories(categories.filter((cat) => cat.id !== categoryToDelete));
+
+      toast({
+        title: "Thành công",
+        description: "Xóa danh mục thành công",
+      });
+    } catch (error) {
+      console.error("Error deleting category:", error);
+      toast({
+        title: "Lỗi",
+        description: "Không thể xóa danh mục",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeletingCategory(false);
+      setCategoryToDelete(null);
+    }
   };
 
   if (isLoading) {
@@ -395,6 +471,147 @@ export default function AdminCoursesPage() {
                   className="bg-orange-500 hover:bg-orange-600 text-white"
                 >
                   Áp dụng
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog
+            open={isCategoryDialogOpen}
+            onOpenChange={setIsCategoryDialogOpen}
+          >
+            <DialogTrigger asChild>
+              <Button
+                variant="outline"
+                className="border-slate-200 hover:bg-slate-100"
+              >
+                <Plus className="mr-2 h-4 w-4" /> Quản lý danh mục
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[500px]">
+              <DialogHeader>
+                <DialogTitle className="text-slate-900">
+                  Quản lý danh mục
+                </DialogTitle>
+                <DialogDescription className="text-slate-500">
+                  Thêm, xóa hoặc quản lý các danh mục khóa học
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="grid gap-4 py-4">
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium text-slate-700">
+                    Danh mục hiện có
+                  </h3>
+                  <div className="max-h-[200px] overflow-y-auto border border-slate-200 rounded-md p-2">
+                    {categories.length === 0 ? (
+                      <p className="text-sm text-slate-500 p-2">
+                        Chưa có danh mục nào
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {categories.map((category) => (
+                          <div
+                            key={category.id}
+                            className="flex justify-between items-center p-2 hover:bg-slate-50 rounded-md"
+                          >
+                            <span className="font-medium text-slate-700">
+                              {category.name}
+                            </span>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50"
+                                  onClick={() =>
+                                    handleDeleteCategory(category.id)
+                                  }
+                                >
+                                  <Trash className="h-4 w-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle className="text-slate-900">
+                                    Xác nhận xóa danh mục
+                                  </AlertDialogTitle>
+                                  <AlertDialogDescription className="text-slate-500">
+                                    Bạn có chắc chắn muốn xóa danh mục "
+                                    {category.name}"? Nếu có khóa học trong danh
+                                    mục này, hành động này có thể gây lỗi.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel
+                                    disabled={isDeletingCategory}
+                                    className="border-slate-200"
+                                  >
+                                    Hủy
+                                  </AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={confirmDeleteCategory}
+                                    disabled={isDeletingCategory}
+                                    className="bg-red-500 hover:bg-red-600 text-white"
+                                  >
+                                    {isDeletingCategory ? "Đang xóa..." : "Xóa"}
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium text-slate-700">
+                    Thêm danh mục mới
+                  </h3>
+                  <div className="grid gap-3">
+                    <div className="grid grid-cols-4 items-center gap-2">
+                      <Label htmlFor="categoryName" className="text-right">
+                        Tên danh mục <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="categoryName"
+                        value={newCategoryName}
+                        onChange={(e) => setNewCategoryName(e.target.value)}
+                        className="col-span-3"
+                        placeholder="Nhập tên danh mục"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-4 items-center gap-2">
+                      <Label
+                        htmlFor="categoryDescription"
+                        className="text-right"
+                      >
+                        Mô tả
+                      </Label>
+                      <Input
+                        id="categoryDescription"
+                        value={newCategoryDescription}
+                        onChange={(e) =>
+                          setNewCategoryDescription(e.target.value)
+                        }
+                        className="col-span-3"
+                        placeholder="Nhập mô tả (tùy chọn)"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button
+                  onClick={handleAddCategory}
+                  disabled={isAddingCategory || !newCategoryName.trim()}
+                  className="bg-orange-500 hover:bg-orange-600 text-white"
+                >
+                  {isAddingCategory ? "Đang thêm..." : "Thêm danh mục"}
                 </Button>
               </DialogFooter>
             </DialogContent>

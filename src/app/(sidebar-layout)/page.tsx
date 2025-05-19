@@ -8,8 +8,13 @@ import { useEffect, useState } from "react";
 import { Course } from "@/types/course/types";
 
 import { getAllCourses } from "@/actions/courseAction";
+import {
+  EnrollmentStats,
+  getEnrollmentStats,
+} from "@/actions/enrollmentActions";
 
 import CourseItem from "@/components/courseItem";
+import { HomeJsonLd } from "@/components/jsonld/home-jsonld";
 import {
   Carousel,
   CarouselApi,
@@ -38,6 +43,8 @@ export default function Home() {
   const [filteredCourses, setFilteredCourses] = useState<Course[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [enrollmentStats, setEnrollmentStats] =
+    useState<EnrollmentStats | null>(null);
 
   useEffect(() => {
     const fetchCourses = async () => {
@@ -58,6 +65,12 @@ export default function Home() {
 
         setAllCourses(publishedCourses);
         setFilteredCourses(publishedCourses);
+
+        // Lấy thông tin enrollment
+        const statsResponse = await getEnrollmentStats();
+        if (statsResponse.success) {
+          setEnrollmentStats(statsResponse.data);
+        }
       } catch (err) {
         console.error("Error fetching courses:", err);
         setError(err instanceof Error ? err.message : "An error occurred");
@@ -128,6 +141,28 @@ export default function Home() {
   const limitedProCourses = proCourses.slice(0, 8);
   const limitedFreeCourses = freeCourses.slice(0, 8);
 
+  // Chuẩn bị dữ liệu cho JSON-LD
+  const jsonLdCourses = filteredCourses.map((course) => ({
+    title: course.title,
+    description: course.description || "",
+    url: `https://eduforge.io.vn/courses/${course.id}`,
+    image: course.thumbnailUrl || "",
+    price: course.price || 0,
+    category: course.categoryId || "",
+  }));
+
+  // Helper function to get enrollment count for a course
+  const getEnrollmentCount = (courseId: string): number => {
+    if (!enrollmentStats) return 0;
+
+    // Tìm trong enrollmentsByCourse
+    const courseEnrollment = enrollmentStats.enrollmentsByCourse.find(
+      (item) => item.courseId === courseId,
+    );
+
+    return courseEnrollment?.enrollments || 0;
+  };
+
   if (isLoading) {
     return (
       <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-50">
@@ -148,6 +183,9 @@ export default function Home() {
 
   return (
     <div className="container mx-auto px-2 sm:px-6 lg:px-2 py-4 flex-1 flex flex-col items-center w-full justify-start min-h-screen gap-12">
+      {/* Add JSON-LD for SEO */}
+      <HomeJsonLd courses={jsonLdCourses} />
+
       {/* Only show carousel if not searching */}
       {!searchQuery && (
         <div className="w-full relative rounded-3xl bg-gradient-to-r from-slate-50 to-orange-50/50">
@@ -195,6 +233,71 @@ export default function Home() {
         </div>
       )}
 
+      {/* Popular Courses Section - Only show if not searching */}
+      {!searchQuery &&
+        enrollmentStats?.popularCourses &&
+        enrollmentStats.popularCourses.length > 0 && (
+          <div className="w-full space-y-6">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-end">
+              <div>
+                <h2 className="text-2xl sm:text-3xl font-semibold text-gray-800 group hover:cursor-default">
+                  Khóa học phổ biến nhất
+                  <div className="h-1 w-1/4 mt-1 group-hover:w-full bg-blue-500 transition-all duration-300"></div>
+                </h2>
+                <p className="text-gray-600 mt-2">
+                  Những khóa học được nhiều người học nhất
+                </p>
+              </div>
+              <Link
+                href="/courses?sort=popular"
+                className="mt-2 md:mt-0 text-blue-500 hover:text-blue-600 font-semibold flex items-center"
+              >
+                Xem tất cả
+                <svg
+                  className="w-4 h-4 ml-1"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M9 5l7 7-7 7"
+                  ></path>
+                </svg>
+              </Link>
+            </div>
+
+            <div className="w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 py-2 pb-4">
+              {enrollmentStats.popularCourses
+                .slice(0, 4)
+                .map((popularCourse) => {
+                  // Tìm thông tin đầy đủ của khóa học từ danh sách courses
+                  const courseDetails = allCourses.find(
+                    (c) => c.id === popularCourse.courseId,
+                  );
+                  if (!courseDetails) return null;
+
+                  return (
+                    <div
+                      key={popularCourse.courseId}
+                      className="transform hover:-translate-y-1 transition-transform duration-300"
+                    >
+                      <CourseItem
+                        {...courseDetails}
+                        enrollmentCount={popularCourse.enrollments}
+                        totalLessons={courseDetails.totalLessons}
+                        categories={[courseDetails.categoryId || ""]}
+                      />
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+        )}
+
       {/* Search Results */}
       {searchQuery && (
         <div className="w-full space-y-6 ">
@@ -222,7 +325,7 @@ export default function Home() {
                 >
                   <CourseItem
                     {...course}
-                    enrollmentCount={0}
+                    enrollmentCount={getEnrollmentCount(course.id)}
                     totalLessons={course.totalLessons}
                     categories={[course.categoryId || ""]}
                   />
@@ -234,18 +337,37 @@ export default function Home() {
       )}
 
       {/* Pro Courses Section - Only show if not searching */}
-      {!searchQuery && (
-        <div className="w-full space-y-6 ">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl sm:text-3xl font-semibold text-gray-800 group">
-              Khoá học Pro
-              <div className="h-1 w-0 group-hover:w-full bg-orange-500 transition-all duration-300"></div>
-            </h2>
+      {!searchQuery && proCourses.length > 0 && (
+        <div className="w-full space-y-6">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-end">
+            <div>
+              <h2 className="text-2xl sm:text-3xl font-semibold text-gray-800 group hover:cursor-default">
+                Khóa học Pro
+                <div className="h-1 w-1/4 mt-1 group-hover:w-full bg-orange-500 transition-all duration-300"></div>
+              </h2>
+              <p className="text-gray-600 mt-2">
+                Các khóa học chuyên sâu, chất lượng cao
+              </p>
+            </div>
             <Link
-              href="/courses"
-              className="text-orange-500 hover:text-orange-600 transition-colors text-sm sm:text-base"
+              href="/courses?type=paid"
+              className="mt-2 md:mt-0 text-orange-500 hover:text-orange-600 font-semibold flex items-center"
             >
-              Xem tất cả →
+              Xem tất cả
+              <svg
+                className="w-4 h-4 ml-1"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M9 5l7 7-7 7"
+                ></path>
+              </svg>
             </Link>
           </div>
 
@@ -257,7 +379,7 @@ export default function Home() {
               >
                 <CourseItem
                   {...course}
-                  enrollmentCount={0}
+                  enrollmentCount={getEnrollmentCount(course.id)}
                   totalLessons={course.totalLessons}
                   categories={[course.categoryId || ""]}
                 />
@@ -268,18 +390,37 @@ export default function Home() {
       )}
 
       {/* Free Courses Section - Only show if not searching */}
-      {!searchQuery && (
-        <div className="w-full space-y-6 pb-10">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl sm:text-3xl font-semibold text-gray-800 group">
-              Khoá học miễn phí
-              <div className="h-1 w-0 group-hover:w-full bg-orange-500 transition-all duration-300"></div>
-            </h2>
+      {!searchQuery && freeCourses.length > 0 && (
+        <div className="w-full space-y-6">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-end">
+            <div>
+              <h2 className="text-2xl sm:text-3xl font-semibold text-gray-800 group hover:cursor-default">
+                Khóa học Miễn phí
+                <div className="h-1 w-1/4 bg-green-500 mt-2 group-hover:w-full transition-all duration-300"></div>
+              </h2>
+              <p className="text-gray-600 mt-2">
+                Các khóa học miễn phí để bắt đầu hành trình học tập của bạn
+              </p>
+            </div>
             <Link
-              href="/courses"
-              className="text-orange-500 hover:text-orange-600 transition-colors text-sm sm:text-base"
+              href="/courses?type=free"
+              className="mt-2 md:mt-0 text-green-500 hover:text-green-600 font-semibold flex items-center"
             >
-              Xem tất cả →
+              Xem tất cả
+              <svg
+                className="w-4 h-4 ml-1"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M9 5l7 7-7 7"
+                ></path>
+              </svg>
             </Link>
           </div>
 
@@ -291,7 +432,7 @@ export default function Home() {
               >
                 <CourseItem
                   {...course}
-                  enrollmentCount={0}
+                  enrollmentCount={getEnrollmentCount(course.id)}
                   totalLessons={course.totalLessons}
                   categories={[course.categoryId || ""]}
                 />
