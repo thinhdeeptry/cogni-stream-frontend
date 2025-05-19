@@ -1008,7 +1008,7 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
               )}
 
             {/* Lesson Content */}
-            <motion.div variants={slideUp} className="prose max-w-none">
+            <motion.div variants={slideUp} className="prose max-w-none pb-16">
               <Card className="overflow-hidden border-none shadow-md rounded-xl">
                 <CardContent className="p-6">
                   <h1 className="text-2xl font-bold bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent inline-block mb-4  items-center">
@@ -1058,7 +1058,7 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
             </motion.div>
 
             {/* Discussion Component */}
-            <motion.div variants={slideUp} className="mt-8 pb-16">
+            {/* <motion.div variants={slideUp} className="mt-8 pb-16">
               <Card className="overflow-hidden border-none shadow-md rounded-xl">
                 <CardContent className="p-6">
                   <h2 className="text-xl font-bold bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent inline-block mb-4  items-center">
@@ -1068,7 +1068,7 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
                   <Discussion threadId={threadId || ""} />
                 </CardContent>
               </Card>
-            </motion.div>
+            </motion.div> */}
           </div>
         </motion.div>
 
