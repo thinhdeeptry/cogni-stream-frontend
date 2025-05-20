@@ -12,7 +12,7 @@ import "@blocknote/mantine/style.css";
 import { useCreateBlockNote } from "@blocknote/react";
 import { ChevronLeft } from "lucide-react";
 
-import { createLesson } from "@/actions/courseAction";
+import { createLesson, uploadImage } from "@/actions/courseAction";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,8 +39,32 @@ export default function CreateLessonPage({
   const [isFreePreview, setIsFreePreview] = useState(false);
   const [isPublished, setIsPublished] = useState(false);
   const [lessonType, setLessonType] = useState<string>(LessonType.BLOG);
-  const editor = useCreateBlockNote();
   const { toast } = useToast();
+
+  // Configure BlockNote editor with image upload
+  const editor = useCreateBlockNote({
+    uploadFile: async (file: File) => {
+      try {
+        const result = await uploadImage(
+          file,
+          "courses",
+          `lessons/${resolvedParams.courseId}`,
+        );
+        if (result.success) {
+          return result.url;
+        } else {
+          throw new Error(result.message);
+        }
+      } catch (error) {
+        toast({
+          title: "Lỗi",
+          description: "Không thể tải lên hình ảnh",
+          variant: "destructive",
+        });
+        throw error;
+      }
+    },
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

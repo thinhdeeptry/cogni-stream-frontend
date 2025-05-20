@@ -97,9 +97,11 @@ export default function LoginForm() {
           borderWidth={2}
         />
         <CardHeader className="text-center pt-8 pb-2">
-          <h2 className="text-2xl font-bold">
-            Edu Forge – Nơi tri thức bùng nổ tương lai rộng mở!
-          </h2>
+          <h2 className="text-3xl font-bold text-orange-400">Edu Forge</h2>
+          <p className="text-lg text-gray-500">
+            {" "}
+            Nơi tri thức bùng nổ, tương lai rộng mở!
+          </p>
         </CardHeader>
         <CardContent className="pt-6">
           <Form {...form}>
@@ -154,7 +156,7 @@ export default function LoginForm() {
                     <FormMessage>
                       <button
                         type="button"
-                        className="ml-auto text-sm underline-offset-2 hover:underline"
+                        className="ml-3 mt-2 text-blue-700 text-xs underline-offset-2 hover:underline"
                         onClick={handleForgotPassword}
                       >
                         Đã quên mật khẩu?
@@ -176,7 +178,7 @@ export default function LoginForm() {
               )}
               <Button
                 type="submit"
-                className="w-full h-12 rounded-full bg-main-300 hover:bg-main-400 text-main-900"
+                className="w-full h-12 rounded-full text-md font-semibold bg-main-400 hover:bg-main-500 text-white"
                 disabled={isLoading}
               >
                 {isLoading ? (

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
+import { useOtherUser } from "@/hooks/useOtherUser";
 import { usePopupChatbot } from "@/hooks/usePopupChatbot";
 import { AxiosFactory } from "@/lib/axios";
 import { Course, LessonType } from "@/types/course/types";
@@ -34,7 +35,10 @@ import { toast } from "sonner";
 
 import { getCourseById, getLessonById } from "@/actions/courseAction";
 import { getThreadByResourceId } from "@/actions/discussion.action";
-import { checkEnrollmentStatus } from "@/actions/enrollmentActions";
+import {
+  checkEnrollmentStatus,
+  createCertificate,
+} from "@/actions/enrollmentActions";
 import {
   createTestAttempt,
   getHighestScoreAttempt,
@@ -235,7 +239,7 @@ const renderBlockToHtml = (block: Block): JSX.Element => {
     case "codeBlock":
       return (
         <pre
-          className="bg-gray-100 p-4 rounded-lg overflow-x-auto my-4"
+          className="bg-gray-800 p-4 rounded-lg overflow-x-auto my-4"
           style={baseStyles}
         >
           <code className="language-text">{renderContent()}</code>
@@ -1095,6 +1099,55 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
     }
   };
 
+  // Trong component, thêm đoạn code để lấy thông tin người tạo khóa học
+  // const { otherUserData: instructorData } = useOtherUser(course?.ownerId);
+
+  // Thêm hàm xử lý hoàn thành khóa học
+  const handleCourseCompletion = async () => {
+    try {
+      // Cập nhật tiến độ học tập thành 100%
+      // await updateLessonProgress({
+      //   progress: 100,
+      //   currentLesson: lesson?.title || "",
+      //   lessonId: lesson?.id || "",
+      //   isLessonCompleted: true,
+      // });
+
+      // Tạo chứng chỉ nếu khóa học có chứng chỉ
+      if (course?.isHasCertificate) {
+        const certificateResult = await createCertificate({
+          courseId: course.id,
+          metadata: {
+            courseName: course.title,
+            completedAt: new Date().toISOString(),
+            userName: session?.user?.name || "",
+            userId: session?.user?.id || "",
+            courseId: course.id,
+            level: course.level || "Beginner",
+            categoryName: course.category?.name || "",
+            // instructor: instructorData?.name || "Giảng viên",
+          },
+        });
+
+        if (certificateResult.success) {
+          toast.success("Chúc mừng! Bạn đã hoàn thành khóa học");
+          // Điều hướng đến trang chứng chỉ
+          router.push(`/certificate/${certificateResult.data.id}`);
+        } else {
+          throw new Error(
+            certificateResult.message || "Không thể tạo chứng chỉ",
+          );
+        }
+      } else {
+        toast.success("Chúc mừng! Bạn đã hoàn thành khóa học");
+        router.push(`/course/${course?.id}`);
+      }
+    } catch (err) {
+      toast.error("Không thể cập nhật tiến độ học tập");
+      console.error(err);
+    }
+  };
+
   return (
     <>
       <div className="w-full flex-1 flex flex-col min-h-screen relative px-1">
@@ -1167,7 +1220,7 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
               )}
 
             {/* Lesson Content */}
-            <motion.div variants={slideUp} className="prose max-w-none">
+            <motion.div variants={slideUp} className="prose max-w-none pb-16">
               <Card className="overflow-hidden border-none shadow-md rounded-xl">
                 <CardContent className="p-6">
                   <h1 className="text-2xl font-bold bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent inline-block mb-4  items-center">
@@ -1372,7 +1425,7 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
             )}
 
             {/* Discussion Component */}
-            <motion.div variants={slideUp} className="mt-8 pb-16">
+            {/* <motion.div variants={slideUp} className="mt-8 pb-16">
               <Card className="overflow-hidden border-none shadow-md rounded-xl">
                 <CardContent className="p-6">
                   <h2 className="text-xl font-bold bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent inline-block mb-4  items-center">
@@ -1382,7 +1435,7 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
                   <Discussion threadId={threadId || ""} />
                 </CardContent>
               </Card>
-            </motion.div>
+            </motion.div> */}
           </div>
         </motion.div>
 
@@ -1485,10 +1538,10 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
                         Ở lại trang này
                       </AlertDialogCancel>
                       <AlertDialogAction
-                        onClick={() => router.push(`/course/${course?.id}`)}
+                        onClick={handleCourseCompletion}
                         className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600"
                       >
-                        Về trang khóa học
+                        Hoàn thành khóa học
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </motion.div>
