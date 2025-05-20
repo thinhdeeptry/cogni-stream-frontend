@@ -20,7 +20,7 @@
       "name": "Next.js: debug client-side",
       "type": "chrome",
       "request": "launch",
-      "url": "http://localhost:3000",
+      "url": "http://eduforge.io.vn:3000",
       "webRoot": "${workspaceFolder}",
       "sourceMapPathOverrides": {
         "webpack://_N_E/*": "${webRoot}/*"
