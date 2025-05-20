@@ -6,6 +6,8 @@ import { useEffect, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 
+import { createTest } from "@/actions/testAction";
+
 import { QuestionSelectionForm } from "@/components/assessment/question-selection-form";
 import { TestForm } from "@/components/assessment/test-form";
 import { Button } from "@/components/ui/button";
@@ -27,21 +29,14 @@ export default function CreateTestPage() {
         ...data,
       };
 
-      const response = await fetch("http://localhost:3005/api/v1/tests", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(finalData),
-      });
+      const result = await createTest(finalData);
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Failed to create test");
+      if (result.success) {
+        toast.success("Tạo bài kiểm tra thành công");
+        router.push("/assessment/tests");
+      } else {
+        throw new Error(result.message || "Không thể tạo bài kiểm tra");
       }
-
-      toast.success("Tạo bài kiểm tra thành công");
-      router.push("/assessment/tests");
     } catch (error) {
       console.error("Error creating test:", error);
       toast.error(

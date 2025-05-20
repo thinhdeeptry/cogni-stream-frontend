@@ -4,9 +4,10 @@ import { useRouter } from "next/navigation";
 import { use, useEffect, useState } from "react";
 
 import { Question } from "@/types/assessment/types";
-import axios from "axios";
 import { ArrowLeft, Clock, Trophy } from "lucide-react";
 import { toast } from "sonner";
+
+import { getTestResult } from "@/actions/testAction";
 
 import { ResultQuestionView } from "@/components/assessment/result-question-view";
 import { Button } from "@/components/ui/button";
@@ -56,10 +57,15 @@ function ResultPageClient({ id }: { id: string }) {
     const fetchResult = async () => {
       try {
         setIsLoading(true);
-        const response = await axios.get(
-          `http://localhost:3005/api/v1/test-attempts/${id}/result`,
-        );
-        setResult(response.data);
+        const result = await getTestResult(id);
+
+        if (!result.success) {
+          throw new Error(
+            result.message || "Không thể lấy kết quả bài kiểm tra",
+          );
+        }
+
+        setResult(result.data);
       } catch (error) {
         console.error("Error fetching test result:", error);
         toast.error("Có lỗi xảy ra khi tải kết quả bài kiểm tra");

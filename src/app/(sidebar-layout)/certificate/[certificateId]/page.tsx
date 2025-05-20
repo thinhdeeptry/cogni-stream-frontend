@@ -24,10 +24,10 @@ export default function CertificatePage({
   useEffect(() => {
     const fetchCertificate = async () => {
       try {
-        if (!session) {
-          router.push("/login");
-          return;
-        }
+        // if (!session) {
+        //   router.push("/");
+        //   return;
+        // }
 
         const result = await getCertificate(params.certificateId);
 

@@ -3,13 +3,14 @@
 import * as React from "react";
 
 import { cn } from "@/lib/utils";
-import { BookOpen, ChevronRight, GraduationCap } from "lucide-react";
+import { BookOpen, ChevronRight, Folder, GraduationCap } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 
 export interface TreeData {
   id: string;
   name: string;
+  level?: number;
   children?: TreeData[];
 }
 
@@ -46,36 +47,39 @@ function TreeItem({ item, onSelect, selectedId }: TreeItemProps) {
 
   return (
     <div>
-      <Button
-        variant="ghost"
-        size="sm"
-        className={cn(
-          "h-10 w-full justify-start gap-2 rounded-none px-2 text-base font-normal hover:bg-muted",
-          selectedId === item.id && "bg-muted font-medium",
-          hasChildren && "font-medium",
-        )}
-        onClick={() => {
-          if (hasChildren) {
-            setIsExpanded(!isExpanded);
-          } else {
-            onSelect?.(item.id);
-          }
-        }}
-      >
+      <div className="flex items-center">
         {hasChildren && (
-          <ChevronRight
-            className={cn("h-4 w-4 shrink-0 transition-transform", {
-              "rotate-90": isExpanded,
-            })}
-          />
+          <button
+            type="button"
+            className="mr-1"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsExpanded(!isExpanded);
+            }}
+          >
+            <ChevronRight
+              className={cn("h-4 w-4 shrink-0 transition-transform", {
+                "rotate-90": isExpanded,
+              })}
+            />
+          </button>
         )}
-        {hasChildren ? (
-          <GraduationCap className="h-4 w-4 shrink-0" />
-        ) : (
-          <BookOpen className="h-4 w-4 shrink-0" />
-        )}
-        <span className="truncate">{item.name}</span>
-      </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className={cn(
+            "h-10 w-full justify-start gap-2 rounded-none px-2 text-base font-normal hover:bg-muted",
+            selectedId === item.id && "bg-muted font-medium",
+            hasChildren && "font-medium",
+          )}
+          onClick={() => onSelect?.(item.id)}
+        >
+          {item.level === 0 && <GraduationCap className="h-4 w-4 shrink-0" />}
+          {item.level === 1 && <Folder className="h-4 w-4 shrink-0" />}
+          {item.level === 2 && <BookOpen className="h-4 w-4 shrink-0" />}
+          <span className="truncate">{item.name}</span>
+        </Button>
+      </div>
       {isExpanded && item.children && (
         <div className="ml-4 border-l pl-2">
           <Tree

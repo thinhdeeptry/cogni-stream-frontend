@@ -84,7 +84,10 @@ export function QuestionView({
           </div>
         </div>
 
-        <div className="text-lg font-medium">{question.content.text}</div>
+        <div
+          className="text-lg font-medium"
+          dangerouslySetInnerHTML={{ __html: question.content.text }}
+        />
       </div>
 
       <div className="space-y-4">
@@ -109,7 +112,9 @@ export function QuestionView({
                     <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-sm font-medium">
                       {String.fromCharCode(65 + index)}
                     </span>
-                    {option.content.text}
+                    <div
+                      dangerouslySetInnerHTML={{ __html: option.content.text }}
+                    />
                   </Label>
                 </div>
               ))}
@@ -139,7 +144,9 @@ export function QuestionView({
                   <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-sm font-medium">
                     {String.fromCharCode(65 + index)}
                   </span>
-                  {option.content.text}
+                  <div
+                    dangerouslySetInnerHTML={{ __html: option.content.text }}
+                  />
                 </Label>
               </div>
             ))}
