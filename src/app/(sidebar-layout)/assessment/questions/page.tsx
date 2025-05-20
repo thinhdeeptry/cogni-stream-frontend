@@ -4,9 +4,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { Question, QuestionType } from "@/types/assessment/types";
-import axios from "axios";
+import parse from "html-react-parser";
 import { BookOpen, Pencil, Plus } from "lucide-react";
 import { toast } from "sonner";
+
+import { getQuestions } from "@/actions/assessmentAction";
+import { getUserCourseStructureWithDetails } from "@/actions/courseAction";
+
+import useUserStore from "@/stores/useUserStore";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -60,6 +65,13 @@ function getSelectedName(selectedId?: string | null, courses: Course[] = []) {
   return "Tất cả câu hỏi";
 }
 
+// Add a component to safely render HTML content
+const RichTextContent = ({ content }: { content: string }) => {
+  return (
+    <div className="prose max-w-none dark:prose-invert">{parse(content)}</div>
+  );
+};
+
 export default function QuestionsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -69,20 +81,36 @@ export default function QuestionsPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Lấy thông tin user từ store
+  const user = useUserStore((state) => state.user);
+
   // Lấy danh sách khóa học
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-        const response = await axios.get(
-          "http://localhost:3002/courses/user/25e1d787-4ce1-4109-b8eb-a90fe40d942c/structure",
-        );
+        if (!user?.id) {
+          setError("Bạn cần đăng nhập để xem danh sách khóa học");
+          return;
+        }
 
-        if (response.data && response.data.value) {
-          setCourses(response.data.value);
-        } else if (Array.isArray(response.data)) {
-          setCourses(response.data);
+        const result = await getUserCourseStructureWithDetails(user.id);
+
+        if (result.success && result.data) {
+          // Handle both possible response formats
+          const courseData = Array.isArray(result.data)
+            ? result.data
+            : result.data.value
+              ? result.data.value
+              : [];
+
+          if (courseData.length === 0) {
+            setError("Không tìm thấy khóa học nào");
+            return;
+          }
+
+          setCourses(courseData);
         } else {
-          setError("Cấu trúc dữ liệu API không đúng định dạng");
+          setError(result.message || "Không thể lấy dữ liệu khóa học");
         }
       } catch (error) {
         console.error("Error fetching courses:", error);
@@ -93,7 +121,7 @@ export default function QuestionsPage() {
     };
 
     fetchCourses();
-  }, []);
+  }, [user?.id]);
 
   // Lấy danh sách câu hỏi
   useEffect(() => {
@@ -149,13 +177,14 @@ export default function QuestionsPage() {
         console.log(`Selected ${idType} ID: ${selectedId}`);
         console.log("Sending API request with params:", params);
 
-        const response = await axios.get(
-          "http://localhost:3005/api/v1/questions",
-          { params },
-        );
+        const result = await getQuestions(params);
 
-        console.log("API response data:", response.data);
-        setQuestions(response.data);
+        if (result.success && result.data) {
+          console.log("API response data:", result.data);
+          setQuestions(result.data);
+        } else {
+          throw new Error(result.message || "Không thể lấy danh sách câu hỏi");
+        }
       } catch (error) {
         console.error("Error fetching questions:", error);
         setError(
@@ -298,9 +327,9 @@ export default function QuestionsPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div className="flex">
-                    <span className="font-medium mr-2">Câu hỏi:</span>
-                    <p className="flex-1">{question.content.text}</p>
+                  <div className="space-y-2">
+                    <span className="font-medium">Câu hỏi:</span>
+                    <RichTextContent content={question.content.text} />
                   </div>
                   {question.options && (
                     <div>
@@ -309,12 +338,14 @@ export default function QuestionsPage() {
                         {question.options.map((option, optionIndex) => (
                           <div
                             key={optionIndex}
-                            className="flex items-center gap-3 rounded-lg border p-4"
+                            className="flex items-start gap-3 rounded-lg border p-4"
                           >
-                            <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-sm font-medium">
+                            <div className="shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-sm font-medium">
                               {String.fromCharCode(65 + optionIndex)}
                             </div>
-                            <p className="flex-1">{option.content.text}</p>
+                            <div className="flex-1">
+                              <RichTextContent content={option.content.text} />
+                            </div>
                             {option.isCorrect && (
                               <div className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-600">
                                 Đáp án đúng
@@ -329,7 +360,9 @@ export default function QuestionsPage() {
                     <div>
                       <p className="font-medium mb-2">Đáp án tham khảo:</p>
                       <div className="rounded-lg border p-4">
-                        <p>{question.referenceAnswer.content.text}</p>
+                        <RichTextContent
+                          content={question.referenceAnswer.content.text}
+                        />
                         {question.referenceAnswer.notes && (
                           <p className="mt-2 text-sm text-muted-foreground">
                             {question.referenceAnswer.notes}

@@ -80,7 +80,10 @@ export function ResultQuestionView({
           </div>
         </div>
 
-        <div className="text-base">{question.content.text}</div>
+        <div
+          className="text-base"
+          dangerouslySetInnerHTML={{ __html: question.content.text }}
+        />
       </div>
 
       <div className="space-y-4">
@@ -113,7 +116,11 @@ export function ResultQuestionView({
                       <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-sm font-medium">
                         {String.fromCharCode(65 + index)}
                       </span>
-                      {option.content.text}
+                      <div
+                        dangerouslySetInnerHTML={{
+                          __html: option.content.text,
+                        }}
+                      />
                       {isCorrectOption && (
                         <CheckCircle2 className="h-4 w-4 text-green-600 ml-2" />
                       )}
@@ -154,7 +161,9 @@ export function ResultQuestionView({
                     <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-sm font-medium">
                       {String.fromCharCode(65 + index)}
                     </span>
-                    {option.content.text}
+                    <div
+                      dangerouslySetInnerHTML={{ __html: option.content.text }}
+                    />
                     {isCorrectOption && (
                       <CheckCircle2 className="h-4 w-4 text-green-600 ml-2" />
                     )}

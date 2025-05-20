@@ -38,9 +38,9 @@ export interface ContentItem {
 }
 
 export interface AnswerOption {
-  id: string;
+  id?: string;
   content: ContentItem;
-  order: number;
+  order?: number;
   isCorrect: boolean;
 }
 
@@ -54,6 +54,18 @@ export interface Question {
   type: QuestionType;
   content: ContentItem;
   explanation?: string;
+  questionSetterId?: string;
+  courseId?: string;
+  chapterId?: string;
+  lessonId?: string;
+  difficulty: QuestionDifficulty;
+  options?: AnswerOption[];
+  referenceAnswer?: ReferenceAnswer;
+}
+
+export interface QuestionFormValues {
+  type: QuestionType;
+  content: ContentItem;
   questionSetterId?: string;
   courseId?: string;
   chapterId?: string;
