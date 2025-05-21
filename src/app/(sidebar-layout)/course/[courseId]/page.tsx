@@ -104,7 +104,7 @@ export default function CourseDetail() {
 
   // Fetch enrollment ID and lesson progress
   const fetchEnrollmentId = async () => {
-    if (session?.user?.id && course?.id) {
+    if (user?.id && course?.id) {
       try {
         const enrollmentApi = await AxiosFactory.getApiInstance("enrollment");
         const response = await enrollmentApi.get(`/find/${course.id}`);
@@ -123,14 +123,16 @@ export default function CourseDetail() {
   };
 
   useEffect(() => {
+    let isMounted = true;
+
     const checkStatusOnce = async () => {
       // Only proceed if we have the necessary data
-      if (!session?.user?.id || !course?.id) return;
+      if (!user?.id || !course?.id) return;
 
       const orderCode = searchParams.get("orderCode");
       const hasOrderCode = !!orderCode;
 
-      if (hasOrderCode) {
+      if (hasOrderCode && isMounted) {
         setIsCheckingPayment(true);
       }
 
@@ -141,15 +143,18 @@ export default function CourseDetail() {
         const timestamp = new Date().getTime();
         const enrollmentApi = await AxiosFactory.getApiInstance("enrollment");
         const response = await enrollmentApi.get(
-          `/check/${session.user.id}/${course.id}?_t=${timestamp}`,
+          `/check/${user.id}/${course.id}?_t=${timestamp}`,
         );
 
         console.log("Enrollment check response:", response.data);
         const isUserEnrolled = response.data.enrolled === true;
-        setIsEnrolled(isUserEnrolled);
+
+        if (isMounted) {
+          setIsEnrolled(isUserEnrolled);
+        }
 
         // If enrolled, update enrollment ID
-        if (isUserEnrolled) {
+        if (isUserEnrolled && isMounted) {
           await fetchEnrollmentId();
 
           // Show success message if coming from payment
@@ -164,15 +169,22 @@ export default function CourseDetail() {
       } catch (error) {
         console.error("Error checking enrollment status:", error);
       } finally {
-        setIsCheckingPayment(false);
+        if (isMounted) {
+          setIsCheckingPayment(false);
+        }
       }
     };
 
     // Only run once when component mounts or when critical dependencies change
     checkStatusOnce();
 
+    // Cleanup function
+    return () => {
+      isMounted = false;
+    };
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params.courseId, session?.user?.id, course?.id]);
+  }, [params.courseId, user?.id, course?.id]);
 
   // Fetch course data
   useEffect(() => {
@@ -233,7 +245,7 @@ export default function CourseDetail() {
   }, [params.courseId, user]);
 
   const handleEnrollClick = async () => {
-    if (!session?.user) {
+    if (!user) {
       toast.error("Vui lòng đăng nhập để đăng ký khóa học");
       router.push("/auth/login");
       return;
@@ -252,8 +264,8 @@ export default function CourseDetail() {
         // Enroll in the free course
         const result = await enrollCourse({
           courseId: course.id,
-          userId: session.user.id,
-          userName: session.user.name,
+          userId: user.id,
+          userName: user.name,
           courseName: course.title,
           isFree: true,
         });
@@ -278,18 +290,12 @@ export default function CourseDetail() {
       // Xử lý thanh toán cho khóa học có phí - trực tiếp mở link checkout
       try {
         // Trước tiên, kiểm tra xem đã có enrollment nào chưa và cập nhật nếu cần
-        const updateResult = await updateEnrollmentStatus(
-          session.user.id,
-          course.id,
-        );
+        const updateResult = await updateEnrollmentStatus(user.id, course.id);
         console.log("Update enrollment result:", updateResult);
 
         // Nếu cập nhật thành công, kiểm tra lại trạng thái enrollment
         if (updateResult.success) {
-          const checkResult = await checkEnrollmentStatus(
-            session.user.id,
-            course.id,
-          );
+          const checkResult = await checkEnrollmentStatus(user.id, course.id);
           if (checkResult.success && checkResult.isEnrolled) {
             setIsEnrolled(true);
             toast.success("Bạn đã được đăng ký vào khóa học!");
@@ -310,12 +316,12 @@ export default function CourseDetail() {
           method: "BANK_TRANSFER",
           description: course.title.substring(0, 25), // Giới hạn 25 ký tự
           orderCode: orderCode.toString(), // Chuyển đổi thành chuỗi
-          returnUrl: `${window.location.origin}/payment/success?orderCode=${orderCode}&courseId=${course.id}&userId=${session.user.id}&userName=${encodeURIComponent(session.user.name || session.user.email || "")}&courseName=${encodeURIComponent(course.title)}`,
+          returnUrl: `${window.location.origin}/payment/success?orderCode=${orderCode}&courseId=${course.id}&userId=${user.id}&userName=${encodeURIComponent(user.name || user.email || "")}&courseName=${encodeURIComponent(course.title)}`,
           cancelUrl: `${window.location.origin}/course/${course.id}`,
           metadata: {
             courseId: course.id,
-            userId: session.user.id,
-            userName: session.user.name || session.user.email,
+            userId: user.id,
+            userName: user.name || user.email,
             courseName: course.title,
             level: course.level || "BEGINNER",
             categoryName: course.category?.name || "",
@@ -323,7 +329,7 @@ export default function CourseDetail() {
           },
           serviceName: "Course Enrollment",
           serviceId: course.id,
-          userId: session.user.id,
+          userId: user.id,
         };
 
         // Sử dụng hàm createPayment từ paymentActions

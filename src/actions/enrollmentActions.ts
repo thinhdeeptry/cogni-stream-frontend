@@ -189,3 +189,27 @@ export const getEnrollmentStats = async () => {
     };
   }
 };
+
+/**
+ * Get all enrollments for a user
+ * @param userId User ID
+ * @returns List of enrollments with progress information
+ */
+export const getUserEnrollments = async (userId: string) => {
+  try {
+    const enrollmentApi = await AxiosFactory.getApiInstance("enrollment");
+    const response = await enrollmentApi.get(`/user/${userId}/courses`);
+
+    return {
+      success: true,
+      data: response.data,
+    };
+  } catch (error: any) {
+    console.error("Error fetching user enrollments:", error);
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to fetch enrollments",
+      data: [],
+    };
+  }
+};

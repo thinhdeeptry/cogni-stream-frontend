@@ -5,50 +5,54 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { Course } from "@/types/course/types";
+import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { CircularProgressbar } from "react-circular-progressbar";
+import { CircularProgressbar, buildStyles } from "react-circular-progressbar";
 import "react-circular-progressbar/dist/styles.css";
 
 import { getAllCourses } from "@/actions/courseAction";
-import { getUserProgress } from "@/actions/progressActions";
+import { getUserEnrollments } from "@/actions/enrollmentActions";
+
+import useUserStore from "@/stores/useUserStore";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
 export default function StudyRoadMap() {
   const [courses, setCourses] = useState<Course[]>([]);
-  const [loading, setLoading] = useState(true);
   const [userProgress, setUserProgress] = useState<Record<string, number>>({});
+  const { user } = useUserStore();
 
+  // Using React Query instead of useEffect
+  const { data: coursesData, isLoading: coursesLoading } = useQuery({
+    queryKey: ["courses"],
+    queryFn: () => getAllCourses({ isPublished: true, skipPagination: true }),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  const { data: enrollmentsData, isLoading: enrollmentsLoading } = useQuery({
+    queryKey: ["enrollments", user?.id],
+    queryFn: () => (user?.id ? getUserEnrollments(user.id) : null),
+    enabled: !!user?.id,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  // Process the data when it's available
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [coursesResponse, progressResponse] = await Promise.all([
-          getAllCourses({ isPublished: true, skipPagination: true }),
-          getUserProgress(),
-        ]);
+    if (coursesData?.data) {
+      setCourses(coursesData.data);
+    }
 
-        setCourses(coursesResponse.data || []);
+    if (enrollmentsData?.data) {
+      const progressMap: Record<string, number> = {};
+      enrollmentsData.data.forEach((enrollment: any) => {
+        progressMap[enrollment.courseId] = enrollment.progress || 0;
+      });
+      setUserProgress(progressMap);
+    }
+  }, [coursesData, enrollmentsData]);
 
-        // Transform progress data into a map of courseId -> progress percentage
-        const progressMap: Record<string, number> = {};
-        if (progressResponse?.data) {
-          console.log("Progress data received:", progressResponse.data); // Debug
-          progressResponse.data.forEach((item: any) => {
-            progressMap[item.courseId] = item.progress || 0;
-          });
-        }
-        console.log("Progress map created:", progressMap); // Debug
-        setUserProgress(progressMap);
-      } catch (error) {
-        console.error("Error fetching data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, []);
+  const loading = coursesLoading || enrollmentsLoading;
 
   const fadeIn = {
     hidden: { opacity: 0, y: 20 },
@@ -57,21 +61,63 @@ export default function StudyRoadMap() {
 
   const roadmaps = [
     {
-      id: "programming",
-      title: "Lộ trình học Lập trình",
+      id: "frontend",
+      title: "Lộ trình Front-end Developer",
       description:
-        "Lộ trình học lập trình từ cơ bản đến nâng cao, giúp bạn xây dựng nền tảng vững chắc và phát triển kỹ năng lập trình chuyên nghiệp.",
+        "Học các công nghệ và kỹ năng cần thiết để trở thành lập trình viên Front-end chuyên nghiệp, từ HTML/CSS cơ bản đến các framework hiện đại.",
+      image:
+        courses.find((c) => c.tags?.includes("FE") || c.tags?.includes("React"))
+          ?.thumbnailUrl ||
+        "https://supabasekong-a084okggcg0skwoooockog08.eduforge.io.vn/storage/v1/object/public/courses/course-thumbnails/680342fe32367c789ca11c81/frontend-path.png",
+      icons: courses
+        .filter(
+          (c) =>
+            c.tags?.includes("FE") ||
+            c.tags?.includes("Web Development") ||
+            c.tags?.includes("JavaScript") ||
+            c.tags?.includes("React") ||
+            c.tags?.includes("CSS") ||
+            c.tags?.includes("SASS") ||
+            c.tags?.includes("Frontend"),
+        )
+        .slice(0, 7)
+        .map((c) => c.thumbnailUrl || "/placeholder-course.jpg"),
+    },
+    {
+      id: "backend",
+      title: "Lộ trình Back-end Developer",
+      description:
+        "Phát triển kỹ năng lập trình phía máy chủ với các ngôn ngữ và framework hiện đại như Java Spring Boot, Node.js và các công nghệ liên quan.",
       image:
         courses.find((c) => c.tags?.includes("BE"))?.thumbnailUrl ||
         "https://supabasekong-a084okggcg0skwoooockog08.eduforge.io.vn/storage/v1/object/public/courses/course-thumbnails/680342fe32367c789ca11c81/43658b78-7873-42b3-a0d6-906368748d33.png",
       icons: courses
         .filter(
           (c) =>
-            c.categoryId === "11111111-1111-1111-1111-111111111111" ||
-            c.categoryId === "66666666-6666-6666-6666-666666666666" ||
             c.tags?.includes("BE") ||
-            c.tags?.includes("Git") ||
-            c.tags?.includes("Linux"),
+            c.categoryId === "11111111-1111-1111-1111-111111111111" ||
+            c.categoryId === "66666666-6666-6666-6666-666666666666",
+        )
+        .slice(0, 7)
+        .map((c) => c.thumbnailUrl || "/placeholder-course.jpg"),
+    },
+    {
+      id: "devops",
+      title: "Lộ trình DevOps & Cloud",
+      description:
+        "Học cách triển khai, quản lý và tự động hóa hệ thống với Docker, Linux và các công cụ DevOps hiện đại.",
+      image:
+        courses.find(
+          (c) => c.tags?.includes("docker") || c.tags?.includes("Linux"),
+        )?.thumbnailUrl ||
+        "https://supabasekong-a084okggcg0skwoooockog08.eduforge.io.vn/storage/v1/object/public/courses/course-thumbnails/680342fe32367c789ca11c81/devops-path.png",
+      icons: courses
+        .filter(
+          (c) =>
+            c.tags?.includes("docker") ||
+            c.tags?.includes("Linux") ||
+            c.tags?.includes("deploy") ||
+            c.tags?.includes("Git"),
         )
         .slice(0, 7)
         .map((c) => c.thumbnailUrl || "/placeholder-course.jpg"),
@@ -80,7 +126,7 @@ export default function StudyRoadMap() {
       id: "languages",
       title: "Lộ trình học Ngoại ngữ",
       description:
-        "Lộ trình học ngoại ngữ giúp bạn nâng cao khả năng giao tiếp và đạt được các chứng chỉ quốc tế.",
+        "Nâng cao khả năng ngoại ngữ với các khóa học TOEIC, IELTS và các chứng chỉ quốc tế khác.",
       image:
         courses.find((c) => c.tags?.includes("Language"))?.thumbnailUrl ||
         "https://supabasekong-a084okggcg0skwoooockog08.eduforge.io.vn/storage/v1/object/public/courses/course-thumbnails/680342fe32367c789ca11c81/3aa205ea-270f-4352-8268-15e01614bf95.jpg",
@@ -90,18 +136,43 @@ export default function StudyRoadMap() {
         .map((c) => c.thumbnailUrl || "/placeholder-course.jpg"),
     },
     {
+      id: "datascience",
+      title: "Lộ trình Data Science & AI",
+      description:
+        "Khám phá thế giới phân tích dữ liệu, machine learning và trí tuệ nhân tạo với Python và các công cụ chuyên dụng.",
+      image:
+        courses.find(
+          (c) =>
+            c.tags?.includes("AI") ||
+            c.tags?.includes("ML") ||
+            c.tags?.includes("analyze"),
+        )?.thumbnailUrl ||
+        "https://supabasekong-a084okggcg0skwoooockog08.eduforge.io.vn/storage/v1/object/public/courses/course-thumbnails/680342fe32367c789ca11c81/data-science-path.png",
+      icons: courses
+        .filter(
+          (c) =>
+            c.tags?.includes("AI") ||
+            c.tags?.includes("ML") ||
+            c.tags?.includes("analyze") ||
+            c.title.includes("Python"),
+        )
+        .slice(0, 7)
+        .map((c) => c.thumbnailUrl || "/placeholder-course.jpg"),
+    },
+    {
       id: "personal",
       title: "Lộ trình Phát triển cá nhân",
       description:
-        "Lộ trình học phát triển bản thân, rèn luyện kỹ năng mềm và tư duy.",
+        "Rèn luyện kỹ năng mềm, tư duy và phát triển bản thân với các khóa học tâm lý học hành vi.",
       image:
         courses.find((c) => c.tags?.includes("Behavior"))?.thumbnailUrl ||
         "https://supabasekong-a084okggcg0skwoooockog08.eduforge.io.vn/storage/v1/object/public/courses/course-thumbnails/680342fe32367c789ca11c81/2314b91c-7239-488d-9299-5b0c9ddbc0f9.jpeg",
       icons: courses
         .filter(
           (c) =>
-            c.categoryId === "55555555-5555-5555-5555-555555555555" &&
-            !c.tags?.includes("Language"),
+            c.tags?.includes("Behavior") ||
+            (c.categoryId === "55555555-5555-5555-5555-555555555555" &&
+              !c.tags?.includes("Language")),
         )
         .slice(0, 7)
         .map((c) => c.thumbnailUrl || "/placeholder-course.jpg"),
@@ -110,16 +181,40 @@ export default function StudyRoadMap() {
       id: "education",
       title: "Lộ trình Kiến thức phổ thông",
       description:
-        "Lộ trình học các môn học phổ thông, củng cố kiến thức nền tảng.",
+        "Củng cố kiến thức nền tảng với các khóa học toán học, tin học cơ bản và các môn học phổ thông khác.",
       image:
-        courses.find((c) => c.tags?.includes("math"))?.thumbnailUrl ||
+        courses.find(
+          (c) => c.tags?.includes("math") || c.tags?.includes("basic"),
+        )?.thumbnailUrl ||
         "https://supabasekong-a084okggcg0skwoooockog08.eduforge.io.vn/storage/v1/object/public/courses/course-thumbnails/680342fe32367c789ca11c81/fc3aeacb-9100-4c02-9156-063921a05a99.jpeg",
       icons: courses
         .filter(
           (c) =>
-            c.categoryId === "f7423037-6a44-4213-ad08-ee465782964d" ||
             c.tags?.includes("math") ||
-            c.tags?.includes("basic"),
+            c.tags?.includes("basic") ||
+            c.tags?.includes("Tin học cơ bản") ||
+            c.tags?.includes("Nhập môn") ||
+            c.categoryId === "f7423037-6a44-4213-ad08-ee465782964d",
+        )
+        .slice(0, 7)
+        .map((c) => c.thumbnailUrl || "/placeholder-course.jpg"),
+    },
+    {
+      id: "programming",
+      title: "Lộ trình Lập trình cơ bản",
+      description:
+        "Bắt đầu hành trình lập trình với các ngôn ngữ phổ biến như C++, Python và các kiến thức nền tảng về lập trình.",
+      image:
+        courses.find(
+          (c) => c.tags?.includes("Lập trình") || c.tags?.includes("C++"),
+        )?.thumbnailUrl ||
+        "https://supabasekong-a084okggcg0skwoooockog08.eduforge.io.vn/storage/v1/object/public/courses/course-thumbnails/680342fe32367c789ca11c81/programming-basics.png",
+      icons: courses
+        .filter(
+          (c) =>
+            c.tags?.includes("Lập trình") ||
+            c.tags?.includes("C++") ||
+            c.title.includes("Python căn bản"),
         )
         .slice(0, 7)
         .map((c) => c.thumbnailUrl || "/placeholder-course.jpg"),
@@ -155,7 +250,7 @@ export default function StudyRoadMap() {
         {roadmaps.map((roadmap) => (
           <motion.div
             key={roadmap.id}
-            whileHover={{ y: -2 }}
+            whileHover={{ y: -1 }}
             transition={{ type: "spring", stiffness: 300 }}
             className="w-full"
           >
@@ -168,13 +263,12 @@ export default function StudyRoadMap() {
                       {roadmap.description}
                     </p>
                   </div>
-                  <div className="w-24 h-24 relative flex-shrink-0 ml-2">
+                  <div className="w-28 h-28 relative flex-shrink-0 ml-2 rounded-full overflow-hidden">
                     <Image
                       src={roadmap.image}
                       alt={roadmap.title}
-                      width={96}
-                      height={96}
-                      className="object-cover rounded-full"
+                      fill
+                      className="object-cover"
                     />
                   </div>
                 </div>
@@ -185,41 +279,29 @@ export default function StudyRoadMap() {
                     const course = courses.find((c) => c.thumbnailUrl === icon);
                     const progress = course ? userProgress[course.id] || 0 : 0;
 
-                    console.log(
-                      "Course:",
-                      course?.title,
-                      "ID:",
-                      course?.id,
-                      "Progress:",
-                      progress,
-                    ); // Debug
-
                     return (
-                      <div
-                        key={index}
-                        className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center overflow-hidden relative group"
-                        style={{
-                          padding: "2px", // Space for the border
-                        }}
-                      >
+                      <div key={index} className="w-10 h-10 relative group">
                         {/* Progress circle */}
-                        <div
-                          className="absolute inset-0 rounded-full"
-                          style={{
-                            background:
-                              progress > 0
-                                ? `conic-gradient(#f97316 ${progress}%, #e5e7eb ${progress}%)`
-                                : "#e5e7eb",
-                          }}
-                        />
+                        <div className="w-full h-full absolute">
+                          <CircularProgressbar
+                            value={progress}
+                            strokeWidth={8}
+                            styles={buildStyles({
+                              strokeLinecap: "round",
+                              pathColor: "#f97316",
+                              trailColor: "#e5e7eb",
+                              backgroundColor: "#fff",
+                            })}
+                          />
+                        </div>
 
                         {/* Course image */}
-                        <div className="relative z-10 w-[calc(100%-4px)] h-[calc(100%-4px)] rounded-full overflow-hidden">
+                        <div className="absolute inset-0 flex items-center justify-center w-[calc(100%-6px)] h-[calc(100%-6px)] m-[3px] rounded-full overflow-hidden">
                           <Image
                             src={icon}
                             alt={course?.title || "Course icon"}
-                            width={32}
-                            height={32}
+                            width={40}
+                            height={40}
                             className="object-cover w-full h-full"
                           />
                         </div>
@@ -229,7 +311,7 @@ export default function StudyRoadMap() {
                           {course?.title || "Khóa học"}
                           {progress > 0 && (
                             <span className="ml-1">
-                              - {progress}% hoàn thành
+                              - {Math.round(progress)}% hoàn thành
                             </span>
                           )}
                           {/* Arrow pointing down */}
