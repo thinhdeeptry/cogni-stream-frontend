@@ -1,6 +1,10 @@
 import axios from "axios";
 
+import useUserStore from "@/stores/useUserStore";
+
 const API_URL = "http://eduforge.io.vn:8081/api";
+const USER_INFO_URL = "https://users.eduforge.io.vn/dashboard/internal/user";
+const COURSE_SERVICE_API_KEY = "sk_course_service_12345";
 
 export interface Post {
   id: string;
@@ -75,6 +79,13 @@ export interface PaginatedResponse<T> {
     empty: boolean;
   };
   timestamp: string;
+}
+
+export interface UserInfo {
+  _id: string;
+  email: string;
+  name: string;
+  isActive: boolean;
 }
 
 export const getAllPosts = async (
@@ -372,6 +383,25 @@ export const getUserRecommendations = async (
     const { data } = await axios.get(
       `${API_URL}/v1/recommendations/users/${userId}?${params.toString()}`,
     );
+    return {
+      success: true,
+      message: "Operation successful",
+      data: data,
+      timestamp: new Date().toISOString(),
+    };
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const getUserInfo = async (userId: string): Promise<UserInfo> => {
+  try {
+    const { data } = await axios.get(`${USER_INFO_URL}/${userId}`, {
+      headers: {
+        "x-api-key": COURSE_SERVICE_API_KEY,
+        "x-service-name": "courseService",
+      },
+    });
     return data;
   } catch (error) {
     throw error;

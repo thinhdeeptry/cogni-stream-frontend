@@ -826,11 +826,14 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
               if (scoreResult.success && scoreResult.data) {
                 highestScoresMap[test.id] = scoreResult.data;
               }
-            } catch (err) {
-              console.error(
-                `Error fetching highest score for test ${test.id}:`,
-                err,
-              );
+            } catch (err: any) {
+              // Ignore 404 errors (when user hasn't attempted the test)
+              if (err?.response?.status !== 404) {
+                console.error(
+                  `Error fetching highest score for test ${test.id}:`,
+                  err,
+                );
+              }
             }
           }),
         );
@@ -1271,7 +1274,7 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
 
             {/* Tests Section */}
             {tests.length > 0 && (
-              <motion.div variants={slideUp} className="mt-8">
+              <motion.div variants={slideUp} className="mt-8 pb-16">
                 <Card className="overflow-hidden border-none shadow-md rounded-xl">
                   <CardContent className="p-6">
                     <h2 className="text-xl font-bold bg-gradient-to-r from-green-500 to-teal-500 bg-clip-text text-transparent inline-block mb-4 items-center">

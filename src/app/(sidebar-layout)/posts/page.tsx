@@ -9,7 +9,9 @@ import { ChevronLeft, ChevronRight, Eye, Heart } from "lucide-react";
 
 import {
   Post,
+  UserInfo,
   getAllPosts,
+  getUserInfo,
   getUserRecommendations,
 } from "@/actions/postAction";
 import { Series, getAllSeries } from "@/actions/seriesAction";
@@ -18,6 +20,23 @@ import useUserStore from "@/stores/useUserStore";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { UserAvatar } from "@/components/ui/user-avatar";
+
+function decodeHTMLEntities(text: string) {
+  const textarea = document.createElement("textarea");
+  textarea.innerHTML = text;
+  return textarea.value;
+}
+
+function stripHTMLAndDecodeEntities(html: string) {
+  // First decode HTML entities
+  const decodedText = decodeHTMLEntities(html);
+  // Then remove HTML tags
+  return decodedText
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ") // Replace multiple spaces with single space
+    .trim();
+}
 
 function getReadingTime(content: string) {
   const words = content.split(/\s+/).length;
@@ -29,29 +48,69 @@ export default function PublicPostsPage() {
   const [recommendedPosts, setRecommendedPosts] = useState<Post[]>([]);
   const [latestPosts, setLatestPosts] = useState<Post[]>([]);
   const [series, setSeries] = useState<Series[]>([]);
+  const [authorInfoMap, setAuthorInfoMap] = useState<Record<string, UserInfo>>(
+    {},
+  );
   const [loading, setLoading] = useState(true);
+  const [recommendationsLoading, setRecommendationsLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const router = useRouter();
   const { user } = useUserStore();
 
+  const fetchAuthorInfo = async (posts: Post[]) => {
+    const uniqueAuthorIds = [...new Set(posts.map((post) => post.userId))];
+    const authorInfoPromises = uniqueAuthorIds.map(async (userId) => {
+      try {
+        const userInfo = await getUserInfo(userId);
+        return [userId, userInfo] as [string, UserInfo];
+      } catch (error) {
+        console.error(`Error fetching author info for ${userId}:`, error);
+        return null;
+      }
+    });
+
+    const authorInfoResults = await Promise.all(authorInfoPromises);
+    const newAuthorInfoMap: Record<string, UserInfo> = {};
+    authorInfoResults.forEach((result) => {
+      if (result) {
+        const [userId, userInfo] = result;
+        newAuthorInfoMap[userId] = userInfo;
+      }
+    });
+    setAuthorInfoMap(newAuthorInfoMap);
+  };
+
+  const fetchRecommendations = async () => {
+    if (!user?.id) return;
+
+    setRecommendationsLoading(true);
+    try {
+      const response = await getUserRecommendations(user.id, {
+        page: 0,
+        size: 5,
+        currentUserId: user.id,
+      });
+
+      if (response?.data?.content) {
+        const recommendedContent = response.data.content;
+        setRecommendedPosts(recommendedContent);
+        await fetchAuthorInfo(recommendedContent);
+      }
+    } catch (error) {
+      console.error("Error fetching recommendations:", error);
+    } finally {
+      setRecommendationsLoading(false);
+    }
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // Fetch recommended posts if user is logged in
+        // Fetch recommendations if user is logged in
         if (user?.id) {
-          const recommendationsResponse = await getUserRecommendations(
-            user.id,
-            {
-              page: 0,
-              size: 5,
-              currentUserId: user.id,
-            },
-          );
-          if (recommendationsResponse?.data) {
-            setRecommendedPosts(recommendationsResponse.data.content || []);
-          }
+          await fetchRecommendations();
         }
 
         // Fetch latest posts
@@ -62,9 +121,11 @@ export default function PublicPostsPage() {
           sortDir: "desc",
           currentUserId: user?.id,
         });
+
         if (latestPostsResponse?.data) {
           setLatestPosts(latestPostsResponse.data.content || []);
           setTotalPages(latestPostsResponse.data.totalPages || 0);
+          await fetchAuthorInfo(latestPostsResponse.data.content || []);
         }
 
         // Fetch series
@@ -100,24 +161,39 @@ export default function PublicPostsPage() {
     >
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-2">
-          <img
-            src={post.author?.avatar || "/default-avatar.png"}
-            alt={post.author?.name}
-            className="w-10 h-10 rounded-full border"
+          <UserAvatar
+            name={authorInfoMap[post.userId]?.name || "Unknown User"}
+            avatarUrl={post.author?.avatar}
           />
-          <span className="font-semibold flex items-center gap-1">
-            {post.author?.name}
-            {post.author?.isFeatured && <span title="Tác giả nổi bật">👑</span>}
-            {post.author?.isVerified && <span title="Đã xác thực">✔️</span>}
-          </span>
+          <div className="flex flex-col">
+            <span className="font-semibold flex items-center gap-1">
+              {authorInfoMap[post.userId]?.name || "Unknown User"}
+              {post.author?.isFeatured && (
+                <span title="Tác giả nổi bật">👑</span>
+              )}
+              {post.author?.isVerified && <span title="Đã xác thực">✔️</span>}
+            </span>
+            {post.seriesTitle && (
+              <span className="text-sm text-gray-500">
+                Series: {post.seriesTitle} - Phần {post.orderInSeries}
+              </span>
+            )}
+          </div>
         </div>
+
         <h2 className="text-xl font-bold mb-2 line-clamp-2">{post.title}</h2>
         <p className="text-gray-600 mb-3 line-clamp-2">
-          {post.content?.replace(/<[^>]+>/g, "").slice(0, 120) + "..."}
+          {stripHTMLAndDecodeEntities(post.content || "").slice(0, 150)}...
         </p>
         <div className="flex items-center gap-3 flex-wrap text-sm text-gray-500">
           {post.tags && post.tags.length > 0 && (
-            <Badge variant="secondary">{post.tags[0]}</Badge>
+            <div className="flex gap-2">
+              {post.tags.map((tag) => (
+                <Badge key={tag} variant="secondary">
+                  {tag}
+                </Badge>
+              ))}
+            </div>
           )}
           <span>
             {formatDistanceToNow(new Date(post.createdAt), {
@@ -125,8 +201,6 @@ export default function PublicPostsPage() {
               locale: vi,
             })}
           </span>
-          <span>•</span>
-          <span>{getReadingTime(post.content)}</span>
           <span>•</span>
           <span className="flex items-center gap-1">
             <Eye className="w-4 h-4" />
@@ -160,16 +234,26 @@ export default function PublicPostsPage() {
   return (
     <div className="container mx-auto py-8 space-y-12">
       {/* Recommended Posts Section */}
-      {user && recommendedPosts.length > 0 && (
-        <section>
-          <h2 className="text-2xl font-bold mb-6">
-            Bài viết được đề xuất cho bạn
-          </h2>
-          <div className="grid gap-6">
-            {recommendedPosts.map(renderPostCard)}
-          </div>
-        </section>
-      )}
+      {user &&
+        (recommendationsLoading ? (
+          <section>
+            <h2 className="text-2xl font-bold mb-6">
+              Đang tải bài viết phù hợp với bạn...
+            </h2>
+            <div className="grid gap-6">
+              {/* Add loading skeleton here if needed */}
+            </div>
+          </section>
+        ) : recommendedPosts.length > 0 ? (
+          <section>
+            <h2 className="text-2xl font-bold mb-6">
+              Bài viết phù hợp với bạn
+            </h2>
+            <div className="grid gap-6">
+              {recommendedPosts.map(renderPostCard)}
+            </div>
+          </section>
+        ) : null)}
 
       {/* Latest Posts Section */}
       <section>

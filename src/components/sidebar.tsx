@@ -46,7 +46,7 @@ const getMenuItems = (userRole: string) => {
     },
     {
       title: "Bài viết",
-      url: userRole === "ADMIN" ? "/admin/posts" : "/posts",
+      url: "/posts",
       icon: BookOpen,
       color: "text-amber-500",
       bgColor: "bg-amber-50",
@@ -61,6 +61,13 @@ const getMenuItems = (userRole: string) => {
         icon: LayoutDashboard,
         color: "text-gray-600",
         bgColor: "bg-purple-50",
+      },
+      {
+        title: "QL Bài viết",
+        url: "/admin/posts",
+        icon: BookOpen,
+        color: "text-gray-600",
+        bgColor: "bg-amber-50",
       },
       {
         title: "Người dùng",
@@ -102,7 +109,7 @@ export function AppSidebar() {
                       : pathname === item.url;
 
                 return (
-                  <SidebarMenuItem key={item.title}>
+                  <SidebarMenuItem key={`${item.title}-${item.url}`}>
                     <SidebarMenuButton
                       asChild
                       className={cn("h-20", isActive && item.bgColor)}
