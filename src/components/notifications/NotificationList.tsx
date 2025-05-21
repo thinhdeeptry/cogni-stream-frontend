@@ -90,15 +90,7 @@ export function NotificationList({ userId }: NotificationListProps) {
             <div className="flex items-center justify-center h-32">
               <LoadingDots />
             </div>
-          ) : error ? (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="flex items-center justify-center h-32 text-red-500"
-            >
-              {error}
-            </motion.div>
-          ) : notifications.length === 0 ? (
+          ) : notifications.length === 0 || error ? (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
