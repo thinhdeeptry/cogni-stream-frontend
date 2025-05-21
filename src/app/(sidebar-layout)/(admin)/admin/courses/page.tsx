@@ -489,11 +489,6 @@ export default function AdminCoursesPage() {
                 Quản lý bài kiểm tra
               </Button>
             </Link>
-            <Link href="/admin/courses/create">
-              <Button className="bg-orange-500 hover:bg-orange-600 text-white">
-                <Plus className="mr-2 h-4 w-4" /> Thêm khoá học
-              </Button>
-            </Link>
           </div>
           <Dialog
             open={isCategoryDialogOpen}

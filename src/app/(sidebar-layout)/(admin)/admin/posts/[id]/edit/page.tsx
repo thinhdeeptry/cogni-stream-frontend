@@ -225,15 +225,91 @@ export default function EditPostPage({ params }: EditPostPageProps) {
                 "insertdatetime",
                 "media",
                 "table",
-                "code",
+                "codesample",
                 "help",
                 "wordcount",
+                "image",
               ],
               toolbar:
                 "undo redo | blocks | " +
                 "bold italic forecolor | alignleft aligncenter " +
                 "alignright alignjustify | bullist numlist outdent indent | " +
-                "removeformat | help",
+                "image codesample | removeformat | help",
+              images_upload_handler: async (blobInfo: any) => {
+                try {
+                  const file = blobInfo.blob();
+                  return await uploadCoverImage(file);
+                } catch (error) {
+                  toast.error("Không thể tải ảnh lên");
+                  throw error;
+                }
+              },
+              automatic_uploads: true,
+              file_picker_types: "image",
+              images_reuse_filename: true,
+              codesample_languages: [
+                { text: "HTML/XML", value: "markup" },
+                { text: "CSS", value: "css" },
+                { text: "JavaScript", value: "javascript" },
+                { text: "TypeScript", value: "typescript" },
+                { text: "JSX/TSX", value: "jsx" },
+                { text: "Python", value: "python" },
+                { text: "Java", value: "java" },
+                { text: "C", value: "c" },
+                { text: "C++", value: "cpp" },
+                { text: "C#", value: "csharp" },
+                { text: "PHP", value: "php" },
+                { text: "Ruby", value: "ruby" },
+                { text: "Go", value: "go" },
+                { text: "Rust", value: "rust" },
+                { text: "Swift", value: "swift" },
+                { text: "Kotlin", value: "kotlin" },
+                { text: "SQL", value: "sql" },
+                { text: "Shell/Bash", value: "bash" },
+                { text: "Docker", value: "dockerfile" },
+                { text: "JSON", value: "json" },
+                { text: "YAML", value: "yaml" },
+                { text: "GraphQL", value: "graphql" },
+                { text: "MongoDB", value: "mongodb" },
+                { text: "Git", value: "git" },
+                { text: "Markdown", value: "markdown" },
+              ],
+              codesample_global_prismjs: true,
+              entity_encoding: "raw",
+              content_style: `
+                .mce-content-body {
+                  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                  font-size: 16px;
+                  line-height: 1.6;
+                }
+                .mce-content-body pre {
+                  background-color: #1e1e1e !important;
+                  color: #d4d4d4 !important;
+                  padding: 1em !important;
+                  border-radius: 8px !important;
+                  font-family: 'Fira Code', monospace !important;
+                  font-size: 14px !important;
+                  line-height: 1.6 !important;
+                  overflow-x: auto !important;
+                  margin: 1.5em 0 !important;
+                  border: 1px solid #333 !important;
+                }
+                .mce-content-body pre code {
+                  font-family: 'Fira Code', monospace !important;
+                  background: transparent !important;
+                  padding: 0 !important;
+                  border-radius: 0 !important;
+                  font-size: inherit !important;
+                  color: inherit !important;
+                }
+                .mce-content-body img {
+                  max-width: 100%;
+                  height: auto;
+                  display: block;
+                  margin: 1em 0;
+                  border-radius: 8px;
+                }
+              `,
             }}
           />
         </div>

@@ -43,7 +43,7 @@ export interface CreateTestDto {
 }
 
 let assessmentApi = axios.create({
-  baseURL: "http://localhost:3005/api/v1",
+  baseURL: "http://eduforge.io.vn:3005/api/v1",
   timeout: 30000,
   headers: {
     "Content-Type": "application/json",
@@ -59,12 +59,15 @@ export async function getQuestions(params: {
   try {
     console.log(`Making GET request to: /questions with params:`, params);
 
-    const response = await axios.get(`http://localhost:3005/api/v1/questions`, {
-      params,
-      headers: {
-        "Content-Type": "application/json",
+    const response = await axios.get(
+      `http://eduforge.io.vn:3005/api/v1/questions`,
+      {
+        params,
+        headers: {
+          "Content-Type": "application/json",
+        },
       },
-    });
+    );
 
     console.log("API response status:", response.status);
     console.log("API response data:", response.data);
@@ -97,7 +100,7 @@ export async function getQuestionById(questionId: string) {
     console.log(`Making GET request to: /questions/${questionId}`);
 
     const response = await axios.get(
-      `http://localhost:3005/api/v1/questions/${questionId}`,
+      `http://eduforge.io.vn:3005/api/v1/questions/${questionId}`,
       {
         headers: {
           "Content-Type": "application/json",
@@ -144,7 +147,7 @@ export async function updateQuestion(questionId: string, questionData: any) {
     };
 
     const response = await axios.patch(
-      `http://localhost:3005/api/v1/questions/${questionId}`,
+      `http://eduforge.io.vn:3005/api/v1/questions/${questionId}`,
       questionData,
       config,
     );
@@ -200,7 +203,7 @@ export async function createQuestion(questionData: any) {
     };
 
     const response = await axios.post(
-      `http://localhost:3005/api/v1/questions`,
+      `http://eduforge.io.vn:3005/api/v1/questions`,
       questionData,
       config,
     );
