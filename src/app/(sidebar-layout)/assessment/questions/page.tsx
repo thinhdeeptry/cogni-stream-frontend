@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 
 import { Question, QuestionType } from "@/types/assessment/types";
 import parse from "html-react-parser";
@@ -13,6 +13,7 @@ import { getUserCourseStructureWithDetails } from "@/actions/courseAction";
 
 import useUserStore from "@/stores/useUserStore";
 
+import Loading from "@/components/Loading";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -72,7 +73,7 @@ const RichTextContent = ({ content }: { content: string }) => {
   );
 };
 
-export default function QuestionsPage() {
+function QuestionsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const selectedId = searchParams.get("contextId");
@@ -80,8 +81,6 @@ export default function QuestionsPage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Lấy thông tin user từ store
   const user = useUserStore((state) => state.user);
 
   // Lấy danh sách khóa học
@@ -378,5 +377,13 @@ export default function QuestionsPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function Page() {
+  return (
+    <Suspense fallback={<Loading isLoading={true} />}>
+      <QuestionsContent />
+    </Suspense>
   );
 }

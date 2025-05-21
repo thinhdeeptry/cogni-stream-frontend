@@ -1,12 +1,13 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 
 import { getUserCourseStructureWithDetails } from "@/actions/courseAction";
 
 import useUserStore from "@/stores/useUserStore";
 
+import Loading from "@/components/Loading";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tree } from "@/components/ui/tree";
 
@@ -56,11 +57,7 @@ function transformCoursesToTreeData(courses: Course[]) {
   }));
 }
 
-export default function QuestionLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+function QuestionLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -152,5 +149,17 @@ export default function QuestionLayout({
         </div>
       </div>
     </div>
+  );
+}
+
+export default function QuestionLayouts({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <Suspense fallback={<Loading isLoading={true} />}>
+      <QuestionLayout>{children}</QuestionLayout>
+    </Suspense>
   );
 }

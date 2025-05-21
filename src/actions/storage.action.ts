@@ -1,4 +1,5 @@
-// "use server"
+"use server";
+
 import { AxiosFactory } from "@/lib/axios";
 
 const storageAxios = await AxiosFactory.getApiInstance("storage");

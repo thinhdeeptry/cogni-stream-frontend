@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 
 import { Course } from "@/types/course/types";
 import {
@@ -20,6 +20,7 @@ import {
   getEnrollmentStats,
 } from "@/actions/enrollmentActions";
 
+import Loading from "@/components/Loading";
 import CourseItem from "@/components/courseItem";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -52,7 +53,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-export default function AllCoursesPage() {
+function CoursesContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -913,5 +914,13 @@ export default function AllCoursesPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function CoursesPage() {
+  return (
+    <Suspense fallback={<Loading isLoading={true} />}>
+      <CoursesContent />
+    </Suspense>
   );
 }

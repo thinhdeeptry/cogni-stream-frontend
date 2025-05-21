@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 
 import { CheckCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -14,9 +14,10 @@ import {
   updateOrderStatus,
 } from "@/actions/paymentActions";
 
+import Loading from "@/components/Loading";
 import { Button } from "@/components/ui/button";
 
-export default function SuccessPage() {
+function SuccessContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [isProcessing, setIsProcessing] = useState(true);
@@ -124,7 +125,7 @@ export default function SuccessPage() {
           // Sử dụng window.location thay vì router.push để đảm bảo trang được tải lại hoàn toàn
           window.location.href = `/course/${courseId}`;
         }, 2000000);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error processing payment:", error);
         setErrorMessage(
           error.message ||
@@ -194,5 +195,13 @@ export default function SuccessPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SuccessPage() {
+  return (
+    <Suspense fallback={<Loading isLoading={true} />}>
+      <SuccessContent />
+    </Suspense>
   );
 }

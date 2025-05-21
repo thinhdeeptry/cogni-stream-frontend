@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 
 import { Course } from "@/types/course/types";
 
@@ -13,6 +13,7 @@ import {
   getEnrollmentStats,
 } from "@/actions/enrollmentActions";
 
+import Loading from "@/components/Loading";
 import CourseItem from "@/components/courseItem";
 import { HomeJsonLd } from "@/components/jsonld/home-jsonld";
 import {
@@ -32,7 +33,7 @@ const bannerImages = [
   "https://res.cloudinary.com/dxxsudprj/image/upload/v1740664063/Screenshot_2025-02-27_at_20.39.05_wvgzaw.png",
 ];
 
-export default function Home() {
+function HomeContent() {
   const searchParams = useSearchParams();
   const searchQuery = searchParams.get("q") || "";
 
@@ -442,5 +443,13 @@ export default function Home() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<Loading isLoading={true} />}>
+      <HomeContent />
+    </Suspense>
   );
 }

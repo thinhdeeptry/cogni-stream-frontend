@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 
 import { BookOpen, Edit, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -11,6 +11,7 @@ import { deleteTest, getTests } from "@/actions/testAction";
 
 import useUserStore from "@/stores/useUserStore";
 
+import Loading from "@/components/Loading";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -103,7 +104,7 @@ function getTestTypeText(type: string) {
   }
 }
 
-export default function TestsPage() {
+function TestsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const selectedId = searchParams.get("contextId");
@@ -413,5 +414,13 @@ export default function TestsPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function Page() {
+  return (
+    <Suspense fallback={<Loading isLoading={true} />}>
+      <TestsContent />
+    </Suspense>
   );
 }
