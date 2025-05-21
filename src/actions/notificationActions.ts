@@ -27,7 +27,7 @@ export const notificationActions = {
       }
     } catch (error) {
       useNotificationStore.getState().setError("Failed to fetch notifications");
-      console.error("Error fetching notifications:", error);
+      console.warn("Failed to fetch notifications:", error);
     } finally {
       useNotificationStore.getState().setLoading(false);
     }
@@ -48,7 +48,7 @@ export const notificationActions = {
       useNotificationStore
         .getState()
         .setError("Failed to mark notification as read");
-      console.error("Error marking notification as read:", error);
+      console.warn("Failed to mark notification as read:", error);
     }
   },
 
@@ -67,7 +67,7 @@ export const notificationActions = {
       useNotificationStore
         .getState()
         .setError("Failed to mark notification as favorite");
-      console.error("Error marking notification as favorite:", error);
+      console.warn("Failed to mark notification as favorite:", error);
     }
   },
 
@@ -86,7 +86,7 @@ export const notificationActions = {
       useNotificationStore
         .getState()
         .setError("Failed to archive notification");
-      console.error("Error archiving notification:", error);
+      console.warn("Failed to archive notification:", error);
     }
   },
 
@@ -102,7 +102,7 @@ export const notificationActions = {
       store.setError(null);
     } catch (error) {
       useNotificationStore.getState().setError("Failed to delete notification");
-      console.error("Error deleting notification:", error);
+      console.warn("Failed to delete notification:", error);
     }
   },
 };
