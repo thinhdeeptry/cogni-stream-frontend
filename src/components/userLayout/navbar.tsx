@@ -50,6 +50,9 @@ export default function Navbar({
   const [searchQuery, setSearchQuery] = useState("");
   // Initialize search query from URL on mount
   useEffect(() => {
+    console.log("Image URL:", image);
+  }, [image]);
+  useEffect(() => {
     const query = searchParams.get("q");
     if (query) {
       setSearchQuery(query);
@@ -65,6 +68,12 @@ export default function Navbar({
 
   // Check if we're on the home page
   const isHomePage = pathname === "/";
+  const clearSearch = () => {
+    setSearchQuery("");
+    if (searchParams.has("q")) {
+      router.push("/");
+    }
+  };
 
   // Initialize search query from URL on mount
   useEffect(() => {
@@ -120,13 +129,6 @@ export default function Navbar({
     }
   };
 
-  const clearSearch = () => {
-    setSearchQuery("");
-    if (searchParams.has("q")) {
-      router.push("/");
-    }
-  };
-
   return (
     <header className="w-full border-b bg-white">
       <div className="container flex h-16 items-center justify-between px-4">
@@ -141,7 +143,7 @@ export default function Navbar({
             className="h-10 w-10 rounded-lg"
           />
           <h1 className="hidden text-lg font-semibold md:block hover:cursor-pointer text-orange-400">
-            Edu Forge
+            Edu Forge =
           </h1>
         </Link>
 
@@ -189,7 +191,6 @@ export default function Navbar({
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Avatar className="h-8 w-8 border cursor-pointer">
-                    <AvatarImage src={image} alt={userName} />
                     <AvatarImage
                       src={image}
                       alt={userName}

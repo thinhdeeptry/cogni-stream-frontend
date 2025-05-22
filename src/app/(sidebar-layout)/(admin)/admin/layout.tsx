@@ -35,5 +35,5 @@ export default function AdminLayout({
     return <Loading isLoading={true} />;
   }
 
-  return <main className="flex-1 p-6 overflow-auto">{children}</main>;
+  return <main className="flex-1 p-6 overflow-visible">{children}</main>;
 }
