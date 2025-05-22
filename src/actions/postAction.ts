@@ -357,8 +357,12 @@ export const getUserRecommendations = async (
 
 export const getUserInfo = async (userId: string): Promise<UserInfo> => {
   try {
-    const userApi = await AxiosFactory.getApiInstance("users");
-    const { data } = await userApi.get(`/internal/${userId}`);
+    const { data } = await axios.get(`${USER_INFO_URL}/${userId}`, {
+      headers: {
+        "x-api-key": COURSE_SERVICE_API_KEY,
+        "x-service-name": "courseService",
+      },
+    });
     return data;
   } catch (error) {
     throw error;
