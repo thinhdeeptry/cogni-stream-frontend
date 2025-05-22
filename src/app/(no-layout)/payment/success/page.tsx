@@ -124,7 +124,7 @@ function SuccessContent() {
         setTimeout(() => {
           // Sử dụng window.location thay vì router.push để đảm bảo trang được tải lại hoàn toàn
           window.location.href = `/course/${courseId}`;
-        }, 2000000);
+        }, 5000);
       } catch (error: any) {
         console.error("Error processing payment:", error);
         setErrorMessage(
@@ -137,7 +137,7 @@ function SuccessContent() {
     };
 
     processPayment();
-  }, [searchParams, router]);
+  }, [searchParams]);
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">

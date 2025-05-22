@@ -1,5 +1,4 @@
-"use server";
-
+// "use server";
 import { AxiosFactory } from "@/lib/axios";
 
 interface PaymentData {
@@ -198,7 +197,7 @@ export async function createEnrollmentAfterPayment(paymentData: any) {
     console.log("Creating enrollment with data:", enrollmentData);
 
     try {
-      const response = await enrollmentApi.post("", enrollmentData);
+      const response = await enrollmentApi.post("/", enrollmentData);
       console.log("Enrollment creation response:", response.data);
 
       return {
