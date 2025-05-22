@@ -1,8 +1,8 @@
 "use server";
 
-import { AxiosFactory } from "@/lib/axios";
+import axios from "axios";
 
-const seriesApi = await AxiosFactory.getApiInstance("series");
+const API_URL = "http://eduforge.io.vn:8081/api/v1";
 
 export interface Series {
   id: string;
@@ -73,17 +73,18 @@ export interface ApiResponse<T> {
 
 export const getAllSeries = async (filters?: SeriesFilters) => {
   try {
-    const { data } = await seriesApi.get<
-      ApiResponse<PaginatedResponse<Series>>
-    >(`/series`, {
-      params: {
-        page: filters?.page || 0,
-        size: filters?.size || 10,
-        sortBy: filters?.sortBy || "createdAt",
-        sortDir: filters?.sortDir || "desc",
+    const response = await axios.get<ApiResponse<PaginatedResponse<Series>>>(
+      `${API_URL}/series`,
+      {
+        params: {
+          page: filters?.page || 0,
+          size: filters?.size || 10,
+          sortBy: filters?.sortBy || "createdAt",
+          sortDir: filters?.sortDir || "desc",
+        },
       },
-    });
-    return data;
+    );
+    return response.data;
   } catch (error) {
     throw error;
   }
@@ -91,12 +92,15 @@ export const getAllSeries = async (filters?: SeriesFilters) => {
 
 export const getSeriesById = async (id: string, currentUserId?: string) => {
   try {
-    const { data } = await seriesApi.get<ApiResponse<Series>>(`/series/${id}`, {
-      params: {
-        currentUserId,
+    const response = await axios.get<ApiResponse<Series>>(
+      `${API_URL}/series/${id}`,
+      {
+        params: {
+          currentUserId,
+        },
       },
-    });
-    return data;
+    );
+    return response.data;
   } catch (error) {
     throw error;
   }
@@ -107,17 +111,19 @@ export const getSeriesByUserId = async (
   filters?: SeriesFilters,
 ) => {
   try {
-    const { data } = await seriesApi.get<
-      ApiResponse<PaginatedResponse<Series>>
-    >(`/series/user/${userId}`, {
-      params: {
-        page: filters?.page || 0,
-        size: filters?.size || 10,
-        sortBy: filters?.sortBy || "createdAt",
-        sortDir: filters?.sortDir || "desc",
+    console.log(userId);
+    const response = await axios.get<ApiResponse<PaginatedResponse<Series>>>(
+      `${API_URL}/series/user/${userId}`,
+      {
+        params: {
+          page: filters?.page || 0,
+          size: filters?.size || 10,
+          sortBy: filters?.sortBy || "createdAt",
+          sortDir: filters?.sortDir || "desc",
+        },
       },
-    });
-    return data;
+    );
+    return response.data;
   } catch (error) {
     throw error;
   }
@@ -131,14 +137,14 @@ export const createSeries = async (data: {
   isPublished: boolean;
 }) => {
   try {
-    const { data: responseData } = await seriesApi.post<ApiResponse<Series>>(
-      `/series`,
+    const response = await axios.post<ApiResponse<Series>>(
+      `${API_URL}/series`,
       {
         ...data,
         posts: [],
       },
     );
-    return responseData;
+    return response.data;
   } catch (error) {
     throw error;
   }
@@ -156,11 +162,11 @@ export const updateSeries = async (
   },
 ) => {
   try {
-    const { data: responseData } = await seriesApi.put<ApiResponse<Series>>(
-      `/series/${id}`,
+    const response = await axios.put<ApiResponse<Series>>(
+      `${API_URL}/series/${id}`,
       data,
     );
-    return responseData;
+    return response.data;
   } catch (error) {
     throw error;
   }
@@ -168,13 +174,13 @@ export const updateSeries = async (
 
 export const deleteSeries = async (id: string, userId: string) => {
   try {
-    const { data } = await seriesApi.delete<ApiResponse<void>>(
-      `/series/${id}`,
+    const response = await axios.delete<ApiResponse<void>>(
+      `${API_URL}/series/${id}`,
       {
         params: { userId },
       },
     );
-    return data;
+    return response.data;
   } catch (error) {
     throw error;
   }
@@ -187,14 +193,14 @@ export const addPostToSeries = async (
   userId: string,
 ) => {
   try {
-    const { data } = await seriesApi.post<ApiResponse<Series>>(
-      `/series/${seriesId}/posts/${postId}`,
+    const response = await axios.post<ApiResponse<Series>>(
+      `${API_URL}/series/${seriesId}/posts/${postId}`,
       null,
       {
         params: { order, userId },
       },
     );
-    return data;
+    return response.data;
   } catch (error) {
     throw error;
   }
@@ -206,13 +212,13 @@ export const removePostFromSeries = async (
   userId: string,
 ) => {
   try {
-    const { data } = await seriesApi.delete<ApiResponse<Series>>(
-      `/series/${seriesId}/posts/${postId}`,
+    const response = await axios.delete<ApiResponse<Series>>(
+      `${API_URL}/series/${seriesId}/posts/${postId}`,
       {
         params: { userId },
       },
     );
-    return data;
+    return response.data;
   } catch (error) {
     throw error;
   }
@@ -225,14 +231,14 @@ export const updatePostOrderInSeries = async (
   userId: string,
 ) => {
   try {
-    const { data } = await seriesApi.put<ApiResponse<Series>>(
-      `/series/${seriesId}/posts/${postId}/order`,
+    const response = await axios.put<ApiResponse<Series>>(
+      `${API_URL}/series/${seriesId}/posts/${postId}/order`,
       null,
       {
         params: { newOrder, userId },
       },
     );
-    return data;
+    return response.data;
   } catch (error) {
     throw error;
   }
@@ -243,16 +249,17 @@ export const searchSeries = async (
   filters?: SeriesFilters,
 ) => {
   try {
-    const { data } = await seriesApi.get<
-      ApiResponse<PaginatedResponse<Series>>
-    >(`/series/search`, {
-      params: {
-        keyword,
-        page: filters?.page || 0,
-        size: filters?.size || 10,
+    const response = await axios.get<ApiResponse<PaginatedResponse<Series>>>(
+      `${API_URL}/series/search`,
+      {
+        params: {
+          keyword,
+          page: filters?.page || 0,
+          size: filters?.size || 10,
+        },
       },
-    });
-    return data;
+    );
+    return response.data;
   } catch (error) {
     throw error;
   }
