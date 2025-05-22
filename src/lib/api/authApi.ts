@@ -598,7 +598,7 @@ class AuthApi {
       password: string;
       name: string;
       role?: string;
-      isActive?: boolean;
+      isActive?: string;
     },
   ) {
     try {
@@ -736,7 +736,7 @@ class AuthApi {
   ) {
     try {
       const response = await fetch(
-        `${API_URL}/users/${userId}/change-password`,
+        `${API_URL}/dashboard/${userId}/change-password`,
         {
           method: "POST",
           headers: this.getHeaders(accessToken),

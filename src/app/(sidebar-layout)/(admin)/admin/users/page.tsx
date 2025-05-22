@@ -175,7 +175,7 @@ const columns: ColumnDef<IUser>[] = [
               sao chép ID người dùng
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>Xem chi tiết</DropdownMenuItem>
+            {/* <DropdownMenuItem>Xem chi tiết</DropdownMenuItem> */}
             <UpdateUserDialog user={user} />
             <ChangePasswordDialog user={user} />
             <DeleteUserDialog user={user} />
@@ -225,20 +225,20 @@ function AddNewUserDialog() {
         email: formData.email,
         password: "123456",
         role: formData.role,
-        isActive: formData.isActive === "true",
+        isActive: formData.isActive === "true" ? "true" : "false",
       });
       console.log("check response >>> ", response);
       if (response.error) {
         toast.error(response.message || "Failed to create user");
       } else {
-        toast.success("User created successfully");
+        toast.success("Tạo người dùng thành công");
         setOpen(false);
         // Refresh the user list
         window.location.reload();
       }
     } catch (error) {
-      console.error("Error creating user:", error);
-      toast.error("An unexpected error occurred");
+      console.error("Tạo người dùng thất bại:", error);
+      toast.error("Đã xảy ra lỗi khi tạo người dùng");
     } finally {
       setLoading(false);
     }
@@ -594,9 +594,9 @@ function ChangePasswordDialog({ user }: { user: IUser }) {
       );
 
       if (response.error) {
-        toast.error(response.message || "Failed to change password");
+        toast.error(response.message || "Đã xảy ra lỗi khi đổi mật khẩu");
       } else {
-        toast.success("Password changed successfully");
+        toast.success("Đổi mật khẩu thành công");
         setOpen(false);
         setPasswordData({
           newPassword: "",
@@ -604,8 +604,8 @@ function ChangePasswordDialog({ user }: { user: IUser }) {
         });
       }
     } catch (error) {
-      console.error("Error changing password:", error);
-      toast.error("An unexpected error occurred");
+      console.error("Lỗi khi đổi mật khẩu:", error);
+      toast.error("Đã xảy ra lỗi khi đổi mật khẩu");
     } finally {
       setLoading(false);
     }
@@ -688,16 +688,16 @@ function DeleteUserDialog({ user }: { user: IUser }) {
       const response = await authApi.deleteUser(accessToken || "", user.id);
 
       if (response.error) {
-        toast.error(response.message || "Failed to delete user");
+        toast.error(response.message || "Lỗi khi xóa người dùng");
       } else {
-        toast.success("User deleted successfully");
+        toast.success("Xóa người dùng thành công");
         setOpen(false);
         // Refresh the user list
         window.location.reload();
       }
     } catch (error) {
-      console.error("Error deleting user:", error);
-      toast.error("An unexpected error occurred");
+      console.error("Lỗi khi xóa người dùng", error);
+      toast.error("Lỗi khi xóa người dùng");
     } finally {
       setLoading(false);
     }
