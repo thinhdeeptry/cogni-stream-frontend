@@ -37,7 +37,7 @@ class DiscussionSocketService {
       this.socket = null;
     }
 
-    const baseUrl = "http://eduforge.io.vn:3008";
+    const baseUrl = "https://discussion.eduforge.io.vn";
 
     if (!baseUrl) {
       console.error("BASE_URL is not defined");

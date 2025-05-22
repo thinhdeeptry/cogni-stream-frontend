@@ -79,7 +79,7 @@ export default function PostsPage() {
 
     if (window.confirm("Bạn có chắc chắn muốn xóa bài viết này?")) {
       try {
-        await deletePost(postId, user.id);
+        await deletePost(postId);
         toast.success("Xóa bài viết thành công");
         setPosts(posts.filter((p) => p.id !== postId));
       } catch (error) {

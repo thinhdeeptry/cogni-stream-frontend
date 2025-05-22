@@ -11,6 +11,8 @@ interface TimestampedTranscriptItem {
 }
 
 export async function GET(request: NextRequest) {
+  let videoId = "";
+
   try {
     // Get the YouTube URL from the query parameters
     const url = request.nextUrl.searchParams.get("url");
@@ -23,7 +25,6 @@ export async function GET(request: NextRequest) {
     }
 
     // Extract the YouTube video ID from the URL
-    let videoId = "";
     try {
       // Handle different YouTube URL formats
       if (url.includes("youtube.com/watch")) {
@@ -170,8 +171,45 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("Error fetching YouTube transcript:", error);
+
+    // Check for specific transcript-related errors
+    if (error instanceof Error) {
+      if (error.message.includes("Transcript is disabled")) {
+        return NextResponse.json(
+          {
+            error: "Transcript is not available for this video",
+            details:
+              "The video owner has disabled captions/transcripts or they are not available for this video.",
+            videoId,
+          },
+          { status: 404 },
+        );
+      }
+
+      // Handle potential HTTPS/production specific issues
+      if (
+        error.message.includes("Failed to fetch") ||
+        error.message.includes("NetworkError")
+      ) {
+        return NextResponse.json(
+          {
+            error: "Network error while fetching transcript",
+            details:
+              "There was an issue connecting to YouTube's servers. This might be related to HTTPS restrictions in production.",
+            videoId,
+          },
+          { status: 503 },
+        );
+      }
+    }
+
     return NextResponse.json(
-      { error: "Failed to fetch transcript" },
+      {
+        error: "Failed to fetch transcript",
+        details:
+          error instanceof Error ? error.message : "Unknown error occurred",
+        videoId,
+      },
       { status: 500 },
     );
   }

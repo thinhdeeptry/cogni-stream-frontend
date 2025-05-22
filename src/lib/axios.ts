@@ -1,7 +1,9 @@
 import axios, {
+  type AxiosError,
   type AxiosInstance,
   type InternalAxiosRequestConfig,
 } from "axios";
+import axiosRetry from "axios-retry";
 import { jwtDecode } from "jwt-decode";
 import { getSession } from "next-auth/react";
 
@@ -75,6 +77,24 @@ class AxiosFactory {
         "Content-Type": "application/json",
         "x-api-key": this.getServiceApiKey(serviceName),
         "x-service-name": serviceName,
+      },
+    });
+
+    // Configure retry logic
+    axiosRetry(instance, {
+      retries: 3, // Number of retries
+      retryDelay: (retryCount: number) => {
+        return retryCount * 1000; // Time interval between retries
+      },
+      retryCondition: (error: AxiosError) => {
+        // Retry on network errors or 5xx server errors
+        return Boolean(
+          axiosRetry.isNetworkOrIdempotentRequestError(error) ||
+            (error.response && error.response.status >= 500),
+        );
+      },
+      onRetry: (retryCount: number, error: AxiosError, requestConfig: any) => {
+        console.warn(`Retry attempt ${retryCount} for ${requestConfig.url}`);
       },
     });
 
