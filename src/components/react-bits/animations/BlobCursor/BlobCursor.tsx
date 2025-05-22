@@ -20,6 +20,14 @@ import { animated, useTrail } from "@react-spring/web";
 	Installed from https://reactbits.dev/ts/tailwind/
 */
 
+/*
+	Installed from https://reactbits.dev/ts/tailwind/
+*/
+
+/*
+	Installed from https://reactbits.dev/ts/tailwind/
+*/
+
 const fast = { tension: 1200, friction: 40 };
 const slow = { mass: 10, tension: 200, friction: 50 };
 const trans = (x: number, y: number) =>
