@@ -418,14 +418,15 @@ class AuthApi {
           }
         }
       }
-      console.log("check refresh token >>> ", refreshToken);
+      console.log("check API_URL >>> ", API_URL);
+      console.log("check refreshToken >>> ", refreshToken);
       const response = await fetch(`${API_URL}/auth/token`, {
         method: "POST",
         headers: this.getHeaders(refreshToken || undefined),
         credentials: "include", // Vẫn giữ cookies để tương thích với cả hai cách
         body: JSON.stringify({ refreshToken }),
       });
-      console.log("check response in refresh token >>> ", response);
+      // console.log("check response in refresh token >>> ", response);
 
       if (!response.ok) {
         throw new Error("Failed to refresh token");
@@ -498,8 +499,12 @@ class AuthApi {
             data: null,
           };
         }
-
-        const data = await retryResponse.json();
+        const dataResult = await retryResponse.json();
+        const data = {
+          ...dataResult,
+          id: dataResult.user._id,
+        };
+        console.log("check fetch users>>> ", data);
         return {
           error: false,
           statusCode: 200,
@@ -519,7 +524,16 @@ class AuthApi {
         };
       }
 
-      const data = await response.json();
+      const dataResponse = await response.json();
+      console.log("check fetch dataResponse>>> ", dataResponse);
+      const data = {
+        ...dataResponse,
+        users: dataResponse.users.map((user: any) => ({
+          ...user,
+          id: user._id,
+        })),
+      };
+      console.log("check fetch users>>> ", data);
       return {
         error: false,
         statusCode: 200,
@@ -584,6 +598,7 @@ class AuthApi {
       password: string;
       name: string;
       role?: string;
+      isActive?: string;
     },
   ) {
     try {
@@ -603,7 +618,11 @@ class AuthApi {
         };
       }
 
-      const data = await response.json();
+      const dataResponse = await response.json();
+      const data = {
+        ...dataResponse,
+        id: dataResponse._id,
+      };
       return {
         error: false,
         statusCode: 201,
@@ -630,10 +649,11 @@ class AuthApi {
       name?: string;
       email?: string;
       role?: string;
-      isActive?: boolean;
+      isActive?: string;
     },
   ) {
     try {
+      console.log("check userData >>> ", userData, userId);
       const response = await fetch(`${API_URL}/dashboard/${userId}`, {
         method: "PATCH",
         headers: this.getHeaders(accessToken),
@@ -716,7 +736,7 @@ class AuthApi {
   ) {
     try {
       const response = await fetch(
-        `${API_URL}/users/${userId}/change-password`,
+        `${API_URL}/dashboard/${userId}/change-password`,
         {
           method: "POST",
           headers: this.getHeaders(accessToken),

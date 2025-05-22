@@ -1,5 +1,4 @@
-"use server";
-
+// "use server";
 import { AxiosFactory } from "@/lib/axios";
 import { Category, Course, Lesson } from "@/types/course/types";
 
@@ -60,7 +59,6 @@ export const getAllCourses = async (
 
     console.log("API Request URL:", `/courses?${params.toString()}`);
     const { data } = await courseApi.get(`/courses?${params.toString()}`);
-    console.log("API Response:", data);
 
     // If the backend doesn't return a paginated response format yet, transform it
     if (Array.isArray(data)) {

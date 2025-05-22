@@ -87,16 +87,16 @@ export async function GET(request: NextRequest) {
 
     // Log a few more items to see if they have different structures
     if (transcriptData.length > 1) {
-      console.log(
-        "Second item (full):",
-        JSON.stringify(transcriptData[1], null, 2),
-      );
+      // console.log(
+      //   "Second item (full):",
+      //   JSON.stringify(transcriptData[1], null, 2),
+      // );
     }
     if (transcriptData.length > 2) {
-      console.log(
-        "Third item (full):",
-        JSON.stringify(transcriptData[2], null, 2),
-      );
+      // console.log(
+      //   "Third item (full):",
+      //   JSON.stringify(transcriptData[2], null, 2),
+      // );
     }
 
     // Format the transcript data with timestamps
@@ -151,9 +151,9 @@ export async function GET(request: NextRequest) {
           timestamp = `${hours}:${minutes.toString().padStart(2, "0")}:${remainingSeconds.toString().padStart(2, "0")}`;
         }
 
-        console.log(
-          `Processing item: rawOffset=${offsetInSeconds}, minutes=${totalMinutes}, seconds=${remainingSeconds}, timestamp=${timestamp}`,
-        );
+        // console.log(
+        //   `Processing item: rawOffset=${offsetInSeconds}, minutes=${totalMinutes}, seconds=${remainingSeconds}, timestamp=${timestamp}`,
+        // );
 
         return {
           text: item.text,

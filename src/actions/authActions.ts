@@ -8,6 +8,12 @@ import { authApi } from "@/lib/api/authApi";
 
 // actions/login.ts
 
+// actions/login.ts
+
+// actions/login.ts
+
+// actions/login.ts
+
 export async function loginUser(email: string, password: string) {
   try {
     console.log("loginUser: Attempting to sign in with email:", email);
@@ -241,7 +247,7 @@ export async function getDashboardData(
       current,
       pageSize,
     );
-    console.log("check result in action >>>", result);
+    console.log("check result in action >>>", result.data);
 
     if (result.error) {
       return {

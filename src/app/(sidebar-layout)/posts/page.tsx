@@ -163,7 +163,7 @@ export default function PublicPostsPage() {
         <div className="flex items-center gap-2 mb-2">
           <UserAvatar
             name={authorInfoMap[post.userId]?.name || "Unknown User"}
-            avatarUrl={post.author?.avatar}
+            avatarUrl={authorInfoMap[post.userId]?.image}
           />
           <div className="flex flex-col">
             <span className="font-semibold flex items-center gap-1">

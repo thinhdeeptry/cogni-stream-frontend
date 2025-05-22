@@ -3,6 +3,7 @@
 */
 import { useEffect, useRef } from "react";
 
+// @ts-ignore
 import { Color, Mesh, Program, Renderer, Triangle } from "ogl";
 
 const VERT = `#version 300 es

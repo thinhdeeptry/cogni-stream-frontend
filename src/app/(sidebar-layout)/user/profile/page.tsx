@@ -100,7 +100,7 @@ export default function ProfilePage() {
     return null;
   }
 
-  const formatDate = (dateString) => {
+  const formatDate = (dateString: string) => {
     if (!dateString) return "N/A";
     return new Date(dateString).toLocaleDateString("vi-VN", {
       year: "numeric",
@@ -234,11 +234,11 @@ export default function ProfilePage() {
         </Card>
 
         {/* Main Content */}
-        <div className="md:col-span-2">
+        <div className="md:col-span-2 -mt-6">
           <Tabs defaultValue="profile">
-            <TabsList className="grid w-full grid-cols-1">
+            {/* <TabsList className="grid w-full grid-cols-1">
               <TabsTrigger value="profile">Thông tin cá nhân</TabsTrigger>
-            </TabsList>
+            </TabsList> */}
 
             <TabsContent value="profile" className="mt-6">
               <Card>

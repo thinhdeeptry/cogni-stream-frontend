@@ -16,10 +16,20 @@ import { animated, useTrail } from "@react-spring/web";
 	Installed from https://reactbits.dev/ts/tailwind/
 */
 
+/*
+	Installed from https://reactbits.dev/ts/tailwind/
+*/
+
+/*
+	Installed from https://reactbits.dev/ts/tailwind/
+*/
+
 const fast = { tension: 1200, friction: 40 };
 const slow = { mass: 10, tension: 200, friction: 50 };
 const trans = (x: number, y: number) =>
   `translate3d(${x}px,${y}px,0) translate3d(-50%,-50%,0)`;
+
+const AnimatedDiv = animated.div as any;
 
 export default function BlobCursor({
   blobType = "circle",
@@ -100,7 +110,7 @@ export default function BlobCursor({
         onTouchMove={(e) => handleMove(e as unknown as TouchEvent)}
       >
         {trail.map((props, index) => (
-          <animated.div
+          <AnimatedDiv
             key={index}
             className="absolute opacity-60 shadow-[10px_10px_5px_0_rgba(0,0,0,0.75)]"
             style={{
@@ -125,7 +135,7 @@ export default function BlobCursor({
                 background: "rgba(255,255,255,0.8)",
               }}
             />
-          </animated.div>
+          </AnimatedDiv>
         ))}
       </div>
     </div>

@@ -3,7 +3,7 @@
 	Installed from https://reactbits.dev/ts/default/
 	3-4-2025
 */
-import { useEffect, useRef, useState } from "react";
+import { JSX, useEffect, useRef, useState } from "react";
 
 import { PanInfo, motion, useMotionValue, useTransform } from "framer-motion";
 // replace icons with your own if needed

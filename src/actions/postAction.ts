@@ -89,6 +89,7 @@ export interface UserInfo {
   email: string;
   name: string;
   isActive: boolean;
+  image: string;
 }
 
 export const getAllPosts = async (

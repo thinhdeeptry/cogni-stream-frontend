@@ -121,6 +121,10 @@ function CoursesContent() {
           setEnrollmentStats(statsResponse.data);
         }
 
+        // Fetch categories
+        const categories = await getAllCategories();
+        setCategories(categories);
+
         // Sau khi lấy dữ liệu, áp dụng tự động các bộ lọc từ URL
         applyFiltersFromURL();
       } catch (err) {

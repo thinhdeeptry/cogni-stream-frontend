@@ -30,6 +30,9 @@ export const {
           prompt: "consent",
           access_type: "offline",
           response_type: "code",
+          redirect_uri: process.env.NEXTAUTH_URL
+            ? `${process.env.NEXTAUTH_URL}/api/auth/callback/google`
+            : "https://eduforge.io.vn/api/auth/callback/google",
         },
       },
     }),
@@ -102,10 +105,13 @@ export const {
   session: {
     strategy: "jwt",
   },
+  trustHost: true,
   callbacks: {
     async jwt({ token, user, account, trigger, session }) {
       // console.log("JWT callback - Trigger:", trigger);
       // console.log("JWT callback - Session:", session);
+      // console.log("JWT callback - user:", user);
+
       // Kiểm tra nếu trigger là "update" và session có user
       if (trigger === "update" && session?.user) {
         // Cập nhật token với dữ liệu user mới
@@ -142,7 +148,10 @@ export const {
       }
 
       // Nếu đăng nhập bằng credentials
-      if (user && user.accountType === "LOCAL") {
+      if (
+        user &&
+        (user.accountType === "LOCAL" || user.accountType === "GOOGLE")
+      ) {
         // Cập nhật token với thông tin user theo interface IUser
         token.id = user.id;
         token.email = user.email;
@@ -158,17 +167,17 @@ export const {
         token.accessToken = user.accessToken;
         token.refreshToken = user.refreshToken;
 
-        console.log("JWT callback - Credentials login, updated token:", {
-          id: token.id,
-          email: token.email,
-          accessToken: token.accessToken ? "[EXISTS]" : "[MISSING]",
-          refreshToken: token.refreshToken ? "[EXISTS]" : "[MISSING]",
-        });
+        // console.log("JWT callback - Credentials login, updated token:", {
+        //   id: token.id,
+        //   email: token.email,
+        //   accessToken: token.accessToken ? "[EXISTS]" : "[MISSING]",
+        //   refreshToken: token.refreshToken ? "[EXISTS]" : "[MISSING]",
+        // });
       }
       // Nếu đăng nhập bằng Google
       else if (account && account.provider === "google" && user) {
         try {
-          console.log("JWT callback - Google login, calling backend API");
+          // console.log("JWT callback - Google login, calling backend API");
 
           // Gọi API backend để xử lý đăng nhập Google và lấy token
           const googleAuthResponse = await authApi.loginWithGoogle({
@@ -205,12 +214,12 @@ export const {
           token.refreshToken =
             googleAuthResponse.refreshToken || googleAuthResponse.refresh_token;
 
-          console.log("JWT callback - Google login, updated token:", {
-            id: token.id,
-            email: token.email,
-            accessToken: token.accessToken ? "[EXISTS]" : "[MISSING]",
-            refreshToken: token.refreshToken ? "[EXISTS]" : "[MISSING]",
-          });
+          // console.log("JWT callback - Google login, updated token:", {
+          //   id: token.id,
+          //   email: token.email,
+          //   accessToken: token.accessToken ? "[EXISTS]" : "[MISSING]",
+          //   refreshToken: token.refreshToken ? "[EXISTS]" : "[MISSING]",
+          // });
         } catch (error) {
           console.error("Error processing Google login:", error);
         }

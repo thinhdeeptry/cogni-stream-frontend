@@ -3,6 +3,7 @@
 */
 import { useEffect, useRef } from "react";
 
+// @ts-ignore
 import { Mesh, Program, Renderer, Triangle, Vec3 } from "ogl";
 
 interface OrbProps {
