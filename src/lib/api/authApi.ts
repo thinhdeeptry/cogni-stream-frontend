@@ -418,14 +418,15 @@ class AuthApi {
           }
         }
       }
-      console.log("check refresh token >>> ", refreshToken);
+      console.log("check API_URL >>> ", API_URL);
+      console.log("check refreshToken >>> ", refreshToken);
       const response = await fetch(`${API_URL}/auth/token`, {
         method: "POST",
         headers: this.getHeaders(refreshToken || undefined),
         credentials: "include", // Vẫn giữ cookies để tương thích với cả hai cách
         body: JSON.stringify({ refreshToken }),
       });
-      console.log("check response in refresh token >>> ", response);
+      // console.log("check response in refresh token >>> ", response);
 
       if (!response.ok) {
         throw new Error("Failed to refresh token");

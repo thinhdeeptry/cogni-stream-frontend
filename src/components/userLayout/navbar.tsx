@@ -50,6 +50,9 @@ export default function Navbar({
   const [searchQuery, setSearchQuery] = useState("");
   // Initialize search query from URL on mount
   useEffect(() => {
+    console.log("Image URL:", image);
+  }, [image]);
+  useEffect(() => {
     const query = searchParams.get("q");
     if (query) {
       setSearchQuery(query);
@@ -65,6 +68,12 @@ export default function Navbar({
 
   // Check if we're on the home page
   const isHomePage = pathname === "/";
+  const clearSearch = () => {
+    setSearchQuery("");
+    if (searchParams.has("q")) {
+      router.push("/");
+    }
+  };
 
   // Initialize search query from URL on mount
   useEffect(() => {
@@ -117,13 +126,6 @@ export default function Navbar({
     if (searchQuery.trim()) {
       // Redirect to home page with search query
       router.push(`/?q=${encodeURIComponent(searchQuery.trim())}`);
-    }
-  };
-
-  const clearSearch = () => {
-    setSearchQuery("");
-    if (searchParams.has("q")) {
-      router.push("/");
     }
   };
 
@@ -189,7 +191,6 @@ export default function Navbar({
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Avatar className="h-8 w-8 border cursor-pointer">
-                    <AvatarImage src={image} alt={userName} />
                     <AvatarImage
                       src={image}
                       alt={userName}
