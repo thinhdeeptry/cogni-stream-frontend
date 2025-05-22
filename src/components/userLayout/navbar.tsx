@@ -143,7 +143,7 @@ export default function Navbar({
             className="h-10 w-10 rounded-lg"
           />
           <h1 className="hidden text-lg font-semibold md:block hover:cursor-pointer text-orange-400">
-            Edu Forge =
+            Edu Forge
           </h1>
         </Link>
 
