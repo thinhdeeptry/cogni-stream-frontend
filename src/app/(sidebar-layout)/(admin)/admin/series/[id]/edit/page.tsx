@@ -17,17 +17,18 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 
-interface EditSeriesPageProps {
-  params: {
-    id: string;
-  };
+// Use the Next.js 15 expected format
+interface PageProps {
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
-export default function EditSeriesPage({ params }: EditSeriesPageProps) {
+export default function EditSeriesPage({ params }: PageProps) {
   const router = useRouter();
   const { user } = useUserStore();
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [seriesId, setSeriesId] = useState<string>("");
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -37,10 +38,15 @@ export default function EditSeriesPage({ params }: EditSeriesPageProps) {
   const [coverUploading, setCoverUploading] = useState(false);
 
   useEffect(() => {
-    const fetchSeries = async () => {
+    const initializePage = async () => {
       try {
+        // Handle the Promise parameter
+        const resolvedParams = await Promise.resolve(params);
+        const id = resolvedParams.id;
+        setSeriesId(id);
+
         setInitialLoading(true);
-        const response = await getSeriesById(params.id);
+        const response = await getSeriesById(id);
         setFormData({
           title: response.data.title,
           description: response.data.description,
@@ -55,8 +61,8 @@ export default function EditSeriesPage({ params }: EditSeriesPageProps) {
       }
     };
 
-    fetchSeries();
-  }, [params.id, router]);
+    initializePage();
+  }, [params, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,10 +71,15 @@ export default function EditSeriesPage({ params }: EditSeriesPageProps) {
       return;
     }
 
+    if (!seriesId) {
+      toast.error("Không tìm thấy ID series");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const response = await updateSeries(params.id, {
+      const response = await updateSeries(seriesId, {
         userId: user.id,
         title: formData.title,
         description: formData.description,

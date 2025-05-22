@@ -1,4 +1,5 @@
-// "use server"
+"use server";
+
 import { AxiosFactory } from "@/lib/axios";
 
 import {
@@ -8,12 +9,15 @@ import {
   ThreadWithPostCount,
 } from "../components/discussion/type";
 
-const discussionAxios = await AxiosFactory.getApiInstance("discussion");
-
 // Create a simple in-memory cache to prevent infinite loops
 const threadCache = new Map<string, ThreadWithPostCount>();
 
+async function getAxiosInstance() {
+  return await AxiosFactory.getApiInstance("discussion");
+}
+
 export async function getAllThreads(): Promise<ThreadWithPostCount[]> {
+  const discussionAxios = await getAxiosInstance();
   const { data } = await discussionAxios.get(`/threads`);
   return data;
 }
@@ -21,6 +25,7 @@ export async function getAllThreads(): Promise<ThreadWithPostCount[]> {
 export async function getThread(
   threadId: string,
 ): Promise<ThreadWithPostCount> {
+  const discussionAxios = await getAxiosInstance();
   const { data } = await discussionAxios.get(`/threads/${threadId}`);
   return data;
 }
@@ -30,6 +35,7 @@ export async function getPosts(
   page?: number,
   limit?: number,
 ): Promise<Post[]> {
+  const discussionAxios = await getAxiosInstance();
   const { data } = await discussionAxios.get(
     `/threads/${threadId}/posts${page ? `?page=${page}&limit=${limit}` : ""}`,
   );
@@ -43,6 +49,7 @@ export async function createPost(
   parentId?: string,
   rating?: number,
 ): Promise<Post> {
+  const discussionAxios = await getAxiosInstance();
   console.log({
     content,
     parentId,
@@ -67,6 +74,7 @@ export async function updatePost(
   authorId: string,
   rating?: number,
 ): Promise<Post> {
+  const discussionAxios = await getAxiosInstance();
   const { data } = await discussionAxios.patch(
     `/posts/${postId}?authorId=${authorId}`,
     {
@@ -81,6 +89,7 @@ export async function deletePost(
   postId: string,
   authorId: string,
 ): Promise<void> {
+  const discussionAxios = await getAxiosInstance();
   const response = await discussionAxios.delete(
     `/posts/${postId}?authorId=${authorId}`,
   );
@@ -96,6 +105,7 @@ export async function addReaction(
 ): Promise<void> {
   // Based on Postman collection, the userId should be in the header, not in the request body
   // But since we're using axios, we'll keep the current implementation for now
+  const discussionAxios = await getAxiosInstance();
   const response = await discussionAxios.post(`/reactions`, {
     postId,
     type,
@@ -105,6 +115,7 @@ export async function addReaction(
 }
 
 export async function removeReaction(reactionId: string): Promise<void> {
+  const discussionAxios = await getAxiosInstance();
   await discussionAxios.delete(`/reactions/${reactionId}`);
 }
 
@@ -113,6 +124,7 @@ export async function findReplies(
   page?: number,
   limit?: number,
 ): Promise<Post[]> {
+  const discussionAxios = await getAxiosInstance();
   const { data } = await discussionAxios.get(
     `/posts/${postId}/replies${page ? `?page=${page}&limit=${limit}` : ""}`,
   );
@@ -123,6 +135,7 @@ export async function updateReaction(
   reactionId: string,
   reactionType: ReactionType,
 ) {
+  const discussionAxios = await getAxiosInstance();
   const { data } = await discussionAxios.patch(`/reactions/${reactionId}`, {
     type: reactionType,
   });
@@ -134,6 +147,7 @@ export async function checkUserReview(
   courseId: string,
   authorId: string,
 ): Promise<{ hasReviewed: boolean; reviewId?: string }> {
+  const discussionAxios = await getAxiosInstance();
   try {
     console.log(
       `Checking user review for courseId=${courseId}, authorId=${authorId}`,
@@ -166,6 +180,7 @@ export async function getThreadByResourceId(
     return cachedThread;
   }
 
+  const discussionAxios = await getAxiosInstance();
   try {
     // Try to get thread by resource ID and type
     console.log(`Finding thread for resource ID: ${resourceId}, type: ${type}`);
@@ -206,6 +221,7 @@ export async function createThread(
   title: string = "",
   overallRating?: number,
 ): Promise<ThreadWithPostCount | null> {
+  const discussionAxios = await getAxiosInstance();
   try {
     console.log(`Creating thread for resource ${resourceId} with type ${type}`);
     console.log("Request payload:", { resourceId, type, title, overallRating });

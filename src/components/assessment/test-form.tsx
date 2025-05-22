@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from "react";
 
+import { ScoringPolicy, TestType } from "@/types/assessment/types";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 
-import { ScoringPolicy, TestType } from "@/actions/assessmentAction";
 import { getUserCourseStructureWithDetails } from "@/actions/courseAction";
 
 import useUserStore from "@/stores/useUserStore";

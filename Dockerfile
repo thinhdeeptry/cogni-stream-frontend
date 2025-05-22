@@ -13,6 +13,9 @@ RUN npm ci --legacy-peer-deps --ignore-scripts
 # Sao chép mã nguồn
 COPY . .
 
+# Xóa cache của Next.js
+RUN rm -rf .next
+
 # Build ứng dụng Next.js
 RUN npm run build
 

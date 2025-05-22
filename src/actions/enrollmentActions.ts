@@ -1,3 +1,5 @@
+"use server";
+
 import { AxiosFactory } from "@/lib/axios";
 
 interface EnrollmentData {
@@ -131,7 +133,7 @@ export const createCertificate = async (params: {
       message: "Tạo chứng chỉ thành công!",
       data: response.data,
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error creating certificate:", error);
     return {
       error: true,
@@ -155,7 +157,7 @@ export const getCertificate = async (certificateId: string) => {
       success: true,
       data: response.data,
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching certificate:", error);
     return {
       error: true,

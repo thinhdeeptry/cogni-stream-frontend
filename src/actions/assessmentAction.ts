@@ -1,76 +1,28 @@
-// "use server"
-import { AxiosFactory } from "@/lib/axios";
+"use server";
+
+import {
+  CreateTestDto,
+  CreateTestQuestionDto,
+  Question,
+  ScoringPolicy,
+  TestType,
+} from "@/types/assessment/types";
 import axios from "axios";
 
-export enum TestType {
-  PRACTICE = "PRACTICE",
-  QUIZ = "QUIZ",
-  FINAL = "FINAL",
-  ASSIGNMENT = "ASSIGNMENT",
-}
-
-export enum ScoringPolicy {
-  HIGHEST = "HIGHEST",
-  AVERAGE = "AVERAGE",
-  LATEST = "LATEST",
-}
-
-export interface CreateTestQuestionDto {
-  questionId: string;
-  maxScore: number;
-}
-
-export interface CreateTestDto {
-  title: string;
-  description?: string;
-  courseId?: string;
-  chapterId?: string;
-  lessonId?: string;
-  duration?: number;
-  maxScore?: number;
-  testType: TestType;
-  shuffleQuestions: boolean;
-  maxAttempts?: number;
-  cooldownPeriod?: number;
-  scoringPolicy: ScoringPolicy;
-  testQuestions?: CreateTestQuestionDto[];
-  questionOrder?: string[];
-  allowReview: boolean;
-  testStart: Date;
-  testEnd?: Date;
-  enforceTimeLimit: boolean;
-  unlimitedAttempts: boolean;
-}
-
-let assessmentApi = axios.create({
-  baseURL: "http://eduforge.io.vn:3005/api/v1",
-  timeout: 30000,
-  headers: {
-    "Content-Type": "application/json",
-  },
-});
+const ASSESSMENT_API_URL = "http://eduforge.io.vn:3005/api/v1";
 
 export async function getQuestions(params: {
   courseId?: string;
   chapterId?: string;
   lessonId?: string;
 }) {
-  console.log("++ params", params);
   try {
-    console.log(`Making GET request to: /questions with params:`, params);
-
-    const response = await axios.get(
-      `http://eduforge.io.vn:3005/api/v1/questions`,
-      {
-        params,
-        headers: {
-          "Content-Type": "application/json",
-        },
+    const response = await axios.get(`${ASSESSMENT_API_URL}/questions`, {
+      params,
+      headers: {
+        "Content-Type": "application/json",
       },
-    );
-
-    console.log("API response status:", response.status);
-    console.log("API response data:", response.data);
+    });
 
     return {
       success: true,
@@ -79,17 +31,12 @@ export async function getQuestions(params: {
     };
   } catch (error: any) {
     console.error("Error fetching questions:", error);
-
-    let errorMessage = "Đã xảy ra lỗi khi lấy danh sách câu hỏi";
-    if (error.response?.data?.message) {
-      errorMessage = error.response.data.message;
-    } else if (error.message) {
-      errorMessage = error.message;
-    }
-
     return {
       success: false,
-      message: errorMessage,
+      message:
+        error.response?.data?.message ||
+        error.message ||
+        "Đã xảy ra lỗi khi lấy danh sách câu hỏi",
       error,
     };
   }
@@ -97,19 +44,14 @@ export async function getQuestions(params: {
 
 export async function getQuestionById(questionId: string) {
   try {
-    console.log(`Making GET request to: /questions/${questionId}`);
-
     const response = await axios.get(
-      `http://eduforge.io.vn:3005/api/v1/questions/${questionId}`,
+      `${ASSESSMENT_API_URL}/questions/${questionId}`,
       {
         headers: {
           "Content-Type": "application/json",
         },
       },
     );
-
-    console.log("API response status:", response.status);
-    console.log("API response data:", response.data);
 
     return {
       success: true,
@@ -118,28 +60,25 @@ export async function getQuestionById(questionId: string) {
     };
   } catch (error: any) {
     console.error("Error fetching question:", error);
-
-    let errorMessage = "Đã xảy ra lỗi khi lấy thông tin câu hỏi";
-    if (error.response?.data?.message) {
-      errorMessage = error.response.data.message;
-    } else if (error.message) {
-      errorMessage = error.message;
-    }
-
     return {
       success: false,
-      message: errorMessage,
+      message:
+        error.response?.data?.message ||
+        error.message ||
+        "Đã xảy ra lỗi khi lấy thông tin câu hỏi",
       error,
     };
   }
 }
 
-export async function updateQuestion(questionId: string, questionData: any) {
+export async function updateQuestion(
+  questionId: string,
+  questionData: Question,
+) {
   try {
     console.log(`Making PATCH request to: /questions/${questionId}`);
     console.log("With data:", JSON.stringify(questionData, null, 2));
 
-    // Make direct Axios request with minimal configuration
     const config = {
       headers: {
         "Content-Type": "application/json",
@@ -147,7 +86,7 @@ export async function updateQuestion(questionId: string, questionData: any) {
     };
 
     const response = await axios.patch(
-      `http://eduforge.io.vn:3005/api/v1/questions/${questionId}`,
+      `${ASSESSMENT_API_URL}/questions/${questionId}`,
       questionData,
       config,
     );
@@ -163,7 +102,6 @@ export async function updateQuestion(questionId: string, questionData: any) {
   } catch (error: any) {
     console.error("Error updating question:", error);
 
-    // Detailed error logging
     let errorMessage = "Đã xảy ra lỗi khi cập nhật câu hỏi";
 
     if (error.response) {
@@ -190,12 +128,11 @@ export async function updateQuestion(questionId: string, questionData: any) {
   }
 }
 
-export async function createQuestion(questionData: any) {
+export async function createQuestion(questionData: Question) {
   try {
     console.log(`Making POST request to: /questions`);
     console.log("With data:", JSON.stringify(questionData, null, 2));
 
-    // Make direct Axios request with minimal configuration
     const config = {
       headers: {
         "Content-Type": "application/json",
@@ -203,7 +140,7 @@ export async function createQuestion(questionData: any) {
     };
 
     const response = await axios.post(
-      `http://eduforge.io.vn:3005/api/v1/questions`,
+      `${ASSESSMENT_API_URL}/questions`,
       questionData,
       config,
     );
@@ -219,7 +156,6 @@ export async function createQuestion(questionData: any) {
   } catch (error: any) {
     console.error("Error creating question:", error);
 
-    // Detailed error logging
     let errorMessage = "Đã xảy ra lỗi khi tạo câu hỏi";
 
     if (error.response) {
@@ -262,7 +198,7 @@ export async function getQuestionsById(questionIds: string[]) {
       data: questions,
       message: "Lấy danh sách câu hỏi thành công",
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching questions:", error);
     return {
       success: false,

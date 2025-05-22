@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { use, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { toast } from "sonner";
 
@@ -11,22 +11,27 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-interface SeriesDetailPageProps {
-  params: Promise<{
-    id: string;
-  }>;
+// Use the Next.js 15 expected format
+interface PageProps {
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
-export default function SeriesDetailPage({ params }: SeriesDetailPageProps) {
-  const resolvedParams = use(params);
+export default function SeriesDetailPage({ params }: PageProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [series, setSeries] = useState<any>(null);
+  const [seriesId, setSeriesId] = useState<string>("");
 
   useEffect(() => {
     const fetchSeries = async () => {
       try {
-        const response = await getSeriesById(resolvedParams.id);
+        // Handle the Promise parameter
+        const resolvedParams = await Promise.resolve(params);
+        const id = resolvedParams.id;
+        setSeriesId(id);
+
+        const response = await getSeriesById(id);
         setSeries(response.data);
       } catch (error) {
         toast.error("Không thể tải thông tin series");
@@ -37,7 +42,7 @@ export default function SeriesDetailPage({ params }: SeriesDetailPageProps) {
     };
 
     fetchSeries();
-  }, [resolvedParams.id, router]);
+  }, [params, router]);
 
   if (loading) {
     return (
@@ -63,11 +68,7 @@ export default function SeriesDetailPage({ params }: SeriesDetailPageProps) {
           <Button variant="outline" onClick={() => router.back()}>
             Quay lại
           </Button>
-          <Button
-            onClick={() =>
-              router.push(`/admin/series/${resolvedParams.id}/edit`)
-            }
-          >
+          <Button onClick={() => router.push(`/admin/series/${seriesId}/edit`)}>
             Chỉnh sửa
           </Button>
         </div>

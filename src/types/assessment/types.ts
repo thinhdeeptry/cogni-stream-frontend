@@ -14,6 +14,19 @@ export enum QuestionDifficulty {
   CREATING = "CREATING",
 }
 
+export enum TestType {
+  PRACTICE = "PRACTICE",
+  QUIZ = "QUIZ",
+  FINAL = "FINAL",
+  ASSIGNMENT = "ASSIGNMENT",
+}
+
+export enum ScoringPolicy {
+  HIGHEST = "HIGHEST",
+  AVERAGE = "AVERAGE",
+  LATEST = "LATEST",
+}
+
 export interface Course {
   id: string;
   name: string;
@@ -73,4 +86,31 @@ export interface QuestionFormValues {
   difficulty: QuestionDifficulty;
   options?: AnswerOption[];
   referenceAnswer?: ReferenceAnswer;
+}
+
+export interface CreateTestQuestionDto {
+  questionId: string;
+  maxScore: number;
+}
+
+export interface CreateTestDto {
+  title: string;
+  description?: string;
+  courseId?: string;
+  chapterId?: string;
+  lessonId?: string;
+  duration?: number;
+  maxScore?: number;
+  testType: TestType;
+  shuffleQuestions: boolean;
+  maxAttempts?: number;
+  cooldownPeriod?: number;
+  scoringPolicy: ScoringPolicy;
+  testQuestions?: CreateTestQuestionDto[];
+  questionOrder?: string[];
+  allowReview: boolean;
+  testStart: Date;
+  testEnd?: Date;
+  enforceTimeLimit: boolean;
+  unlimitedAttempts: boolean;
 }

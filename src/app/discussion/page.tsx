@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-export default function DiscussionTest() {
+export default function DiscussionPage() {
   const [threads, setThreads] = useState<ThreadWithPostCount[]>([]);
   const [currentThreadId, setCurrentThreadId] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);

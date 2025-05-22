@@ -1,4 +1,5 @@
-// "use server";
+"use server";
+
 import { AxiosFactory } from "@/lib/axios";
 import { Category, Course, Lesson } from "@/types/course/types";
 

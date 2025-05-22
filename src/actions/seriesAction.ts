@@ -1,3 +1,5 @@
+"use server";
+
 import axios from "axios";
 
 const API_URL = "http://eduforge.io.vn:8081/api";

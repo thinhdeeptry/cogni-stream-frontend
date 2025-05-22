@@ -1,12 +1,13 @@
-// "use server"
+"use server";
+
 import { AxiosFactory } from "@/lib/axios";
 
-export const createPayment = async (paymentData: {
+interface PaymentData {
   amount: number;
   method: string;
   serviceName: string;
   description: string;
-  orderCode: string; // Frontend sử dụng orderCode
+  orderCode: string;
   userId: string;
   serviceId: string;
   returnUrl: string;
@@ -22,21 +23,24 @@ export const createPayment = async (paymentData: {
     level: string;
     categoryName?: string;
   };
-}) => {
+}
+
+interface ValidatedPaymentData extends Omit<PaymentData, "orderCode"> {
+  ordercode: string;
+}
+
+export const createPayment = async (paymentData: PaymentData) => {
   try {
     // Giới hạn mô tả tối đa 25 ký tự
     const truncatedDescription = paymentData.description.substring(0, 25);
 
     // Chuyển đổi orderCode thành ordercode để khớp với backend
-    const validatedPaymentData = {
+    const validatedPaymentData: ValidatedPaymentData = {
       ...paymentData,
-      description: truncatedDescription, // Sử dụng mô tả đã cắt ngắn
+      description: truncatedDescription,
       method: "BANK_TRANSFER",
-      ordercode: paymentData.orderCode, // Chuyển đổi tên trường
+      ordercode: paymentData.orderCode,
     };
-
-    // Xóa trường orderCode để tránh gửi cả hai
-    delete validatedPaymentData.orderCode;
 
     const paymentApi = await AxiosFactory.getApiInstance("payment");
     const response = await paymentApi.post("/", validatedPaymentData);
@@ -51,7 +55,7 @@ export const createPayment = async (paymentData: {
     } else {
       throw new Error("Không thể tạo trang thanh toán");
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error creating payment:", error);
     return {
       error: true,
@@ -65,7 +69,7 @@ export const createPayment = async (paymentData: {
   }
 };
 
-export const generateOrderCode = () => {
+export const generateOrderCode = async () => {
   const now = new Date();
   const x = parseInt(
     String(now.getFullYear()).slice(-2) +
@@ -155,6 +159,14 @@ export async function getOrderByCode(orderCode: number | string) {
   }
 }
 
+interface Enrollment {
+  id: string;
+  courseId: string;
+  userId: string;
+  status: string;
+  [key: string]: any;
+}
+
 // Tạo hoặc cập nhật enrollment sau khi thanh toán thành công
 export async function createEnrollmentAfterPayment(paymentData: any) {
   try {
@@ -194,7 +206,7 @@ export async function createEnrollmentAfterPayment(paymentData: any) {
         data: response.data,
         message: "Đăng ký khóa học thành công",
       };
-    } catch (error) {
+    } catch (error: any) {
       // Nếu lỗi là "User is already enrolled", thử cập nhật status
       if (
         error.response?.data?.message ===
@@ -212,7 +224,7 @@ export async function createEnrollmentAfterPayment(paymentData: any) {
 
         // Tìm enrollment cho khóa học hiện tại
         const existingEnrollment = userEnrollmentsResponse.data.find(
-          (e) => e.courseId === paymentData.metadata.courseId,
+          (e: Enrollment) => e.courseId === paymentData.metadata.courseId,
         );
 
         if (existingEnrollment && existingEnrollment.id) {
@@ -308,7 +320,7 @@ export async function updateEnrollmentStatus(userId: string, courseId: string) {
 
     // Tìm enrollment cho khóa học hiện tại
     const existingEnrollment = userEnrollmentsResponse.data.find(
-      (e) => e.courseId === courseId,
+      (e: Enrollment) => e.courseId === courseId,
     );
 
     if (existingEnrollment && existingEnrollment.id) {
