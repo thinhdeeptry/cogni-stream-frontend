@@ -45,6 +45,7 @@ import {
   getTestAttempts,
   getTests,
 } from "@/actions/testAction";
+import { getYoutubeTranscript } from "@/actions/youtubeTranscript.action";
 
 import { useProgressStore } from "@/stores/useProgressStore";
 import useUserStore from "@/stores/useUserStore";
@@ -615,27 +616,20 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
 
         if (lessonData?.videoUrl) {
           try {
-            // Use our server-side API route to fetch the transcript
-            const response = await fetch(
-              `/api/youtube-transcript?url=${encodeURIComponent(lessonData.videoUrl)}`,
-              {
-                signal: AbortSignal.timeout(8000), // Timeout sau 8 giây
-              },
-            );
+            // Use the new server action to fetch the transcript
+            const result = await getYoutubeTranscript(lessonData.videoUrl);
 
-            if (!response.ok) {
+            if ("error" in result) {
               console.warn(
-                `Transcript fetch failed: ${response.status} ${response.statusText}`,
+                `Transcript fetch failed: ${result.error}`,
+                result.details,
               );
-              // Thay vì throw error, chỉ log và tiếp tục
               setTimestampedTranscript([]);
             } else {
-              const data = await response.json();
-              setTimestampedTranscript(data.timestampedTranscript || []);
+              setTimestampedTranscript(result.timestampedTranscript);
               console.log("Transcript fetched successfully");
             }
           } catch (error) {
-            // Log lỗi nhưng không làm crash component
             console.error("Error fetching transcript:", error);
             setTimestampedTranscript([]);
           }
