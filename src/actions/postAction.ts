@@ -3,7 +3,7 @@ import axios from "axios";
 
 import useUserStore from "@/stores/useUserStore";
 
-const API_URL = "http://eduforge.io.vn:8081/api";
+const API_URL = "http://eduforge.io.vn:8081/api/v1";
 const USER_INFO_URL = "http://eduforge.io.vn:3001/dashboard/internal/user";
 const COURSE_SERVICE_API_KEY = "sk_course_service_12345";
 
@@ -383,7 +383,7 @@ export const getUserRecommendations = async (
       params.append("currentUserId", filters.currentUserId);
 
     const { data } = await axios.get(
-      `${API_URL}/v1/recommendations/users/${userId}?${params.toString()}`,
+      `${API_URL}/recommendations/users/${userId}?${params.toString()}`,
     );
     return {
       success: true,
