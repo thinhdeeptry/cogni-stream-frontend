@@ -954,12 +954,12 @@ export default function ReportsPage() {
           className="w-full"
         >
           <div className="flex items-center justify-between mb-4">
-            <TabsList className="grid grid-flow-col auto-cols-max gap-2 overflow-x-auto">
+            <TabsList className="flex flex-nowrap gap-2 overflow-x-auto">
               {reports.map((report) => (
                 <TabsTrigger
                   key={report.id}
                   value={report.id}
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-2 whitespace-nowrap"
                 >
                   <FileText className="h-4 w-4" />
                   <span>{report.title}</span>
