@@ -153,8 +153,8 @@ export default function PostsPage() {
                     {format(new Date(post.createdAt), "dd/MM/yyyy")}
                   </TableCell>
                   <TableCell>
-                    <Badge variant={post.published ? "default" : "secondary"}>
-                      {post.published ? "Đã xuất bản" : "Bản nháp"}
+                    <Badge variant={post.isPublished ? "default" : "secondary"}>
+                      {post.isPublished ? "Đã xuất bản" : "Bản nháp"}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
