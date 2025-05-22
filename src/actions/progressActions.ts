@@ -30,7 +30,6 @@ export const getInitialProgress = async (enrollmentId: string) => {
     const response = await progressApi.get<ProgressResponse>(
       `/progress/${enrollmentId}`,
     );
-    console.log("response", response);
     return {
       error: false,
       success: true,

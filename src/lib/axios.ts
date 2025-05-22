@@ -50,9 +50,11 @@ class AxiosFactory {
       report: process.env.NEXT_PUBLIC_REPORT_SERVICE_API_KEY,
       discussion: process.env.NEXT_PUBLIC_DISCUSSION_SERVICE_API_KEY,
       gateway: process.env.NEXT_PUBLIC_GATEWAY_API_KEY,
+      storage: process.env.NEXT_PUBLIC_STORAGE_SERVICE_API_KEY,
     };
     return keyMap[serviceName] || "";
   }
+
   static async getApiInstance(
     serviceName: ServiceName,
   ): Promise<AxiosInstance> {
@@ -74,29 +76,29 @@ class AxiosFactory {
     instance.interceptors.request.use(
       async (config: InternalAxiosRequestConfig) => {
         try {
-          const session = await getSession();
+          // Check if we're in a client environment
+          if (typeof window !== "undefined") {
+            const session = await getSession();
+            if (session?.accessToken) {
+              try {
+                const decoded = jwtDecode(session.accessToken) as DecodedToken;
+                config.headers["Authorization"] =
+                  `Bearer ${session.accessToken}`;
 
-          // Nếu có session và accessToken, thêm vào headers
-          if (session?.accessToken) {
-            try {
-              const decoded = jwtDecode(session.accessToken) as DecodedToken;
-              config.headers["Authorization"] = `Bearer ${session.accessToken}`;
-
-              // Chỉ thêm X-User-Id nếu có sub claim
-              if (decoded.sub) {
-                config.headers["X-User-Id"] = decoded.sub;
+                if (decoded.sub) {
+                  config.headers["X-User-Id"] = decoded.sub;
+                }
+                config.headers["X-Service-Name"] = serviceName;
+              } catch (error) {
+                console.warn("Token processing warning:", error);
               }
-              config.headers["X-Service-Name"] = serviceName;
-            } catch (error) {
-              console.warn("Token processing warning:", error);
-              // Không throw error, cho phép request tiếp tục mà không có headers
             }
           }
 
           return config;
         } catch (error) {
           console.warn("Session retrieval warning:", error);
-          return config; // Vẫn cho phép request tiếp tục
+          return config;
         }
       },
       (error) => {
@@ -110,7 +112,6 @@ class AxiosFactory {
       (response) => response,
       async (error) => {
         if (error.response?.status === 401) {
-          // Clear instances on auth error to force re-creation
           AxiosFactory.clearInstances();
         }
         return Promise.reject(error);
@@ -121,7 +122,6 @@ class AxiosFactory {
     return instance;
   }
 
-  //get  user information
   static async getUserInfo(userId: string) {
     try {
       const userInstance = await this.getApiInstance("users");
@@ -132,6 +132,7 @@ class AxiosFactory {
       throw error;
     }
   }
+
   static clearInstances() {
     this.instances.clear();
   }

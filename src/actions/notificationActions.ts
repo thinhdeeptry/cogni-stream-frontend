@@ -1,5 +1,4 @@
-"use server";
-
+// "use server";
 import axios from "axios";
 
 import { useNotificationStore } from "@/stores/useNotificationStore";
