@@ -1,6 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
+import { use } from "react";
 import { useEffect, useState } from "react";
 
 import { Loader2 } from "lucide-react";
@@ -11,14 +12,12 @@ import { getCertificate } from "@/actions/enrollmentActions";
 
 import CertificateView from "@/components/certificate/certificate-view";
 
-export default function CertificatePage({
-  params,
-}: {
-  params: { certificateId: string };
-}) {
+export default function CertificatePage() {
+  const params = useParams();
+  const router = useRouter();
+  const certificateId = params?.certificateId as string;
   const [certificate, setCertificate] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const router = useRouter();
   const { data: session } = useSession();
 
   useEffect(() => {
@@ -29,7 +28,7 @@ export default function CertificatePage({
         //   return;
         // }
 
-        const result = await getCertificate(params.certificateId);
+        const result = await getCertificate(certificateId);
 
         if (result.success && result.data) {
           setCertificate(result.data);
@@ -47,7 +46,7 @@ export default function CertificatePage({
     };
 
     fetchCertificate();
-  }, [params.certificateId]);
+  }, [certificateId]);
 
   if (loading) {
     return (

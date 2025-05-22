@@ -782,7 +782,7 @@ export default function UsersPage() {
   });
 
   return (
-    <div className="w-full -m-5 pt-2">
+    <div className="w-full -m-5 pt-2 p-6">
       <Toaster richColors position="top-right" />
       <div className="flex flex-col py-4">
         <div className="flex justify-between items-center">

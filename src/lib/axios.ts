@@ -38,7 +38,7 @@ const paths: Record<ServiceName, string> = {
 class AxiosFactory {
   private static instances: Map<ServiceName, AxiosInstance> = new Map();
   private static readonly GATEWAY_URL =
-    process.env.NEXT_PUBLIC_GATEWAY_URL || "https://kong.eduforge.io.vn/";
+    process.env.NEXT_PUBLIC_GATEWAY_URL || "https://kong.eduforge.io.vn";
   private static getServiceApiKey(serviceName: ServiceName): string {
     const keyMap: Record<ServiceName, string | undefined> = {
       users: process.env.NEXT_PUBLIC_USER_SERVICE_API_KEY,
