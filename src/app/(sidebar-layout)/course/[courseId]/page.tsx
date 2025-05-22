@@ -308,8 +308,8 @@ export default function CourseDetail() {
         // Show loading toast
         const loadingToast = toast.loading("Đang tạo đơn thanh toán...");
 
-        const orderCode = generateOrderCode(); // Trả về số nguyên
-
+        const orderCode = await generateOrderCode(); // Trả về số nguyên
+        console.log("Order code lay dc o trang course: ", orderCode);
         // Cập nhật dữ liệu thanh toán với metadata phù hợp và returnUrl trỏ về trang success
         const paymentData = {
           amount: course.promotionPrice || course.price,
