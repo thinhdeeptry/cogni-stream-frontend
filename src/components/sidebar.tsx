@@ -142,7 +142,7 @@ export function AppSidebar() {
       <SidebarFooter>
         <SidebarMenuButton asChild className="mb-10 rounded-full">
           <Link
-            href={"/notifications"}
+            href={"/"}
             className="flex flex-col items-center justify-center w-full h-20"
           >
             <p className="text-orange-500">

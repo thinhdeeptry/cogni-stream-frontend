@@ -100,7 +100,7 @@ export default function ProfilePage() {
     return null;
   }
 
-  const formatDate = (dateString) => {
+  const formatDate = (dateString: string) => {
     if (!dateString) return "N/A";
     return new Date(dateString).toLocaleDateString("vi-VN", {
       year: "numeric",

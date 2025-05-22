@@ -105,24 +105,28 @@ export function ReportAnalysis({
       // Xử lý kết quả để đảm bảo tháng đúng
       if (result && typeof result === "object") {
         // Tạo bản sao của kết quả để chỉnh sửa
-        const processedResult = { ...result };
+        const processedResult = JSON.parse(JSON.stringify(result));
 
         // Đảm bảo tên tháng đúng trong dự đoán doanh thu
         if (processedResult.predictions?.revenue) {
           processedResult.predictions.revenue =
-            processedResult.predictions.revenue.map((item, index) => ({
-              ...item,
-              month: nextMonths[index],
-            }));
+            processedResult.predictions.revenue.map(
+              (item: any, index: number) => ({
+                ...item,
+                month: nextMonths[index],
+              }),
+            );
         }
 
         // Đảm bảo tên tháng đúng trong dự đoán học viên
         if (processedResult.predictions?.students) {
           processedResult.predictions.students =
-            processedResult.predictions.students.map((item, index) => ({
-              ...item,
-              month: nextMonths[index],
-            }));
+            processedResult.predictions.students.map(
+              (item: any, index: number) => ({
+                ...item,
+                month: nextMonths[index],
+              }),
+            );
         }
 
         // Cập nhật kết quả đã xử lý

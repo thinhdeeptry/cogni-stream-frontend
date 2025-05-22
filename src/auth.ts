@@ -105,6 +105,7 @@ export const {
   session: {
     strategy: "jwt",
   },
+  trustHost: true,
   callbacks: {
     async jwt({ token, user, account, trigger, session }) {
       // console.log("JWT callback - Trigger:", trigger);
