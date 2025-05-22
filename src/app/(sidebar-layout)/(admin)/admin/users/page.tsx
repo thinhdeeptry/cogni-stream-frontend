@@ -172,7 +172,7 @@ const columns: ColumnDef<IUser>[] = [
                 toast.success("ID đã được sao chép vào bộ nhớ tạm thời");
               }}
             >
-              sao chép ID người dùng
+              Sao chép ID người dùng
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             {/* <DropdownMenuItem>Xem chi tiết</DropdownMenuItem> */}
@@ -390,7 +390,7 @@ function UpdateUserDialog({ user }: { user: IUser }) {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-          chỉnh sửa thông tin
+          Chỉnh sửa thông tin
         </DropdownMenuItem>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">

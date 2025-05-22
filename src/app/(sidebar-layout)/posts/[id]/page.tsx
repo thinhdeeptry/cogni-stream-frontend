@@ -256,7 +256,7 @@ export default function PostDetailPage({ params }: PostDetailPageProps) {
           <div className="flex items-center gap-2 mb-4">
             <UserAvatar
               name={authorInfo?.name || "Unknown User"}
-              avatarUrl={post.author?.avatar}
+              avatarUrl={authorInfo?.image}
             />
             <span className="font-semibold flex items-center gap-1">
               {authorInfo?.name || "Unknown User"}

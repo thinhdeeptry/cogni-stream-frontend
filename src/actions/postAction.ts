@@ -1,11 +1,10 @@
-"use server";
-
+// "use server";
 import axios from "axios";
 
 import useUserStore from "@/stores/useUserStore";
 
 const API_URL = "http://eduforge.io.vn:8081/api";
-const USER_INFO_URL = "https://users.eduforge.io.vn/dashboard/internal/user";
+const USER_INFO_URL = "http://eduforge.io.vn:3001/dashboard/internal/user";
 const COURSE_SERVICE_API_KEY = "sk_course_service_12345";
 
 export interface Post {
@@ -88,6 +87,7 @@ export interface UserInfo {
   email: string;
   name: string;
   isActive: boolean;
+  image: string;
 }
 
 export const getAllPosts = async (
