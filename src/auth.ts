@@ -110,6 +110,8 @@ export const {
     async jwt({ token, user, account, trigger, session }) {
       // console.log("JWT callback - Trigger:", trigger);
       // console.log("JWT callback - Session:", session);
+      // console.log("JWT callback - user:", user);
+
       // Kiểm tra nếu trigger là "update" và session có user
       if (trigger === "update" && session?.user) {
         // Cập nhật token với dữ liệu user mới
@@ -146,7 +148,10 @@ export const {
       }
 
       // Nếu đăng nhập bằng credentials
-      if (user && user.accountType === "LOCAL") {
+      if (
+        user &&
+        (user.accountType === "LOCAL" || user.accountType === "GOOGLE")
+      ) {
         // Cập nhật token với thông tin user theo interface IUser
         token.id = user.id;
         token.email = user.email;
