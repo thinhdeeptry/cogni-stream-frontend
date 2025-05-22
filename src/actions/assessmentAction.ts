@@ -1,5 +1,6 @@
 "use server";
 
+import { AxiosFactory } from "@/lib/axios";
 import {
   CreateTestDto,
   CreateTestQuestionDto,
@@ -7,9 +8,8 @@ import {
   ScoringPolicy,
   TestType,
 } from "@/types/assessment/types";
-import axios from "axios";
 
-const ASSESSMENT_API_URL = "http://eduforge.io.vn:3005/api/v1";
+const assessmentApi = await AxiosFactory.getApiInstance("assessment");
 
 export async function getQuestions(params: {
   courseId?: string;
@@ -17,16 +17,10 @@ export async function getQuestions(params: {
   lessonId?: string;
 }) {
   try {
-    const response = await axios.get(`${ASSESSMENT_API_URL}/questions`, {
-      params,
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-
+    const { data } = await assessmentApi.get("/questions", { params });
     return {
       success: true,
-      data: response.data,
+      data,
       message: "Lấy danh sách câu hỏi thành công",
     };
   } catch (error: any) {
@@ -44,18 +38,10 @@ export async function getQuestions(params: {
 
 export async function getQuestionById(questionId: string) {
   try {
-    const response = await axios.get(
-      `${ASSESSMENT_API_URL}/questions/${questionId}`,
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      },
-    );
-
+    const { data } = await assessmentApi.get(`/questions/${questionId}`);
     return {
       success: true,
-      data: response.data,
+      data,
       message: "Lấy thông tin câu hỏi thành công",
     };
   } catch (error: any) {
@@ -76,27 +62,14 @@ export async function updateQuestion(
   questionData: Question,
 ) {
   try {
-    console.log(`Making PATCH request to: /questions/${questionId}`);
-    console.log("With data:", JSON.stringify(questionData, null, 2));
-
-    const config = {
-      headers: {
-        "Content-Type": "application/json",
-      },
-    };
-
-    const response = await axios.patch(
-      `${ASSESSMENT_API_URL}/questions/${questionId}`,
+    const { data } = await assessmentApi.patch(
+      `/questions/${questionId}`,
       questionData,
-      config,
     );
-
-    console.log("API response status:", response.status);
-    console.log("API response data:", response.data);
 
     return {
       success: true,
-      data: response.data,
+      data,
       message: "Cập nhật câu hỏi thành công",
     };
   } catch (error: any) {
@@ -104,20 +77,10 @@ export async function updateQuestion(
 
     let errorMessage = "Đã xảy ra lỗi khi cập nhật câu hỏi";
 
-    if (error.response) {
-      console.error(`Error status: ${error.response.status}`);
-      console.error("Response headers:", error.response.headers);
-      console.error("Response data:", error.response.data);
-
-      if (error.response.data && error.response.data.message) {
-        errorMessage = error.response.data.message;
-      }
-    } else if (error.request) {
-      console.error("No response received. Request:", error.request);
+    if (error.response?.data?.message) {
+      errorMessage = error.response.data.message;
+    } else if (!error.response) {
       errorMessage = "Không nhận được phản hồi từ máy chủ";
-    } else {
-      console.error("Error message:", error.message);
-      errorMessage = error.message || errorMessage;
     }
 
     return {
@@ -130,27 +93,11 @@ export async function updateQuestion(
 
 export async function createQuestion(questionData: Question) {
   try {
-    console.log(`Making POST request to: /questions`);
-    console.log("With data:", JSON.stringify(questionData, null, 2));
-
-    const config = {
-      headers: {
-        "Content-Type": "application/json",
-      },
-    };
-
-    const response = await axios.post(
-      `${ASSESSMENT_API_URL}/questions`,
-      questionData,
-      config,
-    );
-
-    console.log("API response status:", response.status);
-    console.log("API response data:", response.data);
+    const { data } = await assessmentApi.post("/questions", questionData);
 
     return {
       success: true,
-      data: response.data,
+      data,
       message: "Tạo câu hỏi thành công",
     };
   } catch (error: any) {
@@ -158,20 +105,10 @@ export async function createQuestion(questionData: Question) {
 
     let errorMessage = "Đã xảy ra lỗi khi tạo câu hỏi";
 
-    if (error.response) {
-      console.error(`Error status: ${error.response.status}`);
-      console.error("Response headers:", error.response.headers);
-      console.error("Response data:", error.response.data);
-
-      if (error.response.data && error.response.data.message) {
-        errorMessage = error.response.data.message;
-      }
-    } else if (error.request) {
-      console.error("No response received. Request:", error.request);
+    if (error.response?.data?.message) {
+      errorMessage = error.response.data.message;
+    } else if (!error.response) {
       errorMessage = "Không nhận được phản hồi từ máy chủ";
-    } else {
-      console.error("Error message:", error.message);
-      errorMessage = error.message || errorMessage;
     }
 
     return {

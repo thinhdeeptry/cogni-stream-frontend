@@ -20,7 +20,9 @@ type ServiceName =
   | "report"
   | "discussion"
   | "gateway"
-  | "storage";
+  | "storage"
+  | "series"
+  | "post";
 
 const paths: Record<ServiceName, string> = {
   users: "users",
@@ -33,6 +35,8 @@ const paths: Record<ServiceName, string> = {
   discussion: "discussion",
   gateway: "gateway",
   storage: "storage",
+  series: "",
+  post: "",
 };
 
 class AxiosFactory {
@@ -50,6 +54,9 @@ class AxiosFactory {
       report: process.env.NEXT_PUBLIC_REPORT_SERVICE_API_KEY,
       discussion: process.env.NEXT_PUBLIC_DISCUSSION_SERVICE_API_KEY,
       gateway: process.env.NEXT_PUBLIC_GATEWAY_API_KEY,
+      storage: process.env.NEXT_PUBLIC_STORAGE_SERVICE_API_KEY,
+      series: process.env.NEXT_PUBLIC_SERIES_SERVICE_API_KEY,
+      post: process.env.NEXT_PUBLIC_POST_SERVICE_API_KEY,
     };
     return keyMap[serviceName] || "";
   }

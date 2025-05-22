@@ -1,12 +1,13 @@
-"use server";
-
-import axios from "axios";
+// "use server";
+import { AxiosFactory } from "@/lib/axios";
 
 import useUserStore from "@/stores/useUserStore";
 
-const API_URL = "http://eduforge.io.vn:8081/api";
+// const API_URL = "http://eduforge.io.vn:8081/api";
 const USER_INFO_URL = "https://users.eduforge.io.vn/dashboard/internal/user";
 const COURSE_SERVICE_API_KEY = "sk_course_service_12345";
+
+const postApi = await AxiosFactory.getApiInstance("post");
 
 export interface Post {
   id: string;
@@ -104,7 +105,7 @@ export const getAllPosts = async (
     if (filters.currentUserId)
       params.append("currentUserId", filters.currentUserId);
 
-    const { data } = await axios.get(`${API_URL}/posts?${params.toString()}`);
+    const { data } = await postApi.get(`/posts?${params.toString()}`);
     return data;
   } catch (error) {
     throw error;
@@ -119,9 +120,7 @@ export const getPostById = async (
     const params = new URLSearchParams();
     if (currentUserId) params.append("currentUserId", currentUserId);
 
-    const { data } = await axios.get(
-      `${API_URL}/posts/${postId}?${params.toString()}`,
-    );
+    const { data } = await postApi.get(`/posts/${postId}?${params.toString()}`);
     return data;
   } catch (error) {
     throw error;
@@ -143,8 +142,8 @@ export const getPostsByUserId = async (
     if (filters.currentUserId)
       params.append("currentUserId", filters.currentUserId);
 
-    const { data } = await axios.get(
-      `${API_URL}/posts/user/${userId}?${params.toString()}`,
+    const { data } = await postApi.get(
+      `/posts/user/${userId}?${params.toString()}`,
     );
     console.log("User id: ", userId);
     return data;
@@ -166,8 +165,8 @@ export const getPostsByTag = async (
     if (filters.currentUserId)
       params.append("currentUserId", filters.currentUserId);
 
-    const { data } = await axios.get(
-      `${API_URL}/posts/tag/${tag}?${params.toString()}`,
+    const { data } = await postApi.get(
+      `/posts/tag/${tag}?${params.toString()}`,
     );
     return data;
   } catch (error) {
@@ -190,8 +189,8 @@ export const getPostsBySeriesId = async (
     if (filters.currentUserId)
       params.append("currentUserId", filters.currentUserId);
 
-    const { data } = await axios.get(
-      `${API_URL}/posts/series/${seriesId}?${params.toString()}`,
+    const { data } = await postApi.get(
+      `/posts/series/${seriesId}?${params.toString()}`,
     );
     return data;
   } catch (error) {
@@ -213,9 +212,7 @@ export const getPostsWithoutSeries = async (
     if (filters.currentUserId)
       params.append("currentUserId", filters.currentUserId);
 
-    const { data } = await axios.get(
-      `${API_URL}/posts/no-series?${params.toString()}`,
-    );
+    const { data } = await postApi.get(`/posts/no-series?${params.toString()}`);
     return data;
   } catch (error) {
     throw error;
@@ -237,8 +234,8 @@ export const getUserPostsWithoutSeries = async (
     if (filters.currentUserId)
       params.append("currentUserId", filters.currentUserId);
 
-    const { data } = await axios.get(
-      `${API_URL}/posts/user/${userId}/no-series?${params.toString()}`,
+    const { data } = await postApi.get(
+      `/posts/user/${userId}/no-series?${params.toString()}`,
     );
     return data;
   } catch (error) {
@@ -260,95 +257,41 @@ export const searchPosts = async (
     if (filters.currentUserId)
       params.append("currentUserId", filters.currentUserId);
 
-    const { data } = await axios.get(
-      `${API_URL}/posts/search?${params.toString()}`,
-    );
+    const { data } = await postApi.get(`/posts/search?${params.toString()}`);
     return data;
   } catch (error) {
     throw error;
   }
 };
 
-export const createPost = async (postData: {
-  userId: string;
-  title: string;
-  content: string;
-  coverImage: string;
-  tags: string[];
-  isPublished: boolean;
-  seriesId?: string;
-}) => {
+export const createPost = async (
+  post: Partial<Post>,
+): Promise<ApiResponse<Post>> => {
   try {
-    const { data } = await axios.post(`${API_URL}/posts`, postData);
-    return {
-      success: true,
-      data,
-      message: "Tạo bài viết thành công",
-    };
+    const { data } = await postApi.post("/posts", post);
+    return data;
   } catch (error) {
-    return {
-      success: false,
-      message: "Đã xảy ra lỗi khi tạo bài viết",
-      error,
-    };
+    throw error;
   }
 };
 
 export const updatePost = async (
   postId: string,
-  postData: {
-    userId: string;
-    title: string;
-    content: string;
-    coverImage: string;
-    tags: string[];
-    isPublished: boolean;
-    seriesId?: string;
-  },
-) => {
-  try {
-    const { data } = await axios.put(`${API_URL}/posts/${postId}`, postData);
-    return {
-      success: true,
-      data,
-      message: "Cập nhật bài viết thành công",
-    };
-  } catch (error) {
-    return {
-      success: false,
-      message: "Đã xảy ra lỗi khi cập nhật bài viết",
-      error,
-    };
-  }
-};
-
-export const deletePost = async (postId: string, userId: string) => {
-  try {
-    const { data } = await axios.delete(
-      `${API_URL}/posts/${postId}?userId=${userId}`,
-    );
-    return {
-      success: true,
-      data,
-      message: "Xóa bài viết thành công",
-    };
-  } catch (error) {
-    return {
-      success: false,
-      message: "Đã xảy ra lỗi khi xóa bài viết",
-      error,
-    };
-  }
-};
-
-export const addPostView = async (
-  postId: string,
-  userId: string,
+  post: Partial<Post>,
 ): Promise<ApiResponse<Post>> => {
   try {
-    const { data } = await axios.post(
-      `${API_URL}/posts/${postId}/view?userId=${userId}`,
-    );
+    const { data } = await postApi.put(`/posts/${postId}`, post);
+    return data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const deletePost = async (
+  postId: string,
+): Promise<ApiResponse<void>> => {
+  try {
+    const { data } = await postApi.delete(`/posts/${postId}`);
     return data;
   } catch (error) {
     throw error;
@@ -360,8 +303,22 @@ export const togglePostLike = async (
   userId: string,
 ): Promise<ApiResponse<Post>> => {
   try {
-    const { data } = await axios.post(
-      `${API_URL}/posts/${postId}/like?userId=${userId}`,
+    const { data } = await postApi.post(
+      `/posts/${postId}/like?userId=${userId}`,
+    );
+    return data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const addPostView = async (
+  postId: string,
+  userId: string,
+): Promise<ApiResponse<Post>> => {
+  try {
+    const { data } = await postApi.post(
+      `/posts/${postId}/view?userId=${userId}`,
     );
     return data;
   } catch (error) {
@@ -382,8 +339,8 @@ export const getUserRecommendations = async (
     if (filters.currentUserId)
       params.append("currentUserId", filters.currentUserId);
 
-    const { data } = await axios.get(
-      `${API_URL}/v1/recommendations/users/${userId}?${params.toString()}`,
+    const { data } = await postApi.get(
+      `/v1/recommendations/users/${userId}?${params.toString()}`,
     );
     return {
       success: true,
@@ -398,12 +355,8 @@ export const getUserRecommendations = async (
 
 export const getUserInfo = async (userId: string): Promise<UserInfo> => {
   try {
-    const { data } = await axios.get(`${USER_INFO_URL}/${userId}`, {
-      headers: {
-        "x-api-key": COURSE_SERVICE_API_KEY,
-        "x-service-name": "courseService",
-      },
-    });
+    const userApi = await AxiosFactory.getApiInstance("users");
+    const { data } = await userApi.get(`/internal/${userId}`);
     return data;
   } catch (error) {
     throw error;
