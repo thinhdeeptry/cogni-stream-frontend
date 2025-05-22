@@ -499,8 +499,12 @@ class AuthApi {
             data: null,
           };
         }
-
-        const data = await retryResponse.json();
+        const dataResult = await retryResponse.json();
+        const data = {
+          ...dataResult,
+          id: dataResult.user._id,
+        };
+        console.log("check fetch users>>> ", data);
         return {
           error: false,
           statusCode: 200,
@@ -520,7 +524,16 @@ class AuthApi {
         };
       }
 
-      const data = await response.json();
+      const dataResponse = await response.json();
+      console.log("check fetch dataResponse>>> ", dataResponse);
+      const data = {
+        ...dataResponse,
+        users: dataResponse.users.map((user: any) => ({
+          ...user,
+          id: user._id,
+        })),
+      };
+      console.log("check fetch users>>> ", data);
       return {
         error: false,
         statusCode: 200,
@@ -585,6 +598,7 @@ class AuthApi {
       password: string;
       name: string;
       role?: string;
+      isActive?: boolean;
     },
   ) {
     try {
@@ -604,7 +618,11 @@ class AuthApi {
         };
       }
 
-      const data = await response.json();
+      const dataResponse = await response.json();
+      const data = {
+        ...dataResponse,
+        id: dataResponse._id,
+      };
       return {
         error: false,
         statusCode: 201,
@@ -631,10 +649,11 @@ class AuthApi {
       name?: string;
       email?: string;
       role?: string;
-      isActive?: boolean;
+      isActive?: string;
     },
   ) {
     try {
+      console.log("check userData >>> ", userData, userId);
       const response = await fetch(`${API_URL}/dashboard/${userId}`, {
         method: "PATCH",
         headers: this.getHeaders(accessToken),

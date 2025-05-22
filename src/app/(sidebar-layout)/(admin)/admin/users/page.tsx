@@ -76,9 +76,9 @@ interface PaginationInfo {
 // Define columns for TanStack Table
 const columns: ColumnDef<IUser>[] = [
   {
-    accessorKey: "_id",
-    header: "User ID",
-    cell: ({ row }) => <div className="font-medium">{row.getValue("_id")}</div>,
+    accessorKey: "id",
+    header: "ID Người dùng",
+    cell: ({ row }) => <div className="font-medium">{row.getValue("id")}</div>,
   },
   {
     accessorKey: "name",
@@ -88,7 +88,7 @@ const columns: ColumnDef<IUser>[] = [
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
         >
-          Name
+          Tên
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       );
@@ -110,15 +110,15 @@ const columns: ColumnDef<IUser>[] = [
   },
   {
     accessorKey: "role",
-    header: "Role",
+    header: "Vai trò",
   },
   {
     accessorKey: "accountType",
-    header: "Account Type",
+    header: "Loại tài khoản",
   },
   {
     accessorKey: "isActive",
-    header: "Status",
+    header: "Trạng thái",
     cell: ({ row }) => {
       const isActive = row.getValue("isActive") as boolean;
 
@@ -128,7 +128,7 @@ const columns: ColumnDef<IUser>[] = [
             isActive ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
           }`}
         >
-          {isActive ? "Active" : "Inactive"}
+          {isActive ? "Đã xác thực" : "Chưa xác thực"}
         </span>
       );
     },
@@ -141,7 +141,7 @@ const columns: ColumnDef<IUser>[] = [
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
         >
-          Created At
+          Ngày tạo
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       );
@@ -165,14 +165,17 @@ const columns: ColumnDef<IUser>[] = [
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+            <DropdownMenuLabel>Hành động</DropdownMenuLabel>
             <DropdownMenuItem
-              onClick={() => navigator.clipboard.writeText(user.id)}
+              onClick={() => {
+                navigator.clipboard.writeText(user.id);
+                toast.success("ID đã được sao chép vào bộ nhớ tạm thời");
+              }}
             >
-              Copy user ID
+              sao chép ID người dùng
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>View details</DropdownMenuItem>
+            <DropdownMenuItem>Xem chi tiết</DropdownMenuItem>
             <UpdateUserDialog user={user} />
             <ChangePasswordDialog user={user} />
             <DeleteUserDialog user={user} />
@@ -193,7 +196,7 @@ function AddNewUserDialog() {
     email: "",
     role: "user",
     accountType: "standard",
-    isActive: true,
+    isActive: "true",
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -203,7 +206,10 @@ function AddNewUserDialog() {
 
   const handleSelectChange = (name: string, value: string) => {
     if (name === "isActive") {
-      setFormData((prev) => ({ ...prev, [name]: value === "active" }));
+      setFormData((prev) => ({
+        ...prev,
+        [name]: value === "active" ? "true" : "false",
+      }));
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
     }
@@ -214,12 +220,12 @@ function AddNewUserDialog() {
     setLoading(true);
 
     try {
-      const response = await authApi.createUser(accessToken, {
+      const response = await authApi.createUser(accessToken || "", {
         name: formData.name,
         email: formData.email,
         password: "123456",
         role: formData.role,
-        isActive: formData.isActive,
+        isActive: formData.isActive === "true",
       });
       console.log("check response >>> ", response);
       if (response.error) {
@@ -243,21 +249,21 @@ function AddNewUserDialog() {
       <DialogTrigger asChild>
         <Button>
           <Plus className="h-4 w-4 mr-2" />
-          Add New User
+          Thêm người dùng mới
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Add New User</DialogTitle>
+          <DialogTitle>Thêm người dùng mới</DialogTitle>
           <DialogDescription>
-            Create a new user account. Click save when you're done.
+            Tạo tài khoản người dùng mới. Nhấp vào lưu khi bạn đã hoàn thành.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="name" className="text-right">
-                Name
+                Tên
               </Label>
               <Input
                 id="name"
@@ -284,62 +290,41 @@ function AddNewUserDialog() {
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="role" className="text-right">
-                Role
+                Vai trò
               </Label>
               <Select
                 value={formData.role}
                 onValueChange={(value) => handleSelectChange("role", value)}
               >
                 <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Select role" />
+                  <SelectValue placeholder="Chọn vai trò" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="user">USER</SelectItem>
-                  <SelectItem value="admin">ADMIN</SelectItem>
-                  {/* <SelectItem value="moderator">Moderator</SelectItem> */}
+                  <SelectItem value="user">NGƯỜI DÙNG</SelectItem>
+                  <SelectItem value="admin">QUẢN TRỊ VIÊN</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            {/* <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="accountType" className="text-right">
-                Account Type
-              </Label>
-              <Select
-                value={formData.accountType}
-                onValueChange={(value) =>
-                  handleSelectChange("accountType", value)
-                }
-              >
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Select account type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="standard">Standard</SelectItem>
-                  <SelectItem value="premium">Premium</SelectItem>
-                  <SelectItem value="business">Business</SelectItem>
-                </SelectContent>
-              </Select>
-            </div> */}
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="isActive" className="text-right">
-                Status
+                Trạng thái
               </Label>
               <Select
                 value={formData.isActive ? "active" : "inactive"}
                 onValueChange={(value) => handleSelectChange("isActive", value)}
               >
                 <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Select status" />
+                  <SelectValue placeholder="Chọn trạng thái" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
+                  <SelectItem value="active">Đã xác thực</SelectItem>
+                  <SelectItem value="inactive">Chưa xác thực</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
           <DialogFooter>
-            <Button type="submit">Save User</Button>
+            <Button type="submit">Lưu người dùng</Button>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -355,7 +340,7 @@ function UpdateUserDialog({ user }: { user: IUser }) {
   const [formData, setFormData] = useState({
     name: user.name,
     email: user.email,
-    role: user.role,
+    role: user.role.toLowerCase(),
     accountType: user.accountType,
     isActive: user.isActive,
   });
@@ -366,7 +351,11 @@ function UpdateUserDialog({ user }: { user: IUser }) {
   };
 
   const handleSelectChange = (name: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    if (name === "isActive") {
+      setFormData((prev) => ({ ...prev, [name]: value === "active" }));
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -374,17 +363,17 @@ function UpdateUserDialog({ user }: { user: IUser }) {
     setLoading(true);
 
     try {
-      const response = await authApi.updateUser(accessToken, user._id, {
+      const response = await authApi.updateUser(accessToken || "", user.id, {
         name: formData.name,
         email: formData.email,
         role: formData.role,
-        isActive: formData.isActive,
+        isActive: formData.isActive === true ? "true" : "false",
       });
 
       if (response.error) {
         toast.error(response.message || "Failed to update user");
       } else {
-        toast.success("User updated successfully");
+        toast.success("Cập nhật thông tin người dùng thành công");
         setOpen(false);
         // Refresh the user list
         window.location.reload();
@@ -401,21 +390,21 @@ function UpdateUserDialog({ user }: { user: IUser }) {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-          Edit user
+          chỉnh sửa thông tin
         </DropdownMenuItem>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Edit User</DialogTitle>
+          <DialogTitle>Chỉnh sửa người dùng</DialogTitle>
           <DialogDescription>
-            Update user information. Click save when you're done.
+            Cập nhật thông tin người dùng. Nhấp vào lưu khi bạn đã hoàn thành.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="edit-name" className="text-right">
-                Name
+                Tên
               </Label>
               <Input
                 id="edit-name"
@@ -440,25 +429,24 @@ function UpdateUserDialog({ user }: { user: IUser }) {
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="edit-role" className="text-right">
-                Role
+                Vai trò
               </Label>
               <Select
                 value={formData.role}
                 onValueChange={(value) => handleSelectChange("role", value)}
               >
                 <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Select role" />
+                  <SelectValue placeholder="Chọn vai trò" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="user">USER</SelectItem>
-                  <SelectItem value="admin">ADMIN</SelectItem>
-                  {/* <SelectItem value="moderator">Moderator</SelectItem> */}
+                  <SelectItem value="user">NGƯỜI DÙNG</SelectItem>
+                  <SelectItem value="admin">QUẢN TRỊ VIÊN</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="edit-accountType" className="text-right">
-                Account Type
+                Loại tài khoản
               </Label>
               <Select
                 value={formData.accountType}
@@ -467,40 +455,35 @@ function UpdateUserDialog({ user }: { user: IUser }) {
                 }
               >
                 <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Select account type" />
+                  <SelectValue placeholder="Chọn loại tài khoản" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="standard">LOCAL</SelectItem>
-                  <SelectItem value="premium">GOOGLE</SelectItem>
-                  <SelectItem value="business">GITHUB</SelectItem>
+                  <SelectItem value="LOCAL">LOCAL</SelectItem>
+                  <SelectItem value="GOOGLE">GOOGLE</SelectItem>
+                  <SelectItem value="GITHUB">GITHUB</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="edit-isActive" className="text-right">
-                Status
+                Trạng thái
               </Label>
               <Select
                 value={formData.isActive ? "active" : "inactive"}
-                onValueChange={(value) =>
-                  handleSelectChange(
-                    "isActive",
-                    value === "active" ? "true" : "false",
-                  )
-                }
+                onValueChange={(value) => handleSelectChange("isActive", value)}
               >
                 <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Select status" />
+                  <SelectValue placeholder="Chọn trạng thái" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
+                  <SelectItem value="active">Đã xác thực</SelectItem>
+                  <SelectItem value="inactive">Chưa xác thực</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
           <DialogFooter>
-            <Button type="submit">Save Changes</Button>
+            <Button type="submit">Lưu thay đổi</Button>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -509,71 +492,71 @@ function UpdateUserDialog({ user }: { user: IUser }) {
 }
 
 // Add Delete User Dialog Component
-function DeleteUserDialog({ user }: { user: IUser }) {
-  const { accessToken } = useUserStore();
-  const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
+// function DeleteUserDialog({ user }: { user: IUser }) {
+//   const { accessToken } = useUserStore();
+//   const [open, setOpen] = useState(false);
+//   const [loading, setLoading] = useState(false);
 
-  const handleDelete = async () => {
-    setLoading(true);
+//   const handleDelete = async () => {
+//     setLoading(true);
 
-    try {
-      const response = await authApi.deleteUser(accessToken, user._id);
+//     try {
+//       const response = await authApi.deleteUser(accessToken, user.id);
 
-      if (response.error) {
-        toast.error(response.message || "Failed to delete user");
-      } else {
-        toast.success("User deleted successfully");
-        setOpen(false);
-        // Refresh the user list
-        window.location.reload();
-      }
-    } catch (error) {
-      console.error("Error deleting user:", error);
-      toast.error("An unexpected error occurred");
-    } finally {
-      setLoading(false);
-    }
-  };
+//       if (response.error) {
+//         toast.error(response.message || "Failed to delete user");
+//       } else {
+//         toast.success("User deleted successfully");
+//         setOpen(false);
+//         // Refresh the user list
+//         window.location.reload();
+//       }
+//     } catch (error) {
+//       console.error("Error deleting user:", error);
+//       toast.error("An unexpected error occurred");
+//     } finally {
+//       setLoading(false);
+//     }
+//   };
 
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <DropdownMenuItem
-          onSelect={(e) => e.preventDefault()}
-          className="text-red-600"
-        >
-          Delete user
-        </DropdownMenuItem>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Confirm Deletion</DialogTitle>
-          <DialogDescription>
-            Are you sure you want to delete user {user.name}? This action cannot
-            be undone.
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => setOpen(false)}
-            disabled={loading}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="destructive"
-            onClick={handleDelete}
-            disabled={loading}
-          >
-            {loading ? "Deleting..." : "Delete"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
+//   return (
+//     <Dialog open={open} onOpenChange={setOpen}>
+//       <DialogTrigger asChild>
+//         <DropdownMenuItem
+//           onSelect={(e) => e.preventDefault()}
+//           className="text-red-600"
+//         >
+//           Delete user
+//         </DropdownMenuItem>
+//       </DialogTrigger>
+//       <DialogContent>
+//         <DialogHeader>
+//           <DialogTitle>Confirm Deletion</DialogTitle>
+//           <DialogDescription>
+//             Are you sure you want to delete user {user.name}? This action cannot
+//             be undone.
+//           </DialogDescription>
+//         </DialogHeader>
+//         <DialogFooter>
+//           <Button
+//             variant="outline"
+//             onClick={() => setOpen(false)}
+//             disabled={loading}
+//           >
+//             Cancel
+//           </Button>
+//           <Button
+//             variant="destructive"
+//             onClick={handleDelete}
+//             disabled={loading}
+//           >
+//             {loading ? "Deleting..." : "Delete"}
+//           </Button>
+//         </DialogFooter>
+//       </DialogContent>
+//     </Dialog>
+//   );
+// }
 
 // Add Change Password Dialog Component
 function ChangePasswordDialog({ user }: { user: IUser }) {
@@ -601,10 +584,14 @@ function ChangePasswordDialog({ user }: { user: IUser }) {
     setLoading(true);
 
     try {
-      const response = await authApi.changeUserPassword(accessToken, user._id, {
-        currentPassword: "adminOverride", // Admin override
-        newPassword: passwordData.newPassword,
-      });
+      const response = await authApi.changeUserPassword(
+        accessToken || "",
+        user.id,
+        {
+          currentPassword: "adminOverride", // Admin override
+          newPassword: passwordData.newPassword,
+        },
+      );
 
       if (response.error) {
         toast.error(response.message || "Failed to change password");
@@ -628,21 +615,21 @@ function ChangePasswordDialog({ user }: { user: IUser }) {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-          Change password
+          Đổi mật khẩu
         </DropdownMenuItem>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Change User Password</DialogTitle>
+          <DialogTitle>Đổi mật khẩu người dùng</DialogTitle>
           <DialogDescription>
-            Set a new password for {user.name}.
+            Đặt mật khẩu mới cho {user.name}.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="new-password" className="text-right">
-                New Password
+                Mật khẩu mới
               </Label>
               <Input
                 id="new-password"
@@ -656,7 +643,7 @@ function ChangePasswordDialog({ user }: { user: IUser }) {
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="confirm-password" className="text-right">
-                Confirm Password
+                Xác nhận mật khẩu
               </Label>
               <Input
                 id="confirm-password"
@@ -676,10 +663,10 @@ function ChangePasswordDialog({ user }: { user: IUser }) {
               onClick={() => setOpen(false)}
               disabled={loading}
             >
-              Cancel
+              Hủy
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? "Changing..." : "Change Password"}
+              {loading ? "Đang thay đổi..." : "Đổi mật khẩu"}
             </Button>
           </DialogFooter>
         </form>
@@ -688,7 +675,72 @@ function ChangePasswordDialog({ user }: { user: IUser }) {
   );
 }
 
-// Update the actions cell in columns definition
+// Delete User Dialog Component
+function DeleteUserDialog({ user }: { user: IUser }) {
+  const { accessToken } = useUserStore();
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const handleDelete = async () => {
+    setLoading(true);
+
+    try {
+      const response = await authApi.deleteUser(accessToken || "", user.id);
+
+      if (response.error) {
+        toast.error(response.message || "Failed to delete user");
+      } else {
+        toast.success("User deleted successfully");
+        setOpen(false);
+        // Refresh the user list
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      toast.error("An unexpected error occurred");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <DropdownMenuItem
+          onSelect={(e) => e.preventDefault()}
+          className="text-red-600"
+        >
+          Xóa người dùng
+        </DropdownMenuItem>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Xác nhận xóa</DialogTitle>
+          <DialogDescription>
+            Bạn có chắc chắn muốn xóa người dùng {user.name}? Hành động này
+            không thể hoàn tác.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => setOpen(false)}
+            disabled={loading}
+          >
+            Hủy
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={handleDelete}
+            disabled={loading}
+          >
+            {loading ? "Đang xóa..." : "Xóa"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export default function UsersPage() {
   const { accessToken } = useUserStore();
@@ -786,10 +838,10 @@ export default function UsersPage() {
       <Toaster richColors position="top-right" />
       <div className="flex flex-col py-4">
         <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-semibold">Users</h1>
+          <h1 className="text-2xl font-semibold">Người dùng</h1>
           <div className="flex items-center gap-3">
             <Input
-              placeholder="Search users..."
+              placeholder="Tìm kiếm người dùng..."
               value={searchTerm}
               onChange={(event) => handleSearch(event.target.value)}
               className="max-w-sm"
@@ -802,7 +854,7 @@ export default function UsersPage() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" className="ml-auto">
-                  Columns <ChevronDown className="ml-2 h-4 w-4" />
+                  Cột <ChevronDown className="ml-2 h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -828,12 +880,12 @@ export default function UsersPage() {
           </div>
           <div className="flex items-center gap-2">
             <p className="text-sm text-muted-foreground">
-              Showing {pagination.pageSize * (pagination.current - 1) + 1} to{" "}
+              Hiển thị {pagination.pageSize * (pagination.current - 1) + 1} đến{" "}
               {Math.min(
                 pagination.pageSize * pagination.current,
                 pagination.total,
               )}{" "}
-              of {pagination.total} users
+              trong tổng số {pagination.total} người dùng
             </p>
           </div>
         </div>
@@ -887,7 +939,7 @@ export default function UsersPage() {
                     colSpan={columns.length}
                     className="h-24 text-center"
                   >
-                    No results.
+                    Không có kết quả.
                   </TableCell>
                 </TableRow>
               )}
@@ -898,7 +950,7 @@ export default function UsersPage() {
 
       <div className="flex items-center justify-end space-x-2 py-4">
         <div className="flex items-center gap-2">
-          <p className="text-sm font-medium">Rows per page</p>
+          <p className="text-sm font-medium">Dòng mỗi trang</p>
           <Select
             value={String(pagination.pageSize)}
             onValueChange={(value) => {
@@ -918,7 +970,7 @@ export default function UsersPage() {
           </Select>
         </div>
         <div className="flex items-center justify-center text-sm font-medium">
-          Page {table.getState().pagination.pageIndex + 1} of{" "}
+          Trang {table.getState().pagination.pageIndex + 1} của{" "}
           {Math.ceil(pagination.total / pagination.pageSize)}
         </div>
         <Button
@@ -927,7 +979,7 @@ export default function UsersPage() {
           onClick={() => table.previousPage()}
           disabled={!table.getCanPreviousPage()}
         >
-          Previous
+          Trước
         </Button>
         <Button
           variant="outline"
@@ -935,7 +987,7 @@ export default function UsersPage() {
           onClick={() => table.nextPage()}
           disabled={!table.getCanNextPage()}
         >
-          Next
+          Tiếp
         </Button>
       </div>
     </div>
