@@ -3,7 +3,6 @@ import { AxiosFactory } from "@/lib/axios";
 
 import useUserStore from "@/stores/useUserStore";
 
-// const API_URL = "http://eduforge.io.vn:8081/api";
 const USER_INFO_URL = "https://users.eduforge.io.vn/dashboard/internal/user";
 const COURSE_SERVICE_API_KEY = "sk_course_service_12345";
 
