@@ -39,10 +39,6 @@ export default function AuthSync() {
             await updateSession({
               user: updatedUser,
             });
-
-            console.log(
-              "AuthSync: Session and store updated with fresh user data",
-            );
           }
         } catch (error) {
           console.error("Error updating session:", error);
@@ -67,21 +63,6 @@ export default function AuthSync() {
       return;
     }
 
-    console.log("AuthSync: Session data:", {
-      user: session.user
-        ? {
-            id: session.user.id,
-            email: session.user.email,
-            name: session.user.name,
-            phone: session.user.phone,
-            address: session.user.address,
-            image: session.user.image,
-          }
-        : null,
-      accessToken: session.accessToken ? "[EXISTS]" : "[MISSING]",
-      refreshToken: session.refreshToken ? "[EXISTS]" : "[MISSING]",
-    });
-
     if (session?.user && session.accessToken) {
       const user: IUser = {
         id: session.user.id || "",
@@ -104,11 +85,6 @@ export default function AuthSync() {
       const refreshToken =
         typeof session.refreshToken === "string" ? session.refreshToken : "";
       setTokens(session.accessToken, refreshToken);
-
-      console.log("AuthSync: Updated user store with tokens", {
-        accessToken: session.accessToken ? "[EXISTS]" : "[MISSING]",
-        refreshToken: refreshToken ? "[EXISTS]" : "[MISSING]",
-      });
     } else {
       console.log("AuthSync: Missing user or accessToken in session");
     }

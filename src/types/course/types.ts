@@ -11,6 +11,19 @@ export enum LessonType {
   MIXED = "MIXED",
 }
 
+// Enums mới cho hệ thống pricing
+export enum PricingType {
+  BASE_PRICE = "BASE_PRICE",
+  PROMOTION = "PROMOTION",
+}
+
+export enum PricingStatus {
+  ACTIVE = "ACTIVE",
+  INACTIVE = "INACTIVE",
+  SCHEDULED = "SCHEDULED",
+  EXPIRED = "EXPIRED",
+}
+
 // Interfaces
 export interface Category {
   id: string;
@@ -27,12 +40,9 @@ export interface Course {
   isPublished: boolean;
   category?: Category;
   level?: CourseLevel;
-  ownerId: string;
-  price: number;
-  currency: string;
+  instructorId: string; // Thay đổi từ ownerId sang instructorId
   thumbnailUrl?: string;
   tags: string[];
-  promotionPrice?: number;
   isHasCertificate: boolean;
   chapters?: Chapter[];
   createdAt: Date;
@@ -41,6 +51,7 @@ export interface Course {
   learningOutcomes: string[];
   requirements: string[];
   targetAudience?: string;
+  // Loại bỏ price, currency, promotionPrice - sẽ được lấy từ API riêng
 }
 
 export interface Chapter {
@@ -70,14 +81,48 @@ export interface Lesson {
   createdAt: Date;
   updatedAt: Date;
 }
+
+// Interfaces mới cho hệ thống pricing
+export interface PricingHeader {
+  id: string;
+  name: string;
+  description?: string;
+  type: PricingType;
+  status: PricingStatus;
+  startDate?: Date;
+  endDate?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+  details?: PricingDetail[];
+}
+
+export interface PricingDetail {
+  id: string;
+  price: number;
+  headerId: string;
+  courseId?: string;
+  categoryId?: string;
+  createdAt: Date;
+  header?: PricingHeader;
+  course?: Course;
+  category?: Category;
+}
+
+export interface CoursePrice {
+  currentPrice: number | null;
+  priceType: "promotion" | "base" | "none";
+  promotionName?: string;
+  promotionEndDate?: string;
+  hasPromotion: boolean;
+}
+
 export interface CourseWithUser {
   id: string;
   title: string;
   thumbnailUrl?: string;
-  price: number;
-  promotionPrice?: number;
-  currency?: string;
   totalLessons: number;
   enrollmentCount?: number;
   ownerAvatarUrl?: string;
+  // Thông tin giá sẽ được lấy từ API riêng
+  pricing?: CoursePrice;
 }

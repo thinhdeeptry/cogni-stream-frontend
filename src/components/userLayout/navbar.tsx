@@ -187,23 +187,31 @@ export default function Navbar({
               <span className="hidden text-sm font-medium md:block">
                 Khóa học của tôi
               </span>
-              <NotificationBell userId={session?.user?.id || ""} />
+              {/* <NotificationBell userId={session?.user?.id || ""} /> */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Avatar className="h-8 w-8 border cursor-pointer">
-                    <AvatarImage
-                      src={image}
-                      alt={userName}
-                      onError={(e) => {
-                        console.error("Avatar load error:", e);
-                        // Use a more reliable fallback mechanism
-                        const target = e.currentTarget as HTMLImageElement;
-                        target.onerror = null; // Prevent infinite error loop
-                        target.src = "/default-avatar.png";
-                      }}
-                    />
-                    <AvatarFallback>{userName.charAt(0)}</AvatarFallback>
-                  </Avatar>
+                  <Button
+                    variant="ghost"
+                    className="flex items-center gap-2 rounded-full"
+                  >
+                    <Avatar className="h-8 w-8 border cursor-pointer">
+                      <AvatarImage
+                        src={image}
+                        alt={userName}
+                        onError={(e) => {
+                          console.error("Avatar load error:", e);
+                          // Use a more reliable fallback mechanism
+                          const target = e.currentTarget as HTMLImageElement;
+                          target.onerror = null; // Prevent infinite error loop
+                          target.src = "/default-avatar.png";
+                        }}
+                      />
+                      <AvatarFallback>{userName.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <span className="hidden text-sm font-medium md:block">
+                      {userName}
+                    </span>
+                  </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
                   <div className="flex items-center justify-start gap-2 p-2">

@@ -68,10 +68,10 @@ function HomeContent() {
         setFilteredCourses(publishedCourses);
 
         // Lấy thông tin enrollment
-        const statsResponse = await getEnrollmentStats();
-        if (statsResponse.success) {
-          setEnrollmentStats(statsResponse.data);
-        }
+        // const statsResponse = await getEnrollmentStats();
+        // if (statsResponse.success) {
+        //   setEnrollmentStats(statsResponse.data);
+        // }
       } catch (err) {
         console.error("Error fetching courses:", err);
         setError(err instanceof Error ? err.message : "An error occurred");
@@ -134,13 +134,10 @@ function HomeContent() {
     }
   };
 
-  // Split filtered courses into free and paid
-  const proCourses = filteredCourses.filter((course) => course.price > 0);
-  const freeCourses = filteredCourses.filter((course) => course.price === 0);
-
-  // Limit the number of courses displayed for each section
-  const limitedProCourses = proCourses.slice(0, 8);
-  const limitedFreeCourses = freeCourses.slice(0, 8);
+  // Split filtered courses into free and paid - cần được cập nhật dựa trên pricing API
+  // Tạm thời hiển thị tất cả courses, sẽ cần gọi API pricing để phân loại
+  const limitedCourses = filteredCourses.slice(0, 8);
+  const moreCourses = filteredCourses.slice(8, 16);
 
   // Chuẩn bị dữ liệu cho JSON-LD
   const jsonLdCourses = filteredCourses.map((course) => ({
@@ -148,7 +145,7 @@ function HomeContent() {
     description: course.description || "",
     url: `https://eduforge.io.vn/courses/${course.id}`,
     image: course.thumbnailUrl || "",
-    price: course.price || 0,
+    // price: course.price || 0,
     category: course.categoryId || "",
   }));
 
@@ -236,8 +233,10 @@ function HomeContent() {
 
       {/* Popular Courses Section - Only show if not searching */}
       {!searchQuery &&
-        enrollmentStats?.popularCourses &&
-        enrollmentStats.popularCourses.length > 0 && (
+        // &&
+        //   enrollmentStats?.popularCourses &&
+        //   enrollmentStats.popularCourses.length > 0 &&
+        allCourses != null && (
           <div className="w-full space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-end">
               <div>
@@ -272,29 +271,21 @@ function HomeContent() {
             </div>
 
             <div className="w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 py-2 pb-4">
-              {enrollmentStats.popularCourses
-                .slice(0, 4)
-                .map((popularCourse) => {
-                  // Tìm thông tin đầy đủ của khóa học từ danh sách courses
-                  const courseDetails = allCourses.find(
-                    (c) => c.id === popularCourse.courseId,
-                  );
-                  if (!courseDetails) return null;
-
-                  return (
-                    <div
-                      key={popularCourse.courseId}
-                      className="transform hover:-translate-y-1 transition-transform duration-300"
-                    >
-                      <CourseItem
-                        {...courseDetails}
-                        enrollmentCount={popularCourse.enrollments}
-                        totalLessons={courseDetails.totalLessons}
-                        categories={[courseDetails.categoryId || ""]}
-                      />
-                    </div>
-                  );
-                })}
+              {allCourses.slice(0, 4).map((course) => (
+                <div
+                  key={course.id}
+                  className="transform hover:-translate-y-1 transition-transform duration-300"
+                >
+                  <CourseItem
+                    id={course.id}
+                    title={course.title}
+                    thumbnailUrl={course.thumbnailUrl}
+                    totalLessons={course.totalLessons}
+                    enrollmentCount={getEnrollmentCount(course.id)}
+                    categories={[course.categoryId || ""]}
+                  />
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -325,9 +316,11 @@ function HomeContent() {
                   className="transform hover:-translate-y-1 transition-transform duration-300"
                 >
                   <CourseItem
-                    {...course}
-                    enrollmentCount={getEnrollmentCount(course.id)}
+                    id={course.id}
+                    title={course.title}
+                    thumbnailUrl={course.thumbnailUrl}
                     totalLessons={course.totalLessons}
+                    enrollmentCount={getEnrollmentCount(course.id)}
                     categories={[course.categoryId || ""]}
                   />
                 </div>
@@ -337,21 +330,21 @@ function HomeContent() {
         </div>
       )}
 
-      {/* Pro Courses Section - Only show if not searching */}
-      {!searchQuery && proCourses.length > 0 && (
+      {/* Courses Section - Tạm thời hiển thị tất cả khóa học, sẽ phân loại theo pricing sau */}
+      {!searchQuery && limitedCourses.length > 0 && (
         <div className="w-full space-y-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-end">
             <div>
               <h2 className="text-2xl sm:text-3xl font-semibold text-gray-800 group hover:cursor-default">
-                Khóa học Pro
-                <div className="h-1 w-1/4 mt-1 group-hover:w-full bg-orange-500 transition-all duration-300"></div>
+                Khóa học nổi bật
+                <div className="h-1 w-1/4 mt-1 group-hover:w-full bg-blue-500 transition-all duration-300"></div>
               </h2>
               <p className="text-gray-600 mt-2">
-                Các khóa học chuyên sâu, chất lượng cao
+                Các khóa học chất lượng cao được nhiều người học lựa chọn
               </p>
             </div>
             <Link
-              href="/courses?type=paid"
+              href="/courses"
               className="mt-2 md:mt-0 text-orange-500 hover:text-orange-600 font-semibold flex items-center"
             >
               Xem tất cả
@@ -373,15 +366,17 @@ function HomeContent() {
           </div>
 
           <div className="w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 py-2 pb-4">
-            {limitedProCourses.map((course) => (
+            {limitedCourses.map((course) => (
               <div
                 key={course.id}
                 className="transform hover:-translate-y-1 transition-transform duration-300"
               >
                 <CourseItem
-                  {...course}
-                  enrollmentCount={getEnrollmentCount(course.id)}
+                  id={course.id}
+                  title={course.title}
+                  thumbnailUrl={course.thumbnailUrl}
                   totalLessons={course.totalLessons}
+                  enrollmentCount={getEnrollmentCount(course.id)}
                   categories={[course.categoryId || ""]}
                 />
               </div>
@@ -390,21 +385,21 @@ function HomeContent() {
         </div>
       )}
 
-      {/* Free Courses Section - Only show if not searching */}
-      {!searchQuery && freeCourses.length > 0 && (
+      {/* More Courses Section */}
+      {!searchQuery && moreCourses.length > 0 && (
         <div className="w-full space-y-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-end">
             <div>
               <h2 className="text-2xl sm:text-3xl font-semibold text-gray-800 group hover:cursor-default">
-                Khóa học Miễn phí
-                <div className="h-1 w-1/4 bg-green-500 mt-2 group-hover:w-full transition-all duration-300"></div>
+                Khóa học khác
+                <div className="h-1 w-1/4 mt-1 group-hover:w-full bg-green-500 transition-all duration-300"></div>
               </h2>
               <p className="text-gray-600 mt-2">
-                Các khóa học miễn phí để bắt đầu hành trình học tập của bạn
+                Thêm nhiều khóa học thú vị khác cho bạn khám phá
               </p>
             </div>
             <Link
-              href="/courses?type=free"
+              href="/courses"
               className="mt-2 md:mt-0 text-green-500 hover:text-green-600 font-semibold flex items-center"
             >
               Xem tất cả
@@ -426,15 +421,17 @@ function HomeContent() {
           </div>
 
           <div className="w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 py-2 pb-4">
-            {limitedFreeCourses.map((course) => (
+            {moreCourses.map((course) => (
               <div
                 key={course.id}
                 className="transform hover:-translate-y-1 transition-transform duration-300"
               >
                 <CourseItem
-                  {...course}
-                  enrollmentCount={getEnrollmentCount(course.id)}
+                  id={course.id}
+                  title={course.title}
+                  thumbnailUrl={course.thumbnailUrl}
                   totalLessons={course.totalLessons}
+                  enrollmentCount={getEnrollmentCount(course.id)}
                   categories={[course.categoryId || ""]}
                 />
               </div>

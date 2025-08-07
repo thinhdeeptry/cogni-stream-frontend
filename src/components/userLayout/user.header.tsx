@@ -18,10 +18,6 @@ export default function UserHeader() {
   const router = useRouter();
   useEffect(() => {
     setMounted(true);
-    console.log("User data:", {
-      image: user?.image,
-      fullUser: user,
-    });
   }, [user]);
 
   const handleLogout = async () => {

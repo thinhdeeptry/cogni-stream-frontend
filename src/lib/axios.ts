@@ -12,6 +12,8 @@ interface DecodedToken {
   [key: string]: any;
 }
 
+// Giữ lại ServiceName để tương thích với các file đang gọi getApiInstance
+// Dù bây giờ chúng ta chỉ dùng 1 instance.
 type ServiceName =
   | "users"
   | "courses"
@@ -26,68 +28,25 @@ type ServiceName =
   | "series"
   | "post";
 
-const paths: Record<ServiceName, string> = {
-  users: "users",
-  courses: "",
-  enrollment: "enrollment",
-  payment: "payments",
-  assessment: "",
-  notification: "notification",
-  report: "report",
-  discussion: "discussion",
-  gateway: "gateway",
-  storage: "storage",
-  series: "",
-  post: "",
-};
-
 class AxiosFactory {
-  private static instances: Map<ServiceName, AxiosInstance> = new Map();
-  private static readonly GATEWAY_URL =
-    process.env.NEXT_PUBLIC_GATEWAY_URL || "https://kong.eduforge.io.vn";
-  private static getServiceApiKey(serviceName: ServiceName): string {
-    const keyMap: Record<ServiceName, string | undefined> = {
-      users: process.env.NEXT_PUBLIC_USER_SERVICE_API_KEY,
-      courses: process.env.NEXT_PUBLIC_COURSE_SERVICE_API_KEY,
-      payment: process.env.NEXT_PUBLIC_PAYMENT_SERVICE_API_KEY,
-      enrollment: process.env.NEXT_PUBLIC_ENROLLMENT_SERVICE_API_KEY,
-      assessment: process.env.NEXT_PUBLIC_ASSESSMENT_SERVICE_API_KEY,
-      notification: process.env.NEXT_PUBLIC_NOTIFICATION_SERVICE_API_KEY,
-      report: process.env.NEXT_PUBLIC_REPORT_SERVICE_API_KEY,
-      discussion: process.env.NEXT_PUBLIC_DISCUSSION_SERVICE_API_KEY,
-      gateway: process.env.NEXT_PUBLIC_GATEWAY_API_KEY,
-      storage: process.env.NEXT_PUBLIC_STORAGE_SERVICE_API_KEY,
-      series: process.env.NEXT_PUBLIC_SERIES_SERVICE_API_KEY,
-      post: process.env.NEXT_PUBLIC_POST_SERVICE_API_KEY,
-    };
-    return keyMap[serviceName] || "";
-  }
+  private static instance: AxiosInstance | null = null;
+  private static readonly API_URL =
+    process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"; // URL của backend monolith
 
-  static async getApiInstance(
-    serviceName: ServiceName,
-  ): Promise<AxiosInstance> {
-    if (this.instances.has(serviceName)) {
-      return this.instances.get(serviceName)!;
-    }
-
+  private static createInstance(): AxiosInstance {
     const instance = axios.create({
-      baseURL: `${this.GATEWAY_URL}/${paths[serviceName]}`,
+      baseURL: this.API_URL,
       timeout: 30000,
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": this.getServiceApiKey(serviceName),
-        "x-service-name": serviceName,
       },
     });
 
     // Configure retry logic
     axiosRetry(instance, {
-      retries: 3, // Number of retries
-      retryDelay: (retryCount: number) => {
-        return retryCount * 1000; // Time interval between retries
-      },
+      retries: 3,
+      retryDelay: (retryCount: number) => retryCount * 1000,
       retryCondition: (error: AxiosError) => {
-        // Retry on network errors or 5xx server errors
         return Boolean(
           axiosRetry.isNetworkOrIdempotentRequestError(error) ||
             (error.response && error.response.status >= 500),
@@ -102,7 +61,6 @@ class AxiosFactory {
     instance.interceptors.request.use(
       async (config: InternalAxiosRequestConfig) => {
         try {
-          // Check if we're in a client environment
           if (typeof window !== "undefined") {
             const session = await getSession();
             if (session?.accessToken) {
@@ -110,17 +68,14 @@ class AxiosFactory {
                 const decoded = jwtDecode(session.accessToken) as DecodedToken;
                 config.headers["Authorization"] =
                   `Bearer ${session.accessToken}`;
-
                 if (decoded.sub) {
                   config.headers["X-User-Id"] = decoded.sub;
                 }
-                config.headers["X-Service-Name"] = serviceName;
               } catch (error) {
                 console.warn("Token processing warning:", error);
               }
             }
           }
-
           return config;
         } catch (error) {
           console.warn("Session retrieval warning:", error);
@@ -138,18 +93,29 @@ class AxiosFactory {
       (response) => response,
       async (error) => {
         if (error.response?.status === 401) {
+          // Khi bị 401, xóa instance để request sau tạo lại, có thể xử lý đăng xuất ở đây
           AxiosFactory.clearInstances();
         }
         return Promise.reject(error);
       },
     );
 
-    this.instances.set(serviceName, instance);
     return instance;
+  }
+
+  static async getApiInstance(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    serviceName: ServiceName,
+  ): Promise<AxiosInstance> {
+    if (!this.instance) {
+      this.instance = this.createInstance();
+    }
+    return this.instance;
   }
 
   static async getUserInfo(userId: string) {
     try {
+      // Đường dẫn có thể cần thay đổi tùy theo cấu trúc API của monolith
       const userInstance = await this.getApiInstance("users");
       const response = await userInstance.get(`/users/internal/${userId}`);
       return response.data;
@@ -160,7 +126,7 @@ class AxiosFactory {
   }
 
   static clearInstances() {
-    this.instances.clear();
+    this.instance = null;
   }
 }
 
