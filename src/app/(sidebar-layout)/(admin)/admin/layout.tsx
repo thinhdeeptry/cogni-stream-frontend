@@ -13,9 +13,6 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const { data: session, status } = useSession();
-  console.log("check data>>> ", session);
-  console.log("check status>>> ", status);
-
   const router = useRouter();
 
   useEffect(() => {
