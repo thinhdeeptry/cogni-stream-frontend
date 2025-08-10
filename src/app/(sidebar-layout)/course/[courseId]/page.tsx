@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 
 import { AxiosFactory } from "@/lib/axios";
 import { cn } from "@/lib/utils";
-import { Course } from "@/types/course/types";
+import { Course, CoursePrice } from "@/types/course/types";
 import { motion } from "framer-motion";
 import {
   Award,
@@ -37,6 +37,7 @@ import {
   updateEnrollmentStatus,
   updateOrderStatus,
 } from "@/actions/paymentActions";
+import { getCourseCurrentPrice } from "@/actions/pricingActions";
 
 import { useProgressStore } from "@/stores/useProgressStore";
 import useUserStore from "@/stores/useUserStore";
@@ -89,6 +90,10 @@ export default function CourseDetail() {
   const [enrollmentId, setEnrollmentId] = useState<string | null>(null);
   const [isCollapsed, setIsCollapsed] = useState<Record<string, boolean>>({});
   const [isCheckingPayment, setIsCheckingPayment] = useState(false);
+
+  // Pricing state
+  const [pricing, setPricing] = useState<CoursePrice | null>(null);
+  const [loadingPrice, setLoadingPrice] = useState(true);
 
   // Progress store
   const {
@@ -186,6 +191,33 @@ export default function CourseDetail() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.courseId, user?.id, course?.id]);
 
+  // Fetch pricing data
+  useEffect(() => {
+    const fetchPricing = async () => {
+      if (!params.courseId) return;
+
+      try {
+        setLoadingPrice(true);
+        const priceData = await getCourseCurrentPrice(
+          params.courseId as string,
+        );
+        setPricing(priceData);
+      } catch (error) {
+        console.error("Error fetching course pricing:", error);
+        // Set default pricing if API fails
+        setPricing({
+          currentPrice: 0,
+          priceType: "base",
+          hasPromotion: false,
+        });
+      } finally {
+        setLoadingPrice(false);
+      }
+    };
+
+    fetchPricing();
+  }, [params.courseId]);
+
   // Fetch course data
   useEffect(() => {
     const fetchCourse = async () => {
@@ -223,26 +255,26 @@ export default function CourseDetail() {
   }, [params.courseId]);
 
   // Handle discussion thread
-  useEffect(() => {
-    const fetchThread = async () => {
-      if (!params.courseId || !user) return;
+  // useEffect(() => {
+  //   const fetchThread = async () => {
+  //     if (!params.courseId || !user) return;
 
-      try {
-        const thread = await getThreadByResourceId(
-          params.courseId as string,
-          DiscussionType.COURSE_REVIEW,
-        );
+  //     try {
+  //       const thread = await getThreadByResourceId(
+  //         params.courseId as string,
+  //         DiscussionType.COURSE_REVIEW,
+  //       );
 
-        if (thread) {
-          setThreadId(thread.id);
-        }
-      } catch (err) {
-        console.error("Error fetching discussion thread:", err);
-      }
-    };
+  //       if (thread) {
+  //         setThreadId(thread.id);
+  //       }
+  //     } catch (err) {
+  //       console.error("Error fetching discussion thread:", err);
+  //     }
+  //   };
 
-    fetchThread();
-  }, [params.courseId, user]);
+  //   fetchThread();
+  // }, [params.courseId, user]);
 
   const handleEnrollClick = async () => {
     if (!user) {
@@ -251,12 +283,12 @@ export default function CourseDetail() {
       return;
     }
 
-    if (!course) return;
+    if (!course || !pricing) return;
 
     setIsLoading(true); // Bắt đầu loading
 
     // Handle free courses directly
-    if (course.promotionPrice === 0 || course.price === 0) {
+    if (!pricing.currentPrice || pricing.currentPrice === 0) {
       try {
         // Show loading toast
         const loadingToast = toast.loading("Đang đăng ký khóa học...");
@@ -312,7 +344,7 @@ export default function CourseDetail() {
         console.log("Order code lay dc o trang course: ", orderCode);
         // Cập nhật dữ liệu thanh toán với metadata phù hợp và returnUrl trỏ về trang success
         const paymentData = {
-          amount: course.promotionPrice || course.price,
+          amount: pricing.currentPrice,
           method: "BANK_TRANSFER",
           description: course.title.substring(0, 25), // Giới hạn 25 ký tự
           orderCode: orderCode.toString(), // Chuyển đổi thành chuỗi
@@ -622,7 +654,7 @@ export default function CourseDetail() {
                 fill
                 className="object-cover"
               />
-              {course.price > 0 && (
+              {pricing && pricing.currentPrice && pricing.currentPrice > 0 && (
                 <motion.div
                   className="absolute top-2 right-2 rounded-lg px-2 py-1.5 bg-black/35 backdrop-blur-sm"
                   initial={{ scale: 0 }}
@@ -642,26 +674,43 @@ export default function CourseDetail() {
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.6 }}
                 >
-                  {course.price === 0 ? (
-                    <p className="text-red-600 text-2xl font-semibold">
+                  {loadingPrice ? (
+                    <div className="h-8 w-32 bg-gray-200 animate-pulse rounded"></div>
+                  ) : !pricing ||
+                    !pricing.currentPrice ||
+                    pricing.currentPrice === 0 ? (
+                    <p className="text-green-600 text-2xl font-semibold">
                       Miễn phí
                     </p>
                   ) : (
-                    <div className="space-y-1">
-                      <p
-                        className={`font-semibold text-2xl ${course.promotionPrice ? "text-red-600" : "text-red-600"}`}
-                      >
-                        {(
-                          course.promotionPrice || course.price
-                        ).toLocaleString()}{" "}
-                        {course.currency}
-                      </p>
-                      {course.promotionPrice &&
-                        course.promotionPrice < course.price && (
-                          <p className="text-gray-500 line-through text-sm">
-                            {course.price.toLocaleString()} {course.currency}
-                          </p>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <p className="text-red-600 text-2xl font-semibold">
+                          {pricing.currentPrice.toLocaleString()} VND
+                        </p>
+                        {pricing.hasPromotion && pricing.promotionName && (
+                          <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded">
+                            {pricing.priceType === "promotion"
+                              ? "🎉 Khuyến mãi"
+                              : "Giá gốc"}
+                          </span>
                         )}
+                      </div>
+                      {pricing.hasPromotion && pricing.promotionName && (
+                        <div className="bg-red-50 p-2 rounded-md">
+                          <p className="text-sm text-red-700 font-medium">
+                            🎉 {pricing.promotionName}
+                          </p>
+                          {pricing.promotionEndDate && (
+                            <p className="text-xs text-red-600">
+                              Hết hạn:{" "}
+                              {new Date(
+                                pricing.promotionEndDate,
+                              ).toLocaleDateString("vi-VN")}
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                 </motion.div>
@@ -716,7 +765,9 @@ export default function CourseDetail() {
                       ) : (
                         <>
                           <span className="relative z-10">
-                            {course.price === 0
+                            {!pricing ||
+                            !pricing.currentPrice ||
+                            pricing.currentPrice === 0
                               ? "Đăng ký ngay"
                               : "Mua khóa học"}
                           </span>
@@ -760,7 +811,7 @@ export default function CourseDetail() {
           </Card>
         </motion.div>
       </div>
-      <Discussion threadId={threadId || ""} />
+      {/* <Discussion threadId={threadId || ""} /> */}
     </motion.div>
   );
 }
