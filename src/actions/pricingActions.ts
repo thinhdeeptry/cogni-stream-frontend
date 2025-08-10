@@ -2,6 +2,7 @@
 import { AxiosFactory } from "@/lib/axios";
 import {
   CoursePrice,
+  CoursePricingPolicies,
   PricingDetail,
   PricingHeader,
 } from "@/types/course/types";
@@ -52,93 +53,43 @@ export const getPricingHeaders = async (): Promise<PricingHeader[]> => {
 };
 
 // Tạo chính sách giá mới
-export const createPricingHeader = async (headerData: {
+export const createPricing = async (price: {
+  courseId: string;
   name: string;
   description?: string;
+  price: number;
   type: "BASE_PRICE" | "PROMOTION";
   startDate?: string;
   endDate?: string;
 }): Promise<PricingHeader> => {
   try {
-    const { data } = await pricingApi.post("/pricing/headers", headerData);
-    return data;
+    if (price.type === "BASE_PRICE") {
+      const { data } = await pricingApi.patch(
+        `/courses/${price.courseId}/price`,
+        {
+          price: price.price,
+        },
+      );
+      return data;
+    } else {
+      // Đảm bảo promotion data đúng format
+      const promotionData = {
+        courseId: price.courseId,
+        name: price.name,
+        description: price.description,
+        price: price.price,
+        type: price.type,
+        startDate: price.startDate,
+        endDate: price.endDate,
+      };
+      const { data } = await pricingApi.post(
+        "/courses/promotions",
+        promotionData,
+      );
+      return data;
+    }
   } catch (error) {
     console.error("Error creating pricing header:", error);
-    throw error;
-  }
-};
-
-// Cập nhật chính sách giá
-export const updatePricingHeader = async (
-  headerId: string,
-  headerData: Partial<PricingHeader>,
-): Promise<PricingHeader> => {
-  try {
-    const { data } = await pricingApi.patch(
-      `/pricing/headers/${headerId}`,
-      headerData,
-    );
-    return data;
-  } catch (error) {
-    console.error("Error updating pricing header:", error);
-    throw error;
-  }
-};
-
-// Kích hoạt/vô hiệu hóa chính sách giá
-export const updatePricingHeaderStatus = async (
-  headerId: string,
-  status: "ACTIVE" | "INACTIVE" | "SCHEDULED" | "EXPIRED",
-): Promise<PricingHeader> => {
-  try {
-    const { data } = await pricingApi.patch(
-      `/pricing/headers/${headerId}/status`,
-      { status },
-    );
-    return data;
-  } catch (error) {
-    console.error("Error updating pricing header status:", error);
-    throw error;
-  }
-};
-
-// Lấy chi tiết giá của một chính sách
-export const getPricingDetails = async (
-  headerId: string,
-): Promise<PricingDetail[]> => {
-  try {
-    const { data } = await pricingApi.get(
-      `/pricing/headers/${headerId}/details`,
-    );
-    return data;
-  } catch (error) {
-    console.error("Error fetching pricing details:", error);
-    throw error;
-  }
-};
-
-// Thêm/cập nhật giá cho khóa học/danh mục
-export const createPricingDetail = async (detailData: {
-  headerId: string;
-  price: number;
-  courseId?: string;
-  categoryId?: string;
-}): Promise<PricingDetail> => {
-  try {
-    const { data } = await pricingApi.post("/pricing/details", detailData);
-    return data;
-  } catch (error) {
-    console.error("Error creating pricing detail:", error);
-    throw error;
-  }
-};
-
-// Xóa chi tiết giá
-export const deletePricingDetail = async (detailId: string): Promise<void> => {
-  try {
-    await pricingApi.delete(`/pricing/details/${detailId}`);
-  } catch (error) {
-    console.error("Error deleting pricing detail:", error);
     throw error;
   }
 };
@@ -167,6 +118,55 @@ export const getCoursesByPriceRange = async (filters: {
     return data;
   } catch (error) {
     console.error("Error fetching courses by price range:", error);
+    throw error;
+  }
+};
+
+// Lấy tất cả pricing policies của một khóa học
+export const getCoursePricingPolicies = async (
+  courseId: string,
+): Promise<CoursePricingPolicies> => {
+  try {
+    const { data } = await pricingApi.get(
+      `/courses/${courseId}/pricing-policies`,
+    );
+    return data;
+  } catch (error) {
+    console.error("Error fetching course pricing policies:", error);
+    throw error;
+  }
+};
+
+// Cập nhật status của pricing policy
+export const updatePricingStatus = async (
+  id: string,
+  pricingId: string,
+  status: "ACTIVE" | "INACTIVE" | "SCHEDULED" | "EXPIRED",
+): Promise<PricingHeader> => {
+  try {
+    const { data } = await pricingApi.patch(
+      `/courses/pricing/promotions/${id}/status`,
+      {
+        pricingId,
+        status,
+      },
+    );
+    return data;
+  } catch (error) {
+    console.error("Error updating pricing status:", error);
+    throw error;
+  }
+};
+
+// Xóa pricing policy
+export const deletePricingPolicy = async (
+  pricingId: string,
+  id: string,
+): Promise<void> => {
+  try {
+    await pricingApi.delete(`/courses/pricing/${id}`, { data: { pricingId } });
+  } catch (error) {
+    console.error("Error deleting pricing policy:", error);
     throw error;
   }
 };

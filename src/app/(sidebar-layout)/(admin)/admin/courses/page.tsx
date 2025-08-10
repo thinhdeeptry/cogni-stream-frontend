@@ -4,7 +4,7 @@ import Link from "next/link";
 import React, { useEffect, useState } from "react";
 
 import { toast } from "@/hooks/use-toast";
-import { Course, CourseLevel } from "@/types/course/types";
+import { Course, CourseLevel, CoursePrice } from "@/types/course/types";
 import { BookOpen, Edit, Eye, Filter, Play, Plus, Trash } from "lucide-react";
 
 import {
@@ -15,7 +15,9 @@ import {
   getAllCategories,
   getAllCourses,
 } from "@/actions/courseAction";
+import { getCourseCurrentPrice } from "@/actions/pricingActions";
 
+import { AdminPricingManager } from "@/components/admin/AdminPricingManager";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -66,6 +68,12 @@ import {
 
 export default function AdminCoursesPage() {
   const [courses, setCourses] = useState<Course[]>([]);
+  const [coursePricing, setCoursePricing] = useState<
+    Record<string, CoursePrice>
+  >({});
+  const [loadingPrices, setLoadingPrices] = useState<Record<string, boolean>>(
+    {},
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
   const [courseToDelete, setCourseToDelete] = useState<string | null>(null);
@@ -88,6 +96,59 @@ export default function AdminCoursesPage() {
   });
 
   const [filters, setFilters] = useState<CourseFilters>({});
+
+  // Function to fetch pricing for multiple courses
+  const fetchCoursePricing = async (courseList: Course[]) => {
+    const pricingPromises = courseList.map(async (course) => {
+      try {
+        setLoadingPrices((prev) => ({ ...prev, [course.id]: true }));
+        const pricing = await getCourseCurrentPrice(course.id);
+        setCoursePricing((prev) => ({ ...prev, [course.id]: pricing }));
+      } catch (error) {
+        console.error(`Error fetching pricing for course ${course.id}:`, error);
+        // Set default pricing if API fails
+        setCoursePricing((prev) => ({
+          ...prev,
+          [course.id]: {
+            currentPrice: null,
+            priceType: "none",
+            hasPromotion: false,
+          },
+        }));
+      } finally {
+        setLoadingPrices((prev) => ({ ...prev, [course.id]: false }));
+      }
+    });
+
+    await Promise.all(pricingPromises);
+  };
+
+  // Helper function to get price display for a course
+  const getPriceDisplay = (courseId: string) => {
+    const pricing = coursePricing[courseId];
+    const isLoading = loadingPrices[courseId];
+
+    if (isLoading) {
+      return <div className="h-4 w-16 bg-gray-200 animate-pulse rounded"></div>;
+    }
+
+    if (!pricing || !pricing.currentPrice || pricing.currentPrice === 0) {
+      return <span className="text-green-600 font-medium">Miễn phí</span>;
+    }
+
+    return (
+      <div className="space-y-1">
+        <span className="text-slate-700 font-medium">
+          {Number(pricing.currentPrice).toLocaleString()} VND
+        </span>
+        {pricing.hasPromotion && pricing.promotionName && (
+          <div className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded inline-block">
+            🎉 {pricing.priceType === "promotion" ? "Khuyến mãi" : "Giá gốc"}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -127,6 +188,9 @@ export default function AdminCoursesPage() {
 
       if (response && response.data) {
         setCourses(response.data);
+
+        // Fetch pricing for each course
+        fetchCoursePricing(response.data);
 
         if (response.meta) {
           setPagination({
@@ -672,9 +736,7 @@ export default function AdminCoursesPage() {
                     {course.category?.name}
                   </TableCell>
                   <TableCell className="text-slate-700">
-                    {course.price === 0
-                      ? "Miễn phí"
-                      : `${course.price.toLocaleString()} ${course.currency}`}
+                    {getPriceDisplay(course.id)}
                   </TableCell>
                   <TableCell>
                     <span
@@ -689,6 +751,11 @@ export default function AdminCoursesPage() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
+                      <AdminPricingManager
+                        courseId={course.id}
+                        courseName={course.title}
+                        onPricingUpdated={() => fetchCoursePricing([course])}
+                      />
                       <Link href={`/course/${course.id}`}>
                         <Button
                           variant="outline"

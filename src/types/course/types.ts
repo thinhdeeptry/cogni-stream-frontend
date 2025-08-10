@@ -114,6 +114,7 @@ export interface CoursePrice {
   promotionName?: string;
   promotionEndDate?: string;
   hasPromotion: boolean;
+  allPricings?: PricingHeader[]; // Thêm danh sách tất cả pricing policies
 }
 
 export interface CourseWithUser {
@@ -125,4 +126,24 @@ export interface CourseWithUser {
   ownerAvatarUrl?: string;
   // Thông tin giá sẽ được lấy từ API riêng
   pricing?: CoursePrice;
+}
+
+// Interface cho pricing policy chi tiết
+export interface PricingPolicy {
+  id: string;
+  price: number;
+  type: "BASE_PRICE" | "PROMOTION";
+  name: string;
+  description?: string;
+  status: PricingStatus;
+  startDate?: string;
+  endDate?: string;
+  createdAt: string;
+}
+
+// Interface cho response của course pricing policies
+export interface CoursePricingPolicies {
+  courseId: string;
+  courseTitle: string;
+  prices: PricingPolicy[];
 }
