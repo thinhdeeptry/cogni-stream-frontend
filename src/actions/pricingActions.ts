@@ -158,6 +158,27 @@ export const updatePricingStatus = async (
   }
 };
 
+// Cập nhật giá của pricing policy
+export const updatePricingPrice = async (
+  courseId: string,
+  pricingId: string,
+  price: number,
+): Promise<PricingHeader> => {
+  try {
+    const { data } = await pricingApi.patch(
+      `/courses/pricing/details/${courseId}/price`,
+      {
+        pricingId,
+        price,
+      },
+    );
+    return data;
+  } catch (error) {
+    console.error("Error updating pricing price:", error);
+    throw error;
+  }
+};
+
 // Xóa pricing policy
 export const deletePricingPolicy = async (
   pricingId: string,

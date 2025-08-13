@@ -28,6 +28,7 @@ import {
   deletePricingPolicy,
   getCourseCurrentPrice,
   getCoursePricingPolicies,
+  updatePricingPrice,
   updatePricingStatus,
 } from "@/actions/pricingActions";
 
@@ -89,6 +90,7 @@ export function AdminPricingManager({
   const [coursePricingData, setCoursePricingData] =
     useState<CoursePricingPolicies | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingPolicies, setIsLoadingPolicies] = useState(false); // New loading state
   const [isUpdating, setIsUpdating] = useState(false);
   const [newPrice, setNewPrice] = useState("");
   const [pricingType, setPricingType] = useState<PricingType>(
@@ -100,6 +102,10 @@ export function AdminPricingManager({
   const [endDate, setEndDate] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // Edit price states
+  const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
+  const [editPrice, setEditPrice] = useState("");
 
   // Fetch current pricing and all policies when dialog opens
   useEffect(() => {
@@ -128,11 +134,18 @@ export function AdminPricingManager({
 
   const fetchAllPricings = async () => {
     try {
+      setIsLoadingPolicies(true);
       const pricings = await getCoursePricingPolicies(courseId);
       setCoursePricingData(pricings);
     } catch (error) {
       console.error("Error fetching all pricings:", error);
-      // Non-blocking error
+      toast({
+        title: "Lỗi",
+        description: "Không thể tải danh sách chính sách giá",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingPolicies(false); // Clear loading
     }
   };
 
@@ -215,6 +228,57 @@ export function AdminPricingManager({
     } finally {
       setDeletingId(null);
     }
+  };
+
+  const handlePriceUpdate = async (pricingId: string) => {
+    if (!editPrice || Number(editPrice) < 0) {
+      toast({
+        title: "Lỗi",
+        description: "Vui lòng nhập giá hợp lệ",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setIsUpdating(true);
+      await updatePricingPrice(courseId, pricingId, Number(editPrice));
+
+      toast({
+        title: "Thành công",
+        description: "Cập nhật giá thành công",
+      });
+
+      await fetchAllPricings();
+      await fetchCurrentPricing();
+
+      if (onPricingUpdated) {
+        onPricingUpdated();
+      }
+
+      // Reset edit state
+      setEditingPriceId(null);
+      setEditPrice("");
+    } catch (error: any) {
+      console.error("Error updating price:", error);
+      toast({
+        title: "Lỗi",
+        description: error.message || "Không thể cập nhật giá",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const startEditPrice = (pricingId: string, currentPrice: number) => {
+    setEditingPriceId(pricingId);
+    setEditPrice(currentPrice.toString());
+  };
+
+  const cancelEditPrice = () => {
+    setEditingPriceId(null);
+    setEditPrice("");
   };
 
   const getStatusIcon = (status: PricingStatus) => {
@@ -333,6 +397,9 @@ export function AdminPricingManager({
     setDescription("");
     setStartDate("");
     setEndDate("");
+    // Reset edit price state
+    setEditingPriceId(null);
+    setEditPrice("");
   };
 
   const handleOpenChange = (open: boolean) => {
@@ -436,7 +503,19 @@ export function AdminPricingManager({
           </div>
 
           {/* Summary Statistics */}
-          {summaryStats && (
+          {isLoadingPolicies ? (
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <div
+                  key={index}
+                  className="bg-gray-50 p-3 rounded-lg text-center"
+                >
+                  <div className="h-8 w-12 bg-gray-200 animate-pulse rounded mx-auto mb-2"></div>
+                  <div className="h-3 w-16 bg-gray-200 animate-pulse rounded mx-auto"></div>
+                </div>
+              ))}
+            </div>
+          ) : summaryStats ? (
             <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
               <div className="bg-blue-50 p-3 rounded-lg text-center">
                 <p className="text-2xl font-bold text-blue-600">
@@ -475,18 +554,22 @@ export function AdminPricingManager({
                 <p className="text-xs text-red-500">Đã hết hạn</p>
               </div>
             </div>
-          )}
+          ) : null}
 
           {/* All Pricing Policies Table */}
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <h4 className="font-medium text-slate-900">
+              <h4 className="font-medium text-slate-900 flex items-center gap-2">
                 Tất cả chính sách giá
+                {isLoadingPolicies && (
+                  <Loader2 className="h-4 w-4 animate-spin text-slate-500" />
+                )}
               </h4>
               <Button
                 onClick={() => setShowAddForm(!showAddForm)}
                 size="sm"
                 className="bg-orange-500 hover:bg-orange-600"
+                disabled={isLoadingPolicies}
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Thêm chính sách
@@ -507,8 +590,41 @@ export function AdminPricingManager({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {!coursePricingData ||
-                  coursePricingData.prices.length === 0 ? (
+                  {isLoadingPolicies ? (
+                    // Loading skeleton for table rows
+                    Array.from({ length: 3 }).map((_, index) => (
+                      <TableRow key={index}>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <div className="h-4 w-32 bg-gray-200 animate-pulse rounded"></div>
+                            <div className="h-3 w-24 bg-gray-200 animate-pulse rounded"></div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="h-6 w-16 bg-gray-200 animate-pulse rounded"></div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="h-4 w-20 bg-gray-200 animate-pulse rounded"></div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="h-6 w-24 bg-gray-200 animate-pulse rounded"></div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="h-4 w-16 bg-gray-200 animate-pulse rounded"></div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="h-4 w-16 bg-gray-200 animate-pulse rounded"></div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center gap-2 justify-end">
+                            <div className="h-8 w-24 bg-gray-200 animate-pulse rounded"></div>
+                            <div className="h-8 w-8 bg-gray-200 animate-pulse rounded"></div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : !coursePricingData ||
+                    coursePricingData.prices.length === 0 ? (
                     <TableRow>
                       <TableCell
                         colSpan={7}
@@ -519,7 +635,7 @@ export function AdminPricingManager({
                     </TableRow>
                   ) : (
                     coursePricingData.prices.map((pricing) => (
-                      <TableRow key={pricing.id}>
+                      <TableRow key={pricing.id} className="group">
                         <TableCell className="font-medium">
                           <div>
                             <p className="font-semibold">{pricing.name}</p>
@@ -532,7 +648,58 @@ export function AdminPricingManager({
                         </TableCell>
                         <TableCell>{getTypeBadge(pricing.type)}</TableCell>
                         <TableCell className="font-semibold">
-                          ${Number(pricing.price).toLocaleString()} VND
+                          {editingPriceId === pricing.id ? (
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="number"
+                                min="0"
+                                step="1000"
+                                value={editPrice}
+                                onChange={(e) => setEditPrice(e.target.value)}
+                                className="w-24 h-8"
+                                autoFocus
+                              />
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handlePriceUpdate(pricing.id)}
+                                disabled={isUpdating}
+                                className="h-8 px-2"
+                              >
+                                {isUpdating ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <CheckCircle className="h-3 w-3" />
+                                )}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={cancelEditPrice}
+                                disabled={isUpdating}
+                                className="h-8 px-2"
+                              >
+                                <XCircle className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <span>
+                                {Number(pricing.price).toLocaleString()} VND
+                              </span>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() =>
+                                  startEditPrice(pricing.id, pricing.price)
+                                }
+                                disabled={isUpdating || isLoadingPolicies}
+                                className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                              >
+                                <Edit className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          )}
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
@@ -552,7 +719,7 @@ export function AdminPricingManager({
                                   value as PricingStatus,
                                 )
                               }
-                              disabled={isUpdating}
+                              disabled={isUpdating || isLoadingPolicies}
                             >
                               <SelectTrigger className="w-32 h-8">
                                 <SelectValue />
@@ -573,43 +740,59 @@ export function AdminPricingManager({
                               </SelectContent>
                             </Select>
 
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="text-red-500 hover:text-red-700"
-                                  disabled={deletingId === pricing.id}
-                                >
-                                  {deletingId === pricing.id ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                  ) : (
-                                    <Trash2 className="h-4 w-4" />
-                                  )}
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>
-                                    Xác nhận xóa
-                                  </AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Bạn có chắc chắn muốn xóa chính sách "
-                                    {pricing.name}"? Hành động này không thể
-                                    hoàn tác.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() => handleDelete(pricing.id)}
-                                    className="bg-red-500 hover:bg-red-600"
+                            {/* Chỉ hiển thị nút xóa cho PROMOTION, không cho BASE_PRICE */}
+                            {pricing.type === PricingType.PROMOTION ? (
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="text-red-500 hover:text-red-700"
+                                    disabled={
+                                      deletingId === pricing.id ||
+                                      isLoadingPolicies
+                                    }
                                   >
-                                    Xóa
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
+                                    {deletingId === pricing.id ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <Trash2 className="h-4 w-4" />
+                                    )}
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>
+                                      Xác nhận xóa
+                                    </AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Bạn có chắc chắn muốn xóa chương trình
+                                      khuyến mãi "{pricing.name}"? Hành động này
+                                      không thể hoàn tác.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => handleDelete(pricing.id)}
+                                      className="bg-red-500 hover:bg-red-600"
+                                    >
+                                      Xóa
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            ) : (
+                              // Hiển thị placeholder cho BASE_PRICE để giữ alignment
+                              <div className="w-10 h-8 flex items-center justify-center">
+                                <span
+                                  className="text-xs text-gray-400 font-medium"
+                                  title="Giá cơ bản không thể xóa"
+                                >
+                                  N/A
+                                </span>
+                              </div>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>

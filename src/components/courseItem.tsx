@@ -59,9 +59,11 @@ export default function CourseItem({
     fetchPricing();
   }, [id]);
 
-  // Calculate discount percentage if there's a promotion
-  const discountPercentage =
-    pricing?.hasPromotion && pricing?.promotionName ? 10 : 0; // Tạm thời set 10% hoặc tính từ data khác
+  // Check if course is free
+  const isFree = pricing?.currentPrice == 0;
+
+  // Check if course has promotion
+  const hasPromotion = pricing?.hasPromotion && pricing?.promotionName;
 
   return (
     <Link
@@ -76,50 +78,65 @@ export default function CourseItem({
             fill
             className="object-cover transition-transform duration-500 group-hover:scale-110"
           />
-          {pricing && pricing.currentPrice && pricing.currentPrice > 0 && (
+
+          {/* Crown icon for paid courses */}
+          {!isFree && (
             <div className="absolute top-3 right-3 rounded-lg px-2 py-1.5 bg-black/40 backdrop-blur-sm">
               <Crown size={18} className="text-yellow-400" />
             </div>
           )}
 
-          {/* Discount banner */}
-          {pricing?.hasPromotion && pricing.promotionName && (
-            <div className="absolute bottom-3 left-0 bg-red-500 text-white text-xs font-bold py-1 px-3 rounded-r-md">
-              🎉 {pricing.promotionName}
-              {pricing.promotionEndDate && (
-                <div className="text-[10px] opacity-90">
-                  Hết hạn:{" "}
-                  {new Date(pricing.promotionEndDate).toLocaleDateString(
-                    "vi-VN",
-                  )}
-                </div>
-              )}
+          {/* Promotion banner - chỉ hiển thị khi có khuyến mãi thực sự */}
+          {hasPromotion && (
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-r from-red-500 to-red-600 text-white text-xs font-bold py-2 px-3">
+              <div className="flex items-center justify-between">
+                <span>🎉 {pricing.promotionName}</span>
+                {pricing.promotionEndDate && (
+                  <span className="text-[10px] opacity-90">
+                    Hết hạn:{" "}
+                    {new Date(pricing.promotionEndDate).toLocaleDateString(
+                      "vi-VN",
+                    )}
+                  </span>
+                )}
+              </div>
             </div>
           )}
         </div>
 
         <CardContent className="px-4 py-3">
           {/* Course title */}
-          <h3 className="font-bold text-md line-clamp-2 mb-2 text-gray-800 truncate ">
+          <h3 className="font-bold text-md line-clamp-2 mb-2 text-gray-800 truncate">
             {title}
           </h3>
 
-          {/* Price display */}
-          <div className="flex items-center gap-2">
+          {/* Price display with consistent spacing */}
+          <div
+            className={cn(
+              "flex items-center gap-2 min-h-[20px]", // Đảm bảo min-height nhất quán
+              hasPromotion ? "mb-1" : "mb-2", // Thêm margin bottom khi không có promotion
+            )}
+          >
             {loadingPrice ? (
               <div className="h-4 w-20 bg-gray-200 animate-pulse rounded"></div>
-            ) : !pricing ||
-              !pricing.currentPrice ||
-              pricing.currentPrice === 0 ? (
-              <p className="text-green-600 font-bold">Miễn phí</p>
+            ) : isFree ? (
+              <div className="flex items-center gap-2">
+                <p className="text-green-600 font-bold text-lg">Miễn phí</p>
+                <Badge
+                  variant="secondary"
+                  className="text-xs bg-green-100 text-green-700"
+                >
+                  FREE
+                </Badge>
+              </div>
             ) : (
-              <div className="flex flex-col gap-1">
-                <p className="text-red-500 font-bold">
-                  {pricing.currentPrice.toLocaleString()} VND
+              <div className="flex flex-col gap-1 w-full">
+                <p className="text-red-500 font-bold text-lg">
+                  {Number(pricing?.currentPrice).toLocaleString()} VND
                 </p>
-                {pricing.hasPromotion && pricing.promotionName && (
-                  <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded">
-                    {pricing.priceType === "promotion"
+                {hasPromotion && (
+                  <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded inline-block w-fit">
+                    {pricing?.priceType === "promotion"
                       ? "🎉 Khuyến mãi"
                       : "Giá gốc"}
                   </span>
@@ -127,6 +144,8 @@ export default function CourseItem({
               </div>
             )}
           </div>
+
+          {!hasPromotion && <div className="pb-5"></div>}
         </CardContent>
 
         <CardFooter className="px-4 py-2 bg-gray-100/35">
