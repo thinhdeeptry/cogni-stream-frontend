@@ -81,3 +81,12 @@ export interface CourseWithUser {
   enrollmentCount?: number;
   ownerAvatarUrl?: string;
 }
+
+export interface ClassSession {
+  id: string;
+  classroomId: string;
+  topic: string;
+  scheduledAt: string; // ISO date string
+  durationMinutes: number;
+  status?: string;
+}
