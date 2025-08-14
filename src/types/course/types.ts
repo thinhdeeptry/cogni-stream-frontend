@@ -147,3 +147,12 @@ export interface CoursePricingPolicies {
   courseTitle: string;
   prices: PricingPolicy[];
 }
+
+export interface ClassSession {
+  id: string;
+  classroomId: string;
+  topic: string;
+  scheduledAt: string; // ISO date string
+  durationMinutes: number;
+  status?: string;
+}

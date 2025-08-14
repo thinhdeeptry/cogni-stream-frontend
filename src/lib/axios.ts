@@ -26,7 +26,24 @@ type ServiceName =
   | "gateway"
   | "storage"
   | "series"
-  | "post";
+  | "post"
+  | "sessions";
+
+const paths: Record<ServiceName, string> = {
+  users: "users",
+  courses: "",
+  enrollment: "enrollment",
+  payment: "payments",
+  assessment: "",
+  notification: "notification",
+  report: "report",
+  discussion: "discussion",
+  gateway: "gateway",
+  storage: "storage",
+  series: "",
+  post: "",
+  sessions: "",
+};
 
 class AxiosFactory {
   private static instance: AxiosInstance | null = null;
