@@ -6,12 +6,14 @@ import { useEffect, useState } from "react";
 
 import { toast } from "@/hooks/use-toast";
 import { formatPrice } from "@/lib/utils";
-import { Course } from "@/types/course/types";
+import { Course, CoursePrice } from "@/types/course/types";
 import { ChevronLeft, Edit, Loader2, Plus } from "lucide-react";
 
 import { getCourseById } from "@/actions/courseAction";
+import { getCourseCurrentPrice } from "@/actions/pricingActions";
 
 import { CourseContent } from "@/components/CourseContent";
+import { AdminPricingManager } from "@/components/admin/AdminPricingManager";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,7 +27,9 @@ export default function CourseDetailPage({
 }) {
   const resolvedParams = use(params);
   const [course, setCourse] = useState<Course | null>(null);
+  const [coursePrice, setCoursePrice] = useState<CoursePrice | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingPrice, setIsLoadingPrice] = useState(true);
   const [isAddChapterOpen, setIsAddChapterOpen] = useState(false);
   const [isAddLessonOpen, setIsAddLessonOpen] = useState(false);
   const [selectedChapterId, setSelectedChapterId] = useState<string>("");
@@ -46,11 +50,30 @@ export default function CourseDetailPage({
     }
   };
 
+  const fetchCoursePrice = async () => {
+    try {
+      setIsLoadingPrice(true);
+      const priceData = await getCourseCurrentPrice(resolvedParams.courseId);
+      setCoursePrice(priceData);
+    } catch (error) {
+      console.error("Error fetching course price:", error);
+      // Set default pricing if API fails
+      setCoursePrice({
+        currentPrice: 0,
+        priceType: "none",
+        hasPromotion: false,
+      });
+    } finally {
+      setIsLoadingPrice(false);
+    }
+  };
+
   useEffect(() => {
     fetchCourseData();
+    fetchCoursePrice();
   }, [resolvedParams.courseId]);
 
-  if (isLoading) {
+  if (isLoading || isLoadingPrice) {
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-4rem)]">
         <div className="flex flex-col items-center gap-2">
@@ -163,15 +186,53 @@ export default function CourseDetailPage({
                   </p>
                 </div>
 
-                <div>
+                <div className="flex justify-between items-center">
                   <h3 className="text-sm font-semibold text-slate-900 mb-2">
                     Giá
                   </h3>
-                  <p className="text-sm text-slate-600">
-                    {course.price === 0
-                      ? "Miễn phí"
-                      : formatPrice(course.price, course.currency)}
-                  </p>
+                  <AdminPricingManager
+                    courseId={resolvedParams.courseId}
+                    courseName={course.title}
+                    onPricingUpdated={fetchCoursePrice}
+                  />
+                </div>
+                <div className="space-y-2">
+                  {isLoadingPrice ? (
+                    <div className="h-6 w-24 bg-slate-200 animate-pulse rounded"></div>
+                  ) : coursePrice ? (
+                    <div className="space-y-1">
+                      <p className="text-lg font-semibold text-slate-900">
+                        {coursePrice.currentPrice === null ||
+                        coursePrice.currentPrice === 0
+                          ? "Miễn phí"
+                          : `${coursePrice.currentPrice.toLocaleString()} VND`}
+                      </p>
+                      {coursePrice.hasPromotion && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded">
+                            🎉 Khuyến mãi
+                          </span>
+                          {coursePrice.promotionName && (
+                            <span className="text-xs text-slate-500">
+                              {coursePrice.promotionName}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {coursePrice.promotionEndDate && (
+                        <p className="text-xs text-slate-500">
+                          Hết hạn:{" "}
+                          {new Date(
+                            coursePrice.promotionEndDate,
+                          ).toLocaleDateString("vi-VN")}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-600">
+                      Chưa có thông tin giá
+                    </p>
+                  )}
                 </div>
 
                 <div>

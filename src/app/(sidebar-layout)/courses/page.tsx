@@ -19,6 +19,7 @@ import {
   EnrollmentStats,
   getEnrollmentStats,
 } from "@/actions/enrollmentActions";
+import { getMultipleCoursesPrice } from "@/actions/pricingActions";
 
 import Loading from "@/components/Loading";
 import CourseItem from "@/components/courseItem";
@@ -60,8 +61,10 @@ function CoursesContent() {
   // State for courses
   const [courses, setCourses] = useState<Course[]>([]);
   const [filteredCourses, setFilteredCourses] = useState<Course[]>([]);
+  const [coursesPricing, setCoursesPricing] = useState<Record<string, any>>({});
   const [categories, setCategories] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingPricing, setIsLoadingPricing] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [enrollmentStats, setEnrollmentStats] =
     useState<EnrollmentStats | null>(null);
@@ -102,6 +105,7 @@ function CoursesContent() {
     const fetchCoursesAndStats = async () => {
       try {
         setIsLoading(true);
+        // Fetch courses
         const response = await getAllCourses({
           isPublished: true,
           skipPagination: true,
@@ -114,6 +118,22 @@ function CoursesContent() {
 
         setCourses(publishedCourses);
         console.log("Loaded courses:", publishedCourses.length);
+
+        // Fetch pricing for all courses
+        if (publishedCourses.length > 0) {
+          try {
+            setIsLoadingPricing(true);
+            const courseIds = publishedCourses.map((course) => course.id);
+            const pricingData = await getMultipleCoursesPrice(courseIds);
+            setCoursesPricing(pricingData);
+          } catch (pricingError) {
+            console.error("Error fetching pricing:", pricingError);
+            // Set empty pricing if API fails
+            setCoursesPricing({});
+          } finally {
+            setIsLoadingPricing(false);
+          }
+        }
 
         // Fetch enrollment stats
         const statsResponse = await getEnrollmentStats();
@@ -154,6 +174,18 @@ function CoursesContent() {
     setCourseType(type);
   };
 
+  // Helper function to get course price
+  const getCoursePrice = (courseId: string): number => {
+    const pricing = coursesPricing[courseId];
+    return pricing?.currentPrice || 0;
+  };
+
+  // Helper function to check if course is free
+  const isCourseFree = (courseId: string): boolean => {
+    const price = getCoursePrice(courseId);
+    return price === 0;
+  };
+
   // Helper function to get enrollment count for a course
   const getEnrollmentCount = (courseId: string): number => {
     if (!enrollmentStats) return 0;
@@ -168,7 +200,7 @@ function CoursesContent() {
 
   // Tạo filtered courses với thông tin enrollment count
   useEffect(() => {
-    if (!courses.length) return;
+    if (!courses.length || isLoadingPricing) return;
 
     let filtered = [...courses];
 
@@ -193,22 +225,22 @@ function CoursesContent() {
     // Filter by price range
     if (typeof priceRange === "string") {
       if (priceRange === "free") {
-        filtered = filtered.filter((course) => course.price === 0);
+        filtered = filtered.filter((course) => isCourseFree(course.id));
       } else if (priceRange === "paid") {
-        filtered = filtered.filter((course) => course.price > 0);
+        filtered = filtered.filter((course) => !isCourseFree(course.id));
       }
     } else if (Array.isArray(priceRange)) {
       filtered = filtered.filter((course) => {
-        const coursePrice = course.promotionPrice || course.price || 0;
+        const coursePrice = getCoursePrice(course.id);
         return coursePrice >= priceRange[0] && coursePrice <= priceRange[1];
       });
     }
 
     // Filter by course type
     if (courseType === "free") {
-      filtered = filtered.filter((course) => course.price === 0);
+      filtered = filtered.filter((course) => isCourseFree(course.id));
     } else if (courseType === "paid") {
-      filtered = filtered.filter((course) => course.price > 0);
+      filtered = filtered.filter((course) => !isCourseFree(course.id));
     }
 
     // Enrich courses with enrollment count data
@@ -234,18 +266,10 @@ function CoursesContent() {
         );
         break;
       case "price-asc":
-        filtered.sort(
-          (a, b) =>
-            (a.promotionPrice || a.price || 0) -
-            (b.promotionPrice || b.price || 0),
-        );
+        filtered.sort((a, b) => getCoursePrice(a.id) - getCoursePrice(b.id));
         break;
       case "price-desc":
-        filtered.sort(
-          (a, b) =>
-            (b.promotionPrice || b.price || 0) -
-            (a.promotionPrice || a.price || 0),
-        );
+        filtered.sort((a, b) => getCoursePrice(b.id) - getCoursePrice(a.id));
         break;
       case "popular":
         filtered.sort(
@@ -260,6 +284,8 @@ function CoursesContent() {
     setCurrentPage(1); // Reset to first page when filters change
   }, [
     courses,
+    coursesPricing,
+    isLoadingPricing,
     searchQuery,
     selectedCategory,
     priceRange,
@@ -794,7 +820,7 @@ function CoursesContent() {
 
           {/* Course count */}
           <div className="flex justify-between items-center mb-4">
-            {isLoading ? (
+            {isLoading || isLoadingPricing ? (
               <Skeleton className="w-24 h-4" />
             ) : (
               <p className="text-gray-600 text-sm">
@@ -808,7 +834,7 @@ function CoursesContent() {
           <div
             className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${!isFilterVisible ? "xl:grid-cols-4" : "xl:grid-cols-3"} gap-6`}
           >
-            {isLoading ? (
+            {isLoading || isLoadingPricing ? (
               <CourseSkeletons />
             ) : paginatedCourses.length > 0 ? (
               paginatedCourses.map((course) => (
