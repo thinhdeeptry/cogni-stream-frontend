@@ -8,6 +8,7 @@ interface UserState {
   setUser: (user: IUser, accessToken: string) => void;
   setTokens: (accessToken: string, refreshToken: string) => void;
   clearUser: () => void;
+  clearTokens: () => void;
   hydrated: boolean;
   setHydrated: (state: boolean) => void;
 }
@@ -27,6 +28,7 @@ const useUserStore = create<UserState>()(
         set({ accessToken, refreshToken }),
       clearUser: () =>
         set({ user: null, accessToken: null, refreshToken: null }),
+      clearTokens: () => set({ accessToken: null, refreshToken: null }),
       setHydrated: (state) => set({ hydrated: state }),
     }),
     {

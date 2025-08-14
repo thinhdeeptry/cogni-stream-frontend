@@ -418,8 +418,6 @@ class AuthApi {
           }
         }
       }
-      console.log("check API_URL >>> ", API_URL);
-      console.log("check refreshToken >>> ", refreshToken);
       const response = await fetch(`${API_URL}/auth/token`, {
         method: "POST",
         headers: this.getHeaders(refreshToken || undefined),
@@ -429,6 +427,10 @@ class AuthApi {
       // console.log("check response in refresh token >>> ", response);
 
       if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          console.log("Refresh token expired or invalid, clearing session...");
+          throw new Error("Refresh token expired");
+        }
         throw new Error("Failed to refresh token");
       }
 
@@ -445,8 +447,48 @@ class AuthApi {
       };
     } catch (error) {
       console.error("Token refresh error:", error);
-      // Handle authentication errors, possibly by redirecting to login
+
+      // Nếu lỗi do refresh token hết hạn, thực hiện logout
+      if (error instanceof Error && error.message === "Refresh token expired") {
+        await this.handleRefreshTokenExpired();
+      }
+
       throw error;
+    }
+  }
+  /**
+   * Xử lý khi refresh token hết hạn
+   * Clear tất cả token và thực hiện logout thông qua NextAuth
+   */
+  private async handleRefreshTokenExpired() {
+    try {
+      console.log("Handling refresh token expiry");
+
+      // Clear tokens from store
+      useUserStore.getState().clearTokens();
+      useUserStore.getState().clearUser();
+
+      // Clear refresh token from cookies
+      if (!isServer) {
+        // Client-side: clear cookie
+        document.cookie =
+          "refreshToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+
+        // Import and use the auth handler
+        const { handleLogout } = await import("@/lib/auth-handler");
+        await handleLogout("session-expired");
+      } else {
+        // Server-side: chỉ clear cookies, redirect sẽ được xử lý ở JWT callback
+        console.log(
+          "Server-side refresh token expired, will be handled by JWT callback",
+        );
+      }
+    } catch (error) {
+      console.error("Error during refresh token expiry handling:", error);
+      // Fallback: force redirect if NextAuth signOut fails
+      if (!isServer && typeof window !== "undefined") {
+        window.location.href = "/auth/login?message=session-expired";
+      }
     }
   }
   async getData(

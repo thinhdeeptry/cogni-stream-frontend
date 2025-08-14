@@ -1,3 +1,4 @@
+import { SessionHandler } from "@/components/auth/session-handler";
 import { AppSidebar } from "@/components/sidebar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/toaster";
@@ -16,6 +17,7 @@ export default function RootLayout({
         <main className="flex flex-col w-full h-screen overflow-y-auto overflow-x-hidden">
           <UserHeader />
           <Toaster />
+          <SessionHandler />
           {children}
         </main>
       </SidebarProvider>

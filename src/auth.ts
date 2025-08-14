@@ -122,7 +122,6 @@ export const {
         try {
           // Check if token is expired using the isTokenExpired function from authApi
           const isExpired = authApi.isTokenExpired(token.accessToken);
-
           if (isExpired && token.refreshToken) {
             console.log("Access token expired, attempting to refresh...");
             try {
@@ -136,10 +135,20 @@ export const {
                 console.error(
                   "Failed to refresh token - no new token received",
                 );
+                // Clear token and return null to force logout
+                return null;
               }
             } catch (refreshError) {
               console.error("Error refreshing token:", refreshError);
-              // If refresh fails, we keep the existing token and let the user re-authenticate
+              // If refresh token expired, return null to force logout
+              if (
+                refreshError instanceof Error &&
+                refreshError.message === "Refresh token expired"
+              ) {
+                console.log("Refresh token expired, forcing logout...");
+                return null;
+              }
+              // For other errors, keep existing token and let user re-authenticate
             }
           }
         } catch (error) {
