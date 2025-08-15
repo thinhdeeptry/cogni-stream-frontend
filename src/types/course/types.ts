@@ -5,6 +5,11 @@ export enum CourseLevel {
   ADVANCED = "ADVANCED",
 }
 
+export enum CourseType {
+  SELF_PACED = "SELF_PACED", // Khóa học tự học
+  LIVE = "LIVE", // Lớp học trực tuyến
+}
+
 export enum LessonType {
   VIDEO = "VIDEO",
   BLOG = "BLOG",
@@ -40,6 +45,7 @@ export interface Course {
   isPublished: boolean;
   category?: Category;
   level?: CourseLevel;
+  courseType: CourseType; // Thêm loại khóa học
   instructorId: string; // Thay đổi từ ownerId sang instructorId
   thumbnailUrl?: string;
   tags: string[];
@@ -155,4 +161,56 @@ export interface ClassSession {
   scheduledAt: string; // ISO date string
   durationMinutes: number;
   status?: string;
+}
+
+// Interface cho Class (Lớp học) - chỉ dành cho LIVE courses
+export interface Class {
+  id: string;
+  courseId: string;
+  course?: Course;
+  name: string; // Tên lớp (VD: Lớp K1, Lớp buổi tối)
+  description?: string;
+  instructorId: string;
+  maxStudents: number;
+  currentStudents: number;
+  startDate: string; // Ngày bắt đầu lớp
+  endDate?: string; // Ngày kết thúc lớp (có thể không có)
+  meetingUrl?: string; // Link Google Meet/Zoom
+  scheduleType: "WEEKLY" | "DAILY" | "CUSTOM"; // Loại lịch học
+  weeklySchedule?: WeeklySchedule[]; // Lịch học hàng tuần
+  customSchedule?: CustomSchedule[]; // Lịch học tùy chỉnh
+  timezone: string; // Múi giờ
+  status: "DRAFT" | "PUBLISHED" | "ONGOING" | "COMPLETED" | "CANCELLED";
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Lịch học hàng tuần
+export interface WeeklySchedule {
+  dayOfWeek: number; // 0 = Chủ nhật, 1 = Thứ 2, ...
+  startTime: string; // HH:mm format
+  durationMinutes: number;
+}
+
+// Lịch học tùy chỉnh
+export interface CustomSchedule {
+  date: string; // YYYY-MM-DD format
+  startTime: string; // HH:mm format
+  durationMinutes: number;
+  topic?: string;
+}
+
+// Form data cho tạo Class
+export interface CreateClassFormData {
+  courseId: string;
+  name: string;
+  description?: string;
+  maxStudents: number;
+  startDate: string;
+  endDate?: string;
+  meetingUrl?: string;
+  scheduleType: "WEEKLY" | "DAILY" | "CUSTOM";
+  weeklySchedule?: WeeklySchedule[];
+  customSchedule?: CustomSchedule[];
+  timezone: string;
 }

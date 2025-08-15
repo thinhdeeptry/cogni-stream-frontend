@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { useToast } from "@/hooks/use-toast";
-import { Category, CourseLevel } from "@/types/course/types";
+import { Category, CourseLevel, CourseType } from "@/types/course/types";
 import { motion } from "framer-motion";
 import { ChevronLeft, Plus, Trash, Upload } from "lucide-react";
 
@@ -37,6 +37,7 @@ interface CourseFormData {
   description: string;
   categoryId: string;
   level: CourseLevel;
+  courseType: CourseType; // Thêm loại khóa học
   price: number;
   isPublished: boolean;
   isHasCertificate: boolean;
@@ -60,6 +61,7 @@ export default function CreateCoursePage() {
     description: "",
     categoryId: "",
     level: CourseLevel.BEGINNER,
+    courseType: CourseType.SELF_PACED, // Mặc định là tự học
     price: 0,
     isPublished: false,
     isHasCertificate: false,
@@ -243,7 +245,13 @@ export default function CreateCoursePage() {
           title: "Thành công",
           description: "Tạo khóa học thành công",
         });
-        router.push("/admin/courses");
+
+        // Nếu là LIVE course, chuyển đến trang tạo Class
+        if (courseData.courseType === CourseType.LIVE) {
+          router.push(`/admin/courses/${result.data.id}/classes/create`);
+        } else {
+          router.push("/admin/courses");
+        }
       } else {
         toast({
           title: "Lỗi",
@@ -402,6 +410,37 @@ export default function CreateCoursePage() {
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+
+                <div className="space-y-3">
+                  <Label htmlFor="courseType" className="text-gray-700">
+                    Loại khóa học <span className="text-red-500">*</span>
+                  </Label>
+                  <Select
+                    value={courseData.courseType}
+                    onValueChange={(value) =>
+                      handleSelectChange("courseType", value)
+                    }
+                  >
+                    <SelectTrigger className="border-gray-300 focus:ring-orange-500">
+                      <SelectValue placeholder="Chọn loại khóa học" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={CourseType.SELF_PACED}>
+                        🎥 Khóa học Tự học - Nội dung video đã quay sẵn, học
+                        theo tiến độ của bạn
+                      </SelectItem>
+                      <SelectItem value={CourseType.LIVE}>
+                        📹 Lớp học Trực tuyến - Học theo lịch với giảng viên qua
+                        video call
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-gray-500">
+                    {courseData.courseType === CourseType.SELF_PACED
+                      ? "Học viên có thể học bất cứ lúc nào với nội dung đã được chuẩn bị sẵn"
+                      : "Học viên tham gia các buổi học trực tuyến theo lịch đã định"}
+                  </p>
                 </div>
 
                 <div className="space-y-3">

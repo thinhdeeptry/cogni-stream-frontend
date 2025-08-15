@@ -5,9 +5,10 @@ import { use } from "react";
 import { useEffect, useState } from "react";
 
 import { toast } from "@/hooks/use-toast";
-import { Course, CoursePrice } from "@/types/course/types";
+import { Class, Course, CoursePrice, CourseType } from "@/types/course/types";
 import { ChevronLeft, Edit, Loader2, Plus } from "lucide-react";
 
+import { getClassesByCourse } from "@/actions/classActions";
 import { getCourseById } from "@/actions/courseAction";
 import { getCourseCurrentPrice } from "@/actions/pricingActions";
 
@@ -27,8 +28,10 @@ export default function CourseDetailPage({
   const resolvedParams = use(params);
   const [course, setCourse] = useState<Course | null>(null);
   const [coursePrice, setCoursePrice] = useState<CoursePrice | null>(null);
+  const [classes, setClasses] = useState<Class[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingPrice, setIsLoadingPrice] = useState(true);
+  const [isLoadingClasses, setIsLoadingClasses] = useState(false);
   const [isAddChapterOpen, setIsAddChapterOpen] = useState(false);
   const fetchCourseData = async () => {
     try {
@@ -64,10 +67,30 @@ export default function CourseDetailPage({
     }
   };
 
+  const fetchClasses = async () => {
+    try {
+      setIsLoadingClasses(true);
+      const classesData = await getClassesByCourse(resolvedParams.courseId);
+      setClasses(classesData);
+    } catch (error) {
+      console.error("Error fetching classes:", error);
+      setClasses([]);
+    } finally {
+      setIsLoadingClasses(false);
+    }
+  };
+
   useEffect(() => {
     fetchCourseData();
     fetchCoursePrice();
   }, [resolvedParams.courseId]);
+
+  // Fetch classes only for LIVE courses
+  useEffect(() => {
+    if (course && course.courseType === CourseType.LIVE) {
+      fetchClasses();
+    }
+  }, [course]);
 
   if (isLoading || isLoadingPrice) {
     return (
@@ -125,7 +148,19 @@ export default function CourseDetailPage({
                     course.isPublished ? "bg-green-500" : "bg-orange-500"
                   }
                 >
-                  {course.isPublished ? "Đã xuất bản" : "Chưa xuất bản"}
+                  {course.isPublished ? "Đã xuất bản" : "Bản nháp"}
+                </Badge>
+                <Badge
+                  variant="outline"
+                  className={
+                    course.courseType === CourseType.LIVE
+                      ? "border-red-200 bg-red-50 text-red-700"
+                      : "border-blue-200 bg-blue-50 text-blue-700"
+                  }
+                >
+                  {course.courseType === CourseType.LIVE
+                    ? "📹 Trực tuyến"
+                    : "🎥 Tự học"}
                 </Badge>
                 <Badge
                   variant="outline"
@@ -305,6 +340,109 @@ export default function CourseDetailPage({
               />
             </CardContent>
           </Card>
+
+          {/* Classes Management - Only for LIVE courses */}
+          {course.courseType === CourseType.LIVE && (
+            <Card className="border-slate-200 shadow-sm">
+              <CardHeader className="border-b border-slate-100 bg-slate-50/50">
+                <div className="flex justify-between items-center">
+                  <CardTitle className="text-slate-900 flex items-center gap-2">
+                    📹 Quản lý lớp học
+                  </CardTitle>
+                  <Link
+                    href={`/admin/courses/${resolvedParams.courseId}/classes/create`}
+                  >
+                    <Button className="bg-orange-500 hover:bg-orange-600 text-white gap-2">
+                      <Plus className="h-4 w-4" />
+                      Tạo lớp học mới
+                    </Button>
+                  </Link>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-6">
+                {isLoadingClasses ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                  </div>
+                ) : classes.length === 0 ? (
+                  <div className="text-center py-8 text-slate-500">
+                    <p>Chưa có lớp học nào được tạo</p>
+                    <p className="text-sm mt-2">
+                      Tạo lớp học đầu tiên để bắt đầu dạy trực tuyến
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {classes.map((classItem) => (
+                      <div
+                        key={classItem.id}
+                        className="border border-slate-200 rounded-lg p-4 hover:bg-slate-50 transition-colors"
+                      >
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <h4 className="font-medium text-slate-900">
+                              {classItem.name}
+                            </h4>
+                            {classItem.description && (
+                              <p className="text-sm text-slate-600 mt-1">
+                                {classItem.description}
+                              </p>
+                            )}
+                            <div className="flex items-center gap-4 mt-2 text-sm text-slate-500">
+                              <span>
+                                👥 {classItem.currentStudents}/
+                                {classItem.maxStudents} học viên
+                              </span>
+                              <span>
+                                📅 Bắt đầu:{" "}
+                                {new Date(
+                                  classItem.startDate,
+                                ).toLocaleDateString("vi-VN")}
+                              </span>
+                              <Badge
+                                variant={
+                                  classItem.status === "PUBLISHED"
+                                    ? "default"
+                                    : classItem.status === "ONGOING"
+                                      ? "secondary"
+                                      : "outline"
+                                }
+                              >
+                                {classItem.status === "DRAFT" && "Bản nháp"}
+                                {classItem.status === "PUBLISHED" &&
+                                  "Đã xuất bản"}
+                                {classItem.status === "ONGOING" &&
+                                  "Đang diễn ra"}
+                                {classItem.status === "COMPLETED" &&
+                                  "Hoàn thành"}
+                                {classItem.status === "CANCELLED" && "Đã hủy"}
+                              </Badge>
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <Link
+                              href={`/admin/courses/${resolvedParams.courseId}/classes/${classItem.id}/edit`}
+                            >
+                              <Button variant="outline" size="sm">
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            </Link>
+                            <Link
+                              href={`/admin/courses/${resolvedParams.courseId}/classes/${classItem.id}`}
+                            >
+                              <Button variant="outline" size="sm">
+                                Chi tiết
+                              </Button>
+                            </Link>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
 

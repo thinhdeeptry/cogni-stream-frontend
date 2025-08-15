@@ -4,7 +4,12 @@ import Link from "next/link";
 import React, { useEffect, useState } from "react";
 
 import { toast } from "@/hooks/use-toast";
-import { Course, CourseLevel, CoursePrice } from "@/types/course/types";
+import {
+  Course,
+  CourseLevel,
+  CoursePrice,
+  CourseType,
+} from "@/types/course/types";
 import { BookOpen, Edit, Eye, Filter, Play, Plus, Trash } from "lucide-react";
 
 import {
@@ -709,6 +714,7 @@ export default function AdminCoursesPage() {
             <TableRow className="bg-slate-50 hover:bg-slate-100/50">
               <TableHead className="text-slate-700">Tên khoá học</TableHead>
               <TableHead className="text-slate-700">Danh mục</TableHead>
+              <TableHead className="text-slate-700">Loại</TableHead>
               <TableHead className="text-slate-700">Giá</TableHead>
               <TableHead className="text-slate-700">Trạng thái</TableHead>
               <TableHead className="text-right text-slate-700">
@@ -720,7 +726,7 @@ export default function AdminCoursesPage() {
             {courses.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={5}
+                  colSpan={6}
                   className="text-center py-8 text-slate-500"
                 >
                   Chưa có khóa học nào
@@ -734,6 +740,19 @@ export default function AdminCoursesPage() {
                   </TableCell>
                   <TableCell className="text-slate-700">
                     {course.category?.name}
+                  </TableCell>
+                  <TableCell className="text-slate-700">
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        course.courseType === "LIVE"
+                          ? "bg-red-100 text-red-800"
+                          : "bg-blue-100 text-blue-800"
+                      }`}
+                    >
+                      {course.courseType === "LIVE"
+                        ? "📹 Trực tuyến"
+                        : "🎥 Tự học"}
+                    </span>
                   </TableCell>
                   <TableCell className="text-slate-700">
                     {getPriceDisplay(course.id)}

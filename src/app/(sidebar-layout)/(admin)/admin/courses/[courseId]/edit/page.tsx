@@ -6,7 +6,12 @@ import { use } from "react";
 import { useEffect, useState } from "react";
 
 import { toast } from "@/hooks/use-toast";
-import { Category, Course, CourseLevel } from "@/types/course/types";
+import {
+  Category,
+  Course,
+  CourseLevel,
+  CourseType,
+} from "@/types/course/types";
 import { motion } from "framer-motion";
 import { ChevronLeft, Plus, Trash, Upload } from "lucide-react";
 
@@ -370,6 +375,37 @@ export default function EditCoursePage({
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+
+                <div className="space-y-3">
+                  <Label htmlFor="courseType" className="text-gray-700">
+                    Loại khóa học <span className="text-red-500">*</span>
+                  </Label>
+                  <Select
+                    value={courseData.courseType}
+                    onValueChange={(value) =>
+                      handleSelectChange("courseType", value)
+                    }
+                  >
+                    <SelectTrigger className="border-gray-300 focus:ring-orange-500">
+                      <SelectValue placeholder="Chọn loại khóa học" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={CourseType.SELF_PACED}>
+                        🎥 Khóa học Tự học - Nội dung video đã quay sẵn, học
+                        theo tiến độ của bạn
+                      </SelectItem>
+                      <SelectItem value={CourseType.LIVE}>
+                        📹 Lớp học Trực tuyến - Học theo lịch với giảng viên qua
+                        video call
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-gray-500">
+                    {courseData.courseType === CourseType.SELF_PACED
+                      ? "Học viên có thể học bất cứ lúc nào với nội dung đã được chuẩn bị sẵn"
+                      : "Học viên tham gia các buổi học trực tuyến theo lịch đã định"}
+                  </p>
                 </div>
 
                 <div className="space-y-3">
