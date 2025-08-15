@@ -37,6 +37,7 @@ interface CourseFormData {
   description: string;
   categoryId: string;
   level: CourseLevel;
+  price: number;
   isPublished: boolean;
   isHasCertificate: boolean;
   tags: string[];
@@ -59,6 +60,7 @@ export default function CreateCoursePage() {
     description: "",
     categoryId: "",
     level: CourseLevel.BEGINNER,
+    price: 0,
     isPublished: false,
     isHasCertificate: false,
     tags: [],
@@ -83,12 +85,27 @@ export default function CreateCoursePage() {
     };
 
     fetchCategories();
-  }, []);
+  }, [toast]);
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
     const { name, value } = e.target;
-    setCourseData((prev) => ({ ...prev, [name]: value }));
+
+    // Handle numeric fields
+    if (name === "price") {
+      const numValue = value === "" ? 0 : parseFloat(value);
+
+      // Validate input
+      if (isNaN(numValue) || numValue < 0) {
+        return; // Don't update if invalid
+      }
+
+      // Round to 2 decimal places to avoid floating point issues
+      const roundedValue = Math.round(numValue * 100) / 100;
+      setCourseData((prev) => ({ ...prev, [name]: roundedValue }));
+    } else {
+      setCourseData((prev) => ({ ...prev, [name]: value }));
+    }
   };
 
   const handleSelectChange = (name: string, value: string) => {
@@ -204,12 +221,24 @@ export default function CreateCoursePage() {
         thumbnailUrl: selectedImage, // Sử dụng URL hình ảnh đã upload
       };
 
+      // Create course with price included
       const result = await createCourse({
         ...courseDataToSubmit,
         thumbnailUrl: courseDataToSubmit.thumbnailUrl || undefined,
+        price: courseData.price,
       });
 
       if (result.success) {
+        // TODO: Set pricing using pricing API if price > 0
+        // if (courseData.price > 0) {
+        //   await createPricing({
+        //     courseId: result.data.id,
+        //     name: "Base Price",
+        //     price: courseData.price,
+        //     type: "BASE_PRICE"
+        //   });
+        // }
+
         toast({
           title: "Thành công",
           description: "Tạo khóa học thành công",
@@ -391,6 +420,55 @@ export default function CreateCoursePage() {
               </CardContent>
             </Card>
 
+            {/* Pricing Card */}
+            <Card className="shadow-sm border-none">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-xl font-semibold text-gray-800">
+                  Thông tin giá
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <div className="space-y-3">
+                  <Label htmlFor="price" className="text-gray-700">
+                    Giá khóa học
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="price"
+                      name="price"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={courseData.price || 0}
+                      onChange={handleInputChange}
+                      className="border-gray-300 focus:border-orange-500 focus:ring-orange-500 pl-10"
+                      placeholder="0"
+                    />
+                    <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                      <span className="text-gray-500">₫</span>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    Để trống hoặc 0 để khóa học miễn phí
+                  </p>
+                </div>
+
+                {/* Pricing Preview */}
+                {courseData.price > 0 && (
+                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">
+                      Xem trước giá
+                    </h4>
+                    <div className="flex items-center gap-3">
+                      <span className="text-lg font-semibold text-gray-900">
+                        {courseData.price.toLocaleString()} VND
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             {/* Settings Card */}
             <Card className="shadow-sm border-none">
               <CardHeader className="pb-3">
@@ -432,11 +510,12 @@ export default function CreateCoursePage() {
 
                 <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
                   <h4 className="text-sm font-medium text-blue-800 mb-2">
-                    💡 Lưu ý về giá khóa học
+                    💡 Lưu ý về quản lý giá
                   </h4>
                   <p className="text-sm text-blue-700">
-                    Sau khi tạo khóa học, bạn có thể thiết lập giá và chương
-                    trình khuyến mãi trong phần quản lý giá của khóa học.
+                    Sau khi tạo khóa học, bạn có thể thiết lập chương trình
+                    khuyến mãi và quản lý giá nâng cao trong phần quản lý giá
+                    của khóa học.
                   </p>
                 </div>
               </CardContent>

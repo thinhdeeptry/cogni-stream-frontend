@@ -195,13 +195,21 @@ export const createCourse = async (courseData: {
   isPublished: boolean;
   isHasCertificate: boolean;
   tags?: string[];
+  price: number;
   learningOutcomes?: string[];
   requirements?: string[];
   targetAudience?: string;
   thumbnailUrl?: string;
 }) => {
   try {
-    const { data } = await courseApi.post("/courses", courseData);
+    // Đổi tên price thành basePrice để phù hợp với BE
+    const payload = {
+      ...courseData,
+      basePrice: courseData.price,
+    };
+    delete (payload as any).price;
+
+    const { data } = await courseApi.post("/courses", payload);
     console.log("+ data >>>", data.id);
     return {
       error: false,

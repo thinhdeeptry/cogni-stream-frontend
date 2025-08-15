@@ -60,8 +60,7 @@ export default function CourseItem({
   }, [id]);
 
   // Check if course is free
-  const isFree = pricing?.currentPrice == 0;
-
+  const isFree = pricing?.currentPrice == 0 || pricing?.currentPrice == null;
   // Check if course has promotion
   const hasPromotion = pricing?.hasPromotion && pricing?.promotionName;
 

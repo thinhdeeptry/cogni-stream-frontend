@@ -77,19 +77,7 @@ export default function EditCoursePage({
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
     const { name, value } = e.target;
-
-    // Handle numeric fields
-    if (name === "price" || name === "promotionPrice") {
-      // Parse as float to handle decimal values like 49.99
-      const numValue = value === "" ? 0 : parseFloat(value);
-      // Round to 2 decimal places to avoid floating point issues
-      const roundedValue = Math.round(numValue * 100) / 100;
-      setCourseData((prev) =>
-        prev ? { ...prev, [name]: roundedValue } : null,
-      );
-    } else {
-      setCourseData((prev) => (prev ? { ...prev, [name]: value } : null));
-    }
+    setCourseData((prev) => (prev ? { ...prev, [name]: value } : null));
   };
 
   const handleSelectChange = (name: string, value: string) => {
@@ -180,6 +168,7 @@ export default function EditCoursePage({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     console.log("+Data test: ", courseData);
+
     if (
       !courseData ||
       !courseData.title ||
@@ -197,40 +186,11 @@ export default function EditCoursePage({
     setIsSubmitting(true);
 
     try {
-      // Validate price and promotionPrice
-      const price =
-        typeof courseData.price === "number"
-          ? courseData.price
-          : parseFloat(String(courseData.price || 0));
-      // Round to 2 decimal places
-      const roundedPrice = Math.round(price * 100) / 100;
-
-      let promotionPrice =
-        typeof courseData.promotionPrice === "number"
-          ? courseData.promotionPrice
-          : parseFloat(String(courseData.promotionPrice || 0));
-      // Round to 2 decimal places
-      let roundedPromotionPrice = Math.round(promotionPrice * 100) / 100;
-
-      // Ensure promotionPrice is not greater than price
-      if (roundedPromotionPrice > roundedPrice) {
-        roundedPromotionPrice = roundedPrice;
-      }
-
-      // Set promotionPrice to null if it's 0 or price is 0
-      const finalPromotionPrice =
-        roundedPrice === 0 || roundedPromotionPrice === 0
-          ? null
-          : roundedPromotionPrice;
-
       const result = await updateCourse(resolvedParams.courseId, {
         title: courseData.title,
         description: courseData.description || "",
         categoryId: courseData.categoryId,
         level: courseData.level || "BEGINNER",
-        price: roundedPrice,
-        promotionPrice: finalPromotionPrice,
-        currency: "VND",
         isPublished: courseData.isPublished,
         isHasCertificate: courseData.isHasCertificate,
         tags: courseData.tags,
@@ -254,6 +214,7 @@ export default function EditCoursePage({
         });
       }
     } catch (error) {
+      console.error("Error updating course:", error);
       toast({
         title: "Lỗi",
         description: "Đã có lỗi xảy ra khi cập nhật khóa học",
@@ -427,60 +388,14 @@ export default function EditCoursePage({
               </CardContent>
             </Card>
 
-            {/* Pricing Card */}
+            {/* Settings Card */}
             <Card className="shadow-sm border-none">
               <CardHeader className="pb-3">
                 <CardTitle className="text-xl font-semibold text-gray-800">
-                  Thông tin giá
+                  Cài đặt khóa học
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-5">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  <div className="space-y-3">
-                    <Label htmlFor="price" className="text-gray-700">
-                      Giá gốc
-                    </Label>
-                    <div className="relative">
-                      <Input
-                        id="price"
-                        name="price"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={courseData.price || 0}
-                        onChange={handleInputChange}
-                        className="border-gray-300 focus:border-orange-500 focus:ring-orange-500 pl-10"
-                      />
-                      <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                        <span className="text-gray-500">₫</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <Label htmlFor="promotionPrice" className="text-gray-700">
-                      Giá khuyến mãi
-                    </Label>
-                    <div className="relative">
-                      <Input
-                        id="promotionPrice"
-                        name="promotionPrice"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        max={courseData.price || 0}
-                        value={courseData.promotionPrice || 0}
-                        onChange={handleInputChange}
-                        disabled={!courseData.price || courseData.price <= 0}
-                        className="border-gray-300 focus:border-orange-500 focus:ring-orange-500 pl-10"
-                      />
-                      <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                        <span className="text-gray-500">₫</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
                 <div className="flex items-center space-x-2 pt-2">
                   <Checkbox
                     id="isPublished"
@@ -511,6 +426,64 @@ export default function EditCoursePage({
                     Có chứng chỉ
                   </Label>
                 </div>
+
+                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <h4 className="text-sm font-medium text-blue-800 mb-2">
+                    💰 Thông tin về giá
+                  </h4>
+                  <p className="text-sm text-blue-700">
+                    Để quản lý giá khóa học, vui lòng sử dụng tính năng "Quản lý
+                    giá" trong trang chi tiết khóa học.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Learning Outcomes Card */}
+            <Card className="shadow-sm border-none">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-xl font-semibold text-gray-800">
+                  Kết quả đạt được
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {courseData.learningOutcomes.map((outcome, index) => (
+                  <div key={index} className="flex gap-2 items-center">
+                    <div className="flex-shrink-0 w-6 h-6 bg-orange-100 text-orange-500 rounded-full flex items-center justify-center">
+                      {index + 1}
+                    </div>
+                    <Input
+                      value={outcome}
+                      onChange={(e) =>
+                        handleArrayFieldChange(
+                          "learningOutcomes",
+                          index,
+                          e.target.value,
+                        )
+                      }
+                      className="border-gray-300 focus:border-orange-500 focus:ring-orange-500"
+                      placeholder="Học viên sẽ có được gì sau khóa học?"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeArrayItem("learningOutcomes", index)}
+                      className="text-gray-400 hover:text-red-500"
+                    >
+                      <Trash className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => addArrayItem("learningOutcomes")}
+                  className="mt-2 border-dashed border-gray-300 hover:border-orange-500 hover:text-orange-500"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Thêm kết quả đạt được
+                </Button>
               </CardContent>
             </Card>
 

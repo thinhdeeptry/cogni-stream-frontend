@@ -19,6 +19,7 @@ export const getCourseCurrentPrice = async (
 ): Promise<CoursePrice> => {
   try {
     const { data } = await pricingApi.get(`/courses/${courseId}/price`);
+    console.log("data is getCourseCurrentPrice: ", data);
     return data;
   } catch (error) {
     console.error("Error fetching course price:", error);

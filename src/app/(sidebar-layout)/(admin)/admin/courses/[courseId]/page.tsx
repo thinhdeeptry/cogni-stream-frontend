@@ -5,7 +5,6 @@ import { use } from "react";
 import { useEffect, useState } from "react";
 
 import { toast } from "@/hooks/use-toast";
-import { formatPrice } from "@/lib/utils";
 import { Course, CoursePrice } from "@/types/course/types";
 import { ChevronLeft, Edit, Loader2, Plus } from "lucide-react";
 
@@ -31,9 +30,6 @@ export default function CourseDetailPage({
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingPrice, setIsLoadingPrice] = useState(true);
   const [isAddChapterOpen, setIsAddChapterOpen] = useState(false);
-  const [isAddLessonOpen, setIsAddLessonOpen] = useState(false);
-  const [selectedChapterId, setSelectedChapterId] = useState<string>("");
-
   const fetchCourseData = async () => {
     try {
       setIsLoading(true);
