@@ -208,9 +208,8 @@ export interface CreateClassFormData {
   maxStudents: number;
   startDate: string;
   endDate?: string;
-  meetingUrl?: string;
-  scheduleType: "WEEKLY" | "DAILY" | "CUSTOM";
-  weeklySchedule?: WeeklySchedule[];
-  customSchedule?: CustomSchedule[];
-  timezone: string;
+  // meetingUrl?: string;
+  // scheduleType: "WEEKLY" | "DAILY" | "CUSTOM";
+  // weeklySchedule?: WeeklySchedule[];
+  schedule?: CustomSchedule[];
 }

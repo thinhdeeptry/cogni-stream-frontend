@@ -504,24 +504,24 @@ export default function LessonDetail() {
       [chapterId]: !prev[chapterId],
     }));
   };
+  //flat
+  // useEffect(() => {
+  //   const checkEnrollment = async () => {
+  //     if (session?.user?.id && course?.id) {
+  //       try {
+  //         const result = await checkEnrollmentStatus(
+  //           course.id,
+  //           session.user.id,
+  //         );
+  //         setIsEnrolled(result.data);
+  //       } catch (err) {
+  //         console.error("Error checking enrollment:", err);
+  //       }
+  //     }
+  //   };
 
-  useEffect(() => {
-    const checkEnrollment = async () => {
-      if (session?.user?.id && course?.id) {
-        try {
-          const result = await checkEnrollmentStatus(
-            course.id,
-            session.user.id,
-          );
-          setIsEnrolled(result.data);
-        } catch (err) {
-          console.error("Error checking enrollment:", err);
-        }
-      }
-    };
-
-    checkEnrollment();
-  }, [course?.id, session?.user?.id]);
+  //   checkEnrollment();
+  // }, [course?.id, session?.user?.id]);
 
   // Memoize the reference text to prevent unnecessary re-renders
   const referenceText = useMemo(() => {
@@ -644,30 +644,30 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
     fetchData();
   }, [params.courseId, params.lessonId]);
 
-  useEffect(() => {
-    const fetchOrCreateThread = async () => {
-      if (!params.lessonId || !user) {
-        return;
-      }
+  // useEffect(() => {
+  //   const fetchOrCreateThread = async () => {
+  //     if (!params.lessonId || !user) {
+  //       return;
+  //     }
 
-      try {
-        const thread = await getThreadByResourceId(
-          params.lessonId as string,
-          DiscussionType.LESSON_DISCUSSION,
-        );
+  //     try {
+  //       const thread = await getThreadByResourceId(
+  //         params.lessonId as string,
+  //         DiscussionType.LESSON_DISCUSSION,
+  //       );
 
-        if (thread) {
-          setThreadId(thread.id);
-        }
-      } catch (err) {
-        console.error("Error in discussion thread handling:", err);
-      }
-    };
+  //       if (thread) {
+  //         setThreadId(thread.id);
+  //       }
+  //     } catch (err) {
+  //       console.error("Error in discussion thread handling:", err);
+  //     }
+  //   };
 
-    if (lesson && user && !threadId) {
-      fetchOrCreateThread();
-    }
-  }, [params.lessonId, user, threadId, lesson]);
+  //   if (lesson && user && !threadId) {
+  //     fetchOrCreateThread();
+  //   }
+  // }, [params.lessonId, user, threadId, lesson]);
 
   // Add new useEffect for fetching enrollment ID
   useEffect(() => {
@@ -751,45 +751,46 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
   >({});
 
   // Modified tests fetch useEffect
-  useEffect(() => {
-    const fetchTests = async () => {
-      if (!course?.id || !params.lessonId) return;
+  //flat
+  // useEffect(() => {
+  //   const fetchTests = async () => {
+  //     if (!course?.id || !params.lessonId) return;
 
-      try {
-        setIsLoadingTests(true);
-        const result = await getTests({
-          courseId: course.id,
-          lessonId: params.lessonId as string,
-        });
+  //     try {
+  //       setIsLoadingTests(true);
+  //       const result = await getTests({
+  //         courseId: course.id,
+  //         lessonId: params.lessonId as string,
+  //       });
 
-        if (result.success && result.data) {
-          setTests(result.data);
-        } else {
-          console.error("Error fetching tests:", result.message);
-        }
+  //       if (result.success && result.data) {
+  //         setTests(result.data);
+  //       } else {
+  //         console.error("Error fetching tests:", result.message);
+  //       }
 
-        // Fetch attempts for the current user
-        if (user?.id) {
-          const attemptsResult = await getTestAttempts({
-            testTakerId: user.id,
-            isSubmitted: true,
-          });
+  //       // Fetch attempts for the current user
+  //       if (user?.id) {
+  //         const attemptsResult = await getTestAttempts({
+  //           testTakerId: user.id,
+  //           isSubmitted: true,
+  //         });
 
-          if (attemptsResult.success && attemptsResult.data) {
-            setAttempts(attemptsResult.data.attempts);
-          } else {
-            console.error("Error fetching attempts:", attemptsResult.message);
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching tests:", error);
-      } finally {
-        setIsLoadingTests(false);
-      }
-    };
+  //         if (attemptsResult.success && attemptsResult.data) {
+  //           setAttempts(attemptsResult.data.attempts);
+  //         } else {
+  //           console.error("Error fetching attempts:", attemptsResult.message);
+  //         }
+  //       }
+  //     } catch (error) {
+  //       console.error("Error fetching tests:", error);
+  //     } finally {
+  //       setIsLoadingTests(false);
+  //     }
+  //   };
 
-    fetchTests();
-  }, [course?.id, params.lessonId, user?.id]);
+  //   fetchTests();
+  // }, [course?.id, params.lessonId, user?.id]);
 
   // Separate useEffect for fetching highest scores
   useEffect(() => {

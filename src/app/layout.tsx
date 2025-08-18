@@ -70,10 +70,12 @@ export default function RootLayout({
         className={`${inter.variable} ${playfair.variable} ${greatVibes.variable} ${inter.className} antialiased`}
       >
         {/* //render auth sync component */}
-        <ClientProvider>
-          <AuthSync />
-          {children}
-        </ClientProvider>
+        <SessionProvider>
+          <ClientProvider>
+            <AuthSync />
+            {children}
+          </ClientProvider>
+        </SessionProvider>
       </body>
     </html>
   );

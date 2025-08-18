@@ -219,7 +219,7 @@ export default function CreateCoursePage() {
     try {
       const courseDataToSubmit = {
         ...courseData,
-        ownerId: user?.id || "",
+        instructorId: user?.id || "",
         thumbnailUrl: selectedImage, // Sử dụng URL hình ảnh đã upload
       };
 

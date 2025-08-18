@@ -36,7 +36,7 @@ export const getClassesByCourse = async (
   courseId: string,
 ): Promise<Class[]> => {
   try {
-    const { data } = await classApi.get(`/courses/${courseId}/classes`);
+    const { data } = await classApi.get(`/classes/course/${courseId}`);
     return data;
   } catch (error) {
     console.error("Error fetching classes:", error);

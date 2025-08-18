@@ -2,25 +2,12 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { useToast } from "@/hooks/use-toast";
-import {
-  Course,
-  CreateClassFormData,
-  CustomSchedule,
-  WeeklySchedule,
-} from "@/types/course/types";
+import { Course } from "@/types/course/types";
 import { motion } from "framer-motion";
-import {
-  Calendar,
-  ChevronLeft,
-  Clock,
-  Plus,
-  Trash,
-  Users,
-  Video,
-} from "lucide-react";
+import { Calendar, ChevronLeft, Clock, Plus, Trash, Users } from "lucide-react";
 
 import { createClass } from "@/actions/classActions";
 import { getCourseById } from "@/actions/courseAction";
@@ -29,15 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 
 export default function CreateClassPage() {
@@ -50,24 +29,23 @@ export default function CreateClassPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingCourse, setIsLoadingCourse] = useState(true);
 
-  const [classData, setClassData] = useState<CreateClassFormData>({
+  const [classData, setClassData] = useState({
     courseId: courseId,
     name: "",
     description: "",
     maxStudents: 20,
     startDate: "",
     endDate: "",
-    meetingUrl: "",
-    scheduleType: "WEEKLY",
-    weeklySchedule: [
+    schedules: [
       {
-        dayOfWeek: 1, // Thứ 2
-        startTime: "19:00",
-        durationMinutes: 120, // 2 tiếng
+        name: "",
+        startDate: "",
+        endDate: "",
+        days: [] as string[],
+        startTime: "",
+        endTime: "",
       },
     ],
-    customSchedule: [],
-    timezone: "Asia/Ho_Chi_Minh",
   });
 
   // Fetch course info
@@ -102,6 +80,52 @@ export default function CreateClassPage() {
       if (numValue >= 1 && numValue <= 1000) {
         setClassData((prev) => ({ ...prev, [name]: numValue }));
       }
+    } else if (name === "startDate" || name === "endDate") {
+      // Validate class date constraints
+      setClassData((prev) => {
+        if (name === "startDate" && prev.endDate && value > prev.endDate) {
+          toast({
+            title: "Lỗi ngày",
+            description: "Ngày bắt đầu lớp không thể sau ngày kết thúc lớp",
+            variant: "destructive",
+          });
+          return prev;
+        }
+
+        if (name === "endDate" && prev.startDate && value < prev.startDate) {
+          toast({
+            title: "Lỗi ngày",
+            description: "Ngày kết thúc lớp không thể trước ngày bắt đầu lớp",
+            variant: "destructive",
+          });
+          return prev;
+        }
+
+        // Update schedules to fit within new class date range
+        const newSchedules = prev.schedules.map((schedule) => {
+          let updatedSchedule = { ...schedule };
+
+          if (
+            name === "startDate" &&
+            schedule.startDate &&
+            schedule.startDate < value
+          ) {
+            updatedSchedule.startDate = value;
+          }
+
+          if (
+            name === "endDate" &&
+            schedule.endDate &&
+            schedule.endDate > value
+          ) {
+            updatedSchedule.endDate = value;
+          }
+
+          return updatedSchedule;
+        });
+
+        return { ...prev, [name]: value, schedules: newSchedules };
+      });
     } else {
       setClassData((prev) => ({ ...prev, [name]: value }));
     }
@@ -111,64 +135,236 @@ export default function CreateClassPage() {
     setClassData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Handle weekly schedule
-  const updateWeeklySchedule = (
-    index: number,
-    field: keyof WeeklySchedule,
-    value: any,
-  ) => {
-    setClassData((prev) => {
-      const newSchedule = [...prev.weeklySchedule!];
-      newSchedule[index] = { ...newSchedule[index], [field]: value };
-      return { ...prev, weeklySchedule: newSchedule };
-    });
-  };
-
-  const addWeeklySchedule = () => {
+  // Hàm thêm schedule mới
+  const addSchedule = () => {
     setClassData((prev) => ({
       ...prev,
-      weeklySchedule: [
-        ...prev.weeklySchedule!,
-        { dayOfWeek: 1, startTime: "19:00", durationMinutes: 120 },
+      schedules: [
+        ...prev.schedules,
+        {
+          name: "",
+          startDate: "",
+          endDate: "",
+          days: [],
+          startTime: "",
+          endTime: "",
+        },
       ],
     }));
   };
 
-  const removeWeeklySchedule = (index: number) => {
-    setClassData((prev) => ({
-      ...prev,
-      weeklySchedule: prev.weeklySchedule!.filter((_, i) => i !== index),
-    }));
+  // Hàm xóa schedule
+  const removeSchedule = (index: number) => {
+    if (classData.schedules.length > 1) {
+      setClassData((prev) => ({
+        ...prev,
+        schedules: prev.schedules.filter((_, i) => i !== index),
+      }));
+    }
   };
 
-  // Handle custom schedule
-  const updateCustomSchedule = (
-    index: number,
-    field: keyof CustomSchedule,
-    value: any,
-  ) => {
-    setClassData((prev) => {
-      const newSchedule = [...prev.customSchedule!];
-      newSchedule[index] = { ...newSchedule[index], [field]: value };
-      return { ...prev, customSchedule: newSchedule };
-    });
-  };
+  // Hàm cập nhật schedule
+  const handleScheduleChange = useCallback(
+    (index: number, field: string, value: any) => {
+      if (field === "days") {
+        setClassData((prev) => {
+          const newSchedules = [...prev.schedules];
+          const currentDays = newSchedules[index].days;
 
-  const addCustomSchedule = () => {
-    setClassData((prev) => ({
-      ...prev,
-      customSchedule: [
-        ...prev.customSchedule!,
-        { date: "", startTime: "19:00", durationMinutes: 120, topic: "" },
-      ],
-    }));
-  };
+          // Toggle day selection
+          let newDays;
+          if (currentDays.includes(value)) {
+            newDays = currentDays.filter((d) => d !== value);
+          } else {
+            newDays = [...currentDays, value];
+          }
 
-  const removeCustomSchedule = (index: number) => {
-    setClassData((prev) => ({
-      ...prev,
-      customSchedule: prev.customSchedule!.filter((_, i) => i !== index),
-    }));
+          newSchedules[index] = {
+            ...newSchedules[index],
+            days: newDays,
+          };
+
+          return { ...prev, schedules: newSchedules };
+        });
+      } else {
+        setClassData((prev) => {
+          const newSchedules = [...prev.schedules];
+
+          // Validate date constraints
+          if (field === "startDate" || field === "endDate") {
+            const classStartDate = prev.startDate;
+            const classEndDate = prev.endDate;
+
+            if (
+              field === "startDate" &&
+              classStartDate &&
+              value < classStartDate
+            ) {
+              toast({
+                title: "Lỗi ngày",
+                description:
+                  "Ngày bắt đầu khung giờ không thể trước ngày bắt đầu lớp học",
+                variant: "destructive",
+              });
+              return prev;
+            }
+
+            if (field === "endDate" && classEndDate && value > classEndDate) {
+              toast({
+                title: "Lỗi ngày",
+                description:
+                  "Ngày kết thúc khung giờ không thể sau ngày kết thúc lớp học",
+                variant: "destructive",
+              });
+              return prev;
+            }
+
+            if (
+              field === "startDate" &&
+              newSchedules[index].endDate &&
+              value > newSchedules[index].endDate
+            ) {
+              toast({
+                title: "Lỗi ngày",
+                description: "Ngày bắt đầu không thể sau ngày kết thúc",
+                variant: "destructive",
+              });
+              return prev;
+            }
+
+            if (
+              field === "endDate" &&
+              newSchedules[index].startDate &&
+              value < newSchedules[index].startDate
+            ) {
+              toast({
+                title: "Lỗi ngày",
+                description: "Ngày kết thúc không thể trước ngày bắt đầu",
+                variant: "destructive",
+              });
+              return prev;
+            }
+          }
+
+          // Validate time constraints
+          if (field === "startTime" || field === "endTime") {
+            if (
+              field === "startTime" &&
+              newSchedules[index].endTime &&
+              value >= newSchedules[index].endTime
+            ) {
+              toast({
+                title: "Lỗi giờ",
+                description: "Giờ bắt đầu phải trước giờ kết thúc",
+                variant: "destructive",
+              });
+              return prev;
+            }
+
+            if (
+              field === "endTime" &&
+              newSchedules[index].startTime &&
+              value <= newSchedules[index].startTime
+            ) {
+              toast({
+                title: "Lỗi giờ",
+                description: "Giờ kết thúc phải sau giờ bắt đầu",
+                variant: "destructive",
+              });
+              return prev;
+            }
+          }
+
+          (newSchedules[index] as any)[field] = value;
+          return { ...prev, schedules: newSchedules };
+        });
+      }
+    },
+    [toast],
+  );
+
+  // Hàm kiểm tra trùng lặp khung giờ học
+  const checkScheduleOverlap = (schedules: any[]) => {
+    const conflicts: string[] = [];
+
+    for (let i = 0; i < schedules.length; i++) {
+      for (let j = i + 1; j < schedules.length; j++) {
+        const schedule1 = schedules[i];
+        const schedule2 = schedules[j];
+
+        // Skip if either schedule doesn't have required data
+        if (
+          !schedule1.startDate ||
+          !schedule1.endDate ||
+          !schedule1.days.length ||
+          !schedule1.startTime ||
+          !schedule1.endTime ||
+          !schedule2.startDate ||
+          !schedule2.endDate ||
+          !schedule2.days.length ||
+          !schedule2.startTime ||
+          !schedule2.endTime
+        ) {
+          continue;
+        }
+
+        // Check if date ranges overlap
+        const start1 = new Date(schedule1.startDate);
+        const end1 = new Date(schedule1.endDate);
+        const start2 = new Date(schedule2.startDate);
+        const end2 = new Date(schedule2.endDate);
+
+        const dateOverlap = start1 <= end2 && start2 <= end1;
+
+        if (dateOverlap) {
+          // Check if they have common days
+          const commonDays = schedule1.days.filter((day: string) =>
+            schedule2.days.includes(day),
+          );
+
+          if (commonDays.length > 0) {
+            // Check time overlap
+            const time1Start = schedule1.startTime;
+            const time1End = schedule1.endTime;
+            const time2Start = schedule2.startTime;
+            const time2End = schedule2.endTime;
+
+            // Convert time strings to minutes for comparison
+            const timeToMinutes = (time: string) => {
+              const [hours, minutes] = time.split(":").map(Number);
+              return hours * 60 + minutes;
+            };
+
+            const start1Minutes = timeToMinutes(time1Start);
+            const end1Minutes = timeToMinutes(time1End);
+            const start2Minutes = timeToMinutes(time2Start);
+            const end2Minutes = timeToMinutes(time2End);
+
+            // Check if time ranges overlap
+            if (start1Minutes < end2Minutes && start2Minutes < end1Minutes) {
+              const dayLabels: { [key: string]: string } = {
+                sunday: "CN",
+                monday: "T2",
+                tuesday: "T3",
+                wednesday: "T4",
+                thursday: "T5",
+                friday: "T6",
+                saturday: "T7",
+              };
+
+              const conflictDays = commonDays
+                .map((day: string) => dayLabels[day])
+                .join(", ");
+              conflicts.push(
+                `Khung giờ ${i + 1} và ${j + 1} trùng lặp vào ${conflictDays} từ ${time1Start}-${time1End} và ${time2Start}-${time2End}`,
+              );
+            }
+          }
+        }
+      }
+    }
+
+    return conflicts;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -183,34 +379,97 @@ export default function CreateClassPage() {
       return;
     }
 
-    if (
-      classData.scheduleType === "WEEKLY" &&
-      classData.weeklySchedule!.length === 0
-    ) {
+    // Validate schedules
+    const hasValidSchedule = classData.schedules.some(
+      (schedule) =>
+        schedule.startDate &&
+        schedule.endDate &&
+        schedule.days.length > 0 &&
+        schedule.startTime &&
+        schedule.endTime,
+    );
+
+    if (!hasValidSchedule) {
       toast({
         title: "Lỗi",
-        description: "Vui lòng thêm ít nhất một lịch học hàng tuần",
+        description: "Vui lòng thiết lập ít nhất một khung giờ học hợp lệ",
         variant: "destructive",
       });
       return;
     }
 
-    if (
-      classData.scheduleType === "CUSTOM" &&
-      classData.customSchedule!.length === 0
-    ) {
+    // Check for schedule overlaps
+    const conflicts = checkScheduleOverlap(classData.schedules);
+    if (conflicts.length > 0) {
       toast({
-        title: "Lỗi",
-        description: "Vui lòng thêm ít nhất một buổi học",
+        title: "Lỗi trùng lặp khung giờ",
+        description: conflicts[0], // Show first conflict
         variant: "destructive",
       });
       return;
+    }
+
+    // Validate schedule dates are within class dates
+    const classStart = new Date(classData.startDate);
+    const classEnd = classData.endDate ? new Date(classData.endDate) : null;
+
+    for (let i = 0; i < classData.schedules.length; i++) {
+      const schedule = classData.schedules[i];
+      if (schedule.startDate && schedule.endDate) {
+        const scheduleStart = new Date(schedule.startDate);
+        const scheduleEnd = new Date(schedule.endDate);
+
+        if (scheduleStart < classStart) {
+          toast({
+            title: "Lỗi ngày",
+            description: `Khung giờ ${i + 1}: Ngày bắt đầu phải từ ${classData.startDate} trở đi`,
+            variant: "destructive",
+          });
+          return;
+        }
+
+        if (classEnd && scheduleEnd > classEnd) {
+          toast({
+            title: "Lỗi ngày",
+            description: `Khung giờ ${i + 1}: Ngày kết thúc không được quá ${classData.endDate}`,
+            variant: "destructive",
+          });
+          return;
+        }
+      }
     }
 
     setIsSubmitting(true);
 
     try {
-      const result = await createClass(classData);
+      // Convert schedules to ScheduleDto format for API
+      const schedulesForApi = classData.schedules.map((schedule) => {
+        // Convert day names to proper format (capitalize first letter)
+        const formattedDays = schedule.days.map(
+          (day) => day.charAt(0).toUpperCase() + day.slice(1).toLowerCase(),
+        );
+
+        return {
+          days: formattedDays, // ["Monday", "Wednesday", "Friday"]
+          startTime: schedule.startTime, // "19:00"
+          endTime: schedule.endTime, // "21:00"
+          startDate: schedule.startDate, // "2024-01-15"
+          endDate: schedule.endDate, // "2024-06-15"
+        };
+      });
+
+      // Prepare payload for API
+      const payload = {
+        courseId: classData.courseId,
+        name: classData.name,
+        description: classData.description,
+        maxStudents: classData.maxStudents,
+        startDate: classData.startDate,
+        endDate: classData.endDate,
+        schedules: schedulesForApi,
+      };
+
+      const result = await createClass(payload);
 
       if (result.success) {
         toast({
@@ -348,66 +607,37 @@ export default function CreateClassPage() {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  <div className="space-y-3">
-                    <Label htmlFor="maxStudents" className="text-gray-700">
-                      Số học viên tối đa
-                    </Label>
-                    <Input
-                      id="maxStudents"
-                      name="maxStudents"
-                      type="number"
-                      min="1"
-                      max="1000"
-                      value={classData.maxStudents}
-                      onChange={handleInputChange}
-                      className="border-gray-300 focus:border-orange-500 focus:ring-orange-500"
-                    />
-                  </div>
-
-                  <div className="space-y-3">
-                    <Label htmlFor="timezone" className="text-gray-700">
-                      Múi giờ
-                    </Label>
-                    <Select
-                      value={classData.timezone}
-                      onValueChange={(value) =>
-                        handleSelectChange("timezone", value)
-                      }
-                    >
-                      <SelectTrigger className="border-gray-300 focus:ring-orange-500">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Asia/Ho_Chi_Minh">
-                          Việt Nam (UTC+7)
-                        </SelectItem>
-                        <SelectItem value="Asia/Bangkok">
-                          Thailand (UTC+7)
-                        </SelectItem>
-                        <SelectItem value="Asia/Singapore">
-                          Singapore (UTC+8)
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <div className="space-y-3">
+                  <Label htmlFor="maxStudents" className="text-gray-700">
+                    Số học viên tối đa
+                  </Label>
+                  <Input
+                    id="maxStudents"
+                    name="maxStudents"
+                    type="number"
+                    min="1"
+                    max="1000"
+                    value={classData.maxStudents}
+                    onChange={handleInputChange}
+                    className="border-gray-300 focus:border-orange-500 focus:ring-orange-500"
+                  />
                 </div>
               </CardContent>
             </Card>
 
-            {/* Schedule Card */}
+            {/* Schedule Card - Lập lịch học lặp lại */}
             <Card className="shadow-sm border-none">
               <CardHeader className="pb-3">
                 <CardTitle className="text-xl font-semibold text-gray-800 flex items-center gap-2">
                   <Calendar className="h-5 w-5" />
-                  Lịch học
+                  Lịch học lặp lại
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-5">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div className="space-y-3">
                     <Label htmlFor="startDate" className="text-gray-700">
-                      Ngày bắt đầu <span className="text-red-500">*</span>
+                      Ngày bắt đầu lớp <span className="text-red-500">*</span>
                     </Label>
                     <Input
                       id="startDate"
@@ -422,287 +652,210 @@ export default function CreateClassPage() {
 
                   <div className="space-y-3">
                     <Label htmlFor="endDate" className="text-gray-700">
-                      Ngày kết thúc (tùy chọn)
+                      Ngày kết thúc lớp (tùy chọn)
                     </Label>
                     <Input
                       id="endDate"
                       name="endDate"
                       type="date"
                       value={classData.endDate}
+                      min={classData.startDate || undefined}
                       onChange={handleInputChange}
                       className="border-gray-300 focus:border-orange-500 focus:ring-orange-500"
                     />
                   </div>
                 </div>
 
-                <div className="space-y-3">
-                  <Label className="text-gray-700">
-                    Loại lịch học <span className="text-red-500">*</span>
-                  </Label>
-                  <Select
-                    value={classData.scheduleType}
-                    onValueChange={(value) =>
-                      handleSelectChange("scheduleType", value)
-                    }
-                  >
-                    <SelectTrigger className="border-gray-300 focus:ring-orange-500">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="WEEKLY">
-                        Hàng tuần - Lặp lại theo thứ trong tuần
-                      </SelectItem>
-                      <SelectItem value="CUSTOM">
-                        Tùy chỉnh - Chọn từng ngày cụ thể
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Weekly Schedule */}
-                {classData.scheduleType === "WEEKLY" && (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-medium text-gray-800">
-                        Lịch học hàng tuần
-                      </h4>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={addWeeklySchedule}
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Thêm buổi học
-                      </Button>
-                    </div>
-
-                    {classData.weeklySchedule?.map((schedule, index) => (
-                      <div
-                        key={index}
-                        className="grid grid-cols-4 gap-3 items-end p-4 border border-gray-200 rounded-lg"
-                      >
+                <div className="space-y-6">
+                  {classData.schedules.map((schedule, idx) => (
+                    <div
+                      key={idx}
+                      className="border border-gray-200 rounded-lg p-4 mb-2"
+                    >
+                      <div className="flex justify-between items-center mb-2">
+                        <h4 className="font-medium text-gray-800">
+                          Khung giờ học #{idx + 1}
+                        </h4>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-500"
+                          onClick={() => removeSchedule(idx)}
+                          disabled={classData.schedules.length === 1}
+                        >
+                          <Trash className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-2">
                         <div className="space-y-2">
-                          <Label className="text-sm">Thứ</Label>
-                          <Select
-                            value={schedule.dayOfWeek.toString()}
-                            onValueChange={(value) =>
-                              updateWeeklySchedule(
-                                index,
-                                "dayOfWeek",
-                                parseInt(value),
-                              )
+                          <Label>Tên khung giờ (tùy chọn)</Label>
+                          <Input
+                            value={schedule.name}
+                            onChange={(e) =>
+                              handleScheduleChange(idx, "name", e.target.value)
                             }
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {dayOfWeekNames.map((day, dayIndex) => (
-                                <SelectItem
-                                  key={dayIndex}
-                                  value={dayIndex.toString()}
-                                >
-                                  {day}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                            placeholder="VD: Lịch học chính, Workshop cuối tuần"
+                          />
                         </div>
-
                         <div className="space-y-2">
-                          <Label className="text-sm">Giờ bắt đầu</Label>
+                          <Label>Giờ bắt đầu</Label>
                           <Input
                             type="time"
                             value={schedule.startTime}
                             onChange={(e) =>
-                              updateWeeklySchedule(
-                                index,
+                              handleScheduleChange(
+                                idx,
                                 "startTime",
                                 e.target.value,
                               )
                             }
                           />
                         </div>
-
                         <div className="space-y-2">
-                          <Label className="text-sm">Thời lượng (phút)</Label>
+                          <Label>Giờ kết thúc</Label>
                           <Input
-                            type="number"
-                            min="30"
-                            max="480"
-                            step="30"
-                            value={schedule.durationMinutes}
+                            type="time"
+                            value={schedule.endTime}
                             onChange={(e) =>
-                              updateWeeklySchedule(
-                                index,
-                                "durationMinutes",
-                                parseInt(e.target.value) || 120,
+                              handleScheduleChange(
+                                idx,
+                                "endTime",
+                                e.target.value,
                               )
                             }
                           />
                         </div>
-
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeWeeklySchedule(index)}
-                          className="text-red-500 hover:text-red-600"
-                        >
-                          <Trash className="h-4 w-4" />
-                        </Button>
+                        <div></div> {/* Empty div for spacing */}
                       </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Custom Schedule */}
-                {classData.scheduleType === "CUSTOM" && (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-medium text-gray-800">
-                        Lịch học tùy chỉnh
-                      </h4>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={addCustomSchedule}
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Thêm buổi học
-                      </Button>
-                    </div>
-
-                    {classData.customSchedule?.map((schedule, index) => (
-                      <div
-                        key={index}
-                        className="grid grid-cols-5 gap-3 items-end p-4 border border-gray-200 rounded-lg"
-                      >
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
                         <div className="space-y-2">
-                          <Label className="text-sm">Ngày</Label>
+                          <Label>Ngày bắt đầu khung giờ</Label>
                           <Input
                             type="date"
-                            value={schedule.date}
+                            value={schedule.startDate}
+                            min={classData.startDate || undefined}
+                            max={classData.endDate || undefined}
                             onChange={(e) =>
-                              updateCustomSchedule(
-                                index,
-                                "date",
+                              handleScheduleChange(
+                                idx,
+                                "startDate",
                                 e.target.value,
                               )
                             }
                           />
                         </div>
-
                         <div className="space-y-2">
-                          <Label className="text-sm">Giờ bắt đầu</Label>
+                          <Label>Ngày kết thúc khung giờ</Label>
                           <Input
-                            type="time"
-                            value={schedule.startTime}
+                            type="date"
+                            value={schedule.endDate}
+                            min={
+                              schedule.startDate ||
+                              classData.startDate ||
+                              undefined
+                            }
+                            max={classData.endDate || undefined}
                             onChange={(e) =>
-                              updateCustomSchedule(
-                                index,
-                                "startTime",
+                              handleScheduleChange(
+                                idx,
+                                "endDate",
                                 e.target.value,
                               )
                             }
                           />
                         </div>
-
-                        <div className="space-y-2">
-                          <Label className="text-sm">Thời lượng (phút)</Label>
-                          <Input
-                            type="number"
-                            min="30"
-                            max="480"
-                            step="30"
-                            value={schedule.durationMinutes}
-                            onChange={(e) =>
-                              updateCustomSchedule(
-                                index,
-                                "durationMinutes",
-                                parseInt(e.target.value) || 120,
-                              )
-                            }
-                          />
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label className="text-sm">Chủ đề</Label>
-                          <Input
-                            placeholder="Chủ đề buổi học"
-                            value={schedule.topic || ""}
-                            onChange={(e) =>
-                              updateCustomSchedule(
-                                index,
-                                "topic",
-                                e.target.value,
-                              )
-                            }
-                          />
-                        </div>
-
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeCustomSchedule(index)}
-                          className="text-red-500 hover:text-red-600"
-                        >
-                          <Trash className="h-4 w-4" />
-                        </Button>
                       </div>
-                    ))}
-                  </div>
-                )}
+                      <div className="space-y-2">
+                        <Label>Chọn các ngày trong tuần</Label>
+                        <div className="flex flex-wrap gap-2">
+                          {[
+                            { key: "sunday", label: "CN" },
+                            { key: "monday", label: "T2" },
+                            { key: "tuesday", label: "T3" },
+                            { key: "wednesday", label: "T4" },
+                            { key: "thursday", label: "T5" },
+                            { key: "friday", label: "T6" },
+                            { key: "saturday", label: "T7" },
+                          ].map((day) => {
+                            const isSelected = schedule.days.includes(day.key);
+
+                            return (
+                              <Button
+                                key={day.key}
+                                type="button"
+                                variant={isSelected ? "default" : "outline"}
+                                size="sm"
+                                className={`transition-all duration-200 ${
+                                  isSelected
+                                    ? "bg-orange-500 hover:bg-orange-600 text-white border-orange-500"
+                                    : "hover:bg-orange-50 hover:border-orange-300"
+                                }`}
+                                onClick={() =>
+                                  handleScheduleChange(idx, "days", day.key)
+                                }
+                              >
+                                {day.label}
+                              </Button>
+                            );
+                          })}
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Chọn ít nhất một ngày trong tuần
+                          {schedule.days.length > 0 && (
+                            <span className="ml-2 text-orange-600 font-medium">
+                              ({schedule.days.length} ngày đã chọn)
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={addSchedule}
+                    className="mt-2"
+                  >
+                    <Plus className="h-4 w-4 mr-2" /> Thêm khung giờ học
+                  </Button>
+                </div>
+                <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+                  <h4 className="text-sm font-medium text-blue-800 mb-2">
+                    💡 Hướng dẫn
+                  </h4>
+                  <ul className="text-xs text-blue-700 space-y-1 list-disc pl-4">
+                    <li>
+                      Bạn có thể thêm nhiều khung giờ học cho một lớp (ví dụ:
+                      lịch học chính + workshop cuối tuần)
+                    </li>
+                    <li>
+                      Mỗi khung giờ cần có giờ bắt đầu và giờ kết thúc cụ thể
+                    </li>
+                    <li>
+                      Hệ thống sẽ tự động tạo các buổi học dựa trên lịch lặp lại
+                      này
+                    </li>
+                    <li>
+                      Ngày bắt đầu/kết thúc của mỗi khung giờ phải nằm trong
+                      khoảng thời gian của lớp học
+                    </li>
+                    <li>
+                      Hệ thống sẽ kiểm tra và cảnh báo nếu có trùng lặp thời
+                      gian giữa các khung giờ
+                    </li>
+                    <li>
+                      Link học trực tuyến sẽ được tự động tạo sau khi lớp học
+                      được khởi tạo
+                    </li>
+                  </ul>
+                </div>
               </CardContent>
             </Card>
           </div>
 
           {/* Sidebar column */}
           <div className="space-y-8">
-            {/* Meeting Info Card */}
-            <Card className="shadow-sm border-none sticky top-4">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-xl font-semibold text-gray-800 flex items-center gap-2">
-                  <Video className="h-5 w-5" />
-                  Thông tin họp
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-3">
-                  <Label htmlFor="meetingUrl" className="text-gray-700">
-                    Link họp trực tuyến
-                  </Label>
-                  <Input
-                    id="meetingUrl"
-                    name="meetingUrl"
-                    type="url"
-                    value={classData.meetingUrl}
-                    onChange={handleInputChange}
-                    className="border-gray-300 focus:border-orange-500 focus:ring-orange-500"
-                    placeholder="https://meet.google.com/..."
-                  />
-                  <p className="text-xs text-gray-500">
-                    Link Google Meet, Zoom hoặc nền tảng khác
-                  </p>
-                </div>
-
-                <div className="mt-6 bg-blue-50 p-4 rounded-lg">
-                  <h3 className="text-sm font-medium text-blue-800 mb-2">
-                    💡 Hướng dẫn
-                  </h3>
-                  <ul className="text-xs text-blue-700 space-y-1 list-disc pl-4">
-                    <li>Tạo link họp trước khi tạo lớp</li>
-                    <li>Kiểm tra quyền truy cập cho học viên</li>
-                    <li>Chuẩn bị camera và micro trước buổi học</li>
-                    <li>Có thể cập nhật link sau khi tạo lớp</li>
-                  </ul>
-                </div>
-              </CardContent>
-            </Card>
-
             {/* Preview Card */}
             <Card className="shadow-sm border-none">
               <CardHeader className="pb-3">
@@ -724,11 +877,66 @@ export default function CreateClassPage() {
                   {classData.startDate || "Chưa chọn"}
                 </div>
                 <div className="text-sm">
-                  <span className="font-medium">Lịch học:</span>{" "}
-                  {classData.scheduleType === "WEEKLY"
-                    ? `${classData.weeklySchedule?.length || 0} buổi/tuần`
-                    : `${classData.customSchedule?.length || 0} buổi`}
+                  <span className="font-medium">Khung giờ học:</span>{" "}
+                  {classData.schedules.length} khung giờ
                 </div>
+                <div className="text-sm">
+                  <span className="font-medium">Tổng ngày học:</span>{" "}
+                  {classData.schedules.reduce(
+                    (total, schedule) => total + schedule.days.length,
+                    0,
+                  )}{" "}
+                  ngày/tuần
+                </div>
+
+                {/* Hiển thị chi tiết các ngày đã chọn */}
+                {classData.schedules.some(
+                  (schedule) => schedule.days.length > 0,
+                ) && (
+                  <div className="text-sm">
+                    <span className="font-medium">Lịch học chi tiết:</span>
+                    <div className="mt-2 space-y-2">
+                      {classData.schedules.map(
+                        (schedule, idx) =>
+                          schedule.days.length > 0 && (
+                            <div
+                              key={idx}
+                              className="p-2 bg-gray-50 rounded text-xs"
+                            >
+                              <div className="font-medium text-gray-700">
+                                Khung #{idx + 1}:{" "}
+                                {schedule.name || "Chưa đặt tên"}
+                              </div>
+                              <div className="text-gray-600">
+                                Thời gian:{" "}
+                                {schedule.startTime && schedule.endTime
+                                  ? `${schedule.startTime} - ${schedule.endTime}`
+                                  : schedule.startTime || "Chưa chọn giờ"}
+                              </div>
+                              <div className="text-gray-600">
+                                Ngày:{" "}
+                                {schedule.days
+                                  .map((day) => {
+                                    const dayLabels: { [key: string]: string } =
+                                      {
+                                        sunday: "CN",
+                                        monday: "T2",
+                                        tuesday: "T3",
+                                        wednesday: "T4",
+                                        thursday: "T5",
+                                        friday: "T6",
+                                        saturday: "T7",
+                                      };
+                                    return dayLabels[day];
+                                  })
+                                  .join(", ")}
+                              </div>
+                            </div>
+                          ),
+                      )}
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>

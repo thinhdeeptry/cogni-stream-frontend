@@ -281,11 +281,11 @@ export default function RoadmapDetail() {
                     fill
                     className="object-cover transition-transform duration-300 hover:scale-105"
                   />
-                  {course.price === 0 && (
+                  {/* {course.price === 0 && (
                     <span className="absolute top-2 right-2 bg-green-500 text-white px-2 py-1 rounded-md text-xs font-bold">
                       Miễn phí
                     </span>
-                  )}
+                  )} */}
                 </Link>
                 <div className="p-4 flex flex-col justify-between flex-1">
                   <div>
