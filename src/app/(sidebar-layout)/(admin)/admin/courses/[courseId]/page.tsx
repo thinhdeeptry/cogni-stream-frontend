@@ -71,6 +71,7 @@ export default function CourseDetailPage({
     try {
       setIsLoadingClasses(true);
       const classesData = await getClassesByCourse(resolvedParams.courseId);
+      console.log("classesData: ", classesData);
       setClasses(classesData);
     } catch (error) {
       console.error("Error fetching classes:", error);

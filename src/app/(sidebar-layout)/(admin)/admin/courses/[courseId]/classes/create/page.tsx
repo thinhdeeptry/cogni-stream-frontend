@@ -17,6 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 
 export default function CreateClassPage() {
@@ -36,6 +37,7 @@ export default function CreateClassPage() {
     maxStudents: 20,
     startDate: "",
     endDate: "",
+    isPublished: false,
     schedules: [
       {
         name: "",
@@ -466,6 +468,7 @@ export default function CreateClassPage() {
         maxStudents: classData.maxStudents,
         startDate: classData.startDate,
         endDate: classData.endDate,
+        isPublished: classData.isPublished,
         schedules: schedulesForApi,
       };
 
@@ -621,6 +624,30 @@ export default function CreateClassPage() {
                     onChange={handleInputChange}
                     className="border-gray-300 focus:border-orange-500 focus:ring-orange-500"
                   />
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <Label className="text-gray-700">
+                        Trạng thái lớp học
+                      </Label>
+                      <p className="text-sm text-gray-500">
+                        {classData.isPublished
+                          ? "Lớp học sẽ được mở và học viên có thể đăng ký"
+                          : "Lớp học sẽ ở trạng thái nháp, chưa mở đăng ký"}
+                      </p>
+                    </div>
+                    <Switch
+                      checked={classData.isPublished}
+                      onCheckedChange={(checked) =>
+                        setClassData((prev) => ({
+                          ...prev,
+                          isPublished: checked,
+                        }))
+                      }
+                    />
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -848,6 +875,11 @@ export default function CreateClassPage() {
                       Link học trực tuyến sẽ được tự động tạo sau khi lớp học
                       được khởi tạo
                     </li>
+                    <li>
+                      Lớp học ở trạng thái "Nháp" sẽ không hiển thị với học viên
+                      và không thể đăng ký. Chỉ khi chuyển sang "Đã mở" thì học
+                      viên mới có thể thấy và đăng ký lớp học
+                    </li>
                   </ul>
                 </div>
               </CardContent>
@@ -871,6 +903,18 @@ export default function CreateClassPage() {
                 <div className="text-sm">
                   <span className="font-medium">Sức chứa:</span>{" "}
                   {classData.maxStudents} học viên
+                </div>
+                <div className="text-sm">
+                  <span className="font-medium">Trạng thái:</span>{" "}
+                  <span
+                    className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                      classData.isPublished
+                        ? "bg-green-100 text-green-800"
+                        : "bg-gray-100 text-gray-800"
+                    }`}
+                  >
+                    {classData.isPublished ? "Đã mở" : "Nháp"}
+                  </span>
                 </div>
                 <div className="text-sm">
                   <span className="font-medium">Bắt đầu:</span>{" "}
