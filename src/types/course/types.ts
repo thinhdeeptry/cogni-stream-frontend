@@ -51,6 +51,7 @@ export interface Course {
   tags: string[];
   isHasCertificate: boolean;
   chapters?: Chapter[];
+  classes?: Class[]; // Thêm danh sách các lớp học cho LIVE courses
   createdAt: Date;
   updatedAt: Date;
   totalLessons: number;
@@ -180,6 +181,7 @@ export interface Class {
   weeklySchedule?: WeeklySchedule[]; // Lịch học hàng tuần
   customSchedule?: CustomSchedule[]; // Lịch học tùy chỉnh
   timezone: string; // Múi giờ
+  isPublished: boolean; // Trạng thái mở/đóng đăng ký
   status: "DRAFT" | "PUBLISHED" | "ONGOING" | "COMPLETED" | "CANCELLED";
   createdAt: Date;
   updatedAt: Date;

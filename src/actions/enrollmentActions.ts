@@ -7,6 +7,7 @@ interface EnrollmentData {
   userName: string;
   courseName: string;
   isFree: boolean;
+  classId?: string; // Optional for LIVE courses
 }
 
 export interface EnrollmentStats {

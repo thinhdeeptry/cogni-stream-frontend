@@ -24,10 +24,12 @@ export interface CourseFilters {
 export interface PaginatedResponse<T> {
   data: T[];
   meta: {
-    total: number;
+    totalCount: number;
     page: number;
     limit: number;
     totalPages: number;
+    hasPreviousPage: boolean;
+    hasNextPage: boolean;
   };
 }
 
@@ -85,10 +87,12 @@ export const getAllCourses = async (
         return {
           data: filteredData,
           meta: {
-            total: filteredData.length,
+            totalCount: filteredData.length,
             page: 1,
             limit: filteredData.length,
             totalPages: 1,
+            hasPreviousPage: false,
+            hasNextPage: false,
           },
         };
       }
@@ -104,10 +108,12 @@ export const getAllCourses = async (
       return {
         data: paginatedData,
         meta: {
-          total: filteredData.length,
+          totalCount: filteredData.length,
           page,
           limit,
           totalPages: Math.ceil(filteredData.length / limit),
+          hasPreviousPage: page > 1,
+          hasNextPage: endIndex < filteredData.length,
         },
       };
     }

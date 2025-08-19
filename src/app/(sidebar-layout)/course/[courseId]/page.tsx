@@ -7,13 +7,15 @@ import { useEffect, useState } from "react";
 
 import { AxiosFactory } from "@/lib/axios";
 import { cn } from "@/lib/utils";
-import { Course, CoursePrice } from "@/types/course/types";
+import { Class, Course, CoursePrice, CourseType } from "@/types/course/types";
 import { motion } from "framer-motion";
 import {
   Award,
   Book,
   BookOpen,
+  Calendar,
   CheckCircle2,
+  Clock,
   Crown,
   Info,
   ListChecks,
@@ -21,6 +23,8 @@ import {
   MessageSquare,
   Plus,
   Target,
+  Users,
+  Video,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
@@ -90,6 +94,7 @@ export default function CourseDetail() {
   const [enrollmentId, setEnrollmentId] = useState<string | null>(null);
   const [isCollapsed, setIsCollapsed] = useState<Record<string, boolean>>({});
   const [isCheckingPayment, setIsCheckingPayment] = useState(false);
+  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
 
   // Pricing state
   const [pricing, setPricing] = useState<CoursePrice | null>(null);
@@ -106,6 +111,43 @@ export default function CourseDetail() {
   const searchParams = useSearchParams();
   const { data: session } = useSession();
   const router = useRouter();
+
+  // Helper functions for class management
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("vi-VN", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  };
+
+  const formatDateShort = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("vi-VN", {
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  const getAvailableClasses = () => {
+    if (!course?.classes) return [];
+
+    return course.classes
+      .filter(
+        (classItem) =>
+          classItem.isPublished &&
+          classItem.currentStudents < classItem.maxStudents &&
+          new Date(classItem.startDate) > new Date(),
+      )
+      .sort(
+        (a, b) =>
+          new Date(a.startDate).getTime() - new Date(b.startDate).getTime(),
+      );
+  };
+
+  const getSelectedClass = () => {
+    if (!selectedClassId || !course?.classes) return null;
+    return course.classes.find((c) => c.id === selectedClassId) || null;
+  };
 
   // Fetch enrollment ID and lesson progress
   const fetchEnrollmentId = async () => {
@@ -254,6 +296,16 @@ export default function CourseDetail() {
     }
   }, [params.courseId]);
 
+  // Auto-select class if only one available
+  useEffect(() => {
+    if (course?.courseType === CourseType.LIVE && !selectedClassId) {
+      const availableClasses = getAvailableClasses();
+      if (availableClasses.length === 1) {
+        setSelectedClassId(availableClasses[0].id);
+      }
+    }
+  }, [course, selectedClassId]);
+
   // Handle discussion thread
   // useEffect(() => {
   //   const fetchThread = async () => {
@@ -285,6 +337,25 @@ export default function CourseDetail() {
 
     if (!course || !pricing) return;
 
+    // Check if this is a LIVE course and user needs to select a class
+    if (course.courseType === CourseType.LIVE) {
+      if (!selectedClassId) {
+        toast.error("Vui lòng chọn lớp học trước khi đăng ký");
+        return;
+      }
+
+      const selectedClass = getSelectedClass();
+      if (!selectedClass) {
+        toast.error("Lớp học được chọn không hợp lệ");
+        return;
+      }
+
+      if (selectedClass.currentStudents >= selectedClass.maxStudents) {
+        toast.error("Lớp học này đã đầy, vui lòng chọn lớp khác");
+        return;
+      }
+    }
+
     setIsLoading(true); // Bắt đầu loading
 
     // Handle free courses directly
@@ -300,6 +371,10 @@ export default function CourseDetail() {
           userName: user.name,
           courseName: course.title,
           isFree: true,
+          classId:
+            course.courseType === CourseType.LIVE
+              ? selectedClassId || undefined
+              : undefined,
         });
 
         // Dismiss loading toast
@@ -348,7 +423,7 @@ export default function CourseDetail() {
           method: "BANK_TRANSFER",
           description: course.title.substring(0, 25), // Giới hạn 25 ký tự
           orderCode: orderCode.toString(), // Chuyển đổi thành chuỗi
-          returnUrl: `${window.location.origin}/payment/success?orderCode=${orderCode}&courseId=${course.id}&userId=${user.id}&userName=${encodeURIComponent(user.name || user.email || "")}&courseName=${encodeURIComponent(course.title)}`,
+          returnUrl: `${window.location.origin}/payment/success?orderCode=${orderCode}&courseId=${course.id}&userId=${user.id}&userName=${encodeURIComponent(user.name || user.email || "")}&courseName=${encodeURIComponent(course.title)}${course.courseType === CourseType.LIVE && selectedClassId ? `&classId=${selectedClassId}` : ""}`,
           cancelUrl: `${window.location.origin}/course/${course.id}`,
           metadata: {
             courseId: course.id,
@@ -358,6 +433,10 @@ export default function CourseDetail() {
             level: course.level || "BEGINNER",
             categoryName: course.category?.name || "",
             serviceType: "Course",
+            classId:
+              course.courseType === CourseType.LIVE
+                ? selectedClassId || undefined
+                : undefined,
           },
           serviceName: "Course Enrollment",
           serviceId: course.id,
@@ -494,110 +573,234 @@ export default function CourseDetail() {
           </motion.div>
         )}
 
-        {/* Course Content */}
-        <motion.div
-          className="bg-white rounded-lg shadow-sm p-6 transition-all hover:shadow-md"
-          whileHover={{ y: -5 }}
-          variants={itemVariant}
-        >
-          <h2 className="text-2xl font-semibold mb-2 text-gray-800 flex items-center gap-2">
-            <BookOpen className="h-6 w-6 text-orange-500" />
-            Nội dung khoá học
-          </h2>
-          <div className="flex items-center gap-2 mb-4">
-            <Badge variant="outline" className="text-xs py-1 px-2 bg-slate-50">
-              <span className="font-semibold mr-1">Số chương:</span>
-              {course.chapters?.length || 0}
-            </Badge>
-            <Badge variant="outline" className="text-xs py-1 px-2 bg-slate-50">
-              <span className="font-semibold mr-1">Số bài:</span>
-              {course.totalLessons || 0}
-            </Badge>
-          </div>
-
+        {/* Classes for LIVE courses */}
+        {course.courseType === CourseType.LIVE && (
           <motion.div
-            className="space-y-4"
-            variants={staggerContainer}
-            initial="hidden"
-            animate="visible"
+            className="bg-white rounded-lg shadow-sm p-6 transition-all hover:shadow-md"
+            whileHover={{ y: -5 }}
+            variants={itemVariant}
           >
-            {course.chapters?.map((chapter) => (
-              <motion.div key={chapter.id} variants={itemVariant}>
-                <Collapsible
-                  open={!isCollapsed[chapter.id]}
-                  onOpenChange={() => toggleCollapse(chapter.id)}
-                >
-                  <CollapsibleTrigger className="flex items-center justify-between w-full p-4 bg-slate-50 hover:bg-slate-100 rounded-lg transition-all duration-200">
-                    <div className="flex items-center gap-2">
-                      <Plus
-                        className={cn(
-                          "h-4 w-4 text-orange-500 transition-transform duration-200",
-                          !isCollapsed[chapter.id] && "rotate-45",
+            <h2 className="text-2xl font-semibold mb-4 text-gray-800 flex items-center gap-2">
+              <Video className="h-6 w-6 text-orange-500" />
+              Lớp học trực tuyến
+            </h2>
+
+            {getAvailableClasses().length > 0 ? (
+              <motion.div
+                className="space-y-4"
+                variants={staggerContainer}
+                initial="hidden"
+                animate="visible"
+              >
+                <p className="text-gray-600 mb-4">
+                  Chọn lớp học phù hợp với lịch trình của bạn:
+                </p>
+
+                {getAvailableClasses().map((classItem) => (
+                  <motion.div
+                    key={classItem.id}
+                    variants={itemVariant}
+                    className={cn(
+                      "border-2 rounded-lg p-4 cursor-pointer transition-all duration-200",
+                      selectedClassId === classItem.id
+                        ? "border-orange-500 bg-orange-50"
+                        : "border-gray-200 hover:border-orange-300 hover:bg-orange-25",
+                    )}
+                    onClick={() => setSelectedClassId(classItem.id)}
+                  >
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-800 mb-2">
+                          {classItem.name}
+                        </h3>
+                        {classItem.description && (
+                          <p className="text-gray-600 text-sm mb-3">
+                            {classItem.description}
+                          </p>
                         )}
-                      />
-                      <h3 className="font-semibold text-gray-700">
-                        {chapter.title}
-                      </h3>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-gray-600">
-                        {chapter.lessons?.length || 0} bài
-                      </span>
-                    </div>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="pl-4">
-                    <motion.ul
-                      className="mt-2 space-y-2"
-                      variants={staggerContainer}
-                      initial="hidden"
-                      animate="visible"
-                    >
-                      {chapter.lessons?.map((lesson) => (
-                        <motion.li key={lesson.id} variants={itemVariant}>
-                          <Link
-                            href={
-                              isEnrolled || lesson.isFreePreview
-                                ? `/course/${course.id}/lesson/${lesson.id}`
-                                : "#"
-                            }
-                            className={`flex items-center justify-between p-3 hover:bg-slate-50 rounded-lg transition-all duration-200 ${
-                              isEnrolled || lesson.isFreePreview
-                                ? "cursor-pointer"
-                                : "cursor-not-allowed opacity-50"
-                            }`}
-                            onClick={(e) => {
-                              if (!isEnrolled && !lesson.isFreePreview) {
-                                e.preventDefault();
-                                toast.error(
-                                  "Vui lòng đăng ký khóa học để xem bài học này",
-                                );
-                              }
-                            }}
-                          >
-                            <div className="flex items-center gap-2">
-                              <Book className="h-4 w-4 text-orange-500" />
-                              <span className="text-gray-700">
-                                {lesson.title}
+
+                        <div className="flex flex-wrap gap-3 text-sm">
+                          <div className="flex items-center gap-1 text-gray-600">
+                            <Calendar className="h-4 w-4" />
+                            <span>
+                              Bắt đầu: {formatDate(classItem.startDate)}
+                            </span>
+                          </div>
+
+                          {classItem.endDate && (
+                            <div className="flex items-center gap-1 text-gray-600">
+                              <Calendar className="h-4 w-4" />
+                              <span>
+                                Kết thúc: {formatDate(classItem.endDate)}
                               </span>
                             </div>
-                            {lesson.isFreePreview && (
-                              <Badge
-                                variant="secondary"
-                                className="bg-orange-100 text-orange-600 hover:bg-orange-200"
-                              >
-                                Preview
-                              </Badge>
-                            )}
-                          </Link>
-                        </motion.li>
-                      ))}
-                    </motion.ul>
-                  </CollapsibleContent>
-                </Collapsible>
+                          )}
+
+                          <div className="flex items-center gap-1 text-gray-600">
+                            <Users className="h-4 w-4" />
+                            <span>
+                              {classItem.currentStudents}/
+                              {classItem.maxStudents} học viên
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="ml-4 text-right">
+                        <Badge
+                          variant={
+                            selectedClassId === classItem.id
+                              ? "default"
+                              : "outline"
+                          }
+                          className={cn(
+                            "mb-2",
+                            selectedClassId === classItem.id && "bg-orange-500",
+                          )}
+                        >
+                          {selectedClassId === classItem.id
+                            ? "Đã chọn"
+                            : "Chọn lớp"}
+                        </Badge>
+
+                        {classItem.currentStudents >=
+                          classItem.maxStudents * 0.8 && (
+                          <div className="text-xs text-red-600 font-medium">
+                            Sắp đầy!
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
               </motion.div>
-            ))}
+            ) : (
+              <div className="text-center py-8">
+                <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                <p className="text-gray-500">
+                  Hiện tại chưa có lớp học nào mở đăng ký
+                </p>
+                <p className="text-gray-400 text-sm mt-1">
+                  Vui lòng quay lại sau hoặc liên hệ để được thông báo khi có
+                  lớp mới
+                </p>
+              </div>
+            )}
           </motion.div>
-        </motion.div>
+        )}
+
+        {/* Course Content */}
+        {course.chapters && course.chapters.length > 0 && (
+          <motion.div
+            className="bg-white rounded-lg shadow-sm p-6 transition-all hover:shadow-md"
+            whileHover={{ y: -5 }}
+            variants={itemVariant}
+          >
+            <h2 className="text-2xl font-semibold mb-2 text-gray-800 flex items-center gap-2">
+              <BookOpen className="h-6 w-6 text-orange-500" />
+              Nội dung khoá học
+            </h2>
+            <div className="flex items-center gap-2 mb-4">
+              <Badge
+                variant="outline"
+                className="text-xs py-1 px-2 bg-slate-50"
+              >
+                <span className="font-semibold mr-1">Số chương:</span>
+                {course.chapters?.length || 0}
+              </Badge>
+              <Badge
+                variant="outline"
+                className="text-xs py-1 px-2 bg-slate-50"
+              >
+                <span className="font-semibold mr-1">Số bài:</span>
+                {course.totalLessons || 0}
+              </Badge>
+            </div>
+
+            <motion.div
+              className="space-y-4"
+              variants={staggerContainer}
+              initial="hidden"
+              animate="visible"
+            >
+              {course.chapters?.map((chapter) => (
+                <motion.div key={chapter.id} variants={itemVariant}>
+                  <Collapsible
+                    open={!isCollapsed[chapter.id]}
+                    onOpenChange={() => toggleCollapse(chapter.id)}
+                  >
+                    <CollapsibleTrigger className="flex items-center justify-between w-full p-4 bg-slate-50 hover:bg-slate-100 rounded-lg transition-all duration-200">
+                      <div className="flex items-center gap-2">
+                        <Plus
+                          className={cn(
+                            "h-4 w-4 text-orange-500 transition-transform duration-200",
+                            !isCollapsed[chapter.id] && "rotate-45",
+                          )}
+                        />
+                        <h3 className="font-semibold text-gray-700">
+                          {chapter.title}
+                        </h3>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-600">
+                          {chapter.lessons?.length || 0} bài
+                        </span>
+                      </div>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="pl-4">
+                      <motion.ul
+                        className="mt-2 space-y-2"
+                        variants={staggerContainer}
+                        initial="hidden"
+                        animate="visible"
+                      >
+                        {chapter.lessons?.map((lesson) => (
+                          <motion.li key={lesson.id} variants={itemVariant}>
+                            <Link
+                              href={
+                                isEnrolled || lesson.isFreePreview
+                                  ? `/course/${course.id}/lesson/${lesson.id}`
+                                  : "#"
+                              }
+                              className={`flex items-center justify-between p-3 hover:bg-slate-50 rounded-lg transition-all duration-200 ${
+                                isEnrolled || lesson.isFreePreview
+                                  ? "cursor-pointer"
+                                  : "cursor-not-allowed opacity-50"
+                              }`}
+                              onClick={(e) => {
+                                if (!isEnrolled && !lesson.isFreePreview) {
+                                  e.preventDefault();
+                                  toast.error(
+                                    "Vui lòng đăng ký khóa học để xem bài học này",
+                                  );
+                                }
+                              }}
+                            >
+                              <div className="flex items-center gap-2">
+                                <Book className="h-4 w-4 text-orange-500" />
+                                <span className="text-gray-700">
+                                  {lesson.title}
+                                </span>
+                              </div>
+                              {lesson.isFreePreview && (
+                                <Badge
+                                  variant="secondary"
+                                  className="bg-orange-100 text-orange-600 hover:bg-orange-200"
+                                >
+                                  Preview
+                                </Badge>
+                              )}
+                            </Link>
+                          </motion.li>
+                        ))}
+                      </motion.ul>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </motion.div>
+              ))}
+            </motion.div>
+          </motion.div>
+        )}
 
         {/* Requirements */}
         {course.requirements && course.requirements.length > 0 && (
@@ -722,14 +925,58 @@ export default function CourseDetail() {
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.7 }}
                 >
-                  <div className="flex items-center gap-3 text-gray-700">
-                    <Book className="h-4 w-4 text-orange-500" />
-                    <span>{course.totalLessons || 0} bài học</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-gray-700">
-                    <ListChecks className="h-4 w-4 text-orange-500" />
-                    <span>{course.chapters?.length || 0} chương</span>
-                  </div>
+                  {course.courseType === CourseType.LIVE ? (
+                    <>
+                      <div className="flex items-center gap-3 text-gray-700">
+                        <Video className="h-4 w-4 text-orange-500" />
+                        <span>Khóa học trực tuyến</span>
+                      </div>
+
+                      {/* Show course content stats for LIVE courses too */}
+                      {course.chapters && course.chapters.length > 0 && (
+                        <>
+                          <div className="flex items-center gap-3 text-gray-700">
+                            <Book className="h-4 w-4 text-orange-500" />
+                            <span>{course.totalLessons || 0} bài học</span>
+                          </div>
+                          <div className="flex items-center gap-3 text-gray-700">
+                            <ListChecks className="h-4 w-4 text-orange-500" />
+                            <span>{course.chapters?.length || 0} chương</span>
+                          </div>
+                        </>
+                      )}
+
+                      {selectedClassId && getSelectedClass() && (
+                        <div className="bg-orange-50 p-3 rounded-lg">
+                          <p className="text-sm font-medium text-orange-800 mb-1">
+                            Lớp học đã chọn:
+                          </p>
+                          <p className="text-sm text-orange-700">
+                            {getSelectedClass()?.name}
+                          </p>
+                          <div className="flex items-center gap-2 mt-2 text-xs text-orange-600">
+                            <Calendar className="h-3 w-3" />
+                            <span>
+                              Bắt đầu:{" "}
+                              {formatDateShort(getSelectedClass()!.startDate)}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-3 text-gray-700">
+                        <Book className="h-4 w-4 text-orange-500" />
+                        <span>{course.totalLessons || 0} bài học</span>
+                      </div>
+                      <div className="flex items-center gap-3 text-gray-700">
+                        <ListChecks className="h-4 w-4 text-orange-500" />
+                        <span>{course.chapters?.length || 0} chương</span>
+                      </div>
+                    </>
+                  )}
+
                   <div className="flex items-center gap-3 text-gray-700">
                     <Target className="h-4 w-4 text-orange-500" />
                     <span>
@@ -751,7 +998,12 @@ export default function CourseDetail() {
                       className="w-full bg-orange-500 hover:bg-orange-600 text-white transition-colors relative overflow-hidden group"
                       size="lg"
                       onClick={handleEnrollClick}
-                      disabled={isLoading || isCheckingPayment}
+                      disabled={
+                        isLoading ||
+                        isCheckingPayment ||
+                        (course.courseType === CourseType.LIVE &&
+                          !selectedClassId)
+                      }
                     >
                       {isLoading || isCheckingPayment ? (
                         <div className="flex items-center justify-center">
@@ -765,11 +1017,14 @@ export default function CourseDetail() {
                       ) : (
                         <>
                           <span className="relative z-10">
-                            {!pricing ||
-                            !pricing.currentPrice ||
-                            pricing.currentPrice === 0
-                              ? "Đăng ký ngay"
-                              : "Mua khóa học"}
+                            {course.courseType === CourseType.LIVE &&
+                            !selectedClassId
+                              ? "Chọn lớp học để đăng ký"
+                              : !pricing ||
+                                  !pricing.currentPrice ||
+                                  pricing.currentPrice === 0
+                                ? "Đăng ký ngay"
+                                : "Mua khóa học"}
                           </span>
                           <span className="absolute inset-0 bg-gradient-to-r from-orange-400 to-orange-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
                           <span className="absolute -inset-1 rounded-lg bg-gradient-to-r from-orange-400 via-orange-500 to-orange-400 opacity-0 group-hover:opacity-30 blur-md transition-opacity duration-300 animate-pulse"></span>
@@ -788,6 +1043,26 @@ export default function CourseDetail() {
                     </Button>
                   )}
                 </motion.div>
+
+                {/* Class selection hint for LIVE courses */}
+                {course.courseType === CourseType.LIVE && !isEnrolled && (
+                  <motion.div
+                    className="text-center"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.85 }}
+                  >
+                    {!selectedClassId ? (
+                      <p className="text-xs text-orange-600 bg-orange-50 px-3 py-2 rounded-md">
+                        💡 Vui lòng chọn lớp học phù hợp trước khi đăng ký
+                      </p>
+                    ) : (
+                      <p className="text-xs text-green-600 bg-green-50 px-3 py-2 rounded-md">
+                        ✓ Đã chọn lớp: {getSelectedClass()?.name}
+                      </p>
+                    )}
+                  </motion.div>
+                )}
 
                 {course.requirements && course.requirements.length > 0 && (
                   <motion.div
