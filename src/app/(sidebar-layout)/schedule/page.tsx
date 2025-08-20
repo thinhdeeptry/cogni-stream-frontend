@@ -126,7 +126,7 @@ export default function ClassroomSchedulePage() {
         onClose={() => setOpenCreate(false)}
         classroomId={id as string}
         onSuccess={fetchSessions}
-      />
+      /> */}
       {selectedSession && (
         <UpdateSessionModal
           open={openUpdate}
@@ -137,7 +137,7 @@ export default function ClassroomSchedulePage() {
           session={selectedSession}
           onSuccess={fetchSessions}
         />
-      )} */}
+      )}
     </div>
   );
 }

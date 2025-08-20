@@ -62,7 +62,9 @@ export function UpdateSessionModal({
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle className="font-bold">Cập nhật buổi học</DialogTitle>
+          <DialogTitle className="font-bold">
+            Xem thông tin buổi học
+          </DialogTitle>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
@@ -104,7 +106,7 @@ export function UpdateSessionModal({
           <Button variant="outline" onClick={onClose}>
             Đóng
           </Button>
-          <Button onClick={handleSubmit}>Cập nhật</Button>
+          {/* <Button onClick={handleSubmit}>Cập nhật</Button> */}
         </div>
       </DialogContent>
     </Dialog>
