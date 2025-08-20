@@ -150,6 +150,7 @@ export const getAllCourses = async (
 export const getCourseById = async (courseId: string): Promise<Course> => {
   try {
     const { data } = await courseApi.get(`/courses/${courseId}`);
+    console.log("dataCourse: ", data);
     return data;
   } catch (error) {
     throw error;

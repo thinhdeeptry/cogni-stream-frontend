@@ -157,11 +157,78 @@ export interface CoursePricingPolicies {
 
 export interface ClassSession {
   id: string;
-  classroomId: string;
   topic: string;
   scheduledAt: string; // ISO date string
   durationMinutes: number;
   status?: string;
+  lesson?: {
+    id: string;
+    title: string;
+    type: LessonType;
+    order: number;
+    isFreePreview: boolean;
+    chapter: {
+      id: string;
+      title: string;
+      order: number;
+    };
+  } | null;
+  dayOfWeek: string;
+  date: string;
+  time: string;
+}
+
+// Interface cho response từ API /classes/:classId/sessions
+export interface ClassSessionsResponse {
+  class: {
+    id: string;
+    name: string;
+    description: string | null;
+    status: "UPCOMING" | "IN_PROGRESS" | "FINISHED" | "CANCELED";
+    startDate: string;
+    endDate: string;
+    platform: string;
+    isPublished: boolean;
+    schedules: any;
+    course: {
+      id: string;
+      title: string;
+      description: string | null;
+      level: CourseLevel;
+      thumbnailUrl: string | null;
+    };
+    instructor: {
+      name: string;
+      image: string | null;
+      headline: string | null;
+      bio: string | null;
+      avgRating: number;
+      totalRatings: number;
+    };
+    enrollment: {
+      currentStudents: number;
+      maxStudents: number | null;
+      availableSlots: number | null;
+      isFullyBooked: boolean;
+    };
+  };
+  sessions: {
+    upcoming: ClassSession[];
+    past: ClassSession[];
+  };
+  summary: {
+    totalSessions: number;
+    upcomingSessionsCount: number;
+    pastSessionsCount: number;
+    estimatedDurationHours: number;
+    nextSession: {
+      topic: string;
+      scheduledAt: string;
+      dayOfWeek: string;
+      date: string;
+      time: string;
+    } | null;
+  };
 }
 
 // Interface cho Class (Lớp học) - chỉ dành cho LIVE courses
@@ -171,35 +238,25 @@ export interface Class {
   course?: Course;
   name: string; // Tên lớp (VD: Lớp K1, Lớp buổi tối)
   description?: string;
-  instructorId: string;
+  instructorId?: string;
   maxStudents: number;
   currentStudents: number;
   startDate: string; // Ngày bắt đầu lớp
   endDate?: string; // Ngày kết thúc lớp (có thể không có)
-  meetingUrl?: string; // Link Google Meet/Zoom
-  scheduleType: "WEEKLY" | "DAILY" | "CUSTOM"; // Loại lịch học
-  weeklySchedule?: WeeklySchedule[]; // Lịch học hàng tuần
-  customSchedule?: CustomSchedule[]; // Lịch học tùy chỉnh
-  timezone: string; // Múi giờ
+  schedules?: Schedule[]; // Lịch học đơn giản theo API response
   isPublished: boolean; // Trạng thái mở/đóng đăng ký
-  status: "DRAFT" | "PUBLISHED" | "ONGOING" | "COMPLETED" | "CANCELLED";
-  createdAt: Date;
-  updatedAt: Date;
+  status?: "DRAFT" | "PUBLISHED" | "ONGOING" | "COMPLETED" | "CANCELLED";
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
-// Lịch học hàng tuần
-export interface WeeklySchedule {
-  dayOfWeek: number; // 0 = Chủ nhật, 1 = Thứ 2, ...
-  startTime: string; // HH:mm format
-  durationMinutes: number;
-}
-
-// Lịch học tùy chỉnh
-export interface CustomSchedule {
-  date: string; // YYYY-MM-DD format
-  startTime: string; // HH:mm format
-  durationMinutes: number;
-  topic?: string;
+// Interface cho Schedule theo API response
+export interface Schedule {
+  days: string[]; // ["monday", "wednesday", "friday"]
+  name: string; // "Lịch học chính"
+  startDate: string; // "2025-09-01"
+  endDate: string; // "2025-11-30"
+  startTime: string; // "19:00"
 }
 
 // Form data cho tạo Class
@@ -210,8 +267,5 @@ export interface CreateClassFormData {
   maxStudents: number;
   startDate: string;
   endDate?: string;
-  // meetingUrl?: string;
-  // scheduleType: "WEEKLY" | "DAILY" | "CUSTOM";
-  // weeklySchedule?: WeeklySchedule[];
-  schedule?: CustomSchedule[];
+  schedules?: Schedule[];
 }

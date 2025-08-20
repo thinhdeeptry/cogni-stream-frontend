@@ -1,5 +1,9 @@
 import { AxiosFactory } from "@/lib/axios";
-import { Class, CreateClassFormData } from "@/types/course/types";
+import {
+  Class,
+  ClassSessionsResponse,
+  CreateClassFormData,
+} from "@/types/course/types";
 
 const classApi = await AxiosFactory.getApiInstance("courses");
 
@@ -163,6 +167,19 @@ export const addStudentToClass = async (
         error.response?.data?.message ||
         "Đã có lỗi xảy ra khi thêm học viên vào lớp",
     };
+  }
+};
+
+// Lấy danh sách các buổi học của một lớp
+export const getClassSessions = async (
+  classId: string,
+): Promise<ClassSessionsResponse> => {
+  try {
+    const { data } = await classApi.get(`/classes/${classId}/sessions`);
+    return data;
+  } catch (error) {
+    console.error("Error fetching class sessions:", error);
+    throw error;
   }
 };
 

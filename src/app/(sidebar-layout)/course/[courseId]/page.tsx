@@ -46,6 +46,7 @@ import { getCourseCurrentPrice } from "@/actions/pricingActions";
 import { useProgressStore } from "@/stores/useProgressStore";
 import useUserStore from "@/stores/useUserStore";
 
+import ClassSessionsModal from "@/components/course/ClassSessionsModal";
 import Discussion from "@/components/discussion";
 import { DiscussionType } from "@/components/discussion/type";
 import { Badge } from "@/components/ui/badge";
@@ -96,6 +97,10 @@ export default function CourseDetail() {
   const [isCheckingPayment, setIsCheckingPayment] = useState(false);
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
 
+  // State for class schedule modal
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [viewingClass, setViewingClass] = useState<Class | null>(null);
+
   // Pricing state
   const [pricing, setPricing] = useState<CoursePrice | null>(null);
   const [loadingPrice, setLoadingPrice] = useState(true);
@@ -130,7 +135,6 @@ export default function CourseDetail() {
 
   const getAvailableClasses = () => {
     if (!course?.classes) return [];
-
     return course.classes
       .filter(
         (classItem) =>
@@ -147,6 +151,18 @@ export default function CourseDetail() {
   const getSelectedClass = () => {
     if (!selectedClassId || !course?.classes) return null;
     return course.classes.find((c) => c.id === selectedClassId) || null;
+  };
+
+  // Handler for viewing class schedule details
+  const handleViewClassSchedule = (classItem: Class) => {
+    setViewingClass(classItem);
+    setIsScheduleModalOpen(true);
+  };
+
+  // Handler for selecting class from modal
+  const handleSelectClassFromModal = (classId: string) => {
+    setSelectedClassId(classId);
+    setIsScheduleModalOpen(false);
   };
 
   // Fetch enrollment ID and lesson progress
@@ -601,12 +617,11 @@ export default function CourseDetail() {
                     key={classItem.id}
                     variants={itemVariant}
                     className={cn(
-                      "border-2 rounded-lg p-4 cursor-pointer transition-all duration-200",
+                      "border-2 rounded-lg p-4 transition-all duration-200",
                       selectedClassId === classItem.id
                         ? "border-orange-500 bg-orange-50"
                         : "border-gray-200 hover:border-orange-300 hover:bg-orange-25",
                     )}
-                    onClick={() => setSelectedClassId(classItem.id)}
                   >
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
@@ -644,25 +659,40 @@ export default function CourseDetail() {
                             </span>
                           </div>
                         </div>
+
+                        {/* Action buttons */}
+                        <div className="flex gap-2 mt-3">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleViewClassSchedule(classItem)}
+                            className="text-orange-600 border-orange-300 hover:bg-orange-50"
+                          >
+                            <Calendar className="h-4 w-4 mr-1" />
+                            Xem lịch học
+                          </Button>
+                          <Button
+                            variant={
+                              selectedClassId === classItem.id
+                                ? "default"
+                                : "outline"
+                            }
+                            size="sm"
+                            onClick={() => setSelectedClassId(classItem.id)}
+                            className={cn(
+                              selectedClassId === classItem.id
+                                ? "bg-orange-500 hover:bg-orange-600 text-white"
+                                : "text-gray-700 hover:bg-gray-50",
+                            )}
+                          >
+                            {selectedClassId === classItem.id
+                              ? "Đã chọn"
+                              : "Chọn lớp"}
+                          </Button>
+                        </div>
                       </div>
 
                       <div className="ml-4 text-right">
-                        <Badge
-                          variant={
-                            selectedClassId === classItem.id
-                              ? "default"
-                              : "outline"
-                          }
-                          className={cn(
-                            "mb-2",
-                            selectedClassId === classItem.id && "bg-orange-500",
-                          )}
-                        >
-                          {selectedClassId === classItem.id
-                            ? "Đã chọn"
-                            : "Chọn lớp"}
-                        </Badge>
-
                         {classItem.currentStudents >=
                           classItem.maxStudents * 0.8 && (
                           <div className="text-xs text-red-600 font-medium">
@@ -1087,6 +1117,14 @@ export default function CourseDetail() {
         </motion.div>
       </div>
       {/* <Discussion threadId={threadId || ""} /> */}
+
+      {/* Class Sessions Modal */}
+      <ClassSessionsModal
+        isOpen={isScheduleModalOpen}
+        onClose={() => setIsScheduleModalOpen(false)}
+        classItem={viewingClass}
+        onSelectClass={handleSelectClassFromModal}
+      />
     </motion.div>
   );
 }
