@@ -99,6 +99,7 @@ export function UpdateSessionModal({
               id="durationMinutes"
               value={durationMinutes}
               onChange={(e) => setDurationMinutes(e.target.value)}
+              disabled
             />
           </div>
         </div>
