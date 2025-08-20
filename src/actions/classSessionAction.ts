@@ -1,83 +1,53 @@
 import { AxiosFactory } from "@/lib/axios";
 import { ClassSession } from "@/types/course/types";
 
-const classSessionApi = await AxiosFactory.getApiInstance("sessions");
+const api = await AxiosFactory.getApiInstance("sessions"); // không truyền "sessions"
 
 // Lấy các session của 1 class theo id
 export const getClassSessionsByClassroomId = async (
   classroomId: string,
 ): Promise<ClassSession[]> => {
-  try {
-    const { data } = await classSessionApi.get(
-      `/class-sessions?classroomId=${classroomId}`,
-    );
-    return data;
-  } catch (error) {
-    throw error;
-  }
+  const { data } = await api.get(`/sessions/by-class/${classroomId}`);
+  return data;
 };
 
 // Lấy thông tin 1 class session
 export const getClassSessionById = async (
   sessionId: string,
 ): Promise<ClassSession> => {
-  try {
-    const { data } = await classSessionApi.get(`/class-session/${sessionId}`);
-    return data;
-  } catch (error) {
-    throw error;
-  }
+  const { data } = await api.get(`/sessions/${sessionId}`);
+  return data;
 };
 
 // Tạo mới 1 class session
 export const createClassSession = async (
-  sessionData: Omit<ClassSession, "id">,
+  sessionData: Omit<ClassSession, "id" | "createdAt" | "updatedAt">,
 ) => {
-  try {
-    const { data } = await classSessionApi.post("/class-sessions", sessionData);
-    return {
-      success: true,
-      data,
-      message: "Tạo buổi học thành công",
-    };
-  } catch (error) {
-    throw error;
-  }
+  const { data } = await api.post(`/sessions`, sessionData);
+  return { success: true, data, message: "Tạo buổi học thành công" };
 };
 
 // Cập nhật buổi học
 export const updateClassSession = async (
   sessionId: string,
-  sessionData: Partial<Omit<ClassSession, "id">>,
+  sessionData: Partial<Omit<ClassSession, "id" | "createdAt" | "updatedAt">>,
 ) => {
-  try {
-    const { data } = await classSessionApi.patch(
-      `/class-sessions/${sessionId}`,
-      sessionData,
-    );
-    return {
-      success: true,
-      data,
-      message: "Cập nhật buổi học thành công",
-    };
-  } catch (error) {}
+  const { data } = await api.patch(`/sessions/${sessionId}`, sessionData);
+  return { success: true, data, message: "Cập nhật buổi học thành công" };
 };
 
+// Xóa buổi học
 export const deleteClassSession = async (sessionId: string) => {
+  const { data } = await api.delete(`/sessions/${sessionId}`);
+  return { success: true, data, message: "Xóa buổi học thành công" };
+};
+
+// Lịch của tôi
+export const mySchedule = async () => {
   try {
-    const { data } = await classSessionApi.delete(
-      `/class-sessions/${sessionId}`,
-    );
-    return {
-      success: true,
-      data,
-      message: "Xóa buổi học thành công",
-    };
+    const { data } = await api.get("/sessions/my-schedule");
+    return data;
   } catch (error) {
-    return {
-      success: false,
-      message: "Lỗi khi xóa buổi học",
-      error,
-    };
+    throw new Error("dâsdfasd");
   }
 };
