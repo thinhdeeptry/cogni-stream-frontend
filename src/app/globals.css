@@ -149,3 +149,24 @@ body {
     opacity: 0.7;
   }
 }
+
+.rbc-day-bg {
+  background: transparent !important;
+}
+
+.rbc-slot-selection {
+  background: transparent !important;
+}
+
+/* làm font nhỏ gọn hơn */
+.rbc-calendar {
+  font-size: 11px;
+}
+
+.rbc-event {
+  background: transparent !important;
+  border: none !important;
+  color: inherit;
+  padding: 4;
+  margin: -30;
+}

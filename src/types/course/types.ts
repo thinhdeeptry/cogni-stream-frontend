@@ -161,6 +161,8 @@ export interface ClassSession {
   scheduledAt: string; // ISO date string
   durationMinutes: number;
   status?: string;
+  meetingLink?: string;
+  recordingUrl?: string;
 }
 
 // Interface cho Class (Lớp học) - chỉ dành cho LIVE courses

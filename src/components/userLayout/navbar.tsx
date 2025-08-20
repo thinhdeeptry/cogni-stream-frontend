@@ -13,7 +13,7 @@ import { Course } from "@/types/course/types";
 import { Bell, LogOut, Search, Settings, User, X } from "lucide-react";
 import { useSession } from "next-auth/react";
 
-import { checkEnrollmentStatus } from "@/actions/enrollmentActions";
+// import { checkEnrollmentStatus } from "@/actions/enrollmentActions";
 
 import { useProgressStore } from "@/stores/useProgressStore";
 
@@ -84,42 +84,42 @@ export default function Navbar({
   }, [searchParams]);
 
   // Check enrollment status for current course and compare with store
-  useEffect(() => {
-    const pageCourseId = params?.courseId as string;
+  // useEffect(() => {
+  //   const pageCourseId = params?.courseId as string;
 
-    const checkCurrentCourseEnrollment = async () => {
-      if (pageCourseId && session?.user?.id && isLessonPage) {
-        try {
-          // Chỉ hiển thị progress nếu khóa học đang xem trùng với khóa học trong store
-          // và có enrollmentId (đã đăng ký)
-          if (pageCourseId === currentCourseId && enrollmentId) {
-            setIsCurrentCourseEnrolled(true);
-          } else {
-            const result = await checkEnrollmentStatus(
-              pageCourseId,
-              session.user.id,
-            );
-            setIsCurrentCourseEnrolled(
-              result.data && pageCourseId === currentCourseId,
-            );
-          }
-        } catch (err) {
-          console.error("Error checking enrollment for current course:", err);
-          setIsCurrentCourseEnrolled(false);
-        }
-      } else {
-        setIsCurrentCourseEnrolled(false);
-      }
-    };
+  //   const checkCurrentCourseEnrollment = async () => {
+  //     if (pageCourseId && session?.user?.id && isLessonPage) {
+  //       try {
+  //         // Chỉ hiển thị progress nếu khóa học đang xem trùng với khóa học trong store
+  //         // và có enrollmentId (đã đăng ký)
+  //         if (pageCourseId === currentCourseId && enrollmentId) {
+  //           setIsCurrentCourseEnrolled(true);
+  //         } else {
+  //           const result = await checkEnrollmentStatus(
+  //             pageCourseId,
+  //             session.user.id,
+  //           );
+  //           setIsCurrentCourseEnrolled(
+  //             result.data && pageCourseId === currentCourseId,
+  //           );
+  //         }
+  //       } catch (err) {
+  //         console.error("Error checking enrollment for current course:", err);
+  //         setIsCurrentCourseEnrolled(false);
+  //       }
+  //     } else {
+  //       setIsCurrentCourseEnrolled(false);
+  //     }
+  //   };
 
-    checkCurrentCourseEnrollment();
-  }, [
-    params.courseId,
-    session?.user?.id,
-    isLessonPage,
-    currentCourseId,
-    enrollmentId,
-  ]);
+  //   checkCurrentCourseEnrollment();
+  // }, [
+  //   params.courseId,
+  //   session?.user?.id,
+  //   isLessonPage,
+  //   currentCourseId,
+  //   enrollmentId,
+  // ]);
 
   const handleSearch = (e: FormEvent) => {
     e.preventDefault();
