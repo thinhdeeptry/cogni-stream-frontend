@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 
 import { toast } from "@/hooks/use-toast";
 import { Class, Course, CoursePrice, CourseType } from "@/types/course/types";
-import { ChevronLeft, Edit, Loader2, Plus } from "lucide-react";
+import { BookOpen, ChevronLeft, Edit, Loader2, Plus } from "lucide-react";
 
 import { getClassesByCourse } from "@/actions/classActions";
 import { getCourseById } from "@/actions/courseAction";
@@ -381,9 +381,14 @@ export default function CourseDetailPage({
                       >
                         <div className="flex justify-between items-start">
                           <div className="flex-1">
-                            <h4 className="font-medium text-slate-900">
-                              {classItem.name}
-                            </h4>
+                            <Link
+                              href={`/admin/courses/${resolvedParams.courseId}/classes/${classItem.id}`}
+                              className="hover:text-orange-600 transition-colors"
+                            >
+                              <h4 className="font-medium text-slate-900 hover:text-orange-600">
+                                {classItem.name}
+                              </h4>
+                            </Link>
                             {classItem.description && (
                               <p className="text-sm text-slate-600 mt-1">
                                 {classItem.description}
@@ -422,17 +427,22 @@ export default function CourseDetailPage({
                           </div>
                           <div className="flex gap-2">
                             <Link
+                              href={`/admin/courses/${resolvedParams.courseId}/classes/${classItem.id}`}
+                            >
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="gap-2"
+                              >
+                                <BookOpen className="h-4 w-4" />
+                                Lộ trình
+                              </Button>
+                            </Link>
+                            <Link
                               href={`/admin/courses/${resolvedParams.courseId}/classes/${classItem.id}/edit`}
                             >
                               <Button variant="outline" size="sm">
                                 <Edit className="h-4 w-4" />
-                              </Button>
-                            </Link>
-                            <Link
-                              href={`/admin/courses/${resolvedParams.courseId}/classes/${classItem.id}`}
-                            >
-                              <Button variant="outline" size="sm">
-                                Chi tiết
                               </Button>
                             </Link>
                           </div>

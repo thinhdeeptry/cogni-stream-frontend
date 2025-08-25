@@ -259,6 +259,7 @@ export interface Schedule {
   startDate: string; // "2025-09-01"
   endDate: string; // "2025-11-30"
   startTime: string; // "19:00"
+  endTime?: string; // "21:00" - có thể không có
 }
 
 // Form data cho tạo Class
@@ -270,4 +271,59 @@ export interface CreateClassFormData {
   startDate: string;
   endDate?: string;
   schedules?: Schedule[];
+}
+
+// Enums cho Syllabus
+export enum SyllabusItemType {
+  LESSON = "LESSON",
+  LIVE_SESSION = "LIVE_SESSION",
+}
+
+// Interface cho Syllabus Item
+export interface SyllabusItem {
+  id: string;
+  day: number;
+  order: number;
+  itemType: SyllabusItemType;
+  classId: string;
+  lessonId?: string;
+  classSessionId?: string;
+  lesson?: {
+    id: string;
+    title: string;
+    type: LessonType;
+    estimatedDurationMinutes: number;
+    isFreePreview: boolean;
+    isPublished: boolean;
+  } | null;
+  classSession?: {
+    id: string;
+    topic: string;
+    scheduledAt: string;
+    durationMinutes: number;
+    meetingDetail?: string;
+  } | null;
+  class?: {
+    id: string;
+    name: string;
+  };
+}
+
+// Interface cho request tạo Syllabus Item
+export interface CreateSyllabusItemRequest {
+  day: number;
+  order: number;
+  itemType: SyllabusItemType;
+  lessonId?: string;
+  classSessionId?: string;
+  classId: string;
+}
+
+// Interface cho update Syllabus Item
+export interface UpdateSyllabusItemRequest {
+  day?: number;
+  order?: number;
+  itemType?: SyllabusItemType;
+  lessonId?: string;
+  classSessionId?: string;
 }
