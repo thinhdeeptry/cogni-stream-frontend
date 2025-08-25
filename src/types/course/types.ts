@@ -14,6 +14,7 @@ export enum LessonType {
   VIDEO = "VIDEO",
   BLOG = "BLOG",
   MIXED = "MIXED",
+  QUIZ = "QUIZ",
 }
 
 // Enums mới cho hệ thống pricing

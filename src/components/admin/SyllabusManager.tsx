@@ -4,13 +4,18 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useToast } from "@/hooks/use-toast";
 import { AxiosFactory } from "@/lib/axios";
-import { SyllabusItem, SyllabusItemType } from "@/types/course/types";
+import {
+  LessonType,
+  SyllabusItem,
+  SyllabusItemType,
+} from "@/types/course/types";
 import {
   BookOpen,
   Calendar,
   Clock,
   Edit,
   GripVertical,
+  HelpCircle,
   Plus,
   Trash2,
   Users,
@@ -523,13 +528,37 @@ export default function SyllabusManager({
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-2">
                 {item.itemType === SyllabusItemType.LESSON ? (
-                  <BookOpen className="h-4 w-4 text-blue-500" />
+                  <>
+                    {item.lesson?.type === LessonType.VIDEO && (
+                      <Video className="h-4 w-4 text-blue-500" />
+                    )}
+                    {item.lesson?.type === LessonType.BLOG && (
+                      <BookOpen className="h-4 w-4 text-green-500" />
+                    )}
+                    {item.lesson?.type === LessonType.MIXED && (
+                      <BookOpen className="h-4 w-4 text-purple-500" />
+                    )}
+                    {item.lesson?.type === LessonType.QUIZ && (
+                      <HelpCircle className="h-4 w-4 text-orange-500" />
+                    )}
+                    {!item.lesson?.type && (
+                      <BookOpen className="h-4 w-4 text-blue-500" />
+                    )}
+                  </>
                 ) : (
                   <Video className="h-4 w-4 text-red-500" />
                 )}
                 <Badge variant="outline" className="text-xs">
                   {item.itemType === SyllabusItemType.LESSON
-                    ? "Bài học"
+                    ? item.lesson?.type === LessonType.QUIZ
+                      ? "Quiz"
+                      : item.lesson?.type === LessonType.VIDEO
+                        ? "Video"
+                        : item.lesson?.type === LessonType.BLOG
+                          ? "Bài đọc"
+                          : item.lesson?.type === LessonType.MIXED
+                            ? "Hỗn hợp"
+                            : "Bài học"
                     : "Buổi live"}
                 </Badge>
                 <span className="text-xs text-slate-500">#{item.order}</span>
@@ -541,10 +570,18 @@ export default function SyllabusManager({
                     {item.lesson.title}
                   </h4>
                   <div className="flex items-center gap-4 text-xs text-slate-500">
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      <span>{item.lesson.estimatedDurationMinutes} phút</span>
-                    </div>
+                    {item.lesson.type !== LessonType.QUIZ && (
+                      <div className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        <span>{item.lesson.estimatedDurationMinutes} phút</span>
+                      </div>
+                    )}
+                    {item.lesson.type === LessonType.QUIZ && (
+                      <div className="flex items-center gap-1">
+                        <HelpCircle className="h-3 w-3" />
+                        <span>Bài kiểm tra</span>
+                      </div>
+                    )}
                     <Badge
                       variant={
                         item.lesson.isFreePreview ? "secondary" : "outline"
