@@ -22,6 +22,7 @@ import {
   Loader2,
   MessageSquare,
   Plus,
+  Star,
   Target,
   Users,
   Video,
@@ -554,7 +555,73 @@ export default function CourseDetail() {
             <BookOpen className="h-8 w-8 text-orange-500" />
             {course.title}
           </h1>
-          <p className="text-gray-600 leading-relaxed">{course.description}</p>
+          <p className="text-gray-600 leading-relaxed mb-6">
+            {course.description}
+          </p>
+
+          {/* Instructor Information */}
+          {course.instructor && (
+            <div className="border-t pt-6">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                <Users className="h-5 w-5 text-orange-500" />
+                Giảng viên
+              </h3>
+              <div className="flex items-start gap-4">
+                <div className="flex-shrink-0">
+                  <Image
+                    src={
+                      course.instructor.user?.image || "/placeholder-avatar.jpg"
+                    }
+                    alt="Instructor"
+                    width={80}
+                    height={80}
+                    className="rounded-full object-cover border-2 border-orange-100"
+                  />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-semibold text-gray-800 text-lg mb-1">
+                    {course.instructor.headline || "Giảng viên"}
+                  </h4>
+                  {course.instructor.specialization && (
+                    <p className="text-orange-600 font-medium mb-2">
+                      {course.instructor.specialization}
+                    </p>
+                  )}
+                  {course.instructor.bio && (
+                    <p className="text-gray-600 text-sm mb-3">
+                      {course.instructor.bio}
+                    </p>
+                  )}
+                  {course.instructor.avgRating &&
+                    course.instructor.totalRatings && (
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1">
+                          <div className="flex">
+                            {[...Array(5)].map((_, i) => (
+                              <Star
+                                key={i}
+                                className={cn(
+                                  "h-4 w-4",
+                                  i < Math.floor(course.instructor!.avgRating!)
+                                    ? "text-yellow-500 fill-current"
+                                    : "text-gray-300",
+                                )}
+                              />
+                            ))}
+                          </div>
+                          <span className="text-sm font-medium text-gray-700">
+                            {course.instructor.avgRating.toFixed(1)}
+                          </span>
+                        </div>
+                        <span className="text-sm text-gray-500">
+                          ({course.instructor.totalRatings} đánh giá)
+                        </span>
+                      </div>
+                    )}
+                </div>
+              </div>
+            </div>
+          )}
         </motion.div>
 
         {/* Learning Outcomes */}
@@ -586,136 +653,6 @@ export default function CourseDetail() {
                 </motion.li>
               ))}
             </motion.ul>
-          </motion.div>
-        )}
-
-        {/* Classes for LIVE courses */}
-        {course.courseType === CourseType.LIVE && (
-          <motion.div
-            className="bg-white rounded-lg shadow-sm p-6 transition-all hover:shadow-md"
-            whileHover={{ y: -5 }}
-            variants={itemVariant}
-          >
-            <h2 className="text-2xl font-semibold mb-4 text-gray-800 flex items-center gap-2">
-              <Video className="h-6 w-6 text-orange-500" />
-              Lớp học trực tuyến
-            </h2>
-
-            {getAvailableClasses().length > 0 ? (
-              <motion.div
-                className="space-y-4"
-                variants={staggerContainer}
-                initial="hidden"
-                animate="visible"
-              >
-                <p className="text-gray-600 mb-4">
-                  Chọn lớp học phù hợp với lịch trình của bạn:
-                </p>
-
-                {getAvailableClasses().map((classItem) => (
-                  <motion.div
-                    key={classItem.id}
-                    variants={itemVariant}
-                    className={cn(
-                      "border-2 rounded-lg p-4 transition-all duration-200",
-                      selectedClassId === classItem.id
-                        ? "border-orange-500 bg-orange-50"
-                        : "border-gray-200 hover:border-orange-300 hover:bg-orange-25",
-                    )}
-                  >
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-gray-800 mb-2">
-                          {classItem.name}
-                        </h3>
-                        {classItem.description && (
-                          <p className="text-gray-600 text-sm mb-3">
-                            {classItem.description}
-                          </p>
-                        )}
-
-                        <div className="flex flex-wrap gap-3 text-sm">
-                          <div className="flex items-center gap-1 text-gray-600">
-                            <Calendar className="h-4 w-4" />
-                            <span>
-                              Bắt đầu: {formatDate(classItem.startDate)}
-                            </span>
-                          </div>
-
-                          {classItem.endDate && (
-                            <div className="flex items-center gap-1 text-gray-600">
-                              <Calendar className="h-4 w-4" />
-                              <span>
-                                Kết thúc: {formatDate(classItem.endDate)}
-                              </span>
-                            </div>
-                          )}
-
-                          <div className="flex items-center gap-1 text-gray-600">
-                            <Users className="h-4 w-4" />
-                            <span>
-                              {classItem.currentStudents}/
-                              {classItem.maxStudents} học viên
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Action buttons */}
-                        <div className="flex gap-2 mt-3">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleViewClassSchedule(classItem)}
-                            className="text-orange-600 border-orange-300 hover:bg-orange-50"
-                          >
-                            <Calendar className="h-4 w-4 mr-1" />
-                            Xem lịch học
-                          </Button>
-                          <Button
-                            variant={
-                              selectedClassId === classItem.id
-                                ? "default"
-                                : "outline"
-                            }
-                            size="sm"
-                            onClick={() => setSelectedClassId(classItem.id)}
-                            className={cn(
-                              selectedClassId === classItem.id
-                                ? "bg-orange-500 hover:bg-orange-600 text-white"
-                                : "text-gray-700 hover:bg-gray-50",
-                            )}
-                          >
-                            {selectedClassId === classItem.id
-                              ? "Đã chọn"
-                              : "Chọn lớp"}
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div className="ml-4 text-right">
-                        {classItem.currentStudents >=
-                          classItem.maxStudents * 0.8 && (
-                          <div className="text-xs text-red-600 font-medium">
-                            Sắp đầy!
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
-              </motion.div>
-            ) : (
-              <div className="text-center py-8">
-                <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                <p className="text-gray-500">
-                  Hiện tại chưa có lớp học nào mở đăng ký
-                </p>
-                <p className="text-gray-400 text-sm mt-1">
-                  Vui lòng quay lại sau hoặc liên hệ để được thông báo khi có
-                  lớp mới
-                </p>
-              </div>
-            )}
           </motion.div>
         )}
 
@@ -829,6 +766,160 @@ export default function CourseDetail() {
                 </motion.div>
               ))}
             </motion.div>
+          </motion.div>
+        )}
+
+        {/* Classes for LIVE courses - moved after course content */}
+        {course.courseType === CourseType.LIVE && (
+          <motion.div
+            className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg shadow-sm p-6 border-l-4 border-blue-500 transition-all hover:shadow-md"
+            whileHover={{ y: -5 }}
+            variants={itemVariant}
+          >
+            <h2 className="text-2xl font-semibold mb-4 text-gray-800 flex items-center gap-2">
+              <Video className="h-6 w-6 text-blue-500" />
+              Lớp học trực tuyến
+              <Badge
+                variant="outline"
+                className="bg-blue-100 text-blue-700 border-blue-300"
+              >
+                LIVE
+              </Badge>
+            </h2>
+
+            {getAvailableClasses().length > 0 ? (
+              <motion.div
+                className="space-y-4"
+                variants={staggerContainer}
+                initial="hidden"
+                animate="visible"
+              >
+                <div className="bg-white/70 backdrop-blur-sm rounded-lg p-4 border border-blue-200">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Info className="h-4 w-4 text-blue-600" />
+                    <p className="text-blue-800 font-medium text-sm">
+                      Khóa học này bao gồm cả nội dung tự học và các buổi học
+                      trực tuyến
+                    </p>
+                  </div>
+                  <p className="text-blue-700 text-sm">
+                    Chọn lớp học phù hợp với lịch trình của bạn để tham gia các
+                    buổi học trực tiếp với giảng viên
+                  </p>
+                </div>
+
+                {getAvailableClasses().map((classItem) => (
+                  <motion.div
+                    key={classItem.id}
+                    variants={itemVariant}
+                    className={cn(
+                      "bg-white border-2 rounded-lg p-5 transition-all duration-200 shadow-sm",
+                      selectedClassId === classItem.id
+                        ? "border-blue-500 bg-blue-50 shadow-md"
+                        : "border-gray-200 hover:border-blue-300 hover:shadow-md",
+                    )}
+                  >
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-3">
+                          <h3 className="font-semibold text-gray-800 text-lg">
+                            {classItem.name}
+                          </h3>
+                          {classItem.currentStudents >=
+                            classItem.maxStudents * 0.8 && (
+                            <Badge variant="destructive" className="text-xs">
+                              Sắp đầy!
+                            </Badge>
+                          )}
+                        </div>
+
+                        {classItem.description && (
+                          <p className="text-gray-600 text-sm mb-4 leading-relaxed">
+                            {classItem.description}
+                          </p>
+                        )}
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm mb-4">
+                          <div className="flex items-center gap-2 text-gray-600 bg-gray-50 p-2 rounded">
+                            <Calendar className="h-4 w-4 text-blue-500" />
+                            <div>
+                              <div className="font-medium">Bắt đầu</div>
+                              <div>{formatDate(classItem.startDate)}</div>
+                            </div>
+                          </div>
+
+                          {classItem.endDate && (
+                            <div className="flex items-center gap-2 text-gray-600 bg-gray-50 p-2 rounded">
+                              <Calendar className="h-4 w-4 text-blue-500" />
+                              <div>
+                                <div className="font-medium">Kết thúc</div>
+                                <div>{formatDate(classItem.endDate)}</div>
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="flex items-center gap-2 text-gray-600 bg-gray-50 p-2 rounded">
+                            <Users className="h-4 w-4 text-blue-500" />
+                            <div>
+                              <div className="font-medium">Học viên</div>
+                              <div>
+                                {classItem.currentStudents}/
+                                {classItem.maxStudents}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Action buttons */}
+                        <div className="flex gap-3">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleViewClassSchedule(classItem)}
+                            className="text-blue-600 border-blue-300 hover:bg-blue-50"
+                          >
+                            <Calendar className="h-4 w-4 mr-2" />
+                            Xem lịch học
+                          </Button>
+                          <Button
+                            variant={
+                              selectedClassId === classItem.id
+                                ? "default"
+                                : "outline"
+                            }
+                            size="sm"
+                            onClick={() => setSelectedClassId(classItem.id)}
+                            className={cn(
+                              selectedClassId === classItem.id
+                                ? "bg-blue-500 hover:bg-blue-600 text-white"
+                                : "text-gray-700 hover:bg-gray-50",
+                            )}
+                          >
+                            {selectedClassId === classItem.id
+                              ? "✓ Đã chọn"
+                              : "Chọn lớp này"}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </motion.div>
+            ) : (
+              <div className="text-center py-12 bg-white/50 rounded-lg border border-blue-200">
+                <Calendar className="h-12 w-12 text-blue-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-700 mb-2">
+                  Chưa có lớp học nào mở đăng ký
+                </h3>
+                <p className="text-gray-500 mb-1">
+                  Hiện tại chưa có lớp học nào mở đăng ký cho khóa học này
+                </p>
+                <p className="text-gray-400 text-sm">
+                  Vui lòng quay lại sau hoặc liên hệ để được thông báo khi có
+                  lớp mới
+                </p>
+              </div>
+            )}
           </motion.div>
         )}
 

@@ -37,20 +37,20 @@ const getMenuItems = (userRole: string) => {
       icon: Home,
       color: "text-blue-500",
       bgColor: "bg-blue-50",
-    },
-    {
-      title: "Lộ trình",
-      url: "/roadmap",
-      icon: GraduationCap,
-      color: "text-green-500",
-      bgColor: "bg-green-50",
-    },
-    {
-      title: "Bài viết",
-      url: "/posts",
-      icon: BookOpen,
-      color: "text-amber-500",
-      bgColor: "bg-amber-50",
+      // },
+      // {
+      //   title: "Lộ trình",
+      //   url: "/roadmap",
+      //   icon: GraduationCap,
+      //   color: "text-green-500",
+      //   bgColor: "bg-green-50",
+      // },
+      // {
+      //   title: "Bài viết",
+      //   url: "/posts",
+      //   icon: BookOpen,
+      //   color: "text-amber-500",
+      //   bgColor: "bg-amber-50",
     },
   ];
 
@@ -70,13 +70,13 @@ const getMenuItems = (userRole: string) => {
         color: "text-gray-600",
         bgColor: "bg-purple-50",
       },
-      {
-        title: "QL Bài viết",
-        url: "/admin/posts",
-        icon: BookOpen,
-        color: "text-gray-600",
-        bgColor: "bg-amber-50",
-      },
+      // {
+      //   title: "QL Bài viết",
+      //   url: "/admin/posts",
+      //   icon: BookOpen,
+      //   color: "text-gray-600",
+      //   bgColor: "bg-amber-50",
+      // },
       {
         title: "Người dùng",
         url: "/admin/users",
