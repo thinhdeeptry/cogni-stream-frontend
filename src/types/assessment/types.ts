@@ -44,48 +44,106 @@ export interface Lesson {
   name: string;
 }
 
-export interface ContentItem {
-  text: string;
-  image?: string;
-  audio?: string;
-}
-
-export interface AnswerOption {
+// Interfaces mới theo API documentation
+export interface Answer {
   id?: string;
-  content: ContentItem;
-  order?: number;
+  text: string;
   isCorrect: boolean;
+  questionId?: string;
 }
 
-export interface ReferenceAnswer {
-  content: ContentItem;
-  notes?: string;
+export interface QuestionLesson {
+  id: string;
+  title: string;
+  type: string;
+  chapter?: {
+    id: string;
+    title: string;
+    course?: {
+      id: string;
+      title: string;
+      instructorId?: string;
+    };
+  };
 }
 
 export interface Question {
   id?: string;
+  text: string;
   type: QuestionType;
-  content: ContentItem;
-  explanation?: string;
-  questionSetterId?: string;
-  courseId?: string;
-  chapterId?: string;
+  order?: number;
   lessonId?: string;
-  difficulty: QuestionDifficulty;
-  options?: AnswerOption[];
-  referenceAnswer?: ReferenceAnswer;
+  answers: Answer[];
+  lession?: QuestionLesson; // Note: API uses "lession" not "lesson"
 }
 
-export interface QuestionFormValues {
+export interface QuestionResponse {
+  data: Question[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    hasPermissionToSeeAnswers: boolean;
+  };
+}
+
+export interface CreateQuestionDto {
+  text: string;
   type: QuestionType;
-  content: ContentItem;
-  questionSetterId?: string;
-  courseId?: string;
-  chapterId?: string;
+  lessonId: string;
+  answers: Omit<Answer, "id" | "questionId">[];
+  order?: number;
+}
+
+export interface UpdateQuestionDto {
+  text?: string;
+  type?: QuestionType;
+  answers?: Answer[];
+  order?: number;
+}
+
+export interface CreateAnswerDto {
+  text: string;
+  isCorrect: boolean;
+}
+
+export interface UpdateAnswerDto {
+  text?: string;
+  isCorrect?: boolean;
+}
+
+export interface BulkCreateQuestionsDto {
+  lessonId: string;
+  questions: {
+    text: string;
+    type: QuestionType;
+    answers: Omit<Answer, "id" | "questionId">[];
+  }[];
+}
+
+export interface BulkDeleteQuestionsDto {
+  questionIds: string[];
+}
+
+export interface DuplicateQuestionDto {
+  targetLessonId?: string;
+}
+
+export interface ReorderQuestionsDto {
+  questionOrders: {
+    id: string;
+    order: number;
+  }[];
+}
+
+export interface QuestionFilter {
   lessonId?: string;
-  difficulty: QuestionDifficulty;
-  options?: AnswerOption[];
-  referenceAnswer?: ReferenceAnswer;
+  chapterId?: string;
+  courseId?: string;
+  type?: QuestionType;
+  page?: number;
+  limit?: number;
 }
 
 export interface CreateTestQuestionDto {

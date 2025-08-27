@@ -283,6 +283,8 @@ function HomeContent() {
                     totalLessons={course.totalLessons}
                     enrollmentCount={getEnrollmentCount(course.id)}
                     categories={[course.categoryId || ""]}
+                    instructor={course.instructor}
+                    avgRating={course.avgRating}
                   />
                 </div>
               ))}
@@ -322,6 +324,8 @@ function HomeContent() {
                     totalLessons={course.totalLessons}
                     enrollmentCount={getEnrollmentCount(course.id)}
                     categories={[course.categoryId || ""]}
+                    instructor={course.instructor}
+                    avgRating={course.avgRating}
                   />
                 </div>
               ))}
@@ -378,6 +382,8 @@ function HomeContent() {
                   totalLessons={course.totalLessons}
                   enrollmentCount={getEnrollmentCount(course.id)}
                   categories={[course.categoryId || ""]}
+                  instructor={course.instructor}
+                  avgRating={course.avgRating}
                 />
               </div>
             ))}
@@ -433,6 +439,8 @@ function HomeContent() {
                   totalLessons={course.totalLessons}
                   enrollmentCount={getEnrollmentCount(course.id)}
                   categories={[course.categoryId || ""]}
+                  instructor={course.instructor}
+                  avgRating={course.avgRating}
                 />
               </div>
             ))}

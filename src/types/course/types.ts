@@ -48,6 +48,17 @@ export interface Course {
   level?: CourseLevel;
   courseType: CourseType; // Thêm loại khóa học
   instructorId: string; // Thay đổi từ ownerId sang instructorId
+  instructor?: {
+    headline?: string;
+    bio?: string;
+    specialization?: string;
+    avgRating?: number;
+    totalRatings?: number;
+    status?: string;
+    user?: {
+      image?: string;
+    };
+  };
   thumbnailUrl?: string;
   tags: string[];
   isHasCertificate: boolean;
@@ -59,6 +70,9 @@ export interface Course {
   learningOutcomes: string[];
   requirements: string[];
   targetAudience?: string;
+  avgRating?: number;
+  totalRatings?: number;
+  totalStudents?: number;
   // Loại bỏ price, currency, promotionPrice - sẽ được lấy từ API riêng
 }
 

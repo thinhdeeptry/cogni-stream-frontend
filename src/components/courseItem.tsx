@@ -24,10 +24,23 @@ export default function CourseItem({
   enrollmentCount = 0,
   categories,
   rating,
+  instructor,
+  avgRating,
 }: CourseWithUser & {
   description?: string;
   categories?: string[];
   rating?: number;
+  instructor?: {
+    headline?: string;
+    bio?: string;
+    specialization?: string;
+    avgRating?: number;
+    totalRatings?: number;
+    user?: {
+      image?: string;
+    };
+  };
+  avgRating?: number;
 }) {
   // Keep the ID for the link but don't display it
   const courseLink = `/course/${id}`;
@@ -108,6 +121,35 @@ export default function CourseItem({
           <h3 className="font-bold text-md line-clamp-2 mb-2 text-gray-800 truncate">
             {title}
           </h3>
+
+          {/* Instructor info */}
+          {instructor && (
+            <div className="flex items-center gap-2 mb-2">
+              <div className="flex-shrink-0">
+                <Image
+                  src={instructor.user?.image || "/placeholder-avatar.jpg"}
+                  alt="Instructor"
+                  width={24}
+                  height={24}
+                  className="rounded-full object-cover"
+                />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-gray-600 truncate">
+                  {instructor.headline || "Giảng viên"}
+                </p>
+                {instructor.avgRating && instructor.totalRatings && (
+                  <div className="flex items-center gap-1">
+                    <Star className="h-3 w-3 text-yellow-500 fill-current" />
+                    <span className="text-xs text-gray-600">
+                      {instructor.avgRating.toFixed(1)} (
+                      {instructor.totalRatings})
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Price display with consistent spacing */}
           <div
