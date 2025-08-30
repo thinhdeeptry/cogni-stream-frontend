@@ -445,13 +445,14 @@ export default function CreateClassPage() {
 
     try {
       // Convert schedules to ScheduleDto format for API
-      const schedulesForApi = classData.schedules.map((schedule) => {
+      const schedulesForApi = classData.schedules.map((schedule, index) => {
         // Convert day names to proper format (capitalize first letter)
         const formattedDays = schedule.days.map(
           (day) => day.charAt(0).toUpperCase() + day.slice(1).toLowerCase(),
         );
 
         return {
+          name: `Lịch học ${index + 1}`, // Add required name field
           days: formattedDays, // ["Monday", "Wednesday", "Friday"]
           startTime: schedule.startTime, // "19:00"
           endTime: schedule.endTime, // "21:00"

@@ -201,7 +201,7 @@ export default function AdminCoursesPage() {
           setPagination({
             page: response.meta.page || 1,
             limit: response.meta.limit || 10,
-            total: response.meta.total || response.data.length,
+            total: response.meta.totalCount || response.data.length,
             totalPages:
               response.meta.totalPages ||
               Math.ceil(response.data.length / (response.meta.limit || 10)),
