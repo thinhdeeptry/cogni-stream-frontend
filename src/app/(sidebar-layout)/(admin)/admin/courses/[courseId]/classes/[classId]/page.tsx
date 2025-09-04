@@ -21,7 +21,10 @@ import {
 
 import { getClassById } from "@/actions/classActions";
 import { getCourseById } from "@/actions/courseAction";
-import { getSyllabusByClass } from "@/actions/syllabusActions";
+import {
+  SyllabusResponse,
+  getSyllabusByClassId,
+} from "@/actions/syllabusActions";
 
 import SyllabusManager from "@/components/admin/SyllabusManager";
 import { Badge } from "@/components/ui/badge";
@@ -40,7 +43,9 @@ export default function ClassDetailPage({
 
   const [course, setCourse] = useState<Course | null>(null);
   const [classData, setClassData] = useState<Class | null>(null);
-  const [syllabusItems, setSyllabusItems] = useState<SyllabusItem[]>([]);
+  const [syllabusData, setSyllabusData] = useState<SyllabusResponse | null>(
+    null,
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingSyllabus, setIsLoadingSyllabus] = useState(false);
 
@@ -61,8 +66,10 @@ export default function ClassDetailPage({
 
         // Fetch syllabus data
         setIsLoadingSyllabus(true);
-        const syllabusData = await getSyllabusByClass(resolvedParams.classId);
-        setSyllabusItems(syllabusData);
+        const syllabusResponse = await getSyllabusByClassId(
+          resolvedParams.classId,
+        );
+        setSyllabusData(syllabusResponse);
       } catch (error) {
         console.error("Error fetching data:", error);
         toast({
@@ -82,8 +89,10 @@ export default function ClassDetailPage({
   const refreshSyllabus = async () => {
     try {
       setIsLoadingSyllabus(true);
-      const syllabusData = await getSyllabusByClass(resolvedParams.classId);
-      setSyllabusItems(syllabusData);
+      const syllabusResponse = await getSyllabusByClassId(
+        resolvedParams.classId,
+      );
+      setSyllabusData(syllabusResponse);
     } catch (error) {
       console.error("Error refreshing syllabus:", error);
       toast({
@@ -327,7 +336,11 @@ export default function ClassDetailPage({
                   Lộ trình học tập
                 </CardTitle>
                 <Badge variant="outline" className="text-sm">
-                  {syllabusItems.length} mục lộ trình
+                  {syllabusData?.groupedItems?.reduce(
+                    (acc, group) => acc + group.items.length,
+                    0,
+                  ) || 0}{" "}
+                  mục lộ trình
                 </Badge>
               </div>
             </CardHeader>
@@ -335,7 +348,10 @@ export default function ClassDetailPage({
               <SyllabusManager
                 classId={resolvedParams.classId}
                 courseId={resolvedParams.courseId}
-                syllabusItems={syllabusItems}
+                syllabusItems={
+                  syllabusData?.groupedItems?.flatMap((group) => group.items) ||
+                  []
+                }
                 isLoading={isLoadingSyllabus}
                 onRefresh={refreshSyllabus}
               />
