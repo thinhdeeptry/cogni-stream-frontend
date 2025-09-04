@@ -28,12 +28,13 @@ type ServiceName =
   | "series"
   | "post"
   | "sessions"
-  | "instructor";
+  | "instructor"
+  | "progress";
 
 const paths: Record<ServiceName, string> = {
   users: "users",
   courses: "",
-  enrollment: "enrollment",
+  enrollment: "enrollments",
   payment: "payments",
   assessment: "",
   notification: "notification",
@@ -45,6 +46,7 @@ const paths: Record<ServiceName, string> = {
   post: "",
   sessions: "",
   instructor: "",
+  progress: "",
 };
 
 class AxiosFactory {

@@ -19,6 +19,7 @@ interface ProgressState {
   overallProgress: number;
   isCompleted: boolean;
   status: string;
+  currentProgress: any;
   error: string | null;
 
   // Actions
@@ -29,8 +30,9 @@ interface ProgressState {
   fetchOverallProgress: () => Promise<void>;
   updateLessonProgress: (progressData: {
     progress: number;
-    currentLesson: string;
-    lessonId: string;
+    currentProgressId: string;
+    nextLesson: string;
+    nextLessonId: string;
     isLessonCompleted: boolean;
   }) => Promise<void>;
   verifyCompletion: () => Promise<void>;
@@ -50,6 +52,7 @@ export const useProgressStore = create<ProgressState>()(
       overallProgress: 0,
       isCompleted: false,
       status: "",
+      currentProgress: null,
       error: null,
 
       // Actions
@@ -79,13 +82,19 @@ export const useProgressStore = create<ProgressState>()(
 
         try {
           const result = await getInitialProgress(enrollmentId);
+          console.log("res của lấy progress detail: ", result);
           if (result.success && result.data) {
+            console.log(
+              "Setting progress state with currentProgress:",
+              result.data.currentProgress,
+            );
             set({
               progress: result.data.progress,
               currentLesson: result.data.currentLesson,
               lessonId: result.data.lessonId,
               isLessonCompleted: result.data.isLessonCompleted,
               lastUpdated: result.data.lastUpdated,
+              currentProgress: result.data.currentProgress,
               error: null,
             });
           } else {
@@ -111,7 +120,7 @@ export const useProgressStore = create<ProgressState>()(
             set({
               overallProgress: result.data.overallProgress,
               isCompleted: result.data.completed,
-              status: result.data.status,
+              // status: result.data.status,
               error: null,
             });
           } else {
@@ -163,7 +172,7 @@ export const useProgressStore = create<ProgressState>()(
           const result = await verifyCourseCompletion(enrollmentId);
           if (result.success && result.data) {
             set({
-              isCompleted: result.data.completed,
+              isCompleted: result.data,
               error: null,
             });
           } else {

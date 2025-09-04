@@ -19,6 +19,7 @@ import useUserStore from "@/stores/useUserStore";
 
 import { AvatarUpload } from "@/components/auth/avatar-upload";
 import { ProfileUpdateForm } from "@/components/auth/profile-update-form";
+import MyClassesList from "@/components/profile/MyClassesList";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -236,9 +237,10 @@ export default function ProfilePage() {
         {/* Main Content */}
         <div className="md:col-span-2 -mt-6">
           <Tabs defaultValue="profile">
-            {/* <TabsList className="grid w-full grid-cols-1">
+            <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="profile">Thông tin cá nhân</TabsTrigger>
-            </TabsList> */}
+              <TabsTrigger value="classes">Lớp học của tôi</TabsTrigger>
+            </TabsList>
 
             <TabsContent value="profile" className="mt-6">
               <Card>
@@ -326,6 +328,20 @@ export default function ProfilePage() {
                       </div>
                     )}
                   </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="classes" className="mt-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Lớp học của tôi</CardTitle>
+                  <CardDescription>
+                    Danh sách các lớp học trực tiếp mà bạn đã đăng ký
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <MyClassesList userId={user.id} />
                 </CardContent>
               </Card>
             </TabsContent>

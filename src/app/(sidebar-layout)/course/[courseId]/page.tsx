@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { AxiosFactory } from "@/lib/axios";
 import { cn } from "@/lib/utils";
 import { Class, Course, CoursePrice, CourseType } from "@/types/course/types";
 import { motion } from "framer-motion";
@@ -32,9 +31,12 @@ import { toast } from "sonner";
 
 import { getCourseById } from "@/actions/courseAction";
 import { getThreadByResourceId } from "@/actions/discussion.action";
-import { enrollCourse } from "@/actions/enrollmentActions";
 import {
   checkEnrollmentStatus,
+  enrollCourse,
+  getEnrollmentByCourse,
+} from "@/actions/enrollmentActions";
+import {
   createEnrollmentAfterPayment,
   createPayment,
   generateOrderCode,
@@ -170,14 +172,10 @@ export default function CourseDetail() {
   const fetchEnrollmentId = async () => {
     if (user?.id && course?.id) {
       try {
-        const enrollmentApi = await AxiosFactory.getApiInstance("enrollment");
-        const response = await enrollmentApi.get(`/find/${course.id}`);
-
-        if (response.data?.id) {
-          setEnrollmentId(response.data.id);
-          setProgressEnrollmentId(response.data.id);
-
-          // Fetch progress data to get the last studied lesson
+        const result = await getEnrollmentByCourse(course.id);
+        if (result.success && result.data?.id) {
+          setEnrollmentId(result.data.id);
+          setProgressEnrollmentId(result.data.id);
           await fetchInitialProgress();
         }
       } catch (err) {
@@ -190,7 +188,6 @@ export default function CourseDetail() {
     let isMounted = true;
 
     const checkStatusOnce = async () => {
-      // Only proceed if we have the necessary data
       if (!user?.id || !course?.id) return;
 
       const orderCode = searchParams.get("orderCode");
@@ -201,31 +198,17 @@ export default function CourseDetail() {
       }
 
       try {
-        console.log("Checking enrollment status for course:", course.id);
-
-        // Single API call to check enrollment status
-        const timestamp = new Date().getTime();
-        const enrollmentApi = await AxiosFactory.getApiInstance("enrollment");
-        const response = await enrollmentApi.get(
-          `/check/${user.id}/${course.id}?_t=${timestamp}`,
+        console.log("id user: ", user?.id);
+        console.log("id course: ", course?.id);
+        const { success, isEnrolled } = await checkEnrollmentStatus(
+          user.id,
+          course.id,
         );
-
-        console.log("Enrollment check response:", response.data);
-        const isUserEnrolled = response.data.enrolled === true;
-
-        if (isMounted) {
-          setIsEnrolled(isUserEnrolled);
-        }
-
-        // If enrolled, update enrollment ID
-        if (isUserEnrolled && isMounted) {
+        if (isMounted) setIsEnrolled(!!(success && isEnrolled));
+        if (success && isEnrolled && isMounted) {
           await fetchEnrollmentId();
-
-          // Show success message if coming from payment
           if (hasOrderCode) {
             toast.success("Bạn đã đăng ký khóa học thành công!");
-
-            // Remove query parameter after processing
             const newUrl = window.location.pathname;
             window.history.replaceState({}, document.title, newUrl);
           }
@@ -239,17 +222,11 @@ export default function CourseDetail() {
       }
     };
 
-    // Only run once when component mounts or when critical dependencies change
     checkStatusOnce();
-
-    // Cleanup function
     return () => {
       isMounted = false;
     };
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.courseId, user?.id, course?.id]);
-
   // Fetch pricing data
   useEffect(() => {
     const fetchPricing = async () => {
@@ -277,39 +254,40 @@ export default function CourseDetail() {
     fetchPricing();
   }, [params.courseId]);
 
+  // Fetch course data function
+  const fetchCourseData = async () => {
+    try {
+      setIsLoading(true);
+      const data = await getCourseById(params.courseId as string);
+      setCourse(data);
+      console.log("data: ", data);
+      // Find the first lesson ID
+      if (data.chapters && data.chapters.length > 0) {
+        const firstChapter = data.chapters[0];
+        if (firstChapter.lessons && firstChapter.lessons.length > 0) {
+          setFirstLessonId(firstChapter.lessons[0].id);
+        }
+      }
+
+      // Initialize collapsed state for chapters
+      if (data.chapters) {
+        const initialCollapsedState: Record<string, boolean> = {};
+        data.chapters.forEach((chapter) => {
+          initialCollapsedState[chapter.id] = true; // Default to collapsed
+        });
+        setIsCollapsed(initialCollapsedState);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Fetch course data
   useEffect(() => {
-    const fetchCourse = async () => {
-      try {
-        setIsLoading(true);
-        const data = await getCourseById(params.courseId as string);
-        setCourse(data);
-
-        // Find the first lesson ID
-        if (data.chapters && data.chapters.length > 0) {
-          const firstChapter = data.chapters[0];
-          if (firstChapter.lessons && firstChapter.lessons.length > 0) {
-            setFirstLessonId(firstChapter.lessons[0].id);
-          }
-        }
-
-        // Initialize collapsed state for chapters
-        if (data.chapters) {
-          const initialCollapsedState: Record<string, boolean> = {};
-          data.chapters.forEach((chapter) => {
-            initialCollapsedState[chapter.id] = true; // Default to collapsed
-          });
-          setIsCollapsed(initialCollapsedState);
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "An error occurred");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     if (params.courseId) {
-      fetchCourse();
+      fetchCourseData();
     }
   }, [params.courseId]);
 
@@ -376,22 +354,23 @@ export default function CourseDetail() {
     setIsLoading(true); // Bắt đầu loading
 
     // Handle free courses directly
-    if (!pricing.currentPrice || pricing.currentPrice === 0) {
+    if (pricing.currentPrice || pricing.currentPrice !== 0) {
       try {
         // Show loading toast
         const loadingToast = toast.loading("Đang đăng ký khóa học...");
 
-        // Enroll in the free course
+        // Enroll in the free course with correct format for backend
         const result = await enrollCourse({
-          courseId: course.id,
-          userId: user.id,
-          userName: user.name,
-          courseName: course.title,
-          isFree: true,
+          studentId: user.id,
+          type: course.courseType === CourseType.LIVE ? "STREAM" : "ONLINE",
+          courseId:
+            course.courseType === CourseType.SELF_PACED ? course.id : undefined,
           classId:
             course.courseType === CourseType.LIVE
               ? selectedClassId || undefined
               : undefined,
+          progress: 0,
+          isCompleted: false,
         });
 
         // Dismiss loading toast
@@ -399,8 +378,21 @@ export default function CourseDetail() {
 
         if (result.success) {
           toast.success("Bạn đã đăng ký khóa học thành công!");
+
           // Refresh enrollment status
           setIsEnrolled(true);
+
+          // Set enrollment ID if returned from API
+          if (result.data?.id) {
+            setEnrollmentId(result.data.id);
+            setProgressEnrollmentId(result.data.id);
+          }
+
+          // Fetch updated course data to reflect enrollment count changes
+          await fetchCourseData();
+
+          // Fetch enrollment ID and progress data
+          await fetchEnrollmentId();
         } else {
           toast.error(result.message || "Có lỗi xảy ra khi đăng ký khóa học");
         }
@@ -485,14 +477,18 @@ export default function CourseDetail() {
 
   const handleStartLearningClick = () => {
     if (!course) return;
-
+    console.log("đã bấm vào nút");
     // If the user has started the course before, navigate to the last lesson they were studying
+    console.log("lastStudiedLessonId: ", lastStudiedLessonId);
+    console.log("firstLessonId: ", firstLessonId);
     if (lastStudiedLessonId) {
       router.push(`/course/${course.id}/lesson/${lastStudiedLessonId}`);
+      console.log("Đã có học bài ");
     }
     // Otherwise, start from the first lesson
     else if (firstLessonId) {
       router.push(`/course/${course.id}/lesson/${firstLessonId}`);
+      console.log("Chưa học bài nào");
     }
   };
 

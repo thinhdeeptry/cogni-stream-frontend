@@ -38,6 +38,7 @@ import { getThreadByResourceId } from "@/actions/discussion.action";
 import {
   checkEnrollmentStatus,
   createCertificate,
+  getEnrollmentByCourse,
 } from "@/actions/enrollmentActions";
 import {
   createTestAttempt,
@@ -505,23 +506,34 @@ export default function LessonDetail() {
     }));
   };
   //flat
-  // useEffect(() => {
-  //   const checkEnrollment = async () => {
-  //     if (session?.user?.id && course?.id) {
-  //       try {
-  //         const result = await checkEnrollmentStatus(
-  //           course.id,
-  //           session.user.id,
-  //         );
-  //         setIsEnrolled(result.data);
-  //       } catch (err) {
-  //         console.error("Error checking enrollment:", err);
-  //       }
-  //     }
-  //   };
+  useEffect(() => {
+    const checkEnrollment = async () => {
+      if (session?.user?.id && course?.id) {
+        console.log("id user: ", session?.user?.id);
+        console.log("id course: ", course?.id);
+        try {
+          const result = await checkEnrollmentStatus(
+            session.user.id,
+            course.id,
+          );
+          console.log("res: ", result);
+          // Kiểm tra cả success và isEnrolled
+          if (result.success) {
+            setIsEnrolled(result.isEnrolled);
+            console.log("enrollment status set to: ", result.isEnrolled);
+          } else {
+            console.warn("Check enrollment failed:", result.message);
+            setIsEnrolled(false);
+          }
+        } catch (err) {
+          console.error("Error checking enrollment:", err);
+          setIsEnrolled(false);
+        }
+      }
+    };
 
-  //   checkEnrollment();
-  // }, [course?.id, session?.user?.id]);
+    checkEnrollment();
+  }, [course?.id, session?.user?.id]);
 
   // Memoize the reference text to prevent unnecessary re-renders
   const referenceText = useMemo(() => {
@@ -569,7 +581,7 @@ export default function LessonDetail() {
     timestampedTranscript,
   ]);
 
-  console.log(referenceText);
+  // console.log(referenceText);
   // Use the memoized chatbot component
   const LessonChatbot = usePopupChatbot({
     initialOpen: false,
@@ -673,6 +685,7 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
   useEffect(() => {
     const fetchEnrollmentId = async () => {
       if (session?.user?.id && course?.id) {
+        console.log("yes");
         try {
           // Kiểm tra xem lesson hiện tại có phải là preview không
           const allCourseLessons =
@@ -687,21 +700,26 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
           setCurrentCourseId(course.id);
 
           // Nếu đang xem bài học preview mà chưa enrolled, không cần fetch enrollment
-          if (isCurrentLessonPreview && !isEnrolled) {
-            console.log(
-              "Viewing preview lesson without enrollment - skipping enrollment API call",
-            );
-            return;
-          }
+          console.log("is enroll: ", isEnrolled);
+          // const checkEnroll = await checkEnrollmentStatus
 
-          const enrollmentApi = await AxiosFactory.getApiInstance("enrollment");
-          const response = await enrollmentApi.get(`/find/${course.id}`);
-          console.log("response.data", response.data);
-          if (response.data?.id) {
-            setEnrollmentId(response.data.id);
-            setProgressEnrollmentId(response.data.id);
+          // if (isCurrentLessonPreview && isEnrolled) {
+          //   console.log(
+          //     "Viewing preview lesson without enrollment - skipping enrollment API call",
+          //   );
+          //   return;
+          // }
+
+          // const enrollmentApi = await AxiosFactory.getApiInstance("enrollment");
+          const response = await getEnrollmentByCourse(course.id);
+          console.log("response.data", response);
+          if (response.data?.data.id) {
+            console.log("có data: ");
+            setEnrollmentId(response.data.data.id);
+            setProgressEnrollmentId(response.data.data.id);
             // Fetch initial progress
-            await fetchInitialProgress();
+            const res = await fetchInitialProgress();
+
             await fetchOverallProgress();
           }
         } catch (err: any) {
@@ -1051,8 +1069,13 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
 
   // Handle lesson completion and navigation to next lesson
   const handleLessonCompletion = async () => {
+    console.log(
+      "Check khi handle complete: ",
+      enrollmentId,
+      lesson,
+      nextLesson,
+    );
     if (!enrollmentId || !lesson || !nextLesson) return;
-
     try {
       // Lấy index của bài học hiện tại
       const currentLessonIndex = allLessons.findIndex(
@@ -1080,11 +1103,31 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
         ((nextLessonIndex + 1) / totalLessons) * 100,
       );
 
+      // Lấy currentProgressId từ store
+      const currentProgressState = useProgressStore.getState();
+      const currentProgressId = currentProgressState.currentProgress?.id;
+
+      console.log("Progress state check:", {
+        currentProgress: currentProgressState.currentProgress,
+        currentProgressId,
+        enrollmentId,
+        newProgressPercentage,
+        nextLesson: nextLesson.title,
+        nextLessonId: nextLesson.id,
+      });
+
+      if (!currentProgressId) {
+        console.error("No currentProgressId found in progress state");
+        toast.error("Không thể lấy thông tin tiến trình hiện tại");
+        return;
+      }
+
       // Cập nhật tiến trình với thông tin bài học TIẾP THEO
       await updateLessonProgress({
         progress: newProgressPercentage,
-        currentLesson: nextLesson.title, // Sử dụng tên của bài học tiếp theo
-        lessonId: nextLesson.id, // Sử dụng ID của bài học tiếp theo
+        currentProgressId,
+        nextLesson: nextLesson.title, // Sử dụng tên của bài học tiếp theo
+        nextLessonId: nextLesson.id, // Sử dụng ID của bài học tiếp theo
         isLessonCompleted: true,
       });
 
