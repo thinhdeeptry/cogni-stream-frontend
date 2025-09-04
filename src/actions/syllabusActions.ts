@@ -9,7 +9,49 @@ import {
 const syllabusApi = await AxiosFactory.getApiInstance("courses");
 
 /**
- * Lấy lộ trình học theo lớp
+ * Interface cho grouped syllabus
+ */
+export interface GroupedSyllabusItem {
+  day: number;
+  items: SyllabusItem[];
+}
+
+/**
+ * Interface cho syllabus response từ API - Backend đã trả về data đã được nhóm theo ngày
+ */
+export interface SyllabusResponse {
+  id: string;
+  classId: string;
+  className: string;
+  groupedItems: GroupedSyllabusItem[]; // Backend đã nhóm theo ngày
+  totalDays: number;
+  totalSessions: number;
+  totalLessons: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Lấy lộ trình học theo lớp - Main function for course detail page
+ */
+export async function getSyllabusByClassId(
+  classId: string,
+): Promise<SyllabusResponse> {
+  try {
+    console.log("Fetching syllabus for classId:", classId);
+    const { data } = await syllabusApi.get(`/syllabus/class/${classId}`);
+    console.log("Syllabus data:", data);
+    return data;
+  } catch (error: any) {
+    console.error("Lỗi khi fetch lộ trình:", error);
+    console.error("Response:", error.response?.data);
+    console.error("Status:", error.response?.status);
+    throw new Error("Không thể tải lộ trình học");
+  }
+}
+
+/**
+ * Lấy lộ trình học theo lớp (legacy function - compatibility)
  */
 export async function getSyllabusByClass(
   classId: string,
@@ -18,7 +60,8 @@ export async function getSyllabusByClass(
     console.log("Fetching syllabus for classId:", classId);
     const { data } = await syllabusApi.get(`/syllabus/class/${classId}`);
     console.log("Syllabus data:", data);
-    return data;
+    // Nếu API trả về object với items, lấy items, không thì trả về data
+    return Array.isArray(data) ? data : data.items || [];
   } catch (error: any) {
     console.error("Lỗi khi fetch lộ trình:", error);
     console.error("Response:", error.response?.data);

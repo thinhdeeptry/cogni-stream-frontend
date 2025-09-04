@@ -7,7 +7,13 @@ import { useEffect, useState } from "react";
 
 import { AxiosFactory } from "@/lib/axios";
 import { cn } from "@/lib/utils";
-import { Class, Course, CoursePrice, CourseType } from "@/types/course/types";
+import {
+  Class,
+  Course,
+  CoursePrice,
+  CourseType,
+  SyllabusItem,
+} from "@/types/course/types";
 import { motion } from "framer-motion";
 import {
   Award,
@@ -43,11 +49,17 @@ import {
   updateOrderStatus,
 } from "@/actions/paymentActions";
 import { getCourseCurrentPrice } from "@/actions/pricingActions";
+import {
+  GroupedSyllabusItem,
+  getSyllabusByClassId,
+} from "@/actions/syllabusActions";
 
 import { useProgressStore } from "@/stores/useProgressStore";
 import useUserStore from "@/stores/useUserStore";
 
+import ClassSelector from "@/components/course/ClassSelector";
 import ClassSessionsModal from "@/components/course/ClassSessionsModal";
+import SyllabusDisplay from "@/components/course/SyllabusDisplay";
 import Discussion from "@/components/discussion";
 import { DiscussionType } from "@/components/discussion/type";
 import { Badge } from "@/components/ui/badge";
@@ -97,6 +109,10 @@ export default function CourseDetail() {
   const [isCollapsed, setIsCollapsed] = useState<Record<string, boolean>>({});
   const [isCheckingPayment, setIsCheckingPayment] = useState(false);
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
+
+  // Syllabus state
+  const [syllabusData, setSyllabusData] = useState<GroupedSyllabusItem[]>([]);
+  const [isLoadingSyllabus, setIsLoadingSyllabus] = useState(false);
 
   // State for class schedule modal
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
@@ -183,6 +199,30 @@ export default function CourseDetail() {
       } catch (err) {
         console.error("Error fetching enrollment ID:", err);
       }
+    }
+  };
+
+  // Fetch syllabus data for the selected class
+  const fetchSyllabus = async () => {
+    if (!selectedClassId) {
+      setSyllabusData([]);
+      return;
+    }
+
+    setIsLoadingSyllabus(true);
+    try {
+      const syllabusResponse = await getSyllabusByClassId(selectedClassId);
+      if (syllabusResponse && syllabusResponse.groupedItems) {
+        console.log("syllabusResponse: ", syllabusResponse);
+        setSyllabusData(syllabusResponse.groupedItems);
+      } else {
+        setSyllabusData([]);
+      }
+    } catch (error) {
+      console.error("Error fetching syllabus:", error);
+      setSyllabusData([]);
+    } finally {
+      setIsLoadingSyllabus(false);
     }
   };
 
@@ -322,6 +362,13 @@ export default function CourseDetail() {
       }
     }
   }, [course, selectedClassId]);
+
+  // Fetch syllabus when selectedClassId changes
+  useEffect(() => {
+    if (selectedClassId) {
+      fetchSyllabus();
+    }
+  }, [selectedClassId]);
 
   // Handle discussion thread
   // useEffect(() => {
@@ -657,272 +704,152 @@ export default function CourseDetail() {
         )}
 
         {/* Course Content */}
-        {course.chapters && course.chapters.length > 0 && (
+        {course.courseType === CourseType.LIVE ? (
           <motion.div
             className="bg-white rounded-lg shadow-sm p-6 transition-all hover:shadow-md"
             whileHover={{ y: -5 }}
             variants={itemVariant}
           >
-            <h2 className="text-2xl font-semibold mb-2 text-gray-800 flex items-center gap-2">
+            <h2 className="text-2xl font-semibold mb-4 text-gray-800 flex items-center gap-2">
               <BookOpen className="h-6 w-6 text-orange-500" />
-              Nội dung khoá học
+              Lộ trình học tập
             </h2>
-            <div className="flex items-center gap-2 mb-4">
-              <Badge
-                variant="outline"
-                className="text-xs py-1 px-2 bg-slate-50"
-              >
-                <span className="font-semibold mr-1">Số chương:</span>
-                {course.chapters?.length || 0}
-              </Badge>
-              <Badge
-                variant="outline"
-                className="text-xs py-1 px-2 bg-slate-50"
-              >
-                <span className="font-semibold mr-1">Số bài:</span>
-                {course.totalLessons || 0}
-              </Badge>
+
+            {/* Class Selector */}
+            <div className="mb-6">
+              <ClassSelector
+                classes={course.classes || []}
+                selectedClassId={selectedClassId}
+                onClassSelect={(classId: string) => setSelectedClassId(classId)}
+              />
             </div>
 
-            <motion.div
-              className="space-y-4"
-              variants={staggerContainer}
-              initial="hidden"
-              animate="visible"
-            >
-              {course.chapters?.map((chapter) => (
-                <motion.div key={chapter.id} variants={itemVariant}>
-                  <Collapsible
-                    open={!isCollapsed[chapter.id]}
-                    onOpenChange={() => toggleCollapse(chapter.id)}
-                  >
-                    <CollapsibleTrigger className="flex items-center justify-between w-full p-4 bg-slate-50 hover:bg-slate-100 rounded-lg transition-all duration-200">
-                      <div className="flex items-center gap-2">
-                        <Plus
-                          className={cn(
-                            "h-4 w-4 text-orange-500 transition-transform duration-200",
-                            !isCollapsed[chapter.id] && "rotate-45",
-                          )}
-                        />
-                        <h3 className="font-semibold text-gray-700">
-                          {chapter.title}
-                        </h3>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-gray-600">
-                          {chapter.lessons?.length || 0} bài
-                        </span>
-                      </div>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent className="pl-4">
-                      <motion.ul
-                        className="mt-2 space-y-2"
-                        variants={staggerContainer}
-                        initial="hidden"
-                        animate="visible"
-                      >
-                        {chapter.lessons?.map((lesson) => (
-                          <motion.li key={lesson.id} variants={itemVariant}>
-                            <Link
-                              href={
-                                isEnrolled || lesson.isFreePreview
-                                  ? `/course/${course.id}/lesson/${lesson.id}`
-                                  : "#"
-                              }
-                              className={`flex items-center justify-between p-3 hover:bg-slate-50 rounded-lg transition-all duration-200 ${
-                                isEnrolled || lesson.isFreePreview
-                                  ? "cursor-pointer"
-                                  : "cursor-not-allowed opacity-50"
-                              }`}
-                              onClick={(e) => {
-                                if (!isEnrolled && !lesson.isFreePreview) {
-                                  e.preventDefault();
-                                  toast.error(
-                                    "Vui lòng đăng ký khóa học để xem bài học này",
-                                  );
-                                }
-                              }}
-                            >
-                              <div className="flex items-center gap-2">
-                                <Book className="h-4 w-4 text-orange-500" />
-                                <span className="text-gray-700">
-                                  {lesson.title}
-                                </span>
-                              </div>
-                              {lesson.isFreePreview && (
-                                <Badge
-                                  variant="secondary"
-                                  className="bg-orange-100 text-orange-600 hover:bg-orange-200"
-                                >
-                                  Preview
-                                </Badge>
-                              )}
-                            </Link>
-                          </motion.li>
-                        ))}
-                      </motion.ul>
-                    </CollapsibleContent>
-                  </Collapsible>
-                </motion.div>
-              ))}
-            </motion.div>
+            {/* Syllabus Display */}
+            {selectedClassId && (
+              <SyllabusDisplay
+                syllabusData={syllabusData}
+                isLoading={isLoadingSyllabus}
+                selectedClassId={selectedClassId}
+                courseId={course.id}
+                isEnrolled={isEnrolled}
+              />
+            )}
           </motion.div>
-        )}
+        ) : (
+          // Original chapters/lessons display for SELF_PACED courses
+          course.chapters &&
+          course.chapters.length > 0 && (
+            <motion.div
+              className="bg-white rounded-lg shadow-sm p-6 transition-all hover:shadow-md"
+              whileHover={{ y: -5 }}
+              variants={itemVariant}
+            >
+              <h2 className="text-2xl font-semibold mb-2 text-gray-800 flex items-center gap-2">
+                <BookOpen className="h-6 w-6 text-orange-500" />
+                Nội dung khoá học
+              </h2>
+              <div className="flex items-center gap-2 mb-4">
+                <Badge
+                  variant="outline"
+                  className="text-xs py-1 px-2 bg-slate-50"
+                >
+                  <span className="font-semibold mr-1">Số chương:</span>
+                  {course.chapters?.length || 0}
+                </Badge>
+                <Badge
+                  variant="outline"
+                  className="text-xs py-1 px-2 bg-slate-50"
+                >
+                  <span className="font-semibold mr-1">Số bài:</span>
+                  {course.totalLessons || 0}
+                </Badge>
+              </div>
 
-        {/* Classes for LIVE courses - moved after course content */}
-        {course.courseType === CourseType.LIVE && (
-          <motion.div
-            className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg shadow-sm p-6 border-l-4 border-blue-500 transition-all hover:shadow-md"
-            whileHover={{ y: -5 }}
-            variants={itemVariant}
-          >
-            <h2 className="text-2xl font-semibold mb-4 text-gray-800 flex items-center gap-2">
-              <Video className="h-6 w-6 text-blue-500" />
-              Lớp học trực tuyến
-              <Badge
-                variant="outline"
-                className="bg-blue-100 text-blue-700 border-blue-300"
-              >
-                LIVE
-              </Badge>
-            </h2>
-
-            {getAvailableClasses().length > 0 ? (
               <motion.div
                 className="space-y-4"
                 variants={staggerContainer}
                 initial="hidden"
                 animate="visible"
               >
-                <div className="bg-white/70 backdrop-blur-sm rounded-lg p-4 border border-blue-200">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Info className="h-4 w-4 text-blue-600" />
-                    <p className="text-blue-800 font-medium text-sm">
-                      Khóa học này bao gồm cả nội dung tự học và các buổi học
-                      trực tuyến
-                    </p>
-                  </div>
-                  <p className="text-blue-700 text-sm">
-                    Chọn lớp học phù hợp với lịch trình của bạn để tham gia các
-                    buổi học trực tiếp với giảng viên
-                  </p>
-                </div>
-
-                {getAvailableClasses().map((classItem) => (
-                  <motion.div
-                    key={classItem.id}
-                    variants={itemVariant}
-                    className={cn(
-                      "bg-white border-2 rounded-lg p-5 transition-all duration-200 shadow-sm",
-                      selectedClassId === classItem.id
-                        ? "border-blue-500 bg-blue-50 shadow-md"
-                        : "border-gray-200 hover:border-blue-300 hover:shadow-md",
-                    )}
-                  >
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-3">
-                          <h3 className="font-semibold text-gray-800 text-lg">
-                            {classItem.name}
-                          </h3>
-                          {classItem.currentStudents >=
-                            classItem.maxStudents * 0.8 && (
-                            <Badge variant="destructive" className="text-xs">
-                              Sắp đầy!
-                            </Badge>
-                          )}
-                        </div>
-
-                        {classItem.description && (
-                          <p className="text-gray-600 text-sm mb-4 leading-relaxed">
-                            {classItem.description}
-                          </p>
-                        )}
-
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm mb-4">
-                          <div className="flex items-center gap-2 text-gray-600 bg-gray-50 p-2 rounded">
-                            <Calendar className="h-4 w-4 text-blue-500" />
-                            <div>
-                              <div className="font-medium">Bắt đầu</div>
-                              <div>{formatDate(classItem.startDate)}</div>
-                            </div>
-                          </div>
-
-                          {classItem.endDate && (
-                            <div className="flex items-center gap-2 text-gray-600 bg-gray-50 p-2 rounded">
-                              <Calendar className="h-4 w-4 text-blue-500" />
-                              <div>
-                                <div className="font-medium">Kết thúc</div>
-                                <div>{formatDate(classItem.endDate)}</div>
-                              </div>
-                            </div>
-                          )}
-
-                          <div className="flex items-center gap-2 text-gray-600 bg-gray-50 p-2 rounded">
-                            <Users className="h-4 w-4 text-blue-500" />
-                            <div>
-                              <div className="font-medium">Học viên</div>
-                              <div>
-                                {classItem.currentStudents}/
-                                {classItem.maxStudents}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Action buttons */}
-                        <div className="flex gap-3">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleViewClassSchedule(classItem)}
-                            className="text-blue-600 border-blue-300 hover:bg-blue-50"
-                          >
-                            <Calendar className="h-4 w-4 mr-2" />
-                            Xem lịch học
-                          </Button>
-                          <Button
-                            variant={
-                              selectedClassId === classItem.id
-                                ? "default"
-                                : "outline"
-                            }
-                            size="sm"
-                            onClick={() => setSelectedClassId(classItem.id)}
+                {course.chapters?.map((chapter) => (
+                  <motion.div key={chapter.id} variants={itemVariant}>
+                    <Collapsible
+                      open={!isCollapsed[chapter.id]}
+                      onOpenChange={() => toggleCollapse(chapter.id)}
+                    >
+                      <CollapsibleTrigger className="flex items-center justify-between w-full p-4 bg-slate-50 hover:bg-slate-100 rounded-lg transition-all duration-200">
+                        <div className="flex items-center gap-2">
+                          <Plus
                             className={cn(
-                              selectedClassId === classItem.id
-                                ? "bg-blue-500 hover:bg-blue-600 text-white"
-                                : "text-gray-700 hover:bg-gray-50",
+                              "h-4 w-4 text-orange-500 transition-transform duration-200",
+                              !isCollapsed[chapter.id] && "rotate-45",
                             )}
-                          >
-                            {selectedClassId === classItem.id
-                              ? "✓ Đã chọn"
-                              : "Chọn lớp này"}
-                          </Button>
+                          />
+                          <h3 className="font-semibold text-gray-700">
+                            {chapter.title}
+                          </h3>
                         </div>
-                      </div>
-                    </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-gray-600">
+                            {chapter.lessons?.length || 0} bài
+                          </span>
+                        </div>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="pl-4">
+                        <motion.ul
+                          className="mt-2 space-y-2"
+                          variants={staggerContainer}
+                          initial="hidden"
+                          animate="visible"
+                        >
+                          {chapter.lessons?.map((lesson) => (
+                            <motion.li key={lesson.id} variants={itemVariant}>
+                              <Link
+                                href={
+                                  isEnrolled || lesson.isFreePreview
+                                    ? `/course/${course.id}/lesson/${lesson.id}`
+                                    : "#"
+                                }
+                                className={`flex items-center justify-between p-3 hover:bg-slate-50 rounded-lg transition-all duration-200 ${
+                                  isEnrolled || lesson.isFreePreview
+                                    ? "cursor-pointer"
+                                    : "cursor-not-allowed opacity-50"
+                                }`}
+                                onClick={(e) => {
+                                  if (!isEnrolled && !lesson.isFreePreview) {
+                                    e.preventDefault();
+                                    toast.error(
+                                      "Vui lòng đăng ký khóa học để xem bài học này",
+                                    );
+                                  }
+                                }}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Book className="h-4 w-4 text-orange-500" />
+                                  <span className="text-gray-700">
+                                    {lesson.title}
+                                  </span>
+                                </div>
+                                {lesson.isFreePreview && (
+                                  <Badge
+                                    variant="secondary"
+                                    className="bg-orange-100 text-orange-600 hover:bg-orange-200"
+                                  >
+                                    Preview
+                                  </Badge>
+                                )}
+                              </Link>
+                            </motion.li>
+                          ))}
+                        </motion.ul>
+                      </CollapsibleContent>
+                    </Collapsible>
                   </motion.div>
                 ))}
               </motion.div>
-            ) : (
-              <div className="text-center py-12 bg-white/50 rounded-lg border border-blue-200">
-                <Calendar className="h-12 w-12 text-blue-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-700 mb-2">
-                  Chưa có lớp học nào mở đăng ký
-                </h3>
-                <p className="text-gray-500 mb-1">
-                  Hiện tại chưa có lớp học nào mở đăng ký cho khóa học này
-                </p>
-                <p className="text-gray-400 text-sm">
-                  Vui lòng quay lại sau hoặc liên hệ để được thông báo khi có
-                  lớp mới
-                </p>
-              </div>
-            )}
-          </motion.div>
+            </motion.div>
+          )
         )}
-
         {/* Requirements */}
         {course.requirements && course.requirements.length > 0 && (
           <motion.div
@@ -1010,7 +937,7 @@ export default function CourseDetail() {
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
                         <p className="text-red-600 text-2xl font-semibold">
-                          {pricing.currentPrice.toLocaleString()} VND
+                          {Number(pricing?.currentPrice).toLocaleString()} VND
                         </p>
                         {pricing.hasPromotion && pricing.promotionName && (
                           <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded">
