@@ -186,3 +186,56 @@ export async function updateSyllabusOrder(
     };
   }
 }
+
+/**
+ * Lấy thông tin tiến độ của user trong class
+ */
+export async function getUserClassProgress(
+  classId: string,
+  userId: string,
+): Promise<{
+  currentItem?: SyllabusItem;
+  completedItems: string[];
+  overallProgress: number;
+}> {
+  try {
+    const { data } = await syllabusApi.get(
+      `/classes/${classId}/progress/${userId}`,
+    );
+    return data;
+  } catch (error: any) {
+    console.error("Error fetching user class progress:", error);
+    return {
+      completedItems: [],
+      overallProgress: 0,
+    };
+  }
+}
+
+/**
+ * Cập nhật tiến độ của user trong class
+ */
+export async function updateUserClassProgress(
+  classId: string,
+  userId: string,
+  data: {
+    currentItemId: string;
+    isCompleted?: boolean;
+    progressPercentage?: number;
+  },
+): Promise<{ success: boolean; message: string }> {
+  try {
+    await syllabusApi.post(`/classes/${classId}/progress/${userId}`, data);
+    return {
+      success: true,
+      message: "Cập nhật tiến độ thành công",
+    };
+  } catch (error: any) {
+    console.error("Error updating user class progress:", error);
+    return {
+      success: false,
+      message:
+        error.response?.data?.message || "Có lỗi xảy ra khi cập nhật tiến độ",
+    };
+  }
+}
