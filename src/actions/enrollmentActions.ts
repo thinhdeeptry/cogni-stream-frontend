@@ -235,7 +235,7 @@ export const getMyClasses = async (userId: string) => {
     const response = await enrollmentApi.get(
       `/enrollments/my-classes?userId=${userId}`,
     );
-    console.log(response);
+    console.log("Lớp của tôi: ", response);
     return {
       success: true,
       data: response.data,

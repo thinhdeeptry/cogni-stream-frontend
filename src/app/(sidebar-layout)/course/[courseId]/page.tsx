@@ -1081,7 +1081,7 @@ export default function CourseDetail() {
                       size="lg"
                       onClick={handleStartLearningClick}
                     >
-                      <span className="relative z-10">Bắt đầu học</span>
+                      <span className="relative z-10">Học tiếp</span>
                       <span className="absolute inset-0 bg-gradient-to-r from-orange-400 to-orange-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
                       <span className="absolute -inset-1 rounded-lg bg-gradient-to-r from-orange-400 via-orange-500 to-orange-400 opacity-0 group-hover:opacity-30 blur-md transition-opacity duration-300 animate-pulse"></span>
                     </Button>

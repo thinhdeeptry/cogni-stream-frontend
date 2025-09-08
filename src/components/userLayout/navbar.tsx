@@ -10,10 +10,20 @@ import {
 import { FormEvent, useEffect, useState } from "react";
 
 import { Course } from "@/types/course/types";
-import { Bell, LogOut, Search, Settings, User, X } from "lucide-react";
+import {
+  Bell,
+  BookOpen,
+  Clock,
+  LogOut,
+  Search,
+  Settings,
+  User,
+  X,
+} from "lucide-react";
 import { useSession } from "next-auth/react";
 
 // import { checkEnrollmentStatus } from "@/actions/enrollmentActions";
+import { getMyClasses } from "@/actions/enrollmentActions";
 
 import { useProgressStore } from "@/stores/useProgressStore";
 
@@ -61,6 +71,38 @@ export default function Navbar({
   const { data: session } = useSession();
   const { enrollmentId, currentCourseId } = useProgressStore();
   const [isCurrentCourseEnrolled, setIsCurrentCourseEnrolled] = useState(false);
+  const [myClasses, setMyClasses] = useState<any[]>([]);
+  const [loadingClasses, setLoadingClasses] = useState(false);
+
+  // Fetch my classes
+  useEffect(() => {
+    const fetchMyClasses = async () => {
+      if (session?.user?.id && isLoggedIn) {
+        setLoadingClasses(true);
+        try {
+          const result = await getMyClasses(session.user.id);
+          if (result.success) {
+            console.log("Data my class: ", result.data);
+            // API trả về { data: { data: [...] } }, nên cần lấy result.data.data
+            const classesData = result.data?.data || result.data || [];
+            console.log("classData: ", classesData);
+            setMyClasses(
+              Array.isArray(classesData.data) ? classesData.data : [],
+            );
+          } else {
+            setMyClasses([]);
+          }
+        } catch (error) {
+          console.error("Error fetching my classes:", error);
+          setMyClasses([]);
+        } finally {
+          setLoadingClasses(false);
+        }
+      }
+    };
+
+    fetchMyClasses();
+  }, [session?.user?.id, isLoggedIn]);
 
   // Check if we're in a lesson page
   const isLessonPage =
@@ -129,6 +171,33 @@ export default function Navbar({
     }
   };
 
+  const formatTimeAgo = (dateString: string) => {
+    const now = new Date();
+    const date = new Date(dateString);
+    const diffInMs = now.getTime() - date.getTime();
+    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+    const diffInDays = Math.floor(diffInHours / 24);
+
+    if (diffInHours < 1) {
+      return "Vừa học";
+    } else if (diffInHours < 24) {
+      return `${diffInHours} giờ trước`;
+    } else if (diffInDays < 7) {
+      return `${diffInDays} ngày trước`;
+    } else {
+      const weeks = Math.floor(diffInDays / 7);
+      return `${weeks} tuần trước`;
+    }
+  };
+
+  const handleCourseClick = (courseId: string) => {
+    router.push(`/course/${courseId}`);
+  };
+
+  const handleViewAllClasses = () => {
+    router.push("/user/profile?tab=classes");
+  };
+
   return (
     <header className="w-full border-b bg-white">
       <div className="container flex h-16 items-center justify-between px-4">
@@ -148,7 +217,7 @@ export default function Navbar({
         </Link>
 
         {/* Search Bar and Progress */}
-        <div className="relative mx-4 flex-1 max-w-md flex items-center gap-4">
+        <div className="relative mx-4 flex-1 max-w-md flex items-center gap-4 ">
           <form onSubmit={handleSearch} className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
             <Input
@@ -184,9 +253,91 @@ export default function Navbar({
         <div className="flex items-center gap-4">
           {isLoggedIn ? (
             <>
-              <span className="hidden text-sm font-medium md:block">
-                Khóa học của tôi
-              </span>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="text-sm font-medium hover:bg-gray-100"
+                  >
+                    {/* <BookOpen className="mr-2 h-4 w-4" /> */}
+                    <span className="hidden md:block">Khóa học của tôi</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-80">
+                  <div className="p-3 border-b">
+                    <h4 className="font-semibold text-sm">Khóa học của tôi</h4>
+                  </div>
+                  <div className="max-h-96">
+                    {loadingClasses ? (
+                      <div className="p-4 text-center text-sm text-gray-500">
+                        Đang tải...
+                      </div>
+                    ) : !Array.isArray(myClasses) || myClasses.length === 0 ? (
+                      <div className="p-4 text-center text-sm text-gray-500">
+                        Chưa có khóa học nào
+                      </div>
+                    ) : (
+                      <>
+                        {myClasses.slice(0, 5).map((enrollment) => {
+                          const courseData =
+                            enrollment.class?.course || enrollment.course;
+                          return (
+                            <DropdownMenuItem
+                              key={enrollment.id}
+                              className="p-3 cursor-pointer"
+                              onClick={() => handleCourseClick(courseData?.id)}
+                            >
+                              <div className="flex items-center gap-3 w-full">
+                                <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">
+                                  <img
+                                    src={
+                                      courseData?.thumbnailUrl ||
+                                      "/placeholder-course.jpg"
+                                    }
+                                    alt={courseData?.title}
+                                    className="w-full h-full object-cover"
+                                  />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <h5 className="font-medium text-sm truncate">
+                                    {courseData?.title}
+                                  </h5>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <div className="flex-1 bg-gray-200 rounded-full h-1.5">
+                                      <div
+                                        className="bg-orange-500 h-1.5 rounded-full transition-all"
+                                        style={{
+                                          width: `${enrollment.progress || 0}%`,
+                                        }}
+                                      />
+                                    </div>
+                                    <span className="text-xs text-gray-500">
+                                      {enrollment.progress || 0}%
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-1 mt-1">
+                                    <Clock className="h-3 w-3 text-gray-400" />
+                                    <span className="text-xs text-gray-500">
+                                      {formatTimeAgo(enrollment.updatedAt)}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </DropdownMenuItem>
+                          );
+                        })}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="p-3 text-center cursor-pointer text-orange-600 hover:text-orange-700"
+                          onClick={handleViewAllClasses}
+                        >
+                          Xem tất cả
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </div>
+                </DropdownMenuContent>
+              </DropdownMenu>
               {/* <NotificationBell userId={session?.user?.id || ""} /> */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
