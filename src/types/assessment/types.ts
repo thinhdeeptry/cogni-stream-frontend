@@ -1,8 +1,11 @@
 export enum QuestionType {
   SINGLE_CHOICE = "SINGLE_CHOICE",
   MULTIPLE_CHOICE = "MULTIPLE_CHOICE",
-  TRUE_FALSE = "TRUE_FALSE",
+  SHORT_ANSWER = "SHORT_ANSWER",
   ESSAY = "ESSAY",
+  FILL_IN_BLANK = "FILL_IN_BLANK",
+  // Giữ lại legacy types để tương thích ngược
+  TRUE_FALSE = "TRUE_FALSE",
 }
 
 export enum QuestionDifficulty {
@@ -50,6 +53,15 @@ export interface Answer {
   text: string;
   isCorrect: boolean;
   questionId?: string;
+  // Thêm properties cho auto-grading
+  acceptedAnswers?: string[];
+  caseSensitive?: boolean;
+  exactMatch?: boolean;
+  points?: number;
+}
+
+export interface QuestionContent {
+  text: string;
 }
 
 export interface QuestionLesson {
@@ -75,6 +87,13 @@ export interface Question {
   lessonId?: string;
   answers: Answer[];
   lession?: QuestionLesson; // Note: API uses "lession" not "lesson"
+  // Thêm properties mới
+  content?: QuestionContent;
+  options?: any[]; // Legacy support
+  referenceAnswer?: {
+    content?: QuestionContent;
+    notes?: string;
+  };
 }
 
 export interface QuestionResponse {

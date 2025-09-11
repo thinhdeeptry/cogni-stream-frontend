@@ -933,6 +933,16 @@ export default function ClassLearningPage() {
                                         </span>
                                       </div>
                                     )}
+                                  {item.itemType === SyllabusItemType.LESSON &&
+                                    item.lesson && (
+                                      <div className="flex items-center gap-1 text-xs text-gray-500">
+                                        <Clock className="h-3 w-3" />
+                                        <span>
+                                          {item.lesson.estimatedDurationMinutes}{" "}
+                                          phút
+                                        </span>
+                                      </div>
+                                    )}
                                 </div>
                               </div>
                             </div>

@@ -1,5 +1,4 @@
-"use server";
-
+// "use server";
 import { AxiosFactory } from "@/lib/axios";
 import {
   Answer,
@@ -20,7 +19,7 @@ import {
   UpdateQuestionDto,
 } from "@/types/assessment/types";
 
-const assessmentApi = await AxiosFactory.getApiInstance("assessment");
+const assessmentApi = await AxiosFactory.getApiInstance("courses");
 
 // ===== QUESTION MANAGEMENT APIs =====
 
@@ -29,6 +28,8 @@ const assessmentApi = await AxiosFactory.getApiInstance("assessment");
  */
 export async function getQuestions(filter: QuestionFilter = {}) {
   try {
+    console.log("Getting questions with filter:", filter);
+
     const { data } = await assessmentApi.get("/questions", { params: filter });
     return {
       success: true,
@@ -36,14 +37,22 @@ export async function getQuestions(filter: QuestionFilter = {}) {
       message: "Lấy danh sách câu hỏi thành công",
     };
   } catch (error: any) {
-    console.error("Error fetching questions:", error);
+    const errorMessage =
+      error.response?.data?.message ||
+      error.message ||
+      "Đã xảy ra lỗi khi lấy danh sách câu hỏi";
+    console.error("Error fetching questionsss:", errorMessage);
+
+    if (error.response?.status === 401) {
+      return {
+        success: false,
+        message: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
+      };
+    }
+
     return {
       success: false,
-      message:
-        error.response?.data?.message ||
-        error.message ||
-        "Đã xảy ra lỗi khi lấy danh sách câu hỏi",
-      error,
+      message: errorMessage,
     };
   }
 }
@@ -60,14 +69,14 @@ export async function getQuestionById(questionId: string) {
       message: "Lấy thông tin câu hỏi thành công",
     };
   } catch (error: any) {
-    console.error("Error fetching question:", error);
+    const errorMessage =
+      error.response?.data?.message ||
+      error.message ||
+      "Đã xảy ra lỗi khi lấy thông tin câu hỏi";
+    console.error("Error fetching question:", errorMessage);
     return {
       success: false,
-      message:
-        error.response?.data?.message ||
-        error.message ||
-        "Đã xảy ra lỗi khi lấy thông tin câu hỏi",
-      error,
+      message: errorMessage,
     };
   }
 }
@@ -84,14 +93,14 @@ export async function createQuestion(questionData: CreateQuestionDto) {
       message: "Tạo câu hỏi thành công",
     };
   } catch (error: any) {
-    console.error("Error creating question:", error);
+    const errorMessage =
+      error.response?.data?.message ||
+      error.message ||
+      "Đã xảy ra lỗi khi tạo câu hỏi";
+    console.error("Error creating question:", errorMessage);
     return {
       success: false,
-      message:
-        error.response?.data?.message ||
-        error.message ||
-        "Đã xảy ra lỗi khi tạo câu hỏi",
-      error: error.response?.data || error,
+      message: errorMessage,
     };
   }
 }
@@ -114,14 +123,14 @@ export async function updateQuestion(
       message: "Cập nhật câu hỏi thành công",
     };
   } catch (error: any) {
-    console.error("Error updating question:", error);
+    const errorMessage =
+      error.response?.data?.message ||
+      error.message ||
+      "Đã xảy ra lỗi khi cập nhật câu hỏi";
+    console.error("Error updating question:", errorMessage);
     return {
       success: false,
-      message:
-        error.response?.data?.message ||
-        error.message ||
-        "Đã xảy ra lỗi khi cập nhật câu hỏi",
-      error: error.response?.data || error,
+      message: errorMessage,
     };
   }
 }
@@ -137,14 +146,14 @@ export async function deleteQuestion(questionId: string) {
       message: "Đã xóa câu hỏi thành công",
     };
   } catch (error: any) {
-    console.error("Error deleting question:", error);
+    const errorMessage =
+      error.response?.data?.message ||
+      error.message ||
+      "Đã xảy ra lỗi khi xóa câu hỏi";
+    console.error("Error deleting question:", errorMessage);
     return {
       success: false,
-      message:
-        error.response?.data?.message ||
-        error.message ||
-        "Đã xảy ra lỗi khi xóa câu hỏi",
-      error: error.response?.data || error,
+      message: errorMessage,
     };
   }
 }
@@ -169,14 +178,14 @@ export async function createAnswer(
       message: "Thêm đáp án thành công",
     };
   } catch (error: any) {
-    console.error("Error creating answer:", error);
+    const errorMessage =
+      error.response?.data?.message ||
+      error.message ||
+      "Đã xảy ra lỗi khi thêm đáp án";
+    console.error("Error creating answer:", errorMessage);
     return {
       success: false,
-      message:
-        error.response?.data?.message ||
-        error.message ||
-        "Đã xảy ra lỗi khi thêm đáp án",
-      error: error.response?.data || error,
+      message: errorMessage,
     };
   }
 }
@@ -200,14 +209,14 @@ export async function updateAnswer(
       message: "Cập nhật đáp án thành công",
     };
   } catch (error: any) {
-    console.error("Error updating answer:", error);
+    const errorMessage =
+      error.response?.data?.message ||
+      error.message ||
+      "Đã xảy ra lỗi khi cập nhật đáp án";
+    console.error("Error updating answer:", errorMessage);
     return {
       success: false,
-      message:
-        error.response?.data?.message ||
-        error.message ||
-        "Đã xảy ra lỗi khi cập nhật đáp án",
-      error: error.response?.data || error,
+      message: errorMessage,
     };
   }
 }
@@ -223,14 +232,14 @@ export async function deleteAnswer(questionId: string, answerId: string) {
       message: "Đã xóa đáp án thành công",
     };
   } catch (error: any) {
-    console.error("Error deleting answer:", error);
+    const errorMessage =
+      error.response?.data?.message ||
+      error.message ||
+      "Đã xảy ra lỗi khi xóa đáp án";
+    console.error("Error deleting answer:", errorMessage);
     return {
       success: false,
-      message:
-        error.response?.data?.message ||
-        error.message ||
-        "Đã xảy ra lỗi khi xóa đáp án",
-      error: error.response?.data || error,
+      message: errorMessage,
     };
   }
 }
@@ -249,14 +258,14 @@ export async function createBulkQuestions(data: BulkCreateQuestionsDto) {
       message: `Đã tạo ${data.questions.length} câu hỏi thành công`,
     };
   } catch (error: any) {
-    console.error("Error creating bulk questions:", error);
+    const errorMessage =
+      error.response?.data?.message ||
+      error.message ||
+      "Đã xảy ra lỗi khi tạo câu hỏi";
+    console.error("Error creating bulk questions:", errorMessage);
     return {
       success: false,
-      message:
-        error.response?.data?.message ||
-        error.message ||
-        "Đã xảy ra lỗi khi tạo câu hỏi",
-      error: error.response?.data || error,
+      message: errorMessage,
     };
   }
 }
@@ -272,14 +281,14 @@ export async function deleteBulkQuestions(data: BulkDeleteQuestionsDto) {
       message: `Đã xóa ${data.questionIds.length} câu hỏi thành công`,
     };
   } catch (error: any) {
-    console.error("Error deleting bulk questions:", error);
+    const errorMessage =
+      error.response?.data?.message ||
+      error.message ||
+      "Đã xảy ra lỗi khi xóa câu hỏi";
+    console.error("Error deleting bulk questions:", errorMessage);
     return {
       success: false,
-      message:
-        error.response?.data?.message ||
-        error.message ||
-        "Đã xảy ra lỗi khi xóa câu hỏi",
-      error: error.response?.data || error,
+      message: errorMessage,
     };
   }
 }
@@ -304,14 +313,14 @@ export async function duplicateQuestion(
       message: "Sao chép câu hỏi thành công",
     };
   } catch (error: any) {
-    console.error("Error duplicating question:", error);
+    const errorMessage =
+      error.response?.data?.message ||
+      error.message ||
+      "Đã xảy ra lỗi khi sao chép câu hỏi";
+    console.error("Error duplicating question:", errorMessage);
     return {
       success: false,
-      message:
-        error.response?.data?.message ||
-        error.message ||
-        "Đã xảy ra lỗi khi sao chép câu hỏi",
-      error: error.response?.data || error,
+      message: errorMessage,
     };
   }
 }
@@ -327,14 +336,14 @@ export async function reorderQuestions(data: ReorderQuestionsDto) {
       message: "Đã cập nhật thứ tự câu hỏi thành công",
     };
   } catch (error: any) {
-    console.error("Error reordering questions:", error);
+    const errorMessage =
+      error.response?.data?.message ||
+      error.message ||
+      "Đã xảy ra lỗi khi cập nhật thứ tự câu hỏi";
+    console.error("Error reordering questions:", errorMessage);
     return {
       success: false,
-      message:
-        error.response?.data?.message ||
-        error.message ||
-        "Đã xảy ra lỗi khi cập nhật thứ tự câu hỏi",
-      error: error.response?.data || error,
+      message: errorMessage,
     };
   }
 }
@@ -362,11 +371,11 @@ export async function getQuestionsById(questionIds: string[]) {
       message: "Lấy danh sách câu hỏi thành công",
     };
   } catch (error: any) {
-    console.error("Error fetching questions by IDs:", error);
+    const errorMessage = "Đã xảy ra lỗi khi lấy danh sách câu hỏi";
+    console.error("Error fetching questions by IDs:", errorMessage);
     return {
       success: false,
-      message: "Đã xảy ra lỗi khi lấy danh sách câu hỏi",
-      error,
+      message: errorMessage,
     };
   }
 }

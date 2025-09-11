@@ -379,6 +379,43 @@ export const getUserCourseStructureWithDetails = async (userId: string) => {
     };
   }
 };
+
+// Lấy cấu trúc khóa học với thông tin thống kê câu hỏi
+export const getCourseStructureWithQuestionStats = async () => {
+  try {
+    console.log(
+      "Calling API with URL:",
+      `/courses/structure?include=questionStats`,
+    );
+
+    const { data } = await courseApi.get(
+      `/courses/structure?include=questionStats`,
+    );
+    console.log("getCourseStructureWithQuestionStats", data);
+
+    return {
+      success: true,
+      data: data,
+      message: "Lấy cấu trúc khóa học với thống kê câu hỏi thành công",
+    };
+  } catch (error: any) {
+    console.error(
+      "Error fetching course structure with question stats:",
+      error,
+    );
+    console.error("Error details:", {
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      url: error.config?.url,
+    });
+    return {
+      success: false,
+      message: "Đã xảy ra lỗi khi lấy cấu trúc khóa học với thống kê câu hỏi",
+      error,
+    };
+  }
+};
 export const createLesson = async (
   courseId: string,
   chapterId: string,

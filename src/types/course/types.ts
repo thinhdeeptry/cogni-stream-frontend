@@ -342,3 +342,116 @@ export interface UpdateSyllabusItemRequest {
   lessonId?: string;
   classSessionId?: string;
 }
+
+// Interfaces mới cho question management
+export interface CourseStructureResponse {
+  id: string;
+  title: string;
+  description?: string;
+  courseType: "SELF_PACED" | "LIVE"; // Quan trọng để phân biệt
+  instructorId: string;
+  isPublished: boolean;
+  thumbnailUrl?: string;
+
+  // Thông tin thống kê quan trọng cho questions/quiz
+  stats: {
+    totalChapters: number;
+    totalLessons: number;
+    totalQuestions: number; // Tổng số câu hỏi trong course
+    totalQuizzes: number; // Tổng số quiz/test trong course
+    totalClasses?: number; // Chỉ cho LIVE courses
+  };
+
+  chapters: ChapterStructure[];
+  classes?: ClassStructure[]; // Chỉ cho LIVE courses
+}
+
+export interface ChapterStructure {
+  id: string;
+  title: string;
+  description?: string;
+  order: number;
+  isPublished: boolean;
+
+  // Thông tin quan trọng cho question management
+  stats: {
+    totalLessons: number;
+    totalQuestions: number; // Tổng câu hỏi trong chapter này
+    questionsByType: {
+      // Phân loại câu hỏi theo type
+      SINGLE_CHOICE: number;
+      MULTIPLE_CHOICE: number;
+      SHORT_ANSWER: number;
+      ESSAY: number;
+      FILL_IN_BLANK: number;
+    };
+    totalQuizzes: number;
+  };
+
+  lessons: LessonStructure[];
+}
+
+export interface LessonStructure {
+  id: string;
+  title: string;
+  type: "VIDEO" | "BLOG" | "MIXED" | "QUIZ";
+  order: number;
+  isPublished: boolean;
+  isFreePreview: boolean;
+  estimatedDurationMinutes?: number;
+
+  // Thông tin câu hỏi - quan trọng nhất
+  questionStats: {
+    totalQuestions: number;
+    questionsByType: {
+      SINGLE_CHOICE: number;
+      MULTIPLE_CHOICE: number;
+      SHORT_ANSWER: number;
+      ESSAY: number;
+      FILL_IN_BLANK: number;
+    };
+    hasQuestions: boolean; // Quick check
+  };
+
+  // Thông tin quiz/test
+  quizStats: {
+    totalQuizzes: number;
+    activeQuizzes: number;
+    quizTypes: string[]; // ["PRACTICE", "QUIZ", "FINAL"]
+    hasActiveQuiz: boolean;
+  };
+}
+
+export interface ClassStructure {
+  id: string;
+  name: string;
+  description?: string;
+  status: "DRAFT" | "PUBLISHED" | "ONGOING" | "COMPLETED" | "CANCELLED";
+  startDate: string;
+  endDate?: string;
+  maxStudents: number;
+  currentStudents: number;
+
+  // Thông tin quan trọng cho question management
+  stats: {
+    totalSessions: number;
+    totalLessons: number; // Lessons được assign vào class
+    totalQuestions: number; // Tổng câu hỏi trong class
+    questionsByType: {
+      SINGLE_CHOICE: number;
+      MULTIPLE_CHOICE: number;
+      SHORT_ANSWER: number;
+      ESSAY: number;
+      FILL_IN_BLANK: number;
+    };
+    totalQuizzes: number;
+  };
+
+  // Syllabus items summary
+  syllabusStats: {
+    totalItems: number;
+    lessonItems: number;
+    sessionItems: number;
+    daysCovered: number;
+  };
+}
