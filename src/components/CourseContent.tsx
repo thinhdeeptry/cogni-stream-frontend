@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type React from "react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { toast } from "@/hooks/use-toast";
 import { Edit, GripVertical, Plus, Trash } from "lucide-react";
@@ -47,16 +47,19 @@ interface CourseContentProps {
   courseId: string;
   chapters: Chapter[];
   onOrderUpdate: () => void;
+  optimistic?: boolean; // Thêm option để enable optimistic updates
 }
 
 export function CourseContent({
   courseId,
   chapters,
   onOrderUpdate,
+  optimistic = true, // Mặc định bật optimistic updates
 }: CourseContentProps) {
   const [items, setItems] = useState(chapters);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDeletingLesson, setIsDeletingLesson] = useState(false);
+  const [isReordering, setIsReordering] = useState(false); // Thêm state loading cho reorder
   const [draggedLessonData, setDraggedLessonData] = useState<{
     lesson: Lesson;
     sourceChapterId: string;
@@ -64,6 +67,23 @@ export function CourseContent({
   const dragItem = useRef<any>(null);
   const dragOverItem = useRef<any>(null);
   const dragSource = useRef<string | null>(null);
+
+  // Sync với props khi chapters thay đổi từ parent
+  useEffect(() => {
+    setItems(chapters);
+  }, [chapters]);
+
+  // Cleanup timeout khi component unmount
+  useEffect(() => {
+    return () => {
+      if (debouncedOrderUpdate.current) {
+        clearTimeout(debouncedOrderUpdate.current);
+      }
+    };
+  }, []);
+
+  // Debounced function để gọi onOrderUpdate khi cần
+  const debouncedOrderUpdate = useRef<NodeJS.Timeout | null>(null);
 
   const handleDragStart = (
     e: React.DragEvent,
@@ -206,6 +226,8 @@ export function CourseContent({
       return;
 
     try {
+      setIsReordering(true); // Bắt đầu loading state
+
       if (targetType === "chapter" && dragSource.current === "chapter") {
         const newChapters = [...items];
         const draggedChapter = newChapters[draggedIndex];
@@ -230,6 +252,12 @@ export function CourseContent({
           title: "Thành công",
           description: "Đã cập nhật thứ tự chương",
         });
+
+        // Call onOrderUpdate() chỉ khi không optimistic để refresh parent data
+        if (!optimistic) {
+          onOrderUpdate();
+        }
+        // Không cần gọi onOrderUpdate() vì đã cập nhật UI locally
       } else if (
         (targetType === "lesson" || targetType === "chapter") &&
         dragSource.current === "lesson" &&
@@ -285,6 +313,12 @@ export function CourseContent({
             title: "Thành công",
             description: "Đã di chuyển bài học sang chương khác",
           });
+
+          // Call onOrderUpdate() chỉ khi không optimistic
+          if (!optimistic) {
+            onOrderUpdate();
+          }
+          // Không cần gọi onOrderUpdate() vì đã cập nhật UI locally
         } else if (
           targetType === "lesson" &&
           draggedLessonData?.sourceChapterId === targetChapterId
@@ -319,10 +353,17 @@ export function CourseContent({
             title: "Thành công",
             description: "Đã cập nhật thứ tự bài học",
           });
+
+          // Call onOrderUpdate() chỉ khi không optimistic
+          if (!optimistic) {
+            onOrderUpdate();
+          }
+          // Không cần gọi onOrderUpdate() vì đã cập nhật UI locally
         }
       }
 
-      onOrderUpdate();
+      // KHÔNG gọi onOrderUpdate() ở đây để tránh reload
+      // onOrderUpdate(); // <- Đã xóa dòng này
     } catch (error: any) {
       console.error("Error updating order:", error);
       toast({
@@ -335,15 +376,25 @@ export function CourseContent({
         variant: "destructive",
       });
 
+      // Revert the UI changes if API call failed
       setItems(chapters);
     } finally {
       setDraggedLessonData(null);
       dragSource.current = null;
+      setIsReordering(false); // Kết thúc loading state
     }
   };
 
   return (
     <div className="space-y-4">
+      {isReordering && (
+        <div className="fixed top-4 right-4 z-50 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg">
+          <div className="flex items-center gap-2">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+            <span className="text-sm">Đang cập nhật...</span>
+          </div>
+        </div>
+      )}
       <style jsx>{`
         .dragging {
           opacity: 0.5;

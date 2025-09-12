@@ -338,6 +338,7 @@ export default function CourseDetailPage({
                   lessons: chapter.lessons || [],
                 }))}
                 onOrderUpdate={fetchCourseData}
+                optimistic={true} // Enable optimistic updates
               />
             </CardContent>
           </Card>
