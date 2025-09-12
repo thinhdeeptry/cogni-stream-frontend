@@ -170,3 +170,13 @@ body {
   padding: 4;
   margin: -30;
 }
+/* kéo thả cập nhật */
+/* .dragging {
+    opacity: 0.5;
+    transform: rotate(2deg);
+}
+
+.drag-over {
+    border: 2px dashed #3b82f6;
+    background-color: #eff6ff;
+} */

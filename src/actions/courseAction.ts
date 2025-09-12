@@ -687,3 +687,113 @@ export const createPricingDetail = async (detailData: {
     throw error;
   }
 };
+
+// ============================================
+// REORDER FUNCTIONS
+// ============================================
+
+// Sắp xếp lại thứ tự chapters
+export const reorderChapters = async (
+  courseId: string,
+  chapters: { id: string; order: number }[],
+) => {
+  try {
+    console.log("Calling reorderChapters API:", {
+      courseId,
+      chapters,
+      endpoint: `/courses/${courseId}/chapters/reorder`,
+    });
+
+    const { data } = await courseApi.put(
+      `/courses/${courseId}/chapters/reorder`,
+      {
+        chapters,
+      },
+    );
+
+    console.log("reorderChapters API response:", data);
+
+    return {
+      success: true,
+      data,
+      message: "Cập nhật thứ tự chương thành công",
+    };
+  } catch (error: any) {
+    console.error("Error reordering chapters:", error);
+    return {
+      success: false,
+      message:
+        error.response?.data?.message || "Không thể cập nhật thứ tự chương",
+      error,
+    };
+  }
+};
+
+// Sắp xếp lại thứ tự lessons (hỗ trợ di chuyển giữa chapters)
+export const reorderLessons = async (
+  lessons: { id: string; order: number; chapterId: string }[],
+) => {
+  try {
+    console.log("Calling reorderLessons API:", {
+      lessons,
+      endpoint: `/lessons/reorder`,
+    });
+
+    const { data } = await courseApi.put(`/lessons/reorder`, {
+      lessons,
+    });
+
+    console.log("reorderLessons API response:", data);
+
+    return {
+      success: true,
+      data,
+      message: "Cập nhật thứ tự bài học thành công",
+    };
+  } catch (error: any) {
+    console.error("Error reordering lessons:", error);
+    return {
+      success: false,
+      message:
+        error.response?.data?.message || "Không thể cập nhật thứ tự bài học",
+      error,
+    };
+  }
+};
+
+// Di chuyển lesson sang chapter khác
+export const moveLessonToChapter = async (
+  lessonId: string,
+  targetChapterId: string,
+  order?: number,
+) => {
+  try {
+    console.log("Calling moveLessonToChapter API:", {
+      lessonId,
+      targetChapterId,
+      order,
+      endpoint: `/lessons/${lessonId}/move/${targetChapterId}`,
+    });
+
+    const requestBody = order ? { order } : {};
+    const { data } = await courseApi.put(
+      `/lessons/${lessonId}/move/${targetChapterId}`,
+      requestBody,
+    );
+
+    console.log("moveLessonToChapter API response:", data);
+
+    return {
+      success: true,
+      data,
+      message: "Di chuyển bài học thành công",
+    };
+  } catch (error: any) {
+    console.error("Error moving lesson:", error);
+    return {
+      success: false,
+      message: error.response?.data?.message || "Không thể di chuyển bài học",
+      error,
+    };
+  }
+};
