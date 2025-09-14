@@ -99,6 +99,7 @@ export interface Lesson {
   chapterId: string;
   isPublished: boolean;
   isFreePreview: boolean;
+  passPercent?: number; // Điểm đậu cho QUIZ (default: 80%)
   chapter?: Chapter;
   createdAt: Date;
   updatedAt: Date;

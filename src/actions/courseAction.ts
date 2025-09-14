@@ -385,11 +385,11 @@ export const getCourseStructureWithQuestionStats = async () => {
   try {
     console.log(
       "Calling API with URL:",
-      `/courses/structure?include=questionStats`,
+      `/courses/structure?include=questionStats&lessonType=QUIZ`,
     );
 
     const { data } = await courseApi.get(
-      `/courses/structure?include=questionStats`,
+      `/courses/structure?include=questionStats&lessonType=QUIZ`,
     );
     console.log("getCourseStructureWithQuestionStats", data);
 
@@ -426,6 +426,7 @@ export const createLesson = async (
     videoUrl?: string;
     isPublished?: boolean;
     isFreePreview?: boolean;
+    passPercent?: number;
   },
 ) => {
   try {
@@ -483,6 +484,7 @@ export const updateLesson = async (
     videoUrl?: string;
     isPublished?: boolean;
     isFreePreview?: boolean;
+    passPercent?: number;
   },
 ) => {
   try {

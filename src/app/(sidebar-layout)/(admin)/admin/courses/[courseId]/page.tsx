@@ -173,7 +173,7 @@ export default function CourseDetailPage({
             </div>
           </div>
           <Link href={`/admin/courses/${resolvedParams.courseId}/edit`}>
-            <Button className="bg-black hover:bg-gray-800 text-white gap-2">
+            <Button className="bg-orange-500 hover:bg-orange-600 text-white gap-2">
               <Edit className="h-4 w-4" />
               Chỉnh sửa khóa học
             </Button>

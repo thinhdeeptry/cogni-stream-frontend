@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { use, useEffect, useState } from "react";
 
 import { useToast } from "@/hooks/use-toast";
+import { Question } from "@/types/assessment/types";
 import { LessonType } from "@/types/course/types";
 import "@blocknote/core/fonts/inter.css";
 import { BlockNoteView } from "@blocknote/mantine";
@@ -18,6 +19,7 @@ import {
   uploadImage,
 } from "@/actions/courseAction";
 
+import { QuestionManager } from "@/components/lesson/QuestionManager";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,6 +46,8 @@ export default function EditLessonPage({
   const [isFreePreview, setIsFreePreview] = useState(false);
   const [isPublished, setIsPublished] = useState(false);
   const [lessonType, setLessonType] = useState<string>(LessonType.BLOG);
+  const [passPercent, setPassPercent] = useState<number>(80);
+  const [questions, setQuestions] = useState<Question[]>([]);
   const { toast } = useToast();
 
   // Configure BlockNote editor with image upload
@@ -82,6 +86,7 @@ export default function EditLessonPage({
           setIsFreePreview(data.isFreePreview);
           setIsPublished(data.isPublished);
           setLessonType(data.type || LessonType.BLOG);
+          setPassPercent(data.passPercent || 80);
 
           // Load the content into the editor if it exists
           if (data.content) {
@@ -126,15 +131,18 @@ export default function EditLessonPage({
         type = LessonType.VIDEO;
       } else if (videoUrl && blocks.length > 0) {
         type = LessonType.MIXED;
+      } else if (lessonType === LessonType.QUIZ) {
+        type = LessonType.QUIZ;
       }
 
       const result = await updateLesson(resolvedParams.lessonId, {
         title,
-        content,
+        content: type === LessonType.QUIZ ? undefined : content,
         type,
         videoUrl: videoUrl || undefined,
         isPublished,
         isFreePreview,
+        passPercent: type === LessonType.QUIZ ? passPercent : undefined,
       });
 
       if (result.success) {
@@ -237,6 +245,7 @@ export default function EditLessonPage({
                   <SelectItem value={LessonType.BLOG}>Bài viết</SelectItem>
                   <SelectItem value={LessonType.VIDEO}>Video</SelectItem>
                   <SelectItem value={LessonType.MIXED}>Cả hai</SelectItem>
+                  <SelectItem value={LessonType.QUIZ}>Quiz</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -272,6 +281,54 @@ export default function EditLessonPage({
                     editor={editor}
                     theme="light"
                     className="min-h-[500px]"
+                  />
+                </div>
+              </div>
+            )}
+
+            {lessonType === LessonType.QUIZ && (
+              <div className="space-y-4">
+                <div>
+                  <Label className="text-sm font-semibold text-slate-900">
+                    Thiết lập Quiz
+                  </Label>
+                  <p className="text-sm text-slate-500 mt-1">
+                    Cấu hình quiz và quản lý câu hỏi cho bài học
+                  </p>
+                </div>
+
+                {/* Pass Percent Setting */}
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="passPercent"
+                    className="text-sm font-semibold text-slate-900"
+                  >
+                    Điểm đậu (%)
+                  </Label>
+                  <Input
+                    id="passPercent"
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={passPercent}
+                    onChange={(e) =>
+                      setPassPercent(parseInt(e.target.value) || 80)
+                    }
+                    className="border-slate-200 focus:ring-black"
+                    placeholder="Nhập phần trăm điểm đậu"
+                  />
+                  <p className="text-xs text-slate-500">
+                    Học viên cần đạt ít nhất {passPercent}% để vượt qua quiz
+                  </p>
+                </div>
+
+                {/* Question Manager */}
+                <div className="border rounded-lg border-slate-200 p-4 bg-slate-50">
+                  <QuestionManager
+                    lessonId={resolvedParams.lessonId}
+                    courseId={resolvedParams.courseId}
+                    chapterId={resolvedParams.chapterId}
+                    onQuestionsChange={setQuestions}
                   />
                 </div>
               </div>

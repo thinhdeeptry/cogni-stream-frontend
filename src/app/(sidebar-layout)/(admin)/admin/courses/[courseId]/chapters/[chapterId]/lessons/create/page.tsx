@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { use, useState } from "react";
 
 import { useToast } from "@/hooks/use-toast";
+import { Question } from "@/types/assessment/types";
 import { LessonType } from "@/types/course/types";
 import "@blocknote/core/fonts/inter.css";
 import { BlockNoteView } from "@blocknote/mantine";
@@ -14,6 +15,7 @@ import { ChevronLeft } from "lucide-react";
 
 import { createLesson, uploadImage } from "@/actions/courseAction";
 
+import { QuestionManager } from "@/components/lesson/QuestionManager";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -39,6 +41,8 @@ export default function CreateLessonPage({
   const [isFreePreview, setIsFreePreview] = useState(false);
   const [isPublished, setIsPublished] = useState(false);
   const [lessonType, setLessonType] = useState<string>(LessonType.BLOG);
+  const [passPercent, setPassPercent] = useState<number>(80);
+  const [questions, setQuestions] = useState<Question[]>([]);
   const { toast } = useToast();
 
   // Configure BlockNote editor with image upload
@@ -82,6 +86,8 @@ export default function CreateLessonPage({
         type = LessonType.VIDEO;
       } else if (videoUrl && blocks.length > 0) {
         type = LessonType.MIXED;
+      } else if (lessonType === LessonType.QUIZ) {
+        type = LessonType.QUIZ;
       }
 
       const result = await createLesson(
@@ -89,11 +95,12 @@ export default function CreateLessonPage({
         resolvedParams.chapterId,
         {
           title,
-          content,
+          content: type === LessonType.QUIZ ? undefined : content,
           type,
           videoUrl: videoUrl || undefined,
           isPublished,
           isFreePreview,
+          passPercent: type === LessonType.QUIZ ? passPercent : undefined,
         },
       );
 
@@ -186,6 +193,7 @@ export default function CreateLessonPage({
                   <SelectItem value={LessonType.BLOG}>Bài viết</SelectItem>
                   <SelectItem value={LessonType.VIDEO}>Video</SelectItem>
                   <SelectItem value={LessonType.MIXED}>Cả hai</SelectItem>
+                  <SelectItem value={LessonType.QUIZ}>Quiz</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -222,6 +230,62 @@ export default function CreateLessonPage({
                     theme="light"
                     className="min-h-[500px]"
                   />
+                </div>
+              </div>
+            )}
+
+            {lessonType === LessonType.QUIZ && (
+              <div className="space-y-4">
+                <div>
+                  <Label className="text-sm font-semibold text-slate-900">
+                    Thiết lập Quiz
+                  </Label>
+                  <p className="text-sm text-slate-500 mt-1">
+                    Cấu hình quiz và thêm câu hỏi cho bài học
+                  </p>
+                </div>
+
+                {/* Pass Percent Setting */}
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="passPercent"
+                    className="text-sm font-semibold text-slate-900"
+                  >
+                    Điểm đậu (%)
+                  </Label>
+                  <Input
+                    id="passPercent"
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={passPercent}
+                    onChange={(e) =>
+                      setPassPercent(parseInt(e.target.value) || 80)
+                    }
+                    className="border-slate-200 focus:ring-black"
+                    placeholder="Nhập phần trăm điểm đậu"
+                  />
+                  <p className="text-xs text-slate-500">
+                    Học viên cần đạt ít nhất {passPercent}% để vượt qua quiz
+                  </p>
+                </div>
+
+                {/* Question Manager */}
+                <div className="border rounded-lg border-slate-200 p-4 bg-slate-50">
+                  <QuestionManager
+                    lessonId={undefined} // Will be set after lesson creation
+                    courseId={resolvedParams.courseId}
+                    chapterId={resolvedParams.chapterId}
+                    onQuestionsChange={setQuestions}
+                  />
+                  {questions.length === 0 && (
+                    <div className="text-center py-8 text-slate-500">
+                      <p className="text-sm">
+                        Chưa có câu hỏi nào. Hãy tạo bài học trước để thêm câu
+                        hỏi.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

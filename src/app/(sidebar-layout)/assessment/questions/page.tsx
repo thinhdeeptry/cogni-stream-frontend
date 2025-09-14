@@ -37,6 +37,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 interface Lesson {
   id: string;
   title: string;
+  type?: string;
   questionStats?: {
     totalQuestions: number;
     questionsByType: Record<string, number>;
@@ -124,11 +125,15 @@ function getSelectedName(selectedId?: string | null, courses: Course[] = []) {
     for (const chapter of course.chapters) {
       const lesson = chapter.lessons.find((l) => l.id === selectedId);
       if (lesson) {
-        const statsText = lesson.questionStats
-          ? ` (${lesson.questionStats.totalQuestions} câu hỏi)`
-          : "";
+        // Chỉ hiển thị thống kê cho lesson có type là QUIZ
+        const statsText =
+          lesson.type === "QUIZ" && lesson.questionStats
+            ? ` (${lesson.questionStats.totalQuestions} câu hỏi)`
+            : "";
         const quizText =
-          lesson.quizStats && lesson.quizStats.totalQuizzes > 0
+          lesson.type === "QUIZ" &&
+          lesson.quizStats &&
+          lesson.quizStats.totalQuizzes > 0
             ? `, ${lesson.quizStats.totalQuizzes} quiz`
             : "";
         return `Bài: ${lesson.title} - ${chapter.title} - ${course.title}${statsText}${quizText}`;
@@ -251,15 +256,21 @@ const QuestionStatsDisplay = ({
     for (const course of courses) {
       for (const chapter of course.chapters) {
         const lesson = chapter.lessons.find((l) => l.id === selectedId);
-        if (lesson && lesson.questionStats) {
-          return {
-            type: "Bài học",
-            stats: {
-              totalQuestions: lesson.questionStats.totalQuestions,
-              totalQuizzes: lesson.quizStats?.totalQuizzes || 0,
-            },
-            questionsByType: lesson.questionStats.questionsByType,
-          };
+        if (lesson) {
+          // Chỉ hiển thị thống kê cho lesson có type là QUIZ
+          if (lesson.type === "QUIZ" && lesson.questionStats) {
+            return {
+              type: "Bài học Quiz",
+              stats: {
+                totalQuestions: lesson.questionStats.totalQuestions,
+                totalQuizzes: lesson.quizStats?.totalQuizzes || 0,
+              },
+              questionsByType: lesson.questionStats.questionsByType,
+            };
+          } else {
+            // Nếu không phải lesson QUIZ, không hiển thị thống kê
+            return null;
+          }
         }
       }
     }
@@ -347,6 +358,24 @@ function QuestionsContent() {
   const selectedName = useMemo(() => {
     if (!coursesLoaded) return "Đang tải...";
     return getSelectedName(selectedId, courses);
+  }, [selectedId, courses, coursesLoaded]);
+
+  // Kiểm tra xem có thể tạo câu hỏi không
+  const canCreateQuestion = useMemo(() => {
+    if (!selectedId || !coursesLoaded) return true; // Cho phép tạo nếu chưa chọn gì
+
+    // Tìm trong lessons
+    for (const course of courses) {
+      for (const chapter of course.chapters) {
+        const lesson = chapter.lessons.find((l) => l.id === selectedId);
+        if (lesson) {
+          // Chỉ cho phép tạo câu hỏi cho lesson có type là QUIZ
+          return lesson.type === "QUIZ";
+        }
+      }
+    }
+
+    return true; // Cho phép tạo nếu không phải lesson hoặc không tìm thấy
   }, [selectedId, courses, coursesLoaded]);
 
   // Lấy danh sách khóa học với thống kê câu hỏi
@@ -456,8 +485,16 @@ function QuestionsContent() {
                     (l) => l.id === selectedId,
                   );
                   if (lesson) {
-                    params = { lessonId: selectedId };
-                    idType = "lesson";
+                    // Chỉ fetch câu hỏi nếu lesson có type là QUIZ
+                    if (lesson.type === "QUIZ") {
+                      params = { lessonId: selectedId };
+                      idType = "lesson";
+                    } else {
+                      // Nếu không phải lesson QUIZ, không fetch câu hỏi
+                      setQuestions([]);
+                      setIsLoading(false);
+                      return;
+                    }
                     break;
                   }
                 }
@@ -583,9 +620,12 @@ function QuestionsContent() {
                           (l) => l.id === selectedId,
                         );
                         if (lesson) {
-                          params.set("courseId", course.id);
-                          params.set("chapterId", chapter.id);
-                          params.set("lessonId", selectedId);
+                          // Chỉ cho phép tạo câu hỏi cho lesson có type là QUIZ
+                          if (lesson.type === "QUIZ") {
+                            params.set("courseId", course.id);
+                            params.set("chapterId", chapter.id);
+                            params.set("lessonId", selectedId);
+                          }
                           break;
                         }
                       }
@@ -597,11 +637,12 @@ function QuestionsContent() {
 
             router.push(`/assessment/questions/create?${params.toString()}`);
           }}
+          disabled={!canCreateQuestion}
           size="lg"
           className="h-12 px-6"
         >
           <Plus className="mr-2 h-5 w-5" />
-          Thêm câu hỏi
+          {canCreateQuestion ? "Thêm câu hỏi" : "Chỉ tạo câu hỏi cho bài Quiz"}
         </Button>
       </div>
 

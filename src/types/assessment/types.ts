@@ -1,9 +1,9 @@
 export enum QuestionType {
-  SINGLE_CHOICE = "SINGLE_CHOICE",
-  MULTIPLE_CHOICE = "MULTIPLE_CHOICE",
-  SHORT_ANSWER = "SHORT_ANSWER",
-  ESSAY = "ESSAY",
-  FILL_IN_BLANK = "FILL_IN_BLANK",
+  SINGLE_CHOICE = "SINGLE_CHOICE", // Chọn 1 đáp án
+  MULTIPLE_CHOICE = "MULTIPLE_CHOICE", // Chọn nhiều đáp án
+  SHORT_ANSWER = "SHORT_ANSWER", // Câu trả lời ngắn
+  ESSAY = "ESSAY", // Tự luận dài
+  FILL_IN_BLANK = "FILL_IN_BLANK", // Điền từ vào chỗ trống
   // Giữ lại legacy types để tương thích ngược
   TRUE_FALSE = "TRUE_FALSE",
 }
@@ -45,19 +45,29 @@ export interface Chapter {
 export interface Lesson {
   id: string;
   name: string;
+  title: string;
+  type: "VIDEO" | "BLOG" | "MIXED" | "QUIZ";
+  content?: string;
+  description?: string; // Hướng dẫn làm bài quiz
+  passPercent?: number; // Điểm đậu (default: 80%)
+
+  // Relations
+  questions?: Question[]; // Câu hỏi trong quiz
+  quizAttempts?: QuizAttempt[]; // Lịch sử làm bài
 }
 
 // Interfaces mới theo API documentation
 export interface Answer {
   id?: string;
-  text: string;
-  isCorrect: boolean;
+  text: string; // Đáp án hiển thị (cho trắc nghiệm)
+  isCorrect: boolean; // Đáp án đúng/sai
   questionId?: string;
-  // Thêm properties cho auto-grading
-  acceptedAnswers?: string[];
-  caseSensitive?: boolean;
-  exactMatch?: boolean;
-  points?: number;
+
+  // Auto-grading fields cho tự luận
+  acceptedAnswers?: string[]; // Các đáp án được chấp nhận ["useState", "use state"]
+  caseSensitive?: boolean; // Phân biệt hoa/thường
+  exactMatch?: boolean; // So sánh chính xác hay fuzzy
+  points?: number; // Điểm số (1.0 = 100%)
 }
 
 export interface QuestionContent {
@@ -81,19 +91,23 @@ export interface QuestionLesson {
 
 export interface Question {
   id?: string;
-  text: string;
+  text: string; // Nội dung câu hỏi
   type: QuestionType;
-  order?: number;
-  lessonId?: string;
-  answers: Answer[];
-  lession?: QuestionLesson; // Note: API uses "lession" not "lesson"
-  // Thêm properties mới
+  order?: number; // Thứ tự hiển thị
+  lessonId?: string; // Thuộc lesson nào
+  answers: Answer[]; // Các đáp án (cho trắc nghiệm)
+  lesson?: QuestionLesson;
+
+  // Legacy support
   content?: QuestionContent;
-  options?: any[]; // Legacy support
+  options?: any[];
   referenceAnswer?: {
     content?: QuestionContent;
     notes?: string;
   };
+
+  // Relations
+  attemptAnswers?: AttemptAnswer[]; // Câu trả lời của học viên
 }
 
 export interface QuestionResponse {
@@ -118,7 +132,7 @@ export interface CreateQuestionDto {
 export interface UpdateQuestionDto {
   text?: string;
   type?: QuestionType;
-  answers?: Answer[];
+  answers?: Omit<Answer, "questionId">[];
   order?: number;
 }
 
@@ -154,6 +168,49 @@ export interface ReorderQuestionsDto {
     id: string;
     order: number;
   }[];
+}
+
+// Quiz System Interfaces
+export interface QuizAttempt {
+  id: string;
+  startedAt: Date;
+  submittedAt?: Date;
+  score?: number;
+  isPassed?: boolean;
+  lessonId: string;
+  enrollmentId: string;
+  answers: AttemptAnswer[];
+}
+
+export interface AttemptAnswer {
+  id: string;
+  questionId: string;
+  attemptId: string;
+
+  // Cho trắc nghiệm
+  selectedAnswerIds?: string[];
+
+  // Cho tự luận
+  textAnswer?: string;
+
+  // Scoring
+  isCorrect?: boolean;
+  score?: number;
+  feedback?: string;
+}
+
+export interface SubmitAnswer {
+  questionId: string;
+  selectedAnswerIds?: string[]; // Multiple choice
+  textAnswer?: string; // Short answer / Essay
+}
+
+export interface QuizResult {
+  score: number;
+  isPassed: boolean;
+  feedback?: string;
+  correctCount: number;
+  totalQuestions: number;
 }
 
 export interface QuestionFilter {
