@@ -2,7 +2,38 @@
 
 ## Tổng quan
 
-Module Questions cung cấp các API để quản lý câu hỏi (Question) trong hệ thống quiz. Hỗ trợ đầy đủ các thao tác CRUD, quản lý đáp án, và các tính năng nâng cao.
+Module Questions cung cấp các API để quản lý câu hỏi (Question) trong hệ thống quiz. Hỗ trợ đầy đủ các thao tác CRUD, quản lý đáp án, và các tính năng nâng cao bao gồm auto-grading cho câu hỏi tự luận.
+
+## Quiz Timing & Retry System
+
+### Lesson Quiz Settings
+
+Mỗi lesson có type = "QUIZ" được cấu hình với các field:
+
+- **timeLimit**: Thời gian làm bài (phút). `null` = không giới hạn thời gian
+- **maxAttempts**: Số lần làm tối đa. `null` = không giới hạn
+- **retryDelay**: Thời gian chờ giữa các lần làm (phút)
+- **passPercent**: Điểm đạt (mặc định 80%)
+
+### Quiz Attempt Tracking
+
+- **attemptNumber**: Lần thử thứ mấy (1, 2, 3...)
+- **nextAllowedAt**: Thời gian cho phép làm lại (null nếu có thể làm ngay)
+
+### Auto-Grading System
+
+Hệ thống tự động chấm điểm cho câu hỏi tự luận:
+
+- **acceptedAnswers**: Mảng các đáp án được chấp nhận
+- **caseSensitive**: Phân biệt hoa/thường (default: false)
+- **exactMatch**: So sánh chính xác hay fuzzy matching (default: true)
+- **points**: Điểm số của đáp án (default: 1.0)
+
+Thuật toán chấm:
+
+- **Exact match**: 100% điểm
+- **Fuzzy match** (Levenshtein distance): 80% điểm
+- **Contains match**: 50% điểm
 
 ## Danh sách API
 
@@ -490,3 +521,279 @@ Questions API này tích hợp hoàn toàn với Quiz system hiện có:
 - Questions được tạo cho các lessons có `type = "QUIZ"`
 - Quiz attempts sử dụng questions này để tạo bài thi
 - Kết quả quiz được tính dựa trên `isCorrect` của answers
+
+## Quiz Management APIs
+
+### 13. Bắt đầu quiz attempt
+
+**POST** `/quizzes/:lessonId/start`
+
+**Headers:**
+
+- Authorization: Bearer {token}
+
+**Response:**
+
+```json
+{
+  "attemptId": "attempt-uuid",
+  "attemptNumber": 2,
+  "timeLimit": 60,
+  "nextAllowedAt": null,
+  "questions": [
+    {
+      "id": "question-uuid",
+      "text": "Câu hỏi...",
+      "type": "SINGLE_CHOICE",
+      "answers": [
+        {
+          "id": "answer-uuid",
+          "text": "Đáp án A"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### 14. Kiểm tra quiz attempt status
+
+**GET** `/quizzes/:lessonId/status`
+
+**Response:**
+
+```json
+{
+  "canAttempt": true,
+  "attemptsUsed": 1,
+  "maxAttempts": 3,
+  "lastScore": 65,
+  "isPassed": false,
+  "nextAllowedAt": "2025-09-15T15:30:00Z",
+  "timeUntilNextAttempt": 45
+}
+```
+
+### 15. Submit quiz attempt
+
+**POST** `/quizzes/:attemptId/submit`
+
+**Body:**
+
+```json
+{
+  "answers": [
+    {
+      "questionId": "question-uuid",
+      "answerId": "answer-uuid"
+    },
+    {
+      "questionId": "question-uuid-2",
+      "textAnswer": "Câu trả lời tự luận"
+    }
+  ]
+}
+```
+
+**Response:**
+
+```json
+{
+  "score": 85,
+  "isPassed": true,
+  "attemptNumber": 2,
+  "timeSpent": 45,
+  "canRetry": false,
+  "nextAllowedAt": null,
+  "results": [
+    {
+      "questionId": "question-uuid",
+      "isCorrect": true,
+      "score": 1.0,
+      "feedback": "Chính xác!"
+    },
+    {
+      "questionId": "question-uuid-2",
+      "isCorrect": true,
+      "score": 0.8,
+      "feedback": "Fuzzy match - 80% điểm"
+    }
+  ]
+}
+```
+
+### 16. Cập nhật quiz settings (Lesson)
+
+**PATCH** `/lessons/:id/quiz-settings`
+
+**Headers:**
+
+- Authorization: Bearer {token}
+
+**Phân quyền:** ADMIN, INSTRUCTOR (của khóa học)
+
+**Body:**
+
+```json
+{
+  "timeLimit": 90,
+  "maxAttempts": 5,
+  "retryDelay": 120,
+  "passPercent": 75
+}
+```
+
+**Response:**
+
+```json
+{
+  "message": "Đã cập nhật cài đặt quiz thành công",
+  "settings": {
+    "timeLimit": 90,
+    "maxAttempts": 5,
+    "retryDelay": 120,
+    "passPercent": 75
+  }
+}
+```
+
+### 17. Lấy quiz history của học viên
+
+**GET** `/quizzes/:lessonId/history`
+
+**Query Parameters:**
+
+- `studentId` (optional, ADMIN/INSTRUCTOR only): UUID - Xem history của học viên khác
+
+**Response:**
+
+```json
+{
+  "attempts": [
+    {
+      "id": "attempt-uuid",
+      "attemptNumber": 1,
+      "score": 65,
+      "isPassed": false,
+      "startedAt": "2025-09-15T10:00:00Z",
+      "submittedAt": "2025-09-15T10:45:00Z",
+      "timeSpent": 45
+    },
+    {
+      "id": "attempt-uuid-2",
+      "attemptNumber": 2,
+      "score": 85,
+      "isPassed": true,
+      "startedAt": "2025-09-15T12:00:00Z",
+      "submittedAt": "2025-09-15T12:30:00Z",
+      "timeSpent": 30
+    }
+  ],
+  "bestScore": 85,
+  "totalAttempts": 2,
+  "isPassed": true
+}
+```
+
+## Quiz Timing Business Rules
+
+### Thời gian làm bài (timeLimit):
+
+- `null`: Không giới hạn thời gian
+- `> 0`: Thời gian làm bài tính bằng phút
+- Khi hết thời gian, bài thi tự động submit
+- Timer hiển thị countdown trên frontend
+
+### Số lần làm tối đa (maxAttempts):
+
+- `null`: Không giới hạn số lần làm
+- `> 0`: Số lần làm tối đa
+- Đã đạt `passPercent`: Không cho phép làm lại (trừ khi ADMIN reset)
+- Hết số lần: Không cho phép làm lại
+
+### Thời gian chờ (retryDelay):
+
+- `null` hoặc `0`: Có thể làm lại ngay lập tức
+- `> 0`: Phải chờ X phút mới được làm lại
+- `nextAllowedAt` = `submittedAt` + `retryDelay` minutes
+- Áp dụng khi chưa đạt điểm pass
+
+### Điểm đạt (passPercent):
+
+- Mặc định: 80%
+- Range: 0-100
+- `score >= passPercent`: Đạt, không cần làm lại
+- `score < passPercent`: Chưa đạt, có thể làm lại (nếu còn attempt)
+
+### Auto-grading cho câu tự luận:
+
+- **SINGLE_CHOICE/MULTIPLE_CHOICE**: Tự động chấm 100% chính xác
+- **SHORT_ANSWER/ESSAY/FILL_IN_BLANK**: Sử dụng auto-grading:
+  - So sánh với `acceptedAnswers[]`
+  - Áp dụng `caseSensitive` và `exactMatch` settings
+  - Điểm = `points` × matching_percentage
+
+### Question Types Support:
+
+- **SINGLE_CHOICE**: 1 đáp án đúng duy nhất
+- **MULTIPLE_CHOICE**: 1 hoặc nhiều đáp án đúng
+- **SHORT_ANSWER**: Câu trả lời ngắn, auto-grading
+- **ESSAY**: Tự luận dài, auto-grading hoặc manual review
+- **FILL_IN_BLANK**: Điền vào chỗ trống, auto-grading
+
+## Phân quyền chi tiết
+
+### Tạo/Sửa/Xóa questions:
+
+- **ADMIN**: Có quyền với tất cả questions
+- **INSTRUCTOR**: Chỉ có quyền với questions thuộc khóa học mình dạy
+
+### Xem questions:
+
+- **ADMIN**: Xem tất cả questions với đáp án đúng
+- **INSTRUCTOR**: Xem questions của khóa học mình dạy với đáp án đúng
+- **STUDENT**: Xem questions nhưng không thấy đáp án đúng (field `isCorrect` bị ẩn)
+- **Anonymous**: Xem questions public nhưng không thấy đáp án đúng
+
+## Validation Rules
+
+### Câu hỏi:
+
+- `text`: Không được để trống
+- `type`: Phải là một trong các QuestionType
+- `lessonId`: Phải là UUID hợp lệ và lesson phải tồn tại
+- `order`: Số nguyên >= 0 (optional, tự động tăng nếu không cung cấp)
+
+### Đáp án:
+
+- Mỗi câu hỏi phải có ít nhất 2 đáp án (trừ tự luận)
+- `SINGLE_CHOICE`: Phải có đúng 1 đáp án đúng
+- `MULTIPLE_CHOICE`: Phải có ít nhất 1 đáp án đúng
+- `SHORT_ANSWER/ESSAY/FILL_IN_BLANK`: Có thể không có đáp án cố định
+- `text`: Không được để trống
+- `isCorrect`: Phải là boolean
+- `acceptedAnswers`: Array string cho tự luận
+- `caseSensitive`: Boolean (default: false)
+- `exactMatch`: Boolean (default: true)
+- `points`: Number >= 0 (default: 1.0)
+
+### Quiz Settings:
+
+- `timeLimit`: null hoặc số nguyên > 0
+- `maxAttempts`: null hoặc số nguyên > 0
+- `retryDelay`: null hoặc số nguyên >= 0
+- `passPercent`: 0-100
+
+### Pagination:
+
+- `page`: >= 1
+- `limit`: 1-100
+
+## Error Codes
+
+- **400**: Validation error, dữ liệu không hợp lệ
+- **401**: Chưa đăng nhập
+- **403**: Không có quyền thực hiện thao tác
+- **404**: Không tìm thấy resource (question, lesson, answer)
+- **409**: Conflict - Đã hết số lần làm, chưa đến thời gian làm lại
+- **423**: Locked - Quiz đang trong thời gian chờ retry

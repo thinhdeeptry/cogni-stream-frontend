@@ -427,6 +427,9 @@ export const createLesson = async (
     isPublished?: boolean;
     isFreePreview?: boolean;
     passPercent?: number;
+    timeLimit?: number | null;
+    maxAttempts?: number | null;
+    retryDelay?: number | null;
   },
 ) => {
   try {
@@ -485,6 +488,9 @@ export const updateLesson = async (
     isPublished?: boolean;
     isFreePreview?: boolean;
     passPercent?: number;
+    timeLimit?: number | null;
+    maxAttempts?: number | null;
+    retryDelay?: number | null;
   },
 ) => {
   try {

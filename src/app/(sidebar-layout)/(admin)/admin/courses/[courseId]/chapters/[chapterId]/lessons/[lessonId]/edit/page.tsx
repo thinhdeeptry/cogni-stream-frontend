@@ -17,11 +17,14 @@ import {
   Brain,
   CheckCircle,
   ChevronLeft,
+  Clock,
   Eye,
   FileText,
   Globe,
   Loader2,
+  RotateCcw,
   Save,
+  Timer,
   Video,
 } from "lucide-react";
 
@@ -68,6 +71,9 @@ export default function EditLessonPage({
   const [isPublished, setIsPublished] = useState(false);
   const [lessonType, setLessonType] = useState<string>(LessonType.BLOG);
   const [passPercent, setPassPercent] = useState<number>(80);
+  const [timeLimit, setTimeLimit] = useState<number | null>(null);
+  const [maxAttempts, setMaxAttempts] = useState<number | null>(null);
+  const [retryDelay, setRetryDelay] = useState<number | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const { toast } = useToast();
 
@@ -135,6 +141,9 @@ export default function EditLessonPage({
           setIsPublished(data.isPublished);
           setLessonType(data.type || LessonType.BLOG);
           setPassPercent(data.passPercent || 80);
+          setTimeLimit(data.timeLimit || null);
+          setMaxAttempts(data.maxAttempts || null);
+          setRetryDelay(data.retryDelay || null);
 
           // Load the content into the editor if it exists
           if (data.content) {
@@ -191,6 +200,9 @@ export default function EditLessonPage({
         isPublished,
         isFreePreview,
         passPercent: type === LessonType.QUIZ ? passPercent : undefined,
+        timeLimit: type === LessonType.QUIZ ? timeLimit : undefined,
+        maxAttempts: type === LessonType.QUIZ ? maxAttempts : undefined,
+        retryDelay: type === LessonType.QUIZ ? retryDelay : undefined,
       });
 
       if (result.success) {
@@ -504,6 +516,99 @@ export default function EditLessonPage({
                         Học viên cần đạt ít nhất {passPercent}% để vượt qua quiz
                       </p>
                     </div>
+                  </div>
+                </div>
+
+                {/* Quiz Timing Settings */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-white rounded-lg p-4 border border-purple-200">
+                    <Label
+                      htmlFor="timeLimit"
+                      className="text-sm font-semibold text-slate-900 flex items-center gap-2 mb-3"
+                    >
+                      <Clock className="h-4 w-4 text-blue-500" />
+                      Thời gian làm bài (phút)
+                    </Label>
+                    <Input
+                      id="timeLimit"
+                      type="number"
+                      min="1"
+                      placeholder="Không giới hạn"
+                      value={timeLimit || ""}
+                      onChange={(e) =>
+                        setTimeLimit(
+                          e.target.value
+                            ? Number.parseInt(e.target.value) || null
+                            : null,
+                        )
+                      }
+                      className="border-slate-200 focus:ring-purple-500 focus:border-purple-500 h-10"
+                    />
+                    <p className="text-xs text-slate-500 mt-1">
+                      {timeLimit
+                        ? `${timeLimit} phút`
+                        : "Không giới hạn thời gian"}
+                    </p>
+                  </div>
+
+                  <div className="bg-white rounded-lg p-4 border border-purple-200">
+                    <Label
+                      htmlFor="maxAttempts"
+                      className="text-sm font-semibold text-slate-900 flex items-center gap-2 mb-3"
+                    >
+                      <RotateCcw className="h-4 w-4 text-orange-500" />
+                      Số lần làm tối đa
+                    </Label>
+                    <Input
+                      id="maxAttempts"
+                      type="number"
+                      min="1"
+                      placeholder="Không giới hạn"
+                      value={maxAttempts || ""}
+                      onChange={(e) =>
+                        setMaxAttempts(
+                          e.target.value
+                            ? Number.parseInt(e.target.value) || null
+                            : null,
+                        )
+                      }
+                      className="border-slate-200 focus:ring-purple-500 focus:border-purple-500 h-10"
+                    />
+                    <p className="text-xs text-slate-500 mt-1">
+                      {maxAttempts
+                        ? `Tối đa ${maxAttempts} lần`
+                        : "Không giới hạn số lần"}
+                    </p>
+                  </div>
+
+                  <div className="bg-white rounded-lg p-4 border border-purple-200">
+                    <Label
+                      htmlFor="retryDelay"
+                      className="text-sm font-semibold text-slate-900 flex items-center gap-2 mb-3"
+                    >
+                      <Timer className="h-4 w-4 text-red-500" />
+                      Thời gian chờ (phút)
+                    </Label>
+                    <Input
+                      id="retryDelay"
+                      type="number"
+                      min="0"
+                      placeholder="Làm lại ngay"
+                      value={retryDelay || ""}
+                      onChange={(e) =>
+                        setRetryDelay(
+                          e.target.value
+                            ? Number.parseInt(e.target.value) || null
+                            : null,
+                        )
+                      }
+                      className="border-slate-200 focus:ring-purple-500 focus:border-purple-500 h-10"
+                    />
+                    <p className="text-xs text-slate-500 mt-1">
+                      {retryDelay
+                        ? `Chờ ${retryDelay} phút`
+                        : "Làm lại ngay lập tức"}
+                    </p>
                   </div>
                 </div>
 
