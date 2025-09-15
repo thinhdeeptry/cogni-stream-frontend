@@ -18,6 +18,7 @@ import {
   UpdateAnswerDto,
   UpdateQuestionDto,
 } from "@/types/assessment/types";
+import { toast } from "sonner";
 
 const assessmentApi = await AxiosFactory.getApiInstance("courses");
 
@@ -97,7 +98,7 @@ export async function createQuestion(questionData: CreateQuestionDto) {
       error.response?.data?.message ||
       error.message ||
       "Đã xảy ra lỗi khi tạo câu hỏi";
-    console.error("Error creating question:", errorMessage);
+    toast.success(errorMessage);
     return {
       success: false,
       message: errorMessage,
