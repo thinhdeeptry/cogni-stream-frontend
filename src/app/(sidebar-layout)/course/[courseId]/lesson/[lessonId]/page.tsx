@@ -40,12 +40,6 @@ import {
   createCertificate,
   getEnrollmentByCourse,
 } from "@/actions/enrollmentActions";
-import {
-  createTestAttempt,
-  getHighestScoreAttempt,
-  getTestAttempts,
-  getTests,
-} from "@/actions/testAction";
 import { getYoutubeTranscript } from "@/actions/youtubeTranscript.action";
 
 import { useProgressStore } from "@/stores/useProgressStore";
@@ -55,6 +49,7 @@ import { extractPlainTextFromBlockNote } from "@/utils/blocknote";
 
 import Discussion from "@/components/discussion";
 import { DiscussionType } from "@/components/discussion/type";
+import QuizSection from "@/components/quiz/QuizSection";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -381,75 +376,6 @@ interface TranscriptItem {
   duration: number;
 }
 
-interface Test {
-  id: string;
-  title: string;
-  description: string;
-  testType: string;
-  duration: number;
-  maxScore: number;
-  maxAttempts: number;
-  testStart: string;
-  testEnd: string;
-  courseId: string;
-  chapterId: string;
-  lessonId: string;
-}
-
-interface TestAttempt {
-  id: string;
-  testId: string;
-  attemptNumber: number;
-  totalScore: number | null;
-  startedAt: string;
-  submittedAt: string | null;
-  test: {
-    title: string;
-    testType: string;
-    maxScore: number;
-  };
-}
-
-// New interface for highest score attempt
-interface HighestScoreAttempt {
-  id: string;
-  testId: string;
-  testTakerId: string;
-  attemptNumber: number;
-  totalScore: number;
-  submittedAt: string;
-  test: {
-    title: string;
-    testType: string;
-    maxScore: number;
-  };
-  answers: Array<{
-    questionId: string;
-    answerData: any;
-    score: number;
-  }>;
-  scoreDetails: Array<{
-    questionId: string;
-    earnedScore: number;
-    feedback: string;
-  }>;
-}
-
-function getTestTypeText(type: string) {
-  switch (type) {
-    case "PRACTICE":
-      return "Bài tập";
-    case "QUIZ":
-      return "Bài kiểm tra";
-    case "FINAL":
-      return "Bài thi cuối kỳ";
-    case "ASSIGNMENT":
-      return "Bài tập về nhà";
-    default:
-      return type;
-  }
-}
-
 export default function LessonDetail() {
   const [course, setCourse] = useState<Course | null>(null);
   const [lesson, setLesson] = useState<any>(null);
@@ -587,11 +513,11 @@ export default function LessonDetail() {
     initialOpen: false,
     position: "bottom-right",
     referenceText,
-    title: "Trợ lý học tập Eduforge AI",
+    title: "Trợ lý học tập CogniStream AI",
     welcomeMessage:
-      "Xin chào! Tôi là trợ lý học tập Eduforge AI. Bạn có thể hỏi tôi bất cứ điều gì liên quan đến bài học này.",
+      "Xin chào! Tôi là trợ lý học tập CogniStream AI. Bạn có thể hỏi tôi bất cứ điều gì liên quan đến bài học này.",
     showBalloon: false,
-    systemPrompt: `Bạn là trợ lý AI học tập cá nhân của Eduforge, được tối ưu hóa để hỗ trợ quá trình học tập. Hãy tuân thủ các nguyên tắc sau:
+    systemPrompt: `Bạn là trợ lý AI học tập cá nhân của CogniStream, được tối ưu hóa để hỗ trợ quá trình học tập. Hãy tuân thủ các nguyên tắc sau:
 
 1. NỘI DUNG VÀ GIỌNG ĐIỆU
 - Trả lời ngắn gọn, đảm bảo thông tin chính xác và có tính giáo dục cao
@@ -759,129 +685,6 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
   const slideUp = {
     hidden: { y: 20, opacity: 0 },
     visible: { y: 0, opacity: 1, transition: { duration: 0.5 } },
-  };
-
-  const [tests, setTests] = useState<Test[]>([]);
-  const [attempts, setAttempts] = useState<TestAttempt[]>([]);
-  const [isLoadingTests, setIsLoadingTests] = useState(false);
-  const [highestScores, setHighestScores] = useState<
-    Record<string, HighestScoreAttempt>
-  >({});
-
-  // Modified tests fetch useEffect
-  //flat
-  // useEffect(() => {
-  //   const fetchTests = async () => {
-  //     if (!course?.id || !params.lessonId) return;
-
-  //     try {
-  //       setIsLoadingTests(true);
-  //       const result = await getTests({
-  //         courseId: course.id,
-  //         lessonId: params.lessonId as string,
-  //       });
-
-  //       if (result.success && result.data) {
-  //         setTests(result.data);
-  //       } else {
-  //         console.error("Error fetching tests:", result.message);
-  //       }
-
-  //       // Fetch attempts for the current user
-  //       if (user?.id) {
-  //         const attemptsResult = await getTestAttempts({
-  //           testTakerId: user.id,
-  //           isSubmitted: true,
-  //         });
-
-  //         if (attemptsResult.success && attemptsResult.data) {
-  //           setAttempts(attemptsResult.data.attempts);
-  //         } else {
-  //           console.error("Error fetching attempts:", attemptsResult.message);
-  //         }
-  //       }
-  //     } catch (error) {
-  //       console.error("Error fetching tests:", error);
-  //     } finally {
-  //       setIsLoadingTests(false);
-  //     }
-  //   };
-
-  //   fetchTests();
-  // }, [course?.id, params.lessonId, user?.id]);
-
-  // Separate useEffect for fetching highest scores
-  useEffect(() => {
-    const fetchHighestScores = async () => {
-      if (!user?.id || !tests.length) return;
-
-      console.log("Fetching highest scores for user:", user.id);
-      console.log(
-        "Available tests:",
-        tests.map((t) => t.id),
-      );
-
-      try {
-        const highestScoresMap: Record<string, HighestScoreAttempt> = {};
-
-        // Fetch highest score for each test
-        await Promise.all(
-          tests.map(async (test) => {
-            try {
-              console.log(`Fetching highest score for test ${test.id}`);
-              const scoreResult = await getHighestScoreAttempt({
-                testId: test.id,
-                testTakerId: user.id,
-              });
-
-              console.log(`Score result for test ${test.id}:`, scoreResult);
-
-              if (scoreResult.success && scoreResult.data) {
-                highestScoresMap[test.id] = scoreResult.data;
-              }
-            } catch (err: any) {
-              // Ignore 404 errors (when user hasn't attempted the test)
-              if (err?.response?.status !== 404) {
-                console.error(
-                  `Error fetching highest score for test ${test.id}:`,
-                  err,
-                );
-              }
-            }
-          }),
-        );
-
-        console.log("highestScoresMap", highestScoresMap);
-        setHighestScores(highestScoresMap);
-      } catch (error) {
-        console.error("Error fetching highest scores:", error);
-      }
-    };
-
-    fetchHighestScores();
-  }, [tests, user?.id]); // This will run when either tests are loaded or user changes
-
-  const startTest = async (testId: string) => {
-    try {
-      if (!user?.id) {
-        toast.error("Bạn cần đăng nhập để làm bài kiểm tra");
-        return;
-      }
-
-      const result = await createTestAttempt({
-        testId,
-        testTakerId: user.id,
-      });
-
-      if (result.success && result.data) {
-        router.push(`/assessment/attemps/${result.data.id}`);
-      } else {
-        throw new Error(result.message || "Không thể bắt đầu bài kiểm tra");
-      }
-    } catch (error) {
-      console.error("Error starting test:", error);
-      toast.error("Có lỗi xảy ra khi bắt đầu bài kiểm tra");
-    }
   };
 
   if (isLoading) {
@@ -1261,57 +1064,58 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
               )}
 
             {/* Lesson Content */}
-            <motion.div variants={slideUp} className="prose max-w-none pb-16">
-              <Card className="overflow-hidden border-none shadow-md rounded-xl">
-                <CardContent className="p-6">
-                  <h1 className="text-2xl font-bold bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent inline-block mb-4  items-center">
-                    <BookOpen className="w-6 h-6 mr-2 text-orange-500" />
-                    Nội dung bài học
-                  </h1>
-                  <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
-                    <span className="bg-orange-100 text-orange-600 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold">
-                      {lesson.order}
-                    </span>
-                    <span>{lesson.title}</span>
-                  </h2>
+            {lesson.type !== LessonType.QUIZ && (
+              <motion.div variants={slideUp} className="prose max-w-none pb-16">
+                <Card className="overflow-hidden border-none shadow-md rounded-xl">
+                  <CardContent className="p-6">
+                    <h1 className="text-2xl font-bold bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent inline-block mb-4  items-center">
+                      <BookOpen className="w-6 h-6 mr-2 text-orange-500" />
+                      Nội dung bài học
+                    </h1>
+                    <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
+                      <span className="bg-orange-100 text-orange-600 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold">
+                        {lesson.order}
+                      </span>
+                      <span>{lesson.title}</span>
+                    </h2>
 
-                  {/* Render Parsed Content for BLOG or MIXED */}
-                  {(lesson.type === LessonType.BLOG ||
-                    lesson.type === LessonType.MIXED) &&
-                    contentBlocks.length > 0 && (
-                      <div className="mt-4">
-                        {contentBlocks.map((block, index) => (
-                          <motion.div
-                            key={block.id}
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.1 * index, duration: 0.3 }}
-                          >
-                            {renderBlockToHtml(block)}
-                          </motion.div>
-                        ))}
-                      </div>
-                    )}
+                    {/* Render Parsed Content for BLOG or MIXED */}
+                    {(lesson.type === LessonType.BLOG ||
+                      lesson.type === LessonType.MIXED) &&
+                      contentBlocks.length > 0 && (
+                        <div className="mt-4">
+                          {contentBlocks.map((block, index) => (
+                            <motion.div
+                              key={block.id}
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: 0.1 * index, duration: 0.3 }}
+                            >
+                              {renderBlockToHtml(block)}
+                            </motion.div>
+                          ))}
+                        </div>
+                      )}
 
-                  {/* Fallback for VIDEO-only or empty content */}
-                  {lesson.type === LessonType.VIDEO && !lesson.videoUrl && (
-                    <p className="text-md text-gray-500">
-                      Không có nội dung video.
-                    </p>
-                  )}
-                  {(lesson.type === LessonType.BLOG ||
-                    lesson.type === LessonType.MIXED) &&
-                    contentBlocks.length === 0 && (
+                    {/* Fallback for VIDEO-only or empty content */}
+                    {lesson.type === LessonType.VIDEO && !lesson.videoUrl && (
                       <p className="text-md text-gray-500">
-                        Không có nội dung bài viết.
+                        Không có nội dung video.
                       </p>
                     )}
-                </CardContent>
-              </Card>
-            </motion.div>
-
-            {/* Tests Section */}
-            {tests.length > 0 && (
+                    {(lesson.type === LessonType.BLOG ||
+                      lesson.type === LessonType.MIXED) &&
+                      contentBlocks.length === 0 && (
+                        <p className="text-md text-gray-500">
+                          Không có nội dung bài viết.
+                        </p>
+                      )}
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+            {/* Quiz Section - Only show for QUIZ type lessons */}
+            {lesson.type === LessonType.QUIZ && (
               <motion.div variants={slideUp} className="mt-8 pb-16">
                 <Card className="overflow-hidden border-none shadow-md rounded-xl">
                   <CardContent className="p-6">
@@ -1319,147 +1123,11 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
                       <Play className="w-5 h-5 mr-2 text-green-500 inline-block" />
                       Bài kiểm tra
                     </h2>
-                    {isLoadingTests ? (
-                      <div className="flex items-center justify-center py-8">
-                        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 gap-4">
-                        {tests.map((test) => {
-                          const testStart = new Date(test.testStart);
-                          const testEnd = test.testEnd
-                            ? new Date(test.testEnd)
-                            : null;
-                          const now = new Date();
-                          const isActive =
-                            now >= testStart && (!testEnd || now <= testEnd);
-
-                          // Get highest score attempt for this test
-                          const highestScoreAttempt = highestScores[test.id];
-                          const scorePercentage = highestScoreAttempt
-                            ? Math.round(
-                                (highestScoreAttempt.totalScore /
-                                  test.maxScore) *
-                                  100,
-                              )
-                            : 0;
-
-                          return (
-                            <Card key={test.id} className="border shadow-sm">
-                              <div className="flex">
-                                <div className="flex-1 p-6">
-                                  <div className="flex justify-between items-start mb-2">
-                                    <div>
-                                      <CardTitle className="text-lg mb-1">
-                                        {test.title}
-                                      </CardTitle>
-                                      <CardDescription>
-                                        {getTestTypeText(test.testType)}
-                                      </CardDescription>
-                                    </div>
-                                    <Badge
-                                      variant={
-                                        isActive ? "default" : "secondary"
-                                      }
-                                    >
-                                      {isActive ? "Đang mở" : "Đã đóng"}
-                                    </Badge>
-                                  </div>
-                                  <div className="flex items-center gap-4 text-sm mt-4">
-                                    <div className="flex items-center gap-2">
-                                      <Clock className="h-4 w-4 text-muted-foreground" />
-                                      <span>
-                                        {test.duration
-                                          ? `${test.duration} phút`
-                                          : "Không giới hạn thời gian"}
-                                      </span>
-                                    </div>
-
-                                    {/* Show highest score if available */}
-                                    {highestScoreAttempt && (
-                                      <div className="flex items-center gap-2 ml-auto">
-                                        <TooltipProvider>
-                                          <Tooltip>
-                                            <TooltipTrigger>
-                                              <div className="relative h-10 w-10 group">
-                                                {/* Background circle */}
-                                                <div className="absolute inset-0 rounded-full bg-gray-100"></div>
-
-                                                {/* Progress circle */}
-                                                <svg className="absolute inset-0 h-full w-full transform -rotate-90">
-                                                  <circle
-                                                    cx="20"
-                                                    cy="20"
-                                                    r="16"
-                                                    strokeWidth="4"
-                                                    fill="none"
-                                                    className="text-gray-200"
-                                                    stroke="currentColor"
-                                                  />
-                                                  <circle
-                                                    cx="20"
-                                                    cy="20"
-                                                    r="16"
-                                                    strokeWidth="4"
-                                                    fill="none"
-                                                    stroke="currentColor"
-                                                    className="text-orange-500 transition-all duration-300"
-                                                    strokeDasharray={`${scorePercentage} 100`}
-                                                    strokeDashoffset="0"
-                                                    strokeLinecap="round"
-                                                  />
-                                                </svg>
-
-                                                {/* Trophy icon */}
-                                                <div className="absolute inset-0 flex items-center justify-center">
-                                                  <Trophy className="h-4 w-4 text-orange-500" />
-                                                </div>
-                                              </div>
-                                            </TooltipTrigger>
-                                            <TooltipContent>
-                                              <div className="text-sm">
-                                                <p className="font-medium">
-                                                  Điểm cao nhất
-                                                </p>
-                                                <p className="text-orange-500 font-semibold">
-                                                  {
-                                                    highestScoreAttempt.totalScore
-                                                  }
-                                                  /{test.maxScore} (
-                                                  {scorePercentage}%)
-                                                </p>
-                                                <p className="text-xs text-gray-500 mt-1">
-                                                  Lần làm thứ{" "}
-                                                  {
-                                                    highestScoreAttempt.attemptNumber
-                                                  }
-                                                </p>
-                                              </div>
-                                            </TooltipContent>
-                                          </Tooltip>
-                                        </TooltipProvider>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                                <div className="border-l p-6 flex items-center">
-                                  <Button
-                                    className="px-8"
-                                    disabled={!isActive}
-                                    onClick={() => startTest(test.id)}
-                                  >
-                                    <Play className="mr-2 h-4 w-4" />
-                                    {highestScoreAttempt
-                                      ? "Làm lại"
-                                      : "Bắt đầu làm bài"}
-                                  </Button>
-                                </div>
-                              </div>
-                            </Card>
-                          );
-                        })}
-                      </div>
-                    )}
+                    <QuizSection
+                      lessonId={params.lessonId as string}
+                      lessonTitle={lesson.title}
+                      isEnrolled={isEnrolled}
+                    />
                   </CardContent>
                 </Card>
               </motion.div>

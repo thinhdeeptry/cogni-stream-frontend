@@ -3,7 +3,7 @@
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { Question, QuestionFormValues } from "@/types/assessment/types";
+import { Question } from "@/types/assessment/types";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 
@@ -54,7 +54,7 @@ export default function EditQuestionPage() {
   }, [questionId, router]);
 
   // Hàm xử lý submit form
-  const handleSubmit = async (formData: QuestionFormValues): Promise<void> => {
+  const handleSubmit = async (formData: any): Promise<void> => {
     console.log("EditQuestionPage handleSubmit called with data:", formData);
 
     if (!questionId) {
