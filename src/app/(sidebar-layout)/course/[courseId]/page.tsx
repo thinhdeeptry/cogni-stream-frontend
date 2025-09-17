@@ -525,7 +525,20 @@ export default function CourseDetail() {
   const handleStartLearningClick = () => {
     if (!course) return;
     console.log("đã bấm vào nút");
-    // If the user has started the course before, navigate to the last lesson they were studying
+
+    // Handle LIVE courses - navigate to class learning page
+    if (course.courseType === CourseType.LIVE) {
+      if (!selectedClassId) {
+        toast.error("Vui lòng chọn lớp học trước khi bắt đầu");
+        return;
+      }
+
+      router.push(`/course/${course.id}/class/${selectedClassId}`);
+      console.log("Điều hướng đến trang lớp học LIVE");
+      return;
+    }
+
+    // Handle SELF_PACED courses - navigate to lesson
     console.log("lastStudiedLessonId: ", lastStudiedLessonId);
     console.log("firstLessonId: ", firstLessonId);
     if (lastStudiedLessonId) {
@@ -1080,8 +1093,18 @@ export default function CourseDetail() {
                       className="w-full bg-orange-500 hover:bg-orange-600 text-white transition-colors relative overflow-hidden group"
                       size="lg"
                       onClick={handleStartLearningClick}
+                      disabled={
+                        course.courseType === CourseType.LIVE &&
+                        !selectedClassId
+                      }
                     >
-                      <span className="relative z-10">Học tiếp</span>
+                      <span className="relative z-10">
+                        {course.courseType === CourseType.LIVE
+                          ? selectedClassId
+                            ? "Vào lớp học"
+                            : "Chọn lớp để bắt đầu"
+                          : "Bắt đầu học"}
+                      </span>
                       <span className="absolute inset-0 bg-gradient-to-r from-orange-400 to-orange-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
                       <span className="absolute -inset-1 rounded-lg bg-gradient-to-r from-orange-400 via-orange-500 to-orange-400 opacity-0 group-hover:opacity-30 blur-md transition-opacity duration-300 animate-pulse"></span>
                     </Button>
@@ -1089,20 +1112,30 @@ export default function CourseDetail() {
                 </motion.div>
 
                 {/* Class selection hint for LIVE courses */}
-                {course.courseType === CourseType.LIVE && !isEnrolled && (
+                {course.courseType === CourseType.LIVE && (
                   <motion.div
                     className="text-center"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: 0.85 }}
                   >
-                    {!selectedClassId ? (
+                    {!isEnrolled ? (
+                      !selectedClassId ? (
+                        <p className="text-xs text-orange-600 bg-orange-50 px-3 py-2 rounded-md">
+                          💡 Vui lòng chọn lớp học phù hợp trước khi đăng ký
+                        </p>
+                      ) : (
+                        <p className="text-xs text-green-600 bg-green-50 px-3 py-2 rounded-md">
+                          ✓ Đã chọn lớp: {getSelectedClass()?.name}
+                        </p>
+                      )
+                    ) : !selectedClassId ? (
                       <p className="text-xs text-orange-600 bg-orange-50 px-3 py-2 rounded-md">
-                        💡 Vui lòng chọn lớp học phù hợp trước khi đăng ký
+                        💡 Vui lòng chọn lớp học để vào học
                       </p>
                     ) : (
                       <p className="text-xs text-green-600 bg-green-50 px-3 py-2 rounded-md">
-                        ✓ Đã chọn lớp: {getSelectedClass()?.name}
+                        ✓ Sẵn sàng vào lớp: {getSelectedClass()?.name}
                       </p>
                     )}
                   </motion.div>
