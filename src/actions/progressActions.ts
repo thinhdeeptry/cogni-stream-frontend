@@ -15,8 +15,9 @@ export interface CreateStudentProgressDto {
 export interface UpdateStudentProgressDto {
   progress: number;
   currentProgressId: string;
-  nextLesson: string; // tên
-  nextLessonId: string; //id
+  nextLesson?: string; // tên (cho ONLINE)
+  nextLessonId?: string; //id (cho ONLINE)
+  nextSyllabusItemId?: string; // id syllabusItem tiếp theo (cho STREAM/live)
   isLessonCompleted: boolean;
 }
 interface OverallProgressResponse {

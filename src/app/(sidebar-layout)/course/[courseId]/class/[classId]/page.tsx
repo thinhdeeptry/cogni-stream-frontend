@@ -34,7 +34,11 @@ import ReactPlayer from "react-player";
 
 import { getCourseById } from "@/actions/courseAction";
 import { getLessonById } from "@/actions/courseAction";
-import { checkEnrollmentStatus } from "@/actions/enrollmentActions";
+import {
+  checkEnrollmentStatus,
+  getEnrollmentByCourse,
+  markCourseAsCompleted,
+} from "@/actions/enrollmentActions";
 import {
   GroupedSyllabusItem,
   getSyllabusByClassId,
@@ -287,6 +291,8 @@ export default function ClassLearningPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [isVideoLoading, setIsVideoLoading] = useState(true);
+  const [hasCertificate, setHasCertificate] = useState<boolean>(false);
+  const [certificateId, setCertificateId] = useState<string | null>(null);
 
   // Hooks
   const params = useParams();
@@ -298,6 +304,8 @@ export default function ClassLearningPage() {
     overallProgress,
     updateLessonProgress,
     fetchInitialProgress,
+    currentProgress,
+    enrollmentId,
   } = useProgressStore();
 
   // Fetch initial data
@@ -323,6 +331,7 @@ export default function ClassLearningPage() {
           const enrollmentResult = await checkEnrollmentStatus(
             user.id,
             courseData.id,
+            params.classId as string,
           );
           //   setIsEnrolled(enrollmentResult.success && enrollmentResult.isEnrolled);
           //test
@@ -341,6 +350,30 @@ export default function ClassLearningPage() {
 
     fetchData();
   }, [params.courseId, params.classId, user?.id]);
+
+  // Fetch enrollment data to check certificate status
+  useEffect(() => {
+    const fetchEnrollmentData = async () => {
+      if (!user?.id || !course?.id) return;
+
+      try {
+        const response = await getEnrollmentByCourse(course.id);
+        if (response.data?.data) {
+          const enrollmentData = response.data.data;
+
+          // Kiểm tra xem có certificate không
+          if (enrollmentData.certificate) {
+            setHasCertificate(true);
+            setCertificateId(enrollmentData.certificate.id);
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching enrollment data:", err);
+      }
+    };
+
+    fetchEnrollmentData();
+  }, [user?.id, course?.id]);
 
   // Fetch syllabus data
   const fetchSyllabus = async () => {
@@ -505,6 +538,93 @@ export default function ClassLearningPage() {
       </div>
     );
   }
+
+  // Handler for completing a live session
+  const handleCompleteLiveSession = async () => {
+    if (!enrollmentId || !currentItem) return;
+    const nextItem = allItems[currentItemIndex + 1];
+    const isLastItem = currentItemIndex === allItems.length - 1;
+
+    try {
+      await updateLessonProgress({
+        progress: Math.min(
+          100,
+          ((currentItemIndex + 2) / allItems.length) * 100,
+        ),
+        currentProgressId: currentProgress?.id,
+        nextSyllabusItemId: nextItem?.id,
+        isLessonCompleted: true,
+      });
+
+      // Nếu là buổi học cuối cùng, xử lý hoàn thành khóa học
+      if (isLastItem) {
+        await handleCourseCompletion();
+      } else {
+        toast({
+          title: "Đã hoàn thành buổi học!",
+          description: nextItem
+            ? "Chuyển sang buổi tiếp theo."
+            : "Bạn đã hoàn thành tất cả buổi học!",
+        });
+        // Tự động chuyển sang buổi tiếp theo nếu còn
+        if (nextItem) setCurrentItem(nextItem);
+      }
+    } catch (err) {
+      toast({
+        title: "Lỗi",
+        description: "Không thể cập nhật tiến trình.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Handler for course completion
+  const handleCourseCompletion = async () => {
+    try {
+      if (!enrollmentId) {
+        toast({
+          title: "Lỗi",
+          description: "Không tìm thấy thông tin ghi danh",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Gọi action để đánh dấu hoàn thành khóa học
+      const result = await markCourseAsCompleted(enrollmentId);
+
+      if (result.success && result.data?.data) {
+        const completedEnrollment = result.data.data;
+
+        // Kiểm tra xem có certificate được tạo không
+        if (completedEnrollment.certificate) {
+          setHasCertificate(true);
+          setCertificateId(completedEnrollment.certificate.id);
+          toast({
+            title: "Chúc mừng!",
+            description: "Bạn đã hoàn thành khóa học và nhận được chứng chỉ!",
+          });
+          // Chuyển hướng đến trang chứng chỉ
+          router.push(`/certificate/${completedEnrollment.certificate.id}`);
+        } else {
+          toast({
+            title: "Chúc mừng!",
+            description: "Bạn đã hoàn thành khóa học",
+          });
+          router.push(`/course/${params.courseId}`);
+        }
+      } else {
+        throw new Error(result.message || "Không thể hoàn thành khóa học");
+      }
+    } catch (err: any) {
+      console.error("Error completing course:", err);
+      toast({
+        title: "Lỗi",
+        description: err.message || "Không thể cập nhật tiến độ học tập",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <motion.div
@@ -743,6 +863,28 @@ export default function ClassLearningPage() {
                           <Video className="h-4 w-4 mr-2" />
                           Tham gia buổi học
                         </Button>
+                        {/* Nút hoàn thành buổi học */}
+                        {currentItemIndex === allItems.length - 1 &&
+                        hasCertificate ? (
+                          <Button
+                            className="mt-4 ml-4 bg-purple-600 hover:bg-purple-700"
+                            onClick={() =>
+                              router.push(`/certificate/${certificateId}`)
+                            }
+                          >
+                            Xem bằng
+                          </Button>
+                        ) : (
+                          <Button
+                            className="mt-4 ml-4 bg-green-600 hover:bg-green-700"
+                            onClick={handleCompleteLiveSession}
+                            disabled={!currentProgress?.id}
+                          >
+                            {currentItemIndex === allItems.length - 1
+                              ? "Hoàn thành khóa học"
+                              : "Đánh dấu hoàn thành buổi học"}
+                          </Button>
+                        )}
                       </div>
                     </CardContent>
                   </Card>

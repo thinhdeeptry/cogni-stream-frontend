@@ -10,22 +10,16 @@ import { Download, Share2 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
 
-// Import from existing course actions
+// Import from existing actions
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
+import { CertificateData } from "../../actions/certificateActions";
 import { getCourseById } from "../../actions/courseAction";
-import { getCertificate } from "../../actions/enrollmentActions";
 import { Category, Course } from "../../types/course/types";
 
-interface Certificate {
-  certificateId: string;
-  courseId: string;
-  courseName: string;
-  userName: string;
-  issuedAt: string;
-  metadata: any;
-  isValid: boolean;
+interface Certificate extends CertificateData {
+  // Thêm các fields tương thích với UI cũ nếu cần
 }
 
 interface CourseInfo {
@@ -75,13 +69,6 @@ export default function CertificateView({
       }
     };
 
-    const fetchCert = async () => {
-      try {
-        setIsLoading(true);
-        const certData = await getCertificate(certificate.certificateId);
-        // const
-      } catch {}
-    };
     fetchCourseInfo();
   }, [certificate.courseId]);
 
@@ -121,8 +108,8 @@ export default function CertificateView({
 
       if (navigator.share) {
         await navigator.share({
-          title: `Chứng chỉ khóa học ${certificate.courseName}`,
-          text: `Tôi đã hoàn thành khóa học ${certificate.courseName} trên EduForge!`,
+          title: `Chứng chỉ khóa học ${certificate.course.title}`,
+          text: `Tôi đã hoàn thành khóa học ${certificate.course.title} trên EduForge!`,
           url: window.location.href,
         });
         toast.success("Đã chia sẻ chứng chỉ!");
@@ -140,7 +127,7 @@ export default function CertificateView({
     ? format(new Date(certificate.issuedAt), "dd.MM.yyyy", { locale: vi })
     : "";
 
-  const verificationUrl = `https://eduforge.io.vn/certificate/${certificate.certificateId}`;
+  const verificationUrl = `https://eduforge.io.vn/certificate/${certificate.id}`;
   const tags = courseInfo?.tags || ["Programming"];
 
   return (
@@ -162,7 +149,7 @@ export default function CertificateView({
         >
           EduForge ghi nhận sự nỗ lực của bạn! Bằng cách nhận chứng chỉ này, bạn
           chính thức hoàn thành khóa học{" "}
-          <span className="font-semibold">{certificate.courseName}</span>.
+          <span className="font-semibold">{certificate.course.title}</span>.
         </motion.p>
       </div>
 
@@ -215,13 +202,13 @@ export default function CertificateView({
                       This is to certify that
                     </p>
                     <h2 className="mb-5 md:mb-8 font-great-vibes text-4xl md:text-6xl font-normal text-gray-800">
-                      {certificate.userName}
+                      {certificate.student.name}
                     </h2>
                     <p className="mb-2 text-base md:text-lg text-gray-600 font-playfair">
                       Graduated from the
                     </p>
                     <h3 className="mb-4 text-xl md:text-2xl font-semibold text-gray-800 font-playfair leading-tight">
-                      '{certificate.courseName}'
+                      '{certificate.course.title}'
                     </h3>
                   </div>
 
@@ -280,7 +267,7 @@ export default function CertificateView({
                     Certificate ID:
                   </p>
                   <p className="break-words text-xs md:text-sm font-medium text-gray-100">
-                    {certificate.certificateId}
+                    {certificate.id}
                   </p>
                 </div>
 

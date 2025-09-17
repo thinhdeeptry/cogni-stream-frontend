@@ -6,7 +6,6 @@ import { useEffect, useMemo, useState } from "react";
 
 import { useOtherUser } from "@/hooks/useOtherUser";
 import { usePopupChatbot } from "@/hooks/usePopupChatbot";
-import { AxiosFactory } from "@/lib/axios";
 import { Course, LessonType } from "@/types/course/types";
 import {
   Collapsible,
@@ -39,6 +38,7 @@ import {
   checkEnrollmentStatus,
   createCertificate,
   getEnrollmentByCourse,
+  markCourseAsCompleted,
 } from "@/actions/enrollmentActions";
 import { getYoutubeTranscript } from "@/actions/youtubeTranscript.action";
 
@@ -388,6 +388,8 @@ export default function LessonDetail() {
   >([]);
   const [threadId, setThreadId] = useState<string | null>(null);
   const [enrollmentId, setEnrollmentId] = useState<string | null>(null);
+  const [hasCertificate, setHasCertificate] = useState<boolean>(false);
+  const [certificateId, setCertificateId] = useState<string | null>(null);
   const { user } = useUserStore();
   const params = useParams();
   const router = useRouter();
@@ -441,6 +443,7 @@ export default function LessonDetail() {
           const result = await checkEnrollmentStatus(
             session.user.id,
             course.id,
+            undefined, // No classId for self-paced courses
           );
           console.log("res: ", result);
           // Kiểm tra cả success và isEnrolled
@@ -643,6 +646,16 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
             console.log("có data: ");
             setEnrollmentId(response.data.data.id);
             setProgressEnrollmentId(response.data.data.id);
+
+            // Kiểm tra xem có certificate không
+            if (response.data.data.certificate) {
+              setHasCertificate(true);
+              setCertificateId(response.data.data.certificate.id);
+            } else {
+              setHasCertificate(false);
+              setCertificateId(null);
+            }
+
             // Fetch initial progress
             const res = await fetchInitialProgress();
 
@@ -946,49 +959,91 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
   // Trong component, thêm đoạn code để lấy thông tin người tạo khóa học
   // const { otherUserData: instructorData } = useOtherUser(course?.ownerId);
 
-  // Thêm hàm xử lý hoàn thành khóa học
+  // Thêm hàm xử lý hoàn thành khóa học (gọi API backend và chuyển hướng chứng chỉ)
   const handleCourseCompletion = async () => {
     try {
-      // Cập nhật tiến độ học tập thành 100%
-      // await updateLessonProgress({
-      //   progress: 100,
-      //   currentLesson: lesson?.title || "",
-      //   lessonId: lesson?.id || "",
-      //   isLessonCompleted: true,
-      // });
+      if (!enrollmentId) {
+        console.log("No enrollmentId available");
+        toast.error("Không tìm thấy thông tin ghi danh");
+        return;
+      }
 
-      // Tạo chứng chỉ nếu khóa học có chứng chỉ
-      if (course?.isHasCertificate) {
-        const certificateResult = await createCertificate({
-          courseId: course.id,
-          metadata: {
-            courseName: course.title,
-            completedAt: new Date().toISOString(),
-            userName: session?.user?.name || "",
-            userId: session?.user?.id || "",
-            courseId: course.id,
-            level: course.level || "Beginner",
-            categoryName: course.category?.name || "",
-            // instructor: instructorData?.name || "Giảng viên",
-          },
-        });
+      console.log("Starting course completion for enrollmentId:", enrollmentId);
+      console.log("Course info:", {
+        id: course?.id,
+        title: course?.title,
+        isHasCertificate: course?.isHasCertificate,
+      });
 
-        if (certificateResult.success) {
-          toast.success("Chúc mừng! Bạn đã hoàn thành khóa học");
-          // Điều hướng đến trang chứng chỉ
-          router.push(`/certificate/${certificateResult.data.id}`);
-        } else {
-          throw new Error(
-            certificateResult.message || "Không thể tạo chứng chỉ",
+      // Gọi action để đánh dấu hoàn thành khóa học
+      const result = await markCourseAsCompleted(enrollmentId);
+      console.log("Course completion result:", result);
+
+      if (result.success && result.data) {
+        const completedEnrollment = result.data.data;
+        console.log("Completed enrollment:", completedEnrollment);
+
+        // Kiểm tra xem có certificate được tạo không
+        if (completedEnrollment.certificate) {
+          console.log(
+            "Certificate found in response:",
+            completedEnrollment.certificate,
           );
+          setHasCertificate(true);
+          setCertificateId(completedEnrollment.certificate.id);
+          toast.success(
+            "Chúc mừng! Bạn đã hoàn thành khóa học và nhận được chứng chỉ!",
+          );
+          // Chuyển hướng đến trang chứng chỉ
+          router.push(`/certificate/${completedEnrollment.certificate.id}`);
+          return;
+        }
+
+        // Nếu không có certificate trong response, thử fetch lại
+        console.log(
+          "No certificate in immediate response, fetching enrollment again...",
+        );
+        const enrollmentResponse = await getEnrollmentByCourse(course!.id);
+
+        console.log(
+          "Refetched enrollment after completion:",
+          enrollmentResponse,
+        );
+        if (enrollmentResponse.success && enrollmentResponse.data?.data) {
+          const updatedEnrollment = enrollmentResponse.data.data;
+
+          // Kiểm tra xem có certificate được tạo không
+          if (updatedEnrollment.certificate) {
+            console.log(
+              "Certificate found in refetch:",
+              updatedEnrollment.certificate,
+            );
+            setHasCertificate(true);
+            setCertificateId(updatedEnrollment.certificate.id);
+            toast.success(
+              "Chúc mừng! Bạn đã hoàn thành khóa học và nhận được chứng chỉ!",
+            );
+            // Chuyển hướng đến trang chứng chỉ
+            router.push(`/certificate/${updatedEnrollment.certificate.id}`);
+          } else {
+            console.log(
+              "No certificate found in updated enrollment - course may not offer certificate",
+            );
+            toast.success("Chúc mừng! Bạn đã hoàn thành khóa học");
+            router.push(`/course/${course?.id}`);
+          }
+        } else {
+          // Fallback nếu không lấy được enrollment mới
+          console.log("Failed to refetch enrollment");
+          toast.success("Chúc mừng! Bạn đã hoàn thành khóa học");
+          router.push(`/course/${course?.id}`);
         }
       } else {
-        toast.success("Chúc mừng! Bạn đã hoàn thành khóa học");
-        router.push(`/course/${course?.id}`);
+        throw new Error(result.message || "Không thể hoàn thành khóa học");
       }
-    } catch (err) {
-      toast.error("Không thể cập nhật tiến độ học tập");
-      console.error(err);
+    } catch (err: any) {
+      console.error("Error completing course:", err);
+      toast.error(err.message || "Không thể cập nhật tiến độ học tập");
     }
   };
 
@@ -1216,46 +1271,54 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
                   </motion.div>
                 </AlertDialogContent>
               </AlertDialog>
-            ) : isEnrolled &&
-              currentLessonIndex === allLessons.length - 1 &&
-              overallProgress >= 100 ? (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button className="w-40 bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 transition-all duration-300 group">
-                    Hoàn thành{" "}
-                    <ChevronRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent className="rounded-xl border-none shadow-xl">
-                  <motion.div
-                    initial={{ scale: 0.9, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <AlertDialogHeader>
-                      <AlertDialogTitle className="text-xl font-bold text-center bg-gradient-to-r from-green-500 to-emerald-500 bg-clip-text text-transparent">
-                        Chúc mừng bạn đã hoàn thành khóa học!
-                      </AlertDialogTitle>
-                      <AlertDialogDescription className="text-center text-gray-600 mt-2">
-                        Bạn đã hoàn thành toàn bộ bài học trong khóa. Bạn có thể
-                        quay lại trang khóa học để xem lại nội dung hoặc khám
-                        phá các khóa học khác.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter className="flex gap-3 mt-4">
-                      <AlertDialogCancel className="w-full">
-                        Ở lại trang này
-                      </AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={handleCourseCompletion}
-                        className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600"
-                      >
-                        Hoàn thành khóa học
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </motion.div>
-                </AlertDialogContent>
-              </AlertDialog>
+            ) : isEnrolled && currentLessonIndex === allLessons.length - 1 ? (
+              hasCertificate ? (
+                <Button
+                  className="w-40 bg-gradient-to-r from-purple-500 to-indigo-500 text-white hover:from-purple-600 hover:to-indigo-600 transition-all duration-300 group"
+                  onClick={() => router.push(`/certificate/${certificateId}`)}
+                >
+                  Xem bằng{" "}
+                  <ChevronRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                </Button>
+              ) : (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button className="w-40 bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 transition-all duration-300 group">
+                      Hoàn thành{" "}
+                      <ChevronRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent className="rounded-xl border-none shadow-xl">
+                    <motion.div
+                      initial={{ scale: 0.9, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <AlertDialogHeader>
+                        <AlertDialogTitle className="text-xl font-bold text-center bg-gradient-to-r from-green-500 to-emerald-500 bg-clip-text text-transparent">
+                          Chúc mừng bạn đã hoàn thành khóa học!
+                        </AlertDialogTitle>
+                        <AlertDialogDescription className="text-center text-gray-600 mt-2">
+                          Bạn đã hoàn thành toàn bộ bài học trong khóa. Bạn có
+                          thể quay lại trang khóa học để xem lại nội dung hoặc
+                          khám phá các khóa học khác.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter className="flex gap-3 mt-4">
+                        <AlertDialogCancel className="w-full">
+                          Ở lại trang này
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={handleCourseCompletion}
+                          className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600"
+                        >
+                          Hoàn thành khóa học
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </motion.div>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )
             ) : (
               <Button variant="outline" className="w-40 opacity-50" disabled>
                 Học tiếp <ChevronRight className="ml-2 h-4 w-4" />

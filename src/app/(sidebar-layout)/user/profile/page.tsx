@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { toast } from "@/hooks/use-toast";
@@ -44,10 +44,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 export default function ProfilePage() {
   const { user, clearUser, setUser, hydrated, setHydrated } = useUserStore();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: session, status } = useSession();
   const [isLoading, setIsLoading] = useState(true);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isAvatarDialogOpen, setIsAvatarDialogOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("profile");
 
   // Handle hydration
   useEffect(() => {
@@ -63,6 +65,16 @@ export default function ProfilePage() {
 
     setIsLoading(false);
   }, [session, user, hydrated, setHydrated, setUser]);
+
+  // Handle tab from URL parameter
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab === "classes") {
+      setActiveTab("classes");
+    } else {
+      setActiveTab("profile");
+    }
+  }, [searchParams]);
 
   // Handle redirection if no user after hydration
   // useEffect(() => {
@@ -236,7 +248,7 @@ export default function ProfilePage() {
 
         {/* Main Content */}
         <div className="md:col-span-2 -mt-6">
-          <Tabs defaultValue="profile">
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="profile">Thông tin cá nhân</TabsTrigger>
               <TabsTrigger value="classes">Lớp học của tôi</TabsTrigger>
