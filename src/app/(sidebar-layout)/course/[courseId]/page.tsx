@@ -42,14 +42,7 @@ import {
   enrollCourse,
   getEnrollmentByCourse,
 } from "@/actions/enrollmentActions";
-import {
-  createEnrollmentAfterPayment,
-  createPayment,
-  generateOrderCode,
-  getOrderByCode,
-  updateEnrollmentStatus,
-  updateOrderStatus,
-} from "@/actions/paymentActions";
+import { createPaymentVnpay } from "@/actions/paymentActions";
 import { getCourseCurrentPrice } from "@/actions/pricingActions";
 import {
   GroupedSyllabusItem,
@@ -240,9 +233,12 @@ export default function CourseDetail() {
       try {
         console.log("id user: ", user?.id);
         console.log("id course: ", course?.id);
+        console.log("selectedClassId: ", selectedClassId);
+
         const { success, isEnrolled } = await checkEnrollmentStatus(
           user.id,
           course.id,
+          selectedClassId || undefined,
         );
         if (isMounted) setIsEnrolled(!!(success && isEnrolled));
         if (success && isEnrolled && isMounted) {
@@ -266,7 +262,7 @@ export default function CourseDetail() {
     return () => {
       isMounted = false;
     };
-  }, [params.courseId, user?.id, course?.id]);
+  }, [params.courseId, user?.id, course?.id, selectedClassId]);
   // Fetch pricing data
   useEffect(() => {
     const fetchPricing = async () => {
@@ -277,6 +273,7 @@ export default function CourseDetail() {
         const priceData = await getCourseCurrentPrice(
           params.courseId as string,
         );
+        console.log("Fetched pricing data:", priceData);
         setPricing(priceData);
       } catch (error) {
         console.error("Error fetching course pricing:", error);
@@ -400,13 +397,24 @@ export default function CourseDetail() {
 
     setIsLoading(true); // Bắt đầu loading
 
-    // Handle free courses directly
-    if (pricing.currentPrice || pricing.currentPrice !== 0) {
-      try {
-        // Show loading toast
-        const loadingToast = toast.loading("Đang đăng ký khóa học...");
+    // Kiểm tra xem có phải khóa miễn phí không - convert về number để so sánh
+    const currentPriceNumber = Number(pricing.currentPrice);
+    const isFree =
+      !pricing.currentPrice ||
+      pricing.currentPrice === null ||
+      isNaN(currentPriceNumber) ||
+      currentPriceNumber === 0;
 
-        // Enroll in the free course with correct format for backend
+    console.log("Pricing info:", {
+      currentPrice: pricing.currentPrice,
+      type: typeof pricing.currentPrice,
+      isFree: isFree,
+    });
+
+    // Nếu là khóa miễn phí
+    if (isFree) {
+      try {
+        const loadingToast = toast.loading("Đang đăng ký khóa học...");
         const result = await enrollCourse({
           studentId: user.id,
           type: course.courseType === CourseType.LIVE ? "STREAM" : "ONLINE",
@@ -419,26 +427,15 @@ export default function CourseDetail() {
           progress: 0,
           isCompleted: false,
         });
-
-        // Dismiss loading toast
         toast.dismiss(loadingToast);
-
         if (result.success) {
           toast.success("Bạn đã đăng ký khóa học thành công!");
-
-          // Refresh enrollment status
           setIsEnrolled(true);
-
-          // Set enrollment ID if returned from API
           if (result.data?.id) {
             setEnrollmentId(result.data.id);
             setProgressEnrollmentId(result.data.id);
           }
-
-          // Fetch updated course data to reflect enrollment count changes
           await fetchCourseData();
-
-          // Fetch enrollment ID and progress data
           await fetchEnrollmentId();
         } else {
           toast.error(result.message || "Có lỗi xảy ra khi đăng ký khóa học");
@@ -447,67 +444,37 @@ export default function CourseDetail() {
         toast.error("Có lỗi xảy ra khi đăng ký khóa học");
         console.error("Error enrolling in free course:", error);
       } finally {
-        setIsLoading(false); // Kết thúc loading
+        setIsLoading(false);
       }
+      return;
     } else {
-      // Xử lý thanh toán cho khóa học có phí - trực tiếp mở link checkout
+      // Nếu là khóa có phí
       try {
-        // Trước tiên, kiểm tra xem đã có enrollment nào chưa và cập nhật nếu cần
-        const updateResult = await updateEnrollmentStatus(user.id, course.id);
-        console.log("Update enrollment result:", updateResult);
-
-        // Nếu cập nhật thành công, kiểm tra lại trạng thái enrollment
-        if (updateResult.success) {
-          const checkResult = await checkEnrollmentStatus(user.id, course.id);
-          if (checkResult.success && checkResult.isEnrolled) {
-            setIsEnrolled(true);
-            toast.success("Bạn đã được đăng ký vào khóa học!");
-            setIsLoading(false);
-            return;
-          }
-        }
-
-        // Nếu không có enrollment hoặc cập nhật không thành công, tiếp tục với thanh toán
-        // Show loading toast
         const loadingToast = toast.loading("Đang tạo đơn thanh toán...");
-
-        const orderCode = await generateOrderCode(); // Trả về số nguyên
-        console.log("Order code lay dc o trang course: ", orderCode);
-        // Cập nhật dữ liệu thanh toán với metadata phù hợp và returnUrl trỏ về trang success
+        // Chuẩn bị dữ liệu cho payment
         const paymentData = {
-          amount: pricing.currentPrice,
-          method: "BANK_TRANSFER",
-          description: course.title.substring(0, 25), // Giới hạn 25 ký tự
-          orderCode: orderCode.toString(), // Chuyển đổi thành chuỗi
-          returnUrl: `${window.location.origin}/payment/success?orderCode=${orderCode}&courseId=${course.id}&userId=${user.id}&userName=${encodeURIComponent(user.name || user.email || "")}&courseName=${encodeURIComponent(course.title)}${course.courseType === CourseType.LIVE && selectedClassId ? `&classId=${selectedClassId}` : ""}`,
-          cancelUrl: `${window.location.origin}/course/${course.id}`,
+          amount: Number(pricing.currentPrice),
+          orderId: `${course.id}-${user.id}-${Date.now()}`,
+          orderDescription: course.title,
+          orderType: "course",
+          studentId: user.id,
           metadata: {
             courseId: course.id,
             userId: user.id,
             userName: user.name || user.email,
             courseName: course.title,
-            level: course.level || "BEGINNER",
-            categoryName: course.category?.name || "",
-            serviceType: "Course",
+            courseType: course.courseType,
             classId:
               course.courseType === CourseType.LIVE
                 ? selectedClassId || undefined
                 : undefined,
           },
-          serviceName: "Course Enrollment",
-          serviceId: course.id,
-          userId: user.id,
         };
-
-        // Sử dụng hàm createPayment từ paymentActions
-        const paymentResponse = await createPayment(paymentData);
-
-        // Dismiss loading toast
+        console.log("paymentData: ", paymentData);
+        const paymentResponse = await createPaymentVnpay(paymentData);
         toast.dismiss(loadingToast);
-
-        if (paymentResponse.success && paymentResponse.checkoutUrl) {
-          // Chuyển hướng trực tiếp đến trang thanh toán
-          window.location.href = paymentResponse.checkoutUrl;
+        if (paymentResponse && paymentResponse.paymentUrl) {
+          window.location.href = paymentResponse.paymentUrl;
         } else {
           toast.error(
             paymentResponse.message || "Không thể tạo trang thanh toán",
@@ -517,7 +484,7 @@ export default function CourseDetail() {
         toast.error("Có lỗi xảy ra khi tạo đơn thanh toán");
         console.error("Error creating payment:", error);
       } finally {
-        setIsLoading(false); // Kết thúc loading
+        setIsLoading(false);
       }
     }
   };
@@ -936,42 +903,61 @@ export default function CourseDetail() {
                 >
                   {loadingPrice ? (
                     <div className="h-8 w-32 bg-gray-200 animate-pulse rounded"></div>
-                  ) : !pricing ||
-                    !pricing.currentPrice ||
-                    pricing.currentPrice === 0 ? (
-                    <p className="text-green-600 text-2xl font-semibold">
-                      Miễn phí
-                    </p>
                   ) : (
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <p className="text-red-600 text-2xl font-semibold">
-                          {Number(pricing?.currentPrice).toLocaleString()} VND
-                        </p>
-                        {pricing.hasPromotion && pricing.promotionName && (
-                          <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded">
-                            {pricing.priceType === "promotion"
-                              ? "🎉 Khuyến mãi"
-                              : "Giá gốc"}
-                          </span>
-                        )}
-                      </div>
-                      {pricing.hasPromotion && pricing.promotionName && (
-                        <div className="bg-red-50 p-2 rounded-md">
-                          <p className="text-sm text-red-700 font-medium">
-                            🎉 {pricing.promotionName}
+                    (() => {
+                      const currentPriceNumber = Number(pricing?.currentPrice);
+                      const isFree =
+                        !pricing?.currentPrice ||
+                        pricing?.currentPrice === null ||
+                        isNaN(currentPriceNumber) ||
+                        currentPriceNumber === 0;
+                      // console.log("Price display check:", {
+                      //   currentPrice: pricing?.currentPrice,
+                      //   type: typeof pricing?.currentPrice,
+                      //   isFree: isFree,
+                      // });
+
+                      if (isFree) {
+                        return (
+                          <p className="text-green-600 text-2xl font-semibold">
+                            Miễn phí
                           </p>
-                          {pricing.promotionEndDate && (
-                            <p className="text-xs text-red-600">
-                              Hết hạn:{" "}
-                              {new Date(
-                                pricing.promotionEndDate,
-                              ).toLocaleDateString("vi-VN")}
+                        );
+                      }
+
+                      return (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <p className="text-red-600 text-2xl font-semibold">
+                              {Number(pricing?.currentPrice).toLocaleString()}{" "}
+                              VND
                             </p>
+                            {pricing.hasPromotion && pricing.promotionName && (
+                              <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded">
+                                {pricing.priceType === "promotion"
+                                  ? "🎉 Khuyến mãi"
+                                  : "Giá gốc"}
+                              </span>
+                            )}
+                          </div>
+                          {pricing.hasPromotion && pricing.promotionName && (
+                            <div className="bg-red-50 p-2 rounded-md">
+                              <p className="text-sm text-red-700 font-medium">
+                                🎉 {pricing.promotionName}
+                              </p>
+                              {pricing.promotionEndDate && (
+                                <p className="text-xs text-red-600">
+                                  Hết hạn:{" "}
+                                  {new Date(
+                                    pricing.promotionEndDate,
+                                  ).toLocaleDateString("vi-VN")}
+                                </p>
+                              )}
+                            </div>
                           )}
                         </div>
-                      )}
-                    </div>
+                      );
+                    })()
                   )}
                 </motion.div>
 
@@ -1077,11 +1063,19 @@ export default function CourseDetail() {
                             {course.courseType === CourseType.LIVE &&
                             !selectedClassId
                               ? "Chọn lớp học để đăng ký"
-                              : !pricing ||
-                                  !pricing.currentPrice ||
-                                  pricing.currentPrice === 0
-                                ? "Đăng ký ngay"
-                                : "Mua khóa học"}
+                              : (() => {
+                                  const currentPriceNumber = Number(
+                                    pricing?.currentPrice,
+                                  );
+                                  const isFree =
+                                    !pricing?.currentPrice ||
+                                    pricing?.currentPrice === null ||
+                                    isNaN(currentPriceNumber) ||
+                                    currentPriceNumber === 0;
+                                  return isFree
+                                    ? "Đăng ký ngay"
+                                    : "Mua khóa học";
+                                })()}
                           </span>
                           <span className="absolute inset-0 bg-gradient-to-r from-orange-400 to-orange-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
                           <span className="absolute -inset-1 rounded-lg bg-gradient-to-r from-orange-400 via-orange-500 to-orange-400 opacity-0 group-hover:opacity-30 blur-md transition-opacity duration-300 animate-pulse"></span>

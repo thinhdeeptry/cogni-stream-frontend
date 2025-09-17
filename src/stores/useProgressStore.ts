@@ -31,8 +31,9 @@ interface ProgressState {
   updateLessonProgress: (progressData: {
     progress: number;
     currentProgressId: string;
-    nextLesson: string;
-    nextLessonId: string;
+    nextLesson?: string;
+    nextLessonId?: string;
+    nextSyllabusItemId?: string;
     isLessonCompleted: boolean;
   }) => Promise<void>;
   verifyCompletion: () => Promise<void>;

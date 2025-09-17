@@ -8,6 +8,7 @@ interface EnrollmentData {
   classId?: string;
   progress?: number;
   isCompleted?: boolean;
+  transactionId?: string; // ID của transaction khi thanh toán thành công
 }
 
 export interface EnrollmentStats {
@@ -50,10 +51,42 @@ export const enrollCourse = async (enrollmentData: EnrollmentData) => {
   }
 };
 
-export async function checkEnrollmentStatus(userId: string, courseId: string) {
+// Hàm tạo enrollment sau thanh toán thành công
+export const createEnrollment = async (enrollmentData: EnrollmentData) => {
+  try {
+    const enrollmentApi = await AxiosFactory.getApiInstance("enrollment");
+    const response = await enrollmentApi.post("/enrollments", enrollmentData);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(
+      error.response?.data?.message || error.message || "Lỗi tạo enrollment",
+    );
+  }
+};
+
+export async function checkEnrollmentStatus(
+  userId: string,
+  courseId: string,
+  classId?: string,
+) {
   try {
     const api = await AxiosFactory.getApiInstance("enrollment");
-    const res = await api.get(`/enrollments/check/${userId}/${courseId}`);
+
+    // Determine enrollment type based on classId presence
+    const enrollmentType = classId ? "STREAM" : "ONLINE";
+
+    // Build query parameters
+    const queryParams = new URLSearchParams({
+      type: enrollmentType,
+    });
+
+    if (classId) {
+      queryParams.append("classId", classId);
+    }
+
+    const res = await api.get(
+      `/enrollments/check/${userId}/${courseId}?${queryParams.toString()}`,
+    );
     console.log("Data của check enroll: ", res.data);
 
     return {
@@ -94,25 +127,7 @@ export const createCertificate = async (params: {
       throw new Error("Không tìm thấy thông tin đăng ký khóa học");
     }
 
-    // Kiểm tra tiến độ học tập
-    const progressApi = await AxiosFactory.getApiInstance("enrollment");
-    const progressResponse = await progressApi.get(
-      `/enrollments/${enrollment.id}`,
-    );
-    const progressData = progressResponse.data;
-
-    // Nếu tiến độ chưa đạt 100%, cập nhật tiến độ lên 100%
-    // if (progressData.progress < 100) {
-    //   await progressApi.put(`/${enrollment.id}`, {
-    //     progress: 100,
-    //     isLessonCompleted: true
-    //   });
-
-    //   // Đợi một chút để đảm bảo trigger cập nhật trạng thái enrollment đã chạy
-    //   await new Promise(resolve => setTimeout(resolve, 500));
-    // }
-
-    // Kiểm tra lại trạng thái enrollment sau khi cập nhật tiến độ
+    // Kiểm tra lại trạng thái enrollment
     const updatedEnrollmentResponse = await enrollmentApi.get(
       `/enrollments/${enrollment.id}`,
     );
@@ -125,12 +140,10 @@ export const createCertificate = async (params: {
       });
     }
 
-    // Tạo chứng chỉ
-    const response = await enrollmentApi.post(
-      `/enrollments/${enrollment.id}/certificate`,
-      {
-        metadata: params.metadata,
-      },
+    // Tạo chứng chỉ thông qua certificates API
+    const certificatesApi = await AxiosFactory.getApiInstance("certificates");
+    const response = await certificatesApi.post(
+      `/certificates/issue/${enrollment.id}`,
     );
 
     return {
@@ -153,15 +166,15 @@ export const createCertificate = async (params: {
 
 export const getCertificate = async (certificateId: string) => {
   try {
-    const enrollmentApi = await AxiosFactory.getApiInstance("enrollment");
-    const response = await enrollmentApi.get(
-      `/enrollments/certificate/${certificateId}/verify`,
+    const certificatesApi = await AxiosFactory.getApiInstance("certificates");
+    const response = await certificatesApi.get(
+      `/certificates/${certificateId}`,
     );
 
     return {
       error: false,
       success: true,
-      data: response.data,
+      data: response.data.data, // Backend trả về {message, statusCode, data}
     };
   } catch (error: any) {
     console.error("Error fetching certificate:", error);
@@ -171,6 +184,35 @@ export const getCertificate = async (certificateId: string) => {
       message:
         error.response?.data?.message ||
         "Có lỗi xảy ra khi lấy thông tin chứng chỉ.",
+      data: null,
+    };
+  }
+};
+
+export const getStudentCertificates = async (
+  studentId: string,
+  page: number = 1,
+  limit: number = 10,
+) => {
+  try {
+    const certificatesApi = await AxiosFactory.getApiInstance("certificates");
+    const response = await certificatesApi.get(
+      `/certificates/student/${studentId}?page=${page}&limit=${limit}`,
+    );
+
+    return {
+      error: false,
+      success: true,
+      data: response.data.data, // Backend trả về paginated data
+    };
+  } catch (error: any) {
+    console.error("Error fetching student certificates:", error);
+    return {
+      error: true,
+      success: false,
+      message:
+        error.response?.data?.message ||
+        "Có lỗi xảy ra khi lấy danh sách chứng chỉ.",
       data: null,
     };
   }
@@ -277,6 +319,29 @@ export async function getProgressByEnrollment(enrollmentId: string) {
       success: false,
       message:
         error?.response?.data?.message || "Error fetching student progress",
+    };
+  }
+}
+
+/**
+ * Đánh dấu hoàn thành khóa học và cấp chứng chỉ tự động
+ */
+export async function markCourseAsCompleted(enrollmentId: string) {
+  try {
+    const api = await AxiosFactory.getApiInstance("enrollment");
+    const res = await api.patch(`/enrollments/${enrollmentId}/complete`);
+    return {
+      success: true,
+      data: res.data,
+      message: res.data?.message || "Đánh dấu hoàn thành khóa học thành công!",
+    };
+  } catch (error: any) {
+    console.error("Error marking course as completed:", error);
+    return {
+      success: false,
+      message:
+        error?.response?.data?.message ||
+        "Không thể đánh dấu hoàn thành khóa học",
     };
   }
 }

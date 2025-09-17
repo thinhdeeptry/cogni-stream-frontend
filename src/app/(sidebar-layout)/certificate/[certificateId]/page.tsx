@@ -8,7 +8,7 @@ import { Loader2 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 
-import { getCertificate } from "@/actions/enrollmentActions";
+import { getCertificate } from "@/actions/certificateActions";
 
 import CertificateView from "@/components/certificate/certificate-view";
 
