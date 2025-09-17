@@ -430,6 +430,10 @@ export const createLesson = async (
     timeLimit?: number | null;
     maxAttempts?: number | null;
     retryDelay?: number | null;
+    // Quiz blocking settings - simplified (always require unlock action)
+    blockDuration?: number | null;
+    requireUnlockAction?: boolean;
+    unlockRequirements?: any[];
   },
 ) => {
   try {
@@ -478,6 +482,44 @@ export const getLessonById = async (lessonId: string) => {
   }
 };
 
+export const getLessonsForDropdown = async (courseId: string) => {
+  try {
+    const { data } = await courseApi.get(
+      `/lessons/courses/${courseId}/dropdown`,
+    );
+    return {
+      success: true,
+      data,
+      message: "Lấy danh sách lessons cho dropdown thành công",
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: "Đã xảy ra lỗi khi lấy danh sách lessons",
+      error,
+    };
+  }
+};
+
+export const getQuizLessonsForDropdown = async (courseId: string) => {
+  try {
+    const { data } = await courseApi.get(
+      `/lessons/courses/${courseId}/quizzes`,
+    );
+    return {
+      success: true,
+      data,
+      message: "Lấy danh sách quiz lessons cho dropdown thành công",
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: "Đã xảy ra lỗi khi lấy danh sách quiz lessons",
+      error,
+    };
+  }
+};
+
 export const updateLesson = async (
   lessonId: string,
   lessonData: {
@@ -491,6 +533,11 @@ export const updateLesson = async (
     timeLimit?: number | null;
     maxAttempts?: number | null;
     retryDelay?: number | null;
+    // Quiz blocking settings - simplified (always require unlock action)
+    blockDuration?: number | null;
+    requireUnlockAction?: boolean;
+    unlockRequirements?: any[];
+    deleteUnlockRequirements?: string[];
   },
 ) => {
   try {

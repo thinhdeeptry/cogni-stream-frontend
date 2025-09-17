@@ -34,6 +34,8 @@ import {
   uploadImage,
 } from "@/actions/courseAction";
 
+import UnlockRequirementsBuilder from "@/components/admin/UnlockRequirementsBuilder";
+import LessonReviewSidebar from "@/components/lesson/LessonReviewSidebar";
 import { QuestionManager } from "@/components/lesson/QuestionManager";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -74,8 +76,30 @@ export default function EditLessonPage({
   const [timeLimit, setTimeLimit] = useState<number | null>(null);
   const [maxAttempts, setMaxAttempts] = useState<number | null>(null);
   const [retryDelay, setRetryDelay] = useState<number | null>(null);
+  const [blockDuration, setBlockDuration] = useState<number | null>(null);
+  const [unlockRequirements, setUnlockRequirements] = useState<any[]>([]);
+  const [deleteUnlockRequirements, setDeleteUnlockRequirements] = useState<
+    string[]
+  >([]);
   const [questions, setQuestions] = useState<Question[]>([]);
   const { toast } = useToast();
+
+  const handleUnlockRequirementsChange = (newRequirements: any[]) => {
+    const currentIds = unlockRequirements
+      .map((req) => req.id)
+      .filter((id) => id && !id.startsWith("temp-"));
+    const newIds = newRequirements
+      .map((req) => req.id)
+      .filter((id) => id && !id.startsWith("temp-"));
+
+    // Find deleted requirements (existing IDs that are no longer in new requirements)
+    const deletedIds = currentIds.filter((id) => !newIds.includes(id));
+    if (deletedIds.length > 0) {
+      setDeleteUnlockRequirements((prev) => [...prev, ...deletedIds]);
+    }
+
+    setUnlockRequirements(newRequirements);
+  };
 
   // Configure BlockNote editor with image upload
   const editor = useCreateBlockNote({
@@ -144,6 +168,8 @@ export default function EditLessonPage({
           setTimeLimit(data.timeLimit || null);
           setMaxAttempts(data.maxAttempts || null);
           setRetryDelay(data.retryDelay || null);
+          setBlockDuration(data.blockDuration || null);
+          setUnlockRequirements(data.unlockRequirements || []);
 
           // Load the content into the editor if it exists
           if (data.content) {
@@ -192,7 +218,7 @@ export default function EditLessonPage({
         type = LessonType.QUIZ;
       }
 
-      const result = await updateLesson(resolvedParams.lessonId, {
+      const updateData: any = {
         title,
         content: type === LessonType.QUIZ ? undefined : content,
         type,
@@ -203,7 +229,17 @@ export default function EditLessonPage({
         timeLimit: type === LessonType.QUIZ ? timeLimit : undefined,
         maxAttempts: type === LessonType.QUIZ ? maxAttempts : undefined,
         retryDelay: type === LessonType.QUIZ ? retryDelay : undefined,
-      });
+        blockDuration: type === LessonType.QUIZ ? blockDuration : undefined,
+        requireUnlockAction: type === LessonType.QUIZ ? true : undefined,
+        unlockRequirements:
+          type === LessonType.QUIZ ? unlockRequirements : undefined,
+        deleteUnlockRequirements:
+          type === LessonType.QUIZ && deleteUnlockRequirements.length > 0
+            ? deleteUnlockRequirements
+            : undefined,
+      };
+
+      const result = await updateLesson(resolvedParams.lessonId, updateData);
 
       if (result.success) {
         toast({
@@ -276,428 +312,498 @@ export default function EditLessonPage({
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      <div className="container mx-auto p-6 space-y-8 max-w-5xl">
-        <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-          <CardHeader className="pb-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <Link href={`/admin/courses/${resolvedParams.courseId}`}>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="border-slate-200 hover:bg-slate-100 transition-colors bg-transparent"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                </Link>
-                <div>
-                  <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
-                    Chỉnh sửa bài học
-                  </h1>
-                  <p className="text-slate-600 mt-1">
-                    Cập nhật và cải thiện nội dung bài học của bạn
-                  </p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex">
+      {/* Main content area */}
+      <div className="flex-1 overflow-auto pr-6">
+        <div className="container mx-auto p-4 space-y-6 max-w-5xl">
+          <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <Link href={`/admin/courses/${resolvedParams.courseId}`}>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="border-slate-200 hover:bg-slate-100 transition-colors bg-transparent"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                  <div>
+                    <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+                      Chỉnh sửa bài học
+                    </h1>
+                    <p className="text-slate-600 text-sm mt-1">
+                      Cập nhật và cải thiện nội dung bài học của bạn
+                    </p>
+                  </div>
                 </div>
+                <Button
+                  type="submit"
+                  form="lesson-form"
+                  disabled={isSubmitting}
+                  className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-lg transition-all duration-200 px-6"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2" />
+                      Đang cập nhật...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4 mr-2" />
+                      Cập nhật bài học
+                    </>
+                  )}
+                </Button>
               </div>
-              <Button
-                type="submit"
-                form="lesson-form"
-                disabled={isSubmitting}
-                className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-lg transition-all duration-200 px-8"
-              >
-                {isSubmitting ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2" />
-                    Đang cập nhật...
-                  </>
-                ) : (
-                  <>
-                    <Save className="h-4 w-4 mr-2" />
-                    Cập nhật bài học
-                  </>
-                )}
-              </Button>
-            </div>
-          </CardHeader>
-        </Card>
-
-        <form id="lesson-form" onSubmit={handleSubmit} className="space-y-8">
-          <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-xl">
-                <FileText className="h-5 w-5 text-orange-500" />
-                Thông tin cơ bản
-              </CardTitle>
-              <CardDescription>
-                Cập nhật thông tin chính cho bài học của bạn
-              </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-3">
-                <Label
-                  htmlFor="title"
-                  className="text-sm font-semibold text-slate-900 flex items-center gap-2"
-                >
-                  Tiêu đề bài học
-                  <Badge variant="secondary" className="text-xs">
-                    Bắt buộc
-                  </Badge>
-                </Label>
-                <Input
-                  id="title"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  required
-                  className="border-slate-200 focus:ring-orange-500 focus:border-orange-500 transition-colors h-12 text-base"
-                  placeholder="Nhập tiêu đề hấp dẫn cho bài học"
-                />
-              </div>
-
-              <div className="space-y-3">
-                <Label
-                  htmlFor="lessonType"
-                  className="text-sm font-semibold text-slate-900 flex items-center gap-2"
-                >
-                  Loại bài học
-                  <Badge variant="secondary" className="text-xs">
-                    Bắt buộc
-                  </Badge>
-                </Label>
-                <Select
-                  value={lessonType}
-                  onValueChange={(value) => setLessonType(value)}
-                >
-                  <SelectTrigger className="border-slate-200 focus:ring-orange-500 focus:border-orange-500 h-12 ">
-                    <SelectValue placeholder="Chọn loại bài học" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {lessonTypeOptions.map((option) => {
-                      const Icon = option.icon;
-                      return (
-                        <SelectItem
-                          key={option.value}
-                          value={option.value}
-                          className="py-3"
-                        >
-                          <div className="flex items-start gap-3">
-                            <Icon className="h-4 w-4 text-slate-600 mt-0.5" />
-                            <div>
-                              <div className="flex items-start font-medium">
-                                {option.label}
-                              </div>
-                              <div className="text-xs text-slate-500">
-                                {option.description}
-                              </div>
-                            </div>
-                          </div>
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
           </Card>
 
-          {(lessonType === LessonType.VIDEO ||
-            lessonType === LessonType.MIXED) && (
+          <form id="lesson-form" onSubmit={handleSubmit} className="space-y-6">
             <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-xl">
-                  <Video className="h-5 w-5 text-red-500" />
-                  Cấu hình Video
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <FileText className="h-5 w-5 text-orange-500" />
+                  Thông tin cơ bản
                 </CardTitle>
                 <CardDescription>
-                  Cập nhật video học tập từ các nền tảng phổ biến
+                  Cập nhật thông tin chính cho bài học của bạn
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
                   <Label
-                    htmlFor="videoUrl"
+                    htmlFor="title"
                     className="text-sm font-semibold text-slate-900 flex items-center gap-2"
                   >
-                    URL Video
-                    {lessonType === LessonType.VIDEO && (
-                      <Badge variant="secondary" className="text-xs">
-                        Bắt buộc
-                      </Badge>
-                    )}
-                  </Label>
-                  <Input
-                    id="videoUrl"
-                    value={videoUrl}
-                    onChange={(e) => setVideoUrl(e.target.value)}
-                    placeholder="https://www.youtube.com/watch?v=... hoặc https://vimeo.com/..."
-                    required={lessonType === LessonType.VIDEO}
-                    className="border-slate-200 focus:ring-orange-500 focus:border-orange-500 h-12"
-                  />
-                  <p className="text-xs text-slate-500">
-                    Hỗ trợ YouTube, Vimeo và các nền tảng video phổ biến khác
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {(lessonType === LessonType.BLOG ||
-            lessonType === LessonType.MIXED) && (
-            <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-xl">
-                  <BookOpen className="h-5 w-5 text-blue-500" />
-                  Nội dung bài học
-                </CardTitle>
-                <CardDescription>
-                  Cập nhật nội dung phong phú với văn bản, hình ảnh và định dạng
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="border-2 border-dashed border-slate-200 rounded-xl overflow-hidden hover:border-orange-300 transition-colors">
-                  <BlockNoteView
-                    editor={editor}
-                    theme="light"
-                    className="min-h-[500px] bg-white"
-                  />
-                </div>
-                <p className="text-xs text-slate-500 mt-2">
-                  Sử dụng thanh công cụ để định dạng văn bản, thêm hình ảnh và
-                  tạo danh sách
-                </p>
-              </CardContent>
-            </Card>
-          )}
-
-          {lessonType === LessonType.QUIZ && (
-            <Card className="shadow-lg border-0 bg-gradient-to-br from-purple-50 to-indigo-50 border-purple-200">
-              <CardHeader className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-t-lg">
-                <CardTitle className="flex items-center gap-2 text-xl">
-                  <Brain className="h-6 w-6" />
-                  Quản lý Quiz
-                </CardTitle>
-                <CardDescription className="text-purple-100">
-                  Cập nhật cấu hình và quản lý câu hỏi cho bài quiz
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-6 space-y-6">
-                {/* Pass Percent Setting with visual indicator */}
-                <div className="bg-white rounded-lg p-4 border border-purple-200">
-                  <Label
-                    htmlFor="passPercent"
-                    className="text-sm font-semibold text-slate-900 flex items-center gap-2 mb-3"
-                  >
-                    <CheckCircle className="h-4 w-4 text-green-500" />
-                    Điểm đậu (%)
-                    <Badge variant="outline" className="text-xs">
-                      Hiện tại: {passPercent}%
+                    Tiêu đề bài học
+                    <Badge variant="secondary" className="text-xs">
+                      Bắt buộc
                     </Badge>
                   </Label>
-                  <div className="flex items-center gap-4">
+                  <Input
+                    id="title"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    required
+                    className="border-slate-200 focus:ring-orange-500 focus:border-orange-500 transition-colors h-10 text-base"
+                    placeholder="Nhập tiêu đề hấp dẫn cho bài học"
+                  />
+                </div>
+
+                <div className="space-y-2 p-1">
+                  <Label
+                    htmlFor="lessonType"
+                    className="text-sm font-semibold text-slate-900 flex items-center gap-2"
+                  >
+                    Loại bài học
+                    <Badge variant="secondary" className="text-xs">
+                      Bắt buộc
+                    </Badge>
+                  </Label>
+                  <Select
+                    value={lessonType}
+                    onValueChange={(value) => setLessonType(value)}
+                  >
+                    <SelectTrigger className="border-slate-200 focus:ring-orange-500 focus:border-orange-500 h-10">
+                      <SelectValue placeholder="Chọn loại bài học" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {lessonTypeOptions.map((option) => {
+                        const Icon = option.icon;
+                        return (
+                          <SelectItem
+                            key={option.value}
+                            value={option.value}
+                            className="py-3"
+                          >
+                            <div className="flex items-start gap-3">
+                              <Icon className="h-4 w-4 text-slate-600 mt-3" />
+                              <div>
+                                <div className="font-semibold text-base text-left">
+                                  {option.label}
+                                </div>
+                                <div className="text-xs text-slate-500 mt-0.5">
+                                  {option.description}
+                                </div>
+                              </div>
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
+
+            {(lessonType === LessonType.VIDEO ||
+              lessonType === LessonType.MIXED) && (
+              <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Video className="h-5 w-5 text-red-500" />
+                    Cấu hình Video
+                  </CardTitle>
+                  <CardDescription>
+                    Cập nhật video học tập từ các nền tảng phổ biến
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="videoUrl"
+                      className="text-sm font-semibold text-slate-900 flex items-center gap-2"
+                    >
+                      URL Video
+                      {lessonType === LessonType.VIDEO && (
+                        <Badge variant="secondary" className="text-xs">
+                          Bắt buộc
+                        </Badge>
+                      )}
+                    </Label>
                     <Input
-                      id="passPercent"
-                      type="number"
-                      min="1"
-                      max="100"
-                      value={passPercent}
-                      onChange={(e) =>
-                        setPassPercent(Number.parseInt(e.target.value) || 80)
-                      }
-                      className="border-slate-200 focus:ring-purple-500 focus:border-purple-500 w-24 h-10"
+                      id="videoUrl"
+                      value={videoUrl}
+                      onChange={(e) => setVideoUrl(e.target.value)}
+                      placeholder="https://www.youtube.com/watch?v=... hoặc https://vimeo.com/..."
+                      required={lessonType === LessonType.VIDEO}
+                      className="border-slate-200 focus:ring-orange-500 focus:border-orange-500 h-10"
                     />
-                    <div className="flex-1">
-                      <div className="w-full bg-slate-200 rounded-full h-2">
-                        <div
-                          className="bg-gradient-to-r from-green-400 to-green-600 h-2 rounded-full transition-all duration-300"
-                          style={{ width: `${passPercent}%` }}
-                        />
+                    <p className="text-xs text-slate-500">
+                      Hỗ trợ YouTube, Vimeo và các nền tảng video phổ biến khác
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {(lessonType === LessonType.BLOG ||
+              lessonType === LessonType.MIXED) && (
+              <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <BookOpen className="h-5 w-5 text-blue-500" />
+                    Nội dung bài học
+                  </CardTitle>
+                  <CardDescription>
+                    Cập nhật nội dung phong phú với văn bản, hình ảnh và định
+                    dạng
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="border-2 border-dashed border-slate-200 rounded-xl overflow-hidden hover:border-orange-300 transition-colors">
+                    <BlockNoteView
+                      editor={editor}
+                      theme="light"
+                      className="min-h-[400px] bg-white"
+                    />
+                  </div>
+                  <p className="text-xs text-slate-500 mt-2">
+                    Sử dụng thanh công cụ để định dạng văn bản, thêm hình ảnh và
+                    tạo danh sách
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
+            {lessonType === LessonType.QUIZ && (
+              <Card className="shadow-lg border-0 bg-gradient-to-br from-purple-50 to-indigo-50 border-purple-200">
+                <CardHeader className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-t-lg pb-3">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Brain className="h-5 w-5" />
+                    Quản lý Quiz
+                  </CardTitle>
+                  <CardDescription className="text-purple-100">
+                    Cập nhật cấu hình và quản lý câu hỏi cho bài quiz
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="p-4 space-y-4">
+                  {/* Pass Percent Setting with visual indicator */}
+                  <div className="bg-white rounded-lg p-3 border border-purple-200">
+                    <Label
+                      htmlFor="passPercent"
+                      className="text-sm font-semibold text-slate-900 flex items-center gap-2 mb-2"
+                    >
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                      Điểm đậu (%)
+                      <Badge variant="outline" className="text-xs">
+                        Hiện tại: {passPercent}%
+                      </Badge>
+                    </Label>
+                    <div className="flex items-center gap-4">
+                      <Input
+                        id="passPercent"
+                        type="number"
+                        min="1"
+                        max="100"
+                        value={passPercent}
+                        onChange={(e) =>
+                          setPassPercent(Number.parseInt(e.target.value) || 80)
+                        }
+                        className="border-slate-200 focus:ring-purple-500 focus:border-purple-500 w-20 h-8"
+                      />
+                      <div className="flex-1">
+                        <div className="w-full bg-slate-200 rounded-full h-2">
+                          <div
+                            className="bg-gradient-to-r from-green-400 to-green-600 h-2 rounded-full transition-all duration-300"
+                            style={{ width: `${passPercent}%` }}
+                          />
+                        </div>
+                        <p className="text-xs text-slate-600 mt-1">
+                          Học viên cần đạt ít nhất {passPercent}% để vượt qua
+                          quiz
+                        </p>
                       </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="bg-white rounded-lg p-3 border border-purple-200">
+                      <Label
+                        htmlFor="timeLimit"
+                        className="text-sm font-semibold text-slate-900 flex items-center gap-2 mb-2"
+                      >
+                        <Clock className="h-4 w-4 text-blue-500" />
+                        Thời gian (phút)
+                      </Label>
+                      <Input
+                        id="timeLimit"
+                        type="number"
+                        min="1"
+                        placeholder="∞"
+                        value={timeLimit || ""}
+                        onChange={(e) =>
+                          setTimeLimit(
+                            e.target.value
+                              ? Number.parseInt(e.target.value) || null
+                              : null,
+                          )
+                        }
+                        className="border-slate-200 focus:ring-purple-500 focus:border-purple-500 h-8"
+                      />
                       <p className="text-xs text-slate-600 mt-1">
-                        Học viên cần đạt ít nhất {passPercent}% để vượt qua quiz
+                        Thời gian tối đa để hoàn thành quiz. Để trống = không
+                        giới hạn thời gian
+                      </p>
+                    </div>
+
+                    <div className="bg-white rounded-lg p-3 border border-purple-200">
+                      <Label
+                        htmlFor="maxAttempts"
+                        className="text-sm font-semibold text-slate-900 flex items-center gap-2 mb-2"
+                      >
+                        <RotateCcw className="h-4 w-4 text-orange-500" />
+                        Số lần làm
+                      </Label>
+                      <Input
+                        id="maxAttempts"
+                        type="number"
+                        min="1"
+                        placeholder="∞"
+                        value={maxAttempts || ""}
+                        onChange={(e) =>
+                          setMaxAttempts(
+                            e.target.value
+                              ? Number.parseInt(e.target.value) || null
+                              : null,
+                          )
+                        }
+                        className="border-slate-200 focus:ring-purple-500 focus:border-purple-500 h-8"
+                      />
+                      <p className="text-xs text-slate-600 mt-1">
+                        Số lần thử tối đa cho phép. Để trống = không giới hạn số
+                        lần làm
+                      </p>
+                    </div>
+
+                    <div className="bg-white rounded-lg p-3 border border-purple-200">
+                      <Label
+                        htmlFor="retryDelay"
+                        className="text-sm font-semibold text-slate-900 flex items-center gap-2 mb-2"
+                      >
+                        <Timer className="h-4 w-4 text-red-500" />
+                        Chờ (phút)
+                      </Label>
+                      <Input
+                        id="retryDelay"
+                        type="number"
+                        min="0"
+                        placeholder="0"
+                        value={retryDelay || ""}
+                        onChange={(e) =>
+                          setRetryDelay(
+                            e.target.value
+                              ? Number.parseInt(e.target.value) || null
+                              : null,
+                          )
+                        }
+                        className="border-slate-200 focus:ring-purple-500 focus:border-purple-500 h-8"
+                      />
+                      <p className="text-xs text-slate-600 mt-1">
+                        Thời gian chờ giữa các lần làm lại. 0 = có thể làm lại
+                        ngay lập tức
+                      </p>
+                    </div>
+
+                    <div className="bg-white rounded-lg p-3 border border-purple-200">
+                      <Label
+                        htmlFor="blockDuration"
+                        className="text-sm font-semibold text-slate-900 flex items-center gap-2 mb-2"
+                      >
+                        <Timer className="h-4 w-4 text-red-500" />
+                        Khóa (phút)
+                      </Label>
+                      <Input
+                        id="blockDuration"
+                        type="number"
+                        min="1"
+                        placeholder="0"
+                        value={blockDuration || ""}
+                        onChange={(e) =>
+                          setBlockDuration(
+                            e.target.value
+                              ? Number.parseInt(e.target.value) || null
+                              : null,
+                          )
+                        }
+                        className="border-slate-200 focus:ring-purple-500 focus:border-purple-500 h-8"
+                      />
+                      <p className="text-xs text-slate-600 mt-1">
+                        Thời gian khóa quiz khi không đạt điểm. Để trống = khóa
+                        vĩnh viễn và chỉ mở khi hoàn thành điều kiện bên dưới
                       </p>
                     </div>
                   </div>
-                </div>
 
-                {/* Quiz Timing Settings */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="bg-white rounded-lg p-4 border border-purple-200">
-                    <Label
-                      htmlFor="timeLimit"
-                      className="text-sm font-semibold text-slate-900 flex items-center gap-2 mb-3"
-                    >
-                      <Clock className="h-4 w-4 text-blue-500" />
-                      Thời gian làm bài (phút)
-                    </Label>
-                    <Input
-                      id="timeLimit"
-                      type="number"
-                      min="1"
-                      placeholder="Không giới hạn"
-                      value={timeLimit || ""}
-                      onChange={(e) =>
-                        setTimeLimit(
-                          e.target.value
-                            ? Number.parseInt(e.target.value) || null
-                            : null,
-                        )
-                      }
-                      className="border-slate-200 focus:ring-purple-500 focus:border-purple-500 h-10"
-                    />
-                    <p className="text-xs text-slate-500 mt-1">
-                      {timeLimit
-                        ? `${timeLimit} phút`
-                        : "Không giới hạn thời gian"}
-                    </p>
+                  <div className="bg-white rounded-lg border-2 border-blue-200 overflow-hidden">
+                    <div className="bg-gradient-to-r from-blue-100 to-indigo-100 p-3 border-b border-blue-200">
+                      <h3 className="font-semibold text-blue-900 flex items-center gap-2 text-sm">
+                        <CheckCircle className="h-4 w-4" />
+                        Điều kiện mở khóa Quiz
+                      </h3>
+                      <p className="text-xs text-blue-700 mt-1">
+                        Quản lý điều kiện cần hoàn thành để làm lại quiz khi
+                        không đạt
+                      </p>
+                    </div>
+                    <div className="p-4">
+                      <UnlockRequirementsBuilder
+                        requirements={unlockRequirements}
+                        onChange={handleUnlockRequirementsChange}
+                        courseId={resolvedParams.courseId}
+                        currentLessonId={resolvedParams.lessonId}
+                      />
+                    </div>
                   </div>
 
-                  <div className="bg-white rounded-lg p-4 border border-purple-200">
-                    <Label
-                      htmlFor="maxAttempts"
-                      className="text-sm font-semibold text-slate-900 flex items-center gap-2 mb-3"
-                    >
-                      <RotateCcw className="h-4 w-4 text-orange-500" />
-                      Số lần làm tối đa
-                    </Label>
-                    <Input
-                      id="maxAttempts"
-                      type="number"
-                      min="1"
-                      placeholder="Không giới hạn"
-                      value={maxAttempts || ""}
-                      onChange={(e) =>
-                        setMaxAttempts(
-                          e.target.value
-                            ? Number.parseInt(e.target.value) || null
-                            : null,
-                        )
-                      }
-                      className="border-slate-200 focus:ring-purple-500 focus:border-purple-500 h-10"
-                    />
-                    <p className="text-xs text-slate-500 mt-1">
-                      {maxAttempts
-                        ? `Tối đa ${maxAttempts} lần`
-                        : "Không giới hạn số lần"}
-                    </p>
+                  {/* Question Manager with enhanced styling */}
+                  <div className="bg-white rounded-xl border-2 border-purple-200 overflow-hidden">
+                    <div className="bg-gradient-to-r from-purple-100 to-indigo-100 p-3 border-b border-purple-200">
+                      <h3 className="font-semibold text-purple-900 flex items-center gap-2 text-sm">
+                        <Brain className="h-4 w-4" />
+                        Quản lý câu hỏi
+                      </h3>
+                      <p className="text-xs text-purple-700 mt-1">
+                        Thêm, chỉnh sửa và quản lý các câu hỏi cho bài quiz
+                      </p>
+                    </div>
+                    <div className="p-4">
+                      <QuestionManager
+                        lessonId={resolvedParams.lessonId}
+                        courseId={resolvedParams.courseId}
+                        chapterId={resolvedParams.chapterId}
+                        onQuestionsChange={setQuestions}
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Globe className="h-5 w-5 text-green-500" />
+                  Cài đặt xuất bản
+                </CardTitle>
+                <CardDescription>
+                  Kiểm soát quyền truy cập và trạng thái xuất bản của bài học
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-3 rounded-lg border border-blue-200">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1">
+                        <Label
+                          htmlFor="isFreePreview"
+                          className="text-sm font-semibold text-slate-900 flex items-center gap-2"
+                        >
+                          <Eye className="h-4 w-4 text-blue-500" />
+                          Cho phép xem thử
+                        </Label>
+                        <p className="text-xs text-slate-600">
+                          Học viên có thể xem bài học này mà không cần mua khóa
+                          học
+                        </p>
+                      </div>
+                      <Switch
+                        id="isFreePreview"
+                        checked={isFreePreview}
+                        onCheckedChange={setIsFreePreview}
+                        className="data-[state=checked]:bg-blue-500"
+                      />
+                    </div>
                   </div>
 
-                  <div className="bg-white rounded-lg p-4 border border-purple-200">
-                    <Label
-                      htmlFor="retryDelay"
-                      className="text-sm font-semibold text-slate-900 flex items-center gap-2 mb-3"
-                    >
-                      <Timer className="h-4 w-4 text-red-500" />
-                      Thời gian chờ (phút)
-                    </Label>
-                    <Input
-                      id="retryDelay"
-                      type="number"
-                      min="0"
-                      placeholder="Làm lại ngay"
-                      value={retryDelay || ""}
-                      onChange={(e) =>
-                        setRetryDelay(
-                          e.target.value
-                            ? Number.parseInt(e.target.value) || null
-                            : null,
-                        )
-                      }
-                      className="border-slate-200 focus:ring-purple-500 focus:border-purple-500 h-10"
-                    />
-                    <p className="text-xs text-slate-500 mt-1">
-                      {retryDelay
-                        ? `Chờ ${retryDelay} phút`
-                        : "Làm lại ngay lập tức"}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Question Manager with enhanced styling */}
-                <div className="bg-white rounded-xl border-2 border-purple-200 overflow-hidden">
-                  <div className="bg-gradient-to-r from-purple-100 to-indigo-100 p-4 border-b border-purple-200">
-                    <h3 className="font-semibold text-purple-900 flex items-center gap-2">
-                      <Brain className="h-5 w-5" />
-                      Quản lý câu hỏi
-                    </h3>
-                    <p className="text-sm text-purple-700 mt-1">
-                      Thêm, chỉnh sửa và quản lý các câu hỏi cho bài quiz
-                    </p>
-                  </div>
-                  <div className="p-6">
-                    <QuestionManager
-                      lessonId={resolvedParams.lessonId}
-                      courseId={resolvedParams.courseId}
-                      chapterId={resolvedParams.chapterId}
-                      onQuestionsChange={setQuestions}
-                    />
+                  <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-3 rounded-lg border border-green-200">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1">
+                        <Label
+                          htmlFor="isPublished"
+                          className="text-sm font-semibold text-slate-900 flex items-center gap-2"
+                        >
+                          <CheckCircle className="h-4 w-4 text-green-500" />
+                          Xuất bản
+                        </Label>
+                        <p className="text-xs text-slate-600">
+                          Bài học sẽ được hiển thị cho học viên
+                        </p>
+                      </div>
+                      <Switch
+                        id="isPublished"
+                        checked={isPublished}
+                        onCheckedChange={setIsPublished}
+                        className="data-[state=checked]:bg-green-500"
+                      />
+                    </div>
                   </div>
                 </div>
               </CardContent>
             </Card>
-          )}
+          </form>
+        </div>
+      </div>
 
-          <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-xl">
-                <Globe className="h-5 w-5 text-green-500" />
-                Cài đặt xuất bản
-              </CardTitle>
-              <CardDescription>
-                Kiểm soát quyền truy cập và trạng thái xuất bản của bài học
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-4 rounded-lg border border-blue-200">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <Label
-                        htmlFor="isFreePreview"
-                        className="text-sm font-semibold text-slate-900 flex items-center gap-2"
-                      >
-                        <Eye className="h-4 w-4 text-blue-500" />
-                        Cho phép xem thử
-                      </Label>
-                      <p className="text-sm text-slate-600">
-                        Học viên có thể xem bài học này mà không cần mua khóa
-                        học
-                      </p>
-                    </div>
-                    <Switch
-                      id="isFreePreview"
-                      checked={isFreePreview}
-                      onCheckedChange={setIsFreePreview}
-                      className="data-[state=checked]:bg-blue-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-4 rounded-lg border border-green-200">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <Label
-                        htmlFor="isPublished"
-                        className="text-sm font-semibold text-slate-900 flex items-center gap-2"
-                      >
-                        <CheckCircle className="h-4 w-4 text-green-500" />
-                        Xuất bản
-                      </Label>
-                      <p className="text-sm text-slate-600">
-                        Bài học sẽ được hiển thị cho học viên
-                      </p>
-                    </div>
-                    <Switch
-                      id="isPublished"
-                      checked={isPublished}
-                      onCheckedChange={setIsPublished}
-                      className="data-[state=checked]:bg-green-500"
-                    />
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </form>
+      {/* Sidebar area */}
+      <div className="w-96 flex-shrink-0 pl-2">
+        <LessonReviewSidebar
+          title={title}
+          lessonType={lessonType}
+          videoUrl={videoUrl}
+          isFreePreview={isFreePreview}
+          isPublished={isPublished}
+          passPercent={passPercent}
+          timeLimit={timeLimit}
+          maxAttempts={maxAttempts}
+          retryDelay={retryDelay}
+          blockDuration={blockDuration}
+          unlockRequirements={unlockRequirements}
+          questions={questions}
+          hasContent={editor.document.length > 1}
+        />
       </div>
     </div>
   );

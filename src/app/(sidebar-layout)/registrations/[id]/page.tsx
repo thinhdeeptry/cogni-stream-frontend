@@ -3,7 +3,10 @@
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { InstructorRegistration } from "@/types/instructor/types";
+import {
+  InstructorRegistration,
+  RegistrationStatus,
+} from "@/types/instructor/types";
 import { Loader2 } from "lucide-react";
 
 import {
@@ -26,7 +29,7 @@ export default function InstructorRegistrationDetailPage() {
 
   // Lấy chi tiết đăng ký
   useEffect(() => {
-    if (!id) return;
+    if (!id || Array.isArray(id)) return;
     setLoading(true);
     getInstructorRegistrationById(id)
       .then(setData)
@@ -39,7 +42,9 @@ export default function InstructorRegistrationDetailPage() {
     if (!data || !confirm("Bạn có chắc muốn chấp nhận đăng ký này?")) return;
     setActionLoading(true);
     try {
-      await updateInstructorRegistration(data.id, { status: "APPROVED" });
+      await updateInstructorRegistration(data.id, {
+        status: RegistrationStatus.APPROVED,
+      });
       alert("Đã chấp nhận thành công");
       router.push("/instructors");
     } catch (err) {
@@ -62,7 +67,7 @@ export default function InstructorRegistrationDetailPage() {
     setActionLoading(true);
     try {
       await updateInstructorRegistration(data.id, {
-        status: "REJECTED",
+        status: RegistrationStatus.REJECTED,
         rejectionReason: reason,
       });
       alert("Đã từ chối thành công");
@@ -137,14 +142,18 @@ export default function InstructorRegistrationDetailPage() {
       {/* Nút hành động */}
       <div className="flex gap-4">
         <Button
-          disabled={actionLoading || data.status === "APPROVED"}
+          disabled={
+            actionLoading || data.status === RegistrationStatus.APPROVED
+          }
           onClick={handleAccept}
           className="bg-green-600 hover:bg-green-700"
         >
           Chấp nhận
         </Button>
         <Button
-          disabled={actionLoading || data.status === "REJECTED"}
+          disabled={
+            actionLoading || data.status === RegistrationStatus.REJECTED
+          }
           variant="destructive"
           onClick={handleReject}
         >

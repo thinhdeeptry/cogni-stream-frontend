@@ -30,6 +30,33 @@ export enum PricingStatus {
   EXPIRED = "EXPIRED",
 }
 
+// Enums cho unlock requirements
+export enum UnlockRequirementType {
+  WATCH_LESSON = "WATCH_LESSON",
+  // READ_ARTICLE = "READ_ARTICLE",
+  COMPLETE_QUIZ = "COMPLETE_QUIZ",
+  WAIT_TIME = "WAIT_TIME",
+}
+
+// Interfaces cho unlock requirements
+export interface UnlockRequirement {
+  id?: string;
+  type: UnlockRequirementType;
+  title: string;
+  description?: string;
+  isRequired: boolean;
+  order: number;
+  lessonId?: string; // Lesson chứa requirement này
+
+  // Specific fields cho từng type
+  targetLessonId?: string; // Cho WATCH_LESSON
+  targetQuizId?: string; // Cho COMPLETE_QUIZ
+  waitTimeMinutes?: number; // Cho WAIT_TIME
+
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
 // Interfaces
 export interface Category {
   id: string;
@@ -100,7 +127,20 @@ export interface Lesson {
   isPublished: boolean;
   isFreePreview: boolean;
   passPercent?: number; // Điểm đậu cho QUIZ (default: 80%)
+
+  // Quiz timing settings
+  timeLimit?: number | null; // Thời gian làm bài (phút)
+  maxAttempts?: number | null; // Số lần thử tối đa
+  retryDelay?: number | null; // Thời gian chờ giữa các lần thử (phút)
+
+  // Quiz blocking settings
+  blockAfterMaxAttempts?: boolean; // Khóa sau khi hết lượt thử
+  blockDuration?: number | null; // Thời gian khóa (phút)
+  requireUnlockAction?: boolean; // Yêu cầu action để mở khóa
+
+  // Relations
   chapter?: Chapter;
+  unlockRequirements?: UnlockRequirement[]; // Điều kiện mở khóa
   createdAt: Date;
   updatedAt: Date;
 }
