@@ -31,18 +31,18 @@ export const greatVibes = Great_Vibes({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://eduforge.com"),
+  metadataBase: new URL("https://cognistream.id.vn"),
   title: {
-    default: "Eduforge - Nền tảng học trực tuyến hàng đầu Việt Nam",
-    template: "%s | Eduforge",
+    default: "CogniStream - Nền tảng học trực tuyến hàng đầu Việt Nam",
+    template: "%s | CogniStream",
   },
   description:
-    "Eduforge là nền tảng học trực tuyến với hàng nghìn khóa học chất lượng cao về lập trình, thiết kế, marketing và nhiều lĩnh vực khác.",
-  applicationName: "Eduforge",
-  authors: [{ name: "Eduforge Team" }],
+    "CogniStream là nền tảng học trực tuyến với hàng nghìn khóa học chất lượng cao về lập trình, thiết kế, marketing và nhiều lĩnh vực khác.",
+  applicationName: "CogniStream",
+  authors: [{ name: "CogniStream Team" }],
   generator: "Next.js",
   keywords: [
-    "eduforge",
+    "cognistream",
     "học trực tuyến",
     "khóa học online",
     "lập trình",
@@ -50,8 +50,8 @@ export const metadata: Metadata = {
     "việt nam",
   ],
   referrer: "origin-when-cross-origin",
-  creator: "Eduforge Team",
-  publisher: "Eduforge",
+  creator: "CogniStream Team",
+  publisher: "CogniStream",
   formatDetection: {
     email: false,
     address: false,

@@ -245,20 +245,24 @@ export default function UnlockRequirementsBuilder({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between rounded-lg bg-gradient-to-r from-blue-100 to-indigo-100 p-3 border-b border-blue-200">
         <div>
-          <h3 className="text-lg font-semibold">Điều kiện mở khóa</h3>
-          <p className="text-sm text-muted-foreground">
-            Thiết lập các yêu cầu học viên cần hoàn thành để mở khóa quiz sau
-            khi bị block
+          <p className="text-sm text-indigo-700 mt-1">
+            {requirements.length > 0
+              ? `Đã có ${requirements.length} điều kiện trong quiz này`
+              : "Chưa có điều kiện nào. Hãy thêm điều kiện đầu tiên!"}
           </p>
         </div>
-        <Button type="button" onClick={addRequirement} size="sm">
-          <Plus className="h-4 w-4 mr-2" />
+        <Button
+          type="button"
+          onClick={addRequirement}
+          size="sm"
+          className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white font-semibold shadow-md hover:from-blue-600 hover:to-indigo-600 transition-colors duration-200 rounded-lg px-4 py-2 flex items-center gap-2"
+        >
+          <Plus className="h-4 w-4" />
           Thêm điều kiện
         </Button>
       </div>
-
       {requirements.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="py-8">
@@ -352,6 +356,15 @@ export default function UnlockRequirementsBuilder({
                           type="button"
                           variant="ghost"
                           size="sm"
+                          onClick={() => deleteRequirement(requirement.id!)}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
                           onClick={() =>
                             setExpandedRequirement(
                               isExpanded ? null : requirement.id!,
@@ -359,15 +372,6 @@ export default function UnlockRequirementsBuilder({
                           }
                         >
                           {isExpanded ? "−" : "+"}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => deleteRequirement(requirement.id!)}
-                          className="text-red-500 hover:text-red-700"
-                        >
-                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import type React from "react";
 import { use, useState } from "react";
 
@@ -58,12 +58,19 @@ export default function CreateLessonPage({
 }) {
   const resolvedParams = use(params);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [title, setTitle] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
   const [isFreePreview, setIsFreePreview] = useState(false);
   const [isPublished, setIsPublished] = useState(false);
-  const [lessonType, setLessonType] = useState<string>(LessonType.BLOG);
+
+  // Determine initial lesson type based on URL params
+  const isCreatingQuiz = searchParams.get("type") === "quiz";
+  const [lessonType, setLessonType] = useState<string>(
+    isCreatingQuiz ? LessonType.QUIZ : LessonType.BLOG,
+  );
+
   const [passPercent, setPassPercent] = useState<number>(80);
   const [timeLimit, setTimeLimit] = useState<number | null>(null);
   const [maxAttempts, setMaxAttempts] = useState<number | null>(null);
@@ -74,6 +81,9 @@ export default function CreateLessonPage({
   const [unlockRequirements, setUnlockRequirements] = useState<any[]>([]);
 
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [showQuizConfig, setShowQuizConfig] = useState(false);
+  const [showUnlockRequirements, setShowUnlockRequirements] = useState(false);
+  const [showQuestionManager, setShowQuestionManager] = useState(false);
   const { toast } = useToast();
 
   // Configure BlockNote editor with image upload
@@ -212,10 +222,12 @@ export default function CreateLessonPage({
                   </Link>
                   <div>
                     <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-                      Tạo bài học mới
+                      {isCreatingQuiz ? "Tạo quiz mới" : "Tạo bài học mới"}
                     </h1>
                     <p className="text-slate-600 text-sm mt-1">
-                      Tạo nội dung học tập chất lượng cho học viên của bạn
+                      {isCreatingQuiz
+                        ? "Tạo bài kiểm tra và đánh giá học viên"
+                        : "Tạo nội dung học tập chất lượng cho học viên của bạn"}
                     </p>
                   </div>
                 </div>
@@ -228,12 +240,12 @@ export default function CreateLessonPage({
                   {isSubmitting ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2" />
-                      Đang tạo...
+                      {isCreatingQuiz ? "Đang tạo quiz..." : "Đang tạo..."}
                     </>
                   ) : (
                     <>
                       <CheckCircle className="h-4 w-4 mr-2" />
-                      Tạo bài học
+                      {isCreatingQuiz ? "Tạo quiz" : "Tạo bài học"}
                     </>
                   )}
                 </Button>
@@ -249,7 +261,9 @@ export default function CreateLessonPage({
                   Thông tin cơ bản
                 </CardTitle>
                 <CardDescription>
-                  Thiết lập thông tin chính cho bài học của bạn
+                  {isCreatingQuiz
+                    ? "Thiết lập thông tin chính cho quiz của bạn"
+                    : "Thiết lập thông tin chính cho bài học của bạn"}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -258,7 +272,7 @@ export default function CreateLessonPage({
                     htmlFor="title"
                     className="text-sm font-semibold text-slate-900 flex items-center gap-2"
                   >
-                    Tiêu đề bài học
+                    {isCreatingQuiz ? "Tiêu đề quiz" : "Tiêu đề bài học"}
                     <Badge variant="secondary" className="text-xs">
                       Bắt buộc
                     </Badge>
@@ -269,53 +283,79 @@ export default function CreateLessonPage({
                     onChange={(e) => setTitle(e.target.value)}
                     required
                     className="border-slate-200 focus:ring-orange-500 focus:border-orange-500 transition-colors h-10 text-base"
-                    placeholder="Nhập tiêu đề hấp dẫn cho bài học"
+                    placeholder={
+                      isCreatingQuiz
+                        ? "Nhập tiêu đề cho quiz"
+                        : "Nhập tiêu đề hấp dẫn cho bài học"
+                    }
                   />
                 </div>
 
-                <div className="space-y-2 p-1">
-                  <Label
-                    htmlFor="lessonType"
-                    className="text-sm font-semibold text-slate-900 flex items-center gap-2"
-                  >
-                    Loại bài học
-                    <Badge variant="secondary" className="text-xs">
-                      Bắt buộc
-                    </Badge>
-                  </Label>
-                  <Select
-                    value={lessonType}
-                    onValueChange={(value) => setLessonType(value)}
-                  >
-                    <SelectTrigger className="border-slate-200 focus:ring-orange-500 focus:border-orange-500 h-10">
-                      <SelectValue placeholder="Chọn loại bài học" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {lessonTypeOptions.map((option) => {
-                        const Icon = option.icon;
-                        return (
-                          <SelectItem
-                            key={option.value}
-                            value={option.value}
-                            className="py-3"
-                          >
-                            <div className="flex items-start gap-3">
-                              <Icon className="h-4 w-4 text-slate-600 mt-3" />
-                              <div>
-                                <div className="font-medium text-left">
-                                  {option.label}
-                                </div>
-                                <div className="text-xs text-slate-500">
-                                  {option.description}
+                {!isCreatingQuiz && (
+                  <div className="space-y-2 p-1">
+                    <Label
+                      htmlFor="lessonType"
+                      className="text-sm font-semibold text-slate-900 flex items-center gap-2"
+                    >
+                      Loại bài học
+                      <Badge variant="secondary" className="text-xs">
+                        Bắt buộc
+                      </Badge>
+                    </Label>
+                    <Select
+                      value={lessonType}
+                      onValueChange={(value) => setLessonType(value)}
+                    >
+                      <SelectTrigger className="border-slate-200 focus:ring-orange-500 focus:border-orange-500 h-10">
+                        <SelectValue placeholder="Chọn loại bài học" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {lessonTypeOptions.map((option) => {
+                          const Icon = option.icon;
+                          return (
+                            <SelectItem
+                              key={option.value}
+                              value={option.value}
+                              className="py-3"
+                            >
+                              <div className="flex items-start gap-3">
+                                <Icon className="h-4 w-4 text-slate-600 mt-3" />
+                                <div>
+                                  <div className="font-medium text-left">
+                                    {option.label}
+                                  </div>
+                                  <div className="text-xs text-slate-500">
+                                    {option.description}
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          </SelectItem>
-                        );
-                      })}
-                    </SelectContent>
-                  </Select>
-                </div>
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {isCreatingQuiz && (
+                  <div className="space-y-2 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <Brain className="h-5 w-5 text-purple-600" />
+                      <Label className="text-sm font-semibold text-purple-900">
+                        Loại: Quiz
+                      </Label>
+                      <Badge
+                        variant="outline"
+                        className="border-purple-300 text-purple-700 bg-purple-100"
+                      >
+                        Bài kiểm tra
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-purple-600">
+                      Đang tạo bài kiểm tra với câu hỏi trắc nghiệm và tự luận
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -391,262 +431,315 @@ export default function CreateLessonPage({
             {lessonType === LessonType.QUIZ && (
               <Card className="shadow-lg border-0 bg-gradient-to-br from-purple-50 to-indigo-50 border-purple-200">
                 <CardHeader className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-t-lg pb-3">
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <Brain className="h-5 w-5" />
-                    Thiết lập Quiz
-                  </CardTitle>
-                  <CardDescription className="text-purple-100">
-                    Tạo bài kiểm tra tương tác để đánh giá kiến thức học viên
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="p-4 space-y-4">
-                  {/* Pass Percent Setting with visual indicator */}
-                  <div className="bg-white rounded-lg p-3 border border-purple-200">
-                    <Label
-                      htmlFor="passPercent"
-                      className="text-sm font-semibold text-slate-900 flex items-center gap-2 mb-2"
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2 text-lg">
+                        <Brain className="h-5 w-5" />
+                        Thiết lập Quiz
+                      </CardTitle>
+                      <CardDescription className="text-purple-100">
+                        Tạo bài kiểm tra tương tác để đánh giá kiến thức học
+                        viên
+                      </CardDescription>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowQuizConfig(!showQuizConfig)}
+                      className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white"
                     >
-                      <CheckCircle className="h-4 w-4 text-green-500" />
-                      Điểm đậu (%)
-                      <Badge variant="outline" className="text-xs">
-                        Mặc định: 80%
-                      </Badge>
-                    </Label>
-                    <div className="flex items-center gap-4">
-                      <Input
-                        id="passPercent"
-                        type="number"
-                        min="1"
-                        max="100"
-                        value={passPercent}
-                        onChange={(e) =>
-                          setPassPercent(Number.parseInt(e.target.value) || 80)
-                        }
-                        className="border-slate-200 focus:ring-purple-500 focus:border-purple-500 w-20 h-8"
-                      />
-                      <div className="flex-1">
-                        <div className="w-full bg-slate-200 rounded-full h-2">
-                          <div
-                            className="bg-gradient-to-r from-green-400 to-green-600 h-2 rounded-full transition-all duration-300"
-                            style={{ width: `${passPercent}%` }}
-                          />
+                      {showQuizConfig ? "Ẩn cấu hình" : "Hiện cấu hình"}
+                    </Button>
+                  </div>
+                </CardHeader>
+                {showQuizConfig && (
+                  <CardContent className="p-4 space-y-4">
+                    {/* Pass Percent Setting with visual indicator */}
+                    <div className="bg-white rounded-lg p-3 border border-purple-200">
+                      <Label
+                        htmlFor="passPercent"
+                        className="text-sm font-semibold text-slate-900 flex items-center gap-2 mb-2"
+                      >
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                        Điểm đậu (%)
+                        <Badge variant="outline" className="text-xs">
+                          Mặc định: 80%
+                        </Badge>
+                      </Label>
+                      <div className="flex items-center gap-4">
+                        <Input
+                          id="passPercent"
+                          type="number"
+                          min="1"
+                          max="100"
+                          value={passPercent}
+                          onChange={(e) =>
+                            setPassPercent(
+                              Number.parseInt(e.target.value) || 80,
+                            )
+                          }
+                          className="border-slate-200 focus:ring-purple-500 focus:border-purple-500 w-20 h-8"
+                        />
+                        <div className="flex-1">
+                          <div className="w-full bg-slate-200 rounded-full h-2">
+                            <div
+                              className="bg-gradient-to-r from-green-400 to-green-600 h-2 rounded-full transition-all duration-300"
+                              style={{ width: `${passPercent}%` }}
+                            />
+                          </div>
+                          <p className="text-xs text-slate-600 mt-1">
+                            Học viên cần đạt ít nhất {passPercent}% để vượt qua
+                            quiz
+                          </p>
                         </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <div className="bg-white rounded-lg p-3 border border-purple-200">
+                        <Label
+                          htmlFor="timeLimit"
+                          className="text-sm font-semibold text-slate-900 flex items-center gap-2 mb-2"
+                        >
+                          <Clock className="h-4 w-4 text-blue-500" />
+                          Thời gian (phút)
+                        </Label>
+                        <Input
+                          id="timeLimit"
+                          type="number"
+                          min="1"
+                          placeholder="∞"
+                          value={timeLimit || ""}
+                          onChange={(e) =>
+                            setTimeLimit(
+                              e.target.value
+                                ? Number.parseInt(e.target.value) || null
+                                : null,
+                            )
+                          }
+                          className="border-slate-200 focus:ring-purple-500 focus:border-purple-500 h-8"
+                        />
                         <p className="text-xs text-slate-600 mt-1">
-                          Học viên cần đạt ít nhất {passPercent}% để vượt qua
-                          quiz
+                          Thời gian tối đa để hoàn thành quiz. Để trống = không
+                          giới hạn thời gian
+                        </p>
+                      </div>
+
+                      <div className="bg-white rounded-lg p-3 border border-purple-200">
+                        <Label
+                          htmlFor="maxAttempts"
+                          className="text-sm font-semibold text-slate-900 flex items-center gap-2 mb-2"
+                        >
+                          <RotateCcw className="h-4 w-4 text-orange-500" />
+                          Số lần làm
+                        </Label>
+                        <Input
+                          id="maxAttempts"
+                          type="number"
+                          min="1"
+                          placeholder="∞"
+                          value={maxAttempts || ""}
+                          onChange={(e) =>
+                            setMaxAttempts(
+                              e.target.value
+                                ? Number.parseInt(e.target.value) || null
+                                : null,
+                            )
+                          }
+                          className="border-slate-200 focus:ring-purple-500 focus:border-purple-500 h-8"
+                        />
+                        <p className="text-xs text-slate-600 mt-1">
+                          Số lần thử tối đa cho phép. Để trống = không giới hạn
+                          số lần làm
+                        </p>
+                      </div>
+
+                      <div className="bg-white rounded-lg p-3 border border-purple-200">
+                        <Label
+                          htmlFor="retryDelay"
+                          className="text-sm font-semibold text-slate-900 flex items-center gap-2 mb-2"
+                        >
+                          <Timer className="h-4 w-4 text-red-500" />
+                          Chờ (phút)
+                        </Label>
+                        <Input
+                          id="retryDelay"
+                          type="number"
+                          min="0"
+                          placeholder="0"
+                          value={retryDelay || ""}
+                          onChange={(e) =>
+                            setRetryDelay(
+                              e.target.value
+                                ? Number.parseInt(e.target.value) || null
+                                : null,
+                            )
+                          }
+                          className="border-slate-200 focus:ring-purple-500 focus:border-purple-500 h-8"
+                        />
+                        <p className="text-xs text-slate-600 mt-1">
+                          Thời gian chờ giữa các lần làm lại. 0 = có thể làm lại
+                          ngay lập tức
+                        </p>
+                      </div>
+
+                      <div className="bg-white rounded-lg p-3 border border-purple-200">
+                        <Label
+                          htmlFor="blockDuration"
+                          className="text-sm font-semibold text-slate-900 flex items-center gap-2 mb-2"
+                        >
+                          <Timer className="h-4 w-4 text-red-500" />
+                          Khóa (phút)
+                        </Label>
+                        <Input
+                          id="blockDuration"
+                          type="number"
+                          min="1"
+                          placeholder="0"
+                          value={blockDuration || ""}
+                          onChange={(e) =>
+                            setBlockDuration(
+                              e.target.value
+                                ? Number.parseInt(e.target.value) || null
+                                : null,
+                            )
+                          }
+                          className="border-slate-200 focus:ring-purple-500 focus:border-purple-500 h-8"
+                        />
+                        <p className="text-xs text-slate-600 mt-1">
+                          Thời gian khóa quiz khi không đạt điểm. Để trống =
+                          khóa vĩnh viễn và chỉ mở khi hoàn thành điều kiện bên
+                          dưới
                         </p>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <div className="bg-white rounded-lg p-3 border border-purple-200">
-                      <Label
-                        htmlFor="timeLimit"
-                        className="text-sm font-semibold text-slate-900 flex items-center gap-2 mb-2"
-                      >
-                        <Clock className="h-4 w-4 text-blue-500" />
-                        Thời gian (phút)
-                      </Label>
-                      <Input
-                        id="timeLimit"
-                        type="number"
-                        min="1"
-                        placeholder="∞"
-                        value={timeLimit || ""}
-                        onChange={(e) =>
-                          setTimeLimit(
-                            e.target.value
-                              ? Number.parseInt(e.target.value) || null
-                              : null,
-                          )
-                        }
-                        className="border-slate-200 focus:ring-purple-500 focus:border-purple-500 h-8"
-                      />
-                      <p className="text-xs text-slate-600 mt-1">
-                        Thời gian tối đa để hoàn thành quiz. Để trống = không
-                        giới hạn thời gian
-                      </p>
-                    </div>
-
-                    <div className="bg-white rounded-lg p-3 border border-purple-200">
-                      <Label
-                        htmlFor="maxAttempts"
-                        className="text-sm font-semibold text-slate-900 flex items-center gap-2 mb-2"
-                      >
-                        <RotateCcw className="h-4 w-4 text-orange-500" />
-                        Số lần làm
-                      </Label>
-                      <Input
-                        id="maxAttempts"
-                        type="number"
-                        min="1"
-                        placeholder="∞"
-                        value={maxAttempts || ""}
-                        onChange={(e) =>
-                          setMaxAttempts(
-                            e.target.value
-                              ? Number.parseInt(e.target.value) || null
-                              : null,
-                          )
-                        }
-                        className="border-slate-200 focus:ring-purple-500 focus:border-purple-500 h-8"
-                      />
-                      <p className="text-xs text-slate-600 mt-1">
-                        Số lần thử tối đa cho phép. Để trống = không giới hạn số
-                        lần làm
-                      </p>
-                    </div>
-
-                    <div className="bg-white rounded-lg p-3 border border-purple-200">
-                      <Label
-                        htmlFor="retryDelay"
-                        className="text-sm font-semibold text-slate-900 flex items-center gap-2 mb-2"
-                      >
-                        <Timer className="h-4 w-4 text-red-500" />
-                        Chờ (phút)
-                      </Label>
-                      <Input
-                        id="retryDelay"
-                        type="number"
-                        min="0"
-                        placeholder="0"
-                        value={retryDelay || ""}
-                        onChange={(e) =>
-                          setRetryDelay(
-                            e.target.value
-                              ? Number.parseInt(e.target.value) || null
-                              : null,
-                          )
-                        }
-                        className="border-slate-200 focus:ring-purple-500 focus:border-purple-500 h-8"
-                      />
-                      <p className="text-xs text-slate-600 mt-1">
-                        Thời gian chờ giữa các lần làm lại. 0 = có thể làm lại
-                        ngay lập tức
-                      </p>
-                    </div>
-
-                    <div className="bg-white rounded-lg p-3 border border-purple-200">
-                      <Label
-                        htmlFor="blockDuration"
-                        className="text-sm font-semibold text-slate-900 flex items-center gap-2 mb-2"
-                      >
-                        <Timer className="h-4 w-4 text-red-500" />
-                        Khóa (phút)
-                      </Label>
-                      <Input
-                        id="blockDuration"
-                        type="number"
-                        min="1"
-                        placeholder="0"
-                        value={blockDuration || ""}
-                        onChange={(e) =>
-                          setBlockDuration(
-                            e.target.value
-                              ? Number.parseInt(e.target.value) || null
-                              : null,
-                          )
-                        }
-                        className="border-slate-200 focus:ring-purple-500 focus:border-purple-500 h-8"
-                      />
-                      <p className="text-xs text-slate-600 mt-1">
-                        Thời gian khóa quiz khi không đạt điểm. Để trống = khóa
-                        vĩnh viễn và chỉ mở khi hoàn thành điều kiện bên dưới
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Quiz Unlock Requirements - always enabled */}
-                  <div className="bg-white rounded-lg border-2 border-blue-200 overflow-hidden">
-                    <div className="bg-gradient-to-r from-blue-100 to-indigo-100 p-4 border-b border-blue-200">
-                      <h3 className="font-semibold text-blue-900 flex items-center gap-2">
-                        <CheckCircle className="h-5 w-5" />
-                        Điều kiện mở khóa Quiz
-                      </h3>
-                      <p className="text-sm text-blue-700 mt-1">
-                        Thiết lập điều kiện cần hoàn thành để làm lại quiz khi
-                        không đạt
-                      </p>
-                    </div>
-                    <div className="p-6 space-y-6">
-                      {/* Unlock requirements builder */}
-                      <div className="border-2 border-dashed border-blue-200 rounded-lg">
-                        <UnlockRequirementsBuilder
-                          requirements={unlockRequirements}
-                          onChange={setUnlockRequirements}
-                          courseId={resolvedParams.courseId}
-                          currentLessonId={undefined}
-                        />
+                    {/* Quiz Unlock Requirements - always enabled */}
+                    <div className="bg-white rounded-lg border-2 border-blue-200 overflow-hidden">
+                      <div className="bg-gradient-to-r from-blue-100 to-indigo-100 p-4 border-b border-blue-200">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h3 className="font-semibold text-blue-900 flex items-center gap-2">
+                              <CheckCircle className="h-5 w-5" />
+                              Điều kiện mở khóa Quiz
+                            </h3>
+                            <p className="text-sm text-blue-700 mt-1">
+                              Thiết lập điều kiện cần hoàn thành để làm lại quiz
+                              khi không đạt
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              setShowUnlockRequirements(!showUnlockRequirements)
+                            }
+                            className="bg-white/50 border-blue-300 text-blue-700 hover:bg-blue-50 hover:text-blue-800 text-xs"
+                          >
+                            {showUnlockRequirements ? "Ẩn" : "Hiện"}
+                          </Button>
+                        </div>
                       </div>
+                      {showUnlockRequirements && (
+                        <div className="p-6 space-y-6">
+                          {/* Unlock requirements builder */}
+                          <div className="border-2 border-dashed border-blue-200 rounded-lg">
+                            <UnlockRequirementsBuilder
+                              requirements={unlockRequirements}
+                              onChange={setUnlockRequirements}
+                              courseId={resolvedParams.courseId}
+                              currentLessonId={undefined}
+                            />
+                          </div>
 
-                      {/* Summary info */}
-                      <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
-                        <h4 className="font-medium text-indigo-900 mb-2">
-                          📋 Tóm tắt cài đặt
-                        </h4>
-                        <ul className="text-sm text-indigo-700 space-y-1">
-                          <li>
-                            • Học viên có tối đa{" "}
-                            {maxAttempts || "không giới hạn"} lần làm quiz
-                          </li>
-                          {retryDelay && (
-                            <li>
-                              • Thời gian chờ giữa các lần làm: {retryDelay}{" "}
-                              phút
-                            </li>
-                          )}
-                          {blockDuration && (
-                            <li>
-                              • Thời gian khóa khi hết lượt: {blockDuration}{" "}
-                              phút
-                            </li>
-                          )}
-                          <li>
-                            • Cần hoàn thành{" "}
-                            {
-                              unlockRequirements.filter((r) => r.isRequired)
-                                .length
-                            }{" "}
-                            điều kiện bắt buộc để làm lại khi không đạt
-                          </li>
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Question Manager with enhanced styling */}
-                  <div className="bg-white rounded-xl border-2 border-purple-200 overflow-hidden">
-                    <div className="bg-gradient-to-r from-purple-100 to-indigo-100 p-4 border-b border-purple-200">
-                      <h3 className="font-semibold text-purple-900 flex items-center gap-2">
-                        <Brain className="h-5 w-5" />
-                        Quản lý câu hỏi
-                      </h3>
-                      <p className="text-sm text-purple-700 mt-1">
-                        Thêm và quản lý các câu hỏi cho bài quiz của bạn
-                      </p>
-                    </div>
-                    <div className="p-6">
-                      <QuestionManager
-                        lessonId={undefined} // Will be set after lesson creation
-                        courseId={resolvedParams.courseId}
-                        chapterId={resolvedParams.chapterId}
-                        onQuestionsChange={setQuestions}
-                      />
-                      {questions.length === 0 && (
-                        <div className="text-center py-12 bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg border-2 border-dashed border-slate-300">
-                          <Brain className="h-12 w-12 text-slate-400 mx-auto mb-4" />
-                          <p className="text-slate-600 font-medium mb-2">
-                            Chưa có câu hỏi nào
-                          </p>
-                          <p className="text-sm text-slate-500">
-                            Hãy tạo bài học trước để thêm câu hỏi quiz
-                          </p>
+                          {/* Summary info */}
+                          <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+                            <h4 className="font-medium text-indigo-900 mb-2">
+                              📋 Tóm tắt cài đặt
+                            </h4>
+                            <ul className="text-sm text-indigo-700 space-y-1">
+                              <li>
+                                • Học viên có tối đa{" "}
+                                {maxAttempts || "không giới hạn"} lần làm quiz
+                              </li>
+                              {retryDelay && (
+                                <li>
+                                  • Thời gian chờ giữa các lần làm: {retryDelay}{" "}
+                                  phút
+                                </li>
+                              )}
+                              {blockDuration && (
+                                <li>
+                                  • Thời gian khóa khi hết lượt: {blockDuration}{" "}
+                                  phút
+                                </li>
+                              )}
+                              <li>
+                                • Cần hoàn thành{" "}
+                                {
+                                  unlockRequirements.filter((r) => r.isRequired)
+                                    .length
+                                }{" "}
+                                điều kiện bắt buộc để làm lại khi không đạt
+                              </li>
+                            </ul>
+                          </div>
                         </div>
                       )}
                     </div>
-                  </div>
-                </CardContent>
+
+                    {/* Question Manager with enhanced styling */}
+                    <div className="bg-white rounded-xl border-2 border-purple-200 overflow-hidden">
+                      <div className="bg-gradient-to-r from-purple-100 to-indigo-100 p-4 border-b border-purple-200">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h3 className="font-semibold text-purple-900 flex items-center gap-2">
+                              <Brain className="h-5 w-5" />
+                              Quản lý câu hỏi
+                            </h3>
+                            <p className="text-sm text-purple-700 mt-1">
+                              Thêm và quản lý các câu hỏi cho bài quiz của bạn
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              setShowQuestionManager(!showQuestionManager)
+                            }
+                            className="bg-white/50 border-purple-300 text-purple-700 hover:bg-purple-50 hover:text-purple-800 text-xs"
+                          >
+                            {showQuestionManager ? "Ẩn" : "Hiện"}
+                          </Button>
+                        </div>
+                      </div>
+                      {showQuestionManager && (
+                        <div className="p-6">
+                          <QuestionManager
+                            lessonId={undefined} // Will be set after lesson creation
+                            courseId={resolvedParams.courseId}
+                            chapterId={resolvedParams.chapterId}
+                            onQuestionsChange={setQuestions}
+                          />
+                          {questions.length === 0 && (
+                            <div className="text-center py-12 bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg border-2 border-dashed border-slate-300">
+                              <Brain className="h-12 w-12 text-slate-400 mx-auto mb-4" />
+                              <p className="text-slate-600 font-medium mb-2">
+                                Chưa có câu hỏi nào
+                              </p>
+                              <p className="text-sm text-slate-500">
+                                Hãy tạo bài học trước để thêm câu hỏi quiz
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                )}
               </Card>
             )}
 

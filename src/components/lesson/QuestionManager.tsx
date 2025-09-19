@@ -149,25 +149,11 @@ export function QuestionManager({
       color: "text-green-600",
     },
     {
-      value: QuestionType.SHORT_ANSWER,
-      label: "Trả lời ngắn",
-      icon: Edit,
-      description: "Câu trả lời văn bản ngắn gọn",
-      color: "text-orange-600",
-    },
-    {
       value: QuestionType.ESSAY,
       label: "Tự luận",
       icon: Edit,
       description: "Câu trả lời dài, chi tiết",
       color: "text-purple-600",
-    },
-    {
-      value: QuestionType.FILL_IN_BLANK,
-      label: "Điền từ",
-      icon: Edit,
-      description: "Điền từ hoặc cụm từ vào chỗ trống",
-      color: "text-pink-600",
     },
   ];
 
@@ -235,7 +221,7 @@ export function QuestionManager({
           {
             text: "",
             isCorrect: true,
-            acceptedAnswers: [],
+            acceptedAnswers: [""],
             caseSensitive: false,
             exactMatch: false,
             points: 2.0, // Điểm đầy đủ
@@ -243,7 +229,7 @@ export function QuestionManager({
           {
             text: "",
             isCorrect: true,
-            acceptedAnswers: [],
+            acceptedAnswers: [""],
             caseSensitive: false,
             exactMatch: false,
             points: 1.0, // Điểm một phần
@@ -303,15 +289,15 @@ export function QuestionManager({
 
   const handleAnswerChange = (index: number, field: string, value: any) => {
     if (isTextBasedQuestion(formData.type)) {
-      // For text-based questions
+      // For text-based questions - handle multiple answer levels
       setFormData((prev) => ({
         ...prev,
-        answers: [
-          {
-            ...prev.answers[0],
-            [field]: value,
-          },
-        ],
+        answers: prev.answers.map((answer, i) => {
+          if (i === index) {
+            return { ...answer, [field]: value };
+          }
+          return answer;
+        }),
       }));
     } else {
       // For multiple choice questions
@@ -336,18 +322,59 @@ export function QuestionManager({
     }
   };
 
-  const handleAcceptedAnswerChange = (index: number, value: string) => {
-    const currentAnswer = formData.answers[0] || {};
-    const acceptedAnswers = [...(currentAnswer.acceptedAnswers || [])];
-    acceptedAnswers[index] = value;
+  const handleAcceptedAnswerChange = (
+    answerIndex: number,
+    acceptedIndex: number,
+    value: string,
+  ) => {
+    setFormData((prev) => ({
+      ...prev,
+      answers: prev.answers.map((answer, i) => {
+        if (i === answerIndex) {
+          const acceptedAnswers = [...(answer.acceptedAnswers || [])];
+          acceptedAnswers[acceptedIndex] = value;
+          return { ...answer, acceptedAnswers };
+        }
+        return answer;
+      }),
+    }));
+  };
 
-    const updatedAnswers = [
-      {
-        ...currentAnswer,
-        acceptedAnswers,
-      },
-    ];
-    setFormData((prev) => ({ ...prev, answers: updatedAnswers }));
+  const handleAddAcceptedAnswer = (answerIndex: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      answers: prev.answers.map((answer, i) => {
+        if (i === answerIndex) {
+          return {
+            ...answer,
+            acceptedAnswers: [...(answer.acceptedAnswers || []), ""],
+          };
+        }
+        return answer;
+      }),
+    }));
+  };
+
+  const handleRemoveAcceptedAnswer = (
+    answerIndex: number,
+    acceptedIndex: number,
+  ) => {
+    setFormData((prev) => ({
+      ...prev,
+      answers: prev.answers.map((answer, i) => {
+        if (i === answerIndex) {
+          const acceptedAnswers = answer.acceptedAnswers || [];
+          if (acceptedAnswers.length <= 1) return answer; // Keep at least one
+          return {
+            ...answer,
+            acceptedAnswers: acceptedAnswers.filter(
+              (_, idx) => idx !== acceptedIndex,
+            ),
+          };
+        }
+        return answer;
+      }),
+    }));
   };
 
   const isTextBasedQuestion = (type: QuestionType): boolean => {
@@ -368,17 +395,63 @@ export function QuestionManager({
       return false;
     }
 
+    // Validate question points
+    if (questionPoints <= 0) {
+      toast({
+        title: "Lỗi",
+        description: "Điểm số câu hỏi phải lớn hơn 0",
+        variant: "destructive",
+      });
+      return false;
+    }
+
     if (isTextBasedQuestion(formData.type)) {
       // Validate text-based questions
-      const answer = formData.answers[0];
-      if (
-        !answer ||
-        (!answer.text?.trim() &&
-          (!answer.acceptedAnswers || answer.acceptedAnswers.length === 0))
-      ) {
+      for (let i = 0; i < formData.answers.length; i++) {
+        const answer = formData.answers[i];
+        const validAcceptedAnswers =
+          answer?.acceptedAnswers?.filter((line) => line.trim()) || [];
+
+        if (
+          !answer ||
+          (!answer.text?.trim() && validAcceptedAnswers.length === 0)
+        ) {
+          toast({
+            title: "Lỗi",
+            description: `Mức điểm ${i + 1}: Vui lòng nhập đáp án mẫu hoặc các đáp án được chấp nhận`,
+            variant: "destructive",
+          });
+          return false;
+        }
+
+        // Validate points for text-based questions
+        if (!answer.points || answer.points <= 0) {
+          toast({
+            title: "Lỗi",
+            description: `Mức điểm ${i + 1}: Điểm số phải lớn hơn 0`,
+            variant: "destructive",
+          });
+          return false;
+        }
+
+        if (answer.points > questionPoints) {
+          toast({
+            title: "Lỗi",
+            description: `Mức điểm ${i + 1}: Điểm số (${answer.points}) không được vượt quá điểm tối đa của câu hỏi (${questionPoints})`,
+            variant: "destructive",
+          });
+          return false;
+        }
+      }
+
+      // Check if there's at least one answer that can achieve maximum points
+      const maxAnswerPoints = Math.max(
+        ...formData.answers.map((a) => a.points || 0),
+      );
+      if (maxAnswerPoints < questionPoints) {
         toast({
-          title: "Lỗi",
-          description: "Vui lòng nhập đáp án hoặc các đáp án được chấp nhận",
+          title: "Cảnh báo điểm số",
+          description: `Điểm cao nhất có thể đạt được là ${maxAnswerPoints}, nhưng điểm tối đa câu hỏi là ${questionPoints}. Học viên sẽ không bao giờ đạt điểm tối đa.`,
           variant: "destructive",
         });
         return false;
@@ -425,6 +498,59 @@ export function QuestionManager({
         });
         return false;
       }
+
+      // Validate points for multiple choice questions
+      if (formData.type === QuestionType.MULTIPLE_CHOICE) {
+        // Check if any correct answer has invalid points
+        for (let i = 0; i < formData.answers.length; i++) {
+          const answer = formData.answers[i];
+          if (answer.isCorrect) {
+            if (!answer.points || answer.points <= 0) {
+              toast({
+                title: "Lỗi",
+                description: `Đáp án ${i + 1}: Đáp án đúng phải có điểm số lớn hơn 0`,
+                variant: "destructive",
+              });
+              return false;
+            }
+
+            if (answer.points > questionPoints) {
+              toast({
+                title: "Lỗi",
+                description: `Đáp án ${i + 1}: Điểm số (${answer.points}) không được vượt quá điểm tối đa của câu hỏi (${questionPoints})`,
+                variant: "destructive",
+              });
+              return false;
+            }
+          }
+        }
+
+        // Calculate total points of correct answers
+        const totalCorrectPoints = correctAnswers.reduce(
+          (sum, answer) => sum + (answer.points || 0),
+          0,
+        );
+
+        // TH1: Tổng điểm đáp án đúng < điểm tối đa câu hỏi
+        if (totalCorrectPoints < questionPoints) {
+          toast({
+            title: "Cảnh báo điểm số",
+            description: `Tổng điểm các đáp án đúng (${totalCorrectPoints}) nhỏ hơn điểm tối đa câu hỏi (${questionPoints}). Học viên sẽ không bao giờ đạt điểm tối đa.`,
+            variant: "destructive",
+          });
+          return false;
+        }
+
+        // TH2: Tổng điểm đáp án đúng > điểm tối đa câu hỏi
+        if (totalCorrectPoints > questionPoints) {
+          toast({
+            title: "Cảnh báo điểm số",
+            description: `Tổng điểm các đáp án đúng (${totalCorrectPoints}) vượt quá điểm tối đa câu hỏi (${questionPoints}). Điểm của học viên có thể vượt quá giới hạn.`,
+            variant: "destructive",
+          });
+          return false;
+        }
+      }
     }
 
     return true;
@@ -432,38 +558,10 @@ export function QuestionManager({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.text.trim()) {
-      toast({
-        title: "Lỗi",
-        description: "Vui lòng nhập nội dung câu hỏi",
-        variant: "destructive",
-      });
+
+    // Use the comprehensive validateForm function
+    if (!validateForm()) {
       return;
-    }
-
-    if (formData.type === QuestionType.SINGLE_CHOICE && questionPoints <= 0) {
-      toast({
-        title: "Lỗi",
-        description: "Câu hỏi một lựa chọn phải có điểm số > 0",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (formData.type === QuestionType.MULTIPLE_CHOICE) {
-      const totalAnswerPoints = formData.answers
-        .filter((a) => a.isCorrect)
-        .reduce((sum, a) => sum + (a.points || 0), 0);
-
-      if (totalAnswerPoints > questionPoints) {
-        toast({
-          title: "Lỗi",
-          description:
-            "Tổng điểm các đáp án đúng không được vượt quá điểm tối đa của câu hỏi",
-          variant: "destructive",
-        });
-        return;
-      }
     }
 
     try {
@@ -479,10 +577,21 @@ export function QuestionManager({
         return;
       }
 
-      const questionData = {
+      // Clean up accepted answers by removing empty lines before sending to server
+      const cleanedFormData = {
         ...formData,
+        answers: formData.answers.map((answer) => ({
+          ...answer,
+          acceptedAnswers:
+            answer.acceptedAnswers?.filter((line) => line.trim()) || [],
+        })),
+      };
+
+      const questionData = {
+        ...cleanedFormData,
         points: questionPoints,
         lessonId: lessonId,
+        order: editingQuestion ? editingQuestion.order : questions.length,
       };
 
       let result;
@@ -596,7 +705,7 @@ export function QuestionManager({
       const newAnswer: Answer = {
         text: "",
         isCorrect: true,
-        acceptedAnswers: [],
+        acceptedAnswers: [""],
         caseSensitive: false,
         exactMatch: false,
         points: 1.0,
@@ -661,14 +770,68 @@ export function QuestionManager({
     }
   };
 
+  const moveQuestion = async (questionId: string, direction: "up" | "down") => {
+    const currentIndex = questions.findIndex((q) => q.id === questionId);
+    if (
+      (direction === "up" && currentIndex === 0) ||
+      (direction === "down" && currentIndex === questions.length - 1)
+    ) {
+      return;
+    }
+
+    const newIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+    const newQuestions = [...questions];
+
+    // Swap elements
+    [newQuestions[currentIndex], newQuestions[newIndex]] = [
+      newQuestions[newIndex],
+      newQuestions[currentIndex],
+    ];
+
+    // Update order for both questions
+    const updatedQuestions = newQuestions.map((question, index) => ({
+      ...question,
+      order: index,
+    }));
+
+    try {
+      // Update local state immediately for better UX
+      setQuestions(updatedQuestions);
+
+      // Update the two affected questions on the backend
+      const questionToUpdate1 = updatedQuestions[currentIndex];
+      const questionToUpdate2 = updatedQuestions[newIndex];
+
+      await Promise.all([
+        updateQuestion(questionToUpdate1.id!, {
+          ...questionToUpdate1,
+          order: questionToUpdate1.order,
+        }),
+        updateQuestion(questionToUpdate2.id!, {
+          ...questionToUpdate2,
+          order: questionToUpdate2.order,
+        }),
+      ]);
+
+      toast({
+        title: "Thành công",
+        description: "Đã cập nhật thứ tự câu hỏi",
+      });
+    } catch (error) {
+      // Revert local state if backend update fails
+      await loadQuestions();
+      toast({
+        title: "Lỗi",
+        description: "Không thể cập nhật thứ tự câu hỏi",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between p-4 bg-gradient-to-r from-purple-100 to-indigo-100 rounded-lg border border-purple-200">
         <div>
-          <h3 className="text-lg font-semibold text-purple-900 flex items-center gap-2">
-            <Brain className="h-5 w-5" />
-            Quản lý câu hỏi Quiz
-          </h3>
           <p className="text-sm text-purple-700 mt-1">
             {questions.length > 0
               ? `Đã có ${questions.length} câu hỏi trong quiz này`
@@ -752,7 +915,7 @@ export function QuestionManager({
                       <SelectItem
                         key={option.value}
                         value={option.value}
-                        className="py-3"
+                        className="py-1"
                       >
                         <div className="flex items-start gap-3">
                           <Icon className={`h-4 w-4 ${option.color} mt-0.5`} />
@@ -953,12 +1116,41 @@ export function QuestionManager({
                 <div className="mt-3 p-2 bg-green-100 rounded text-sm">
                   <span className="font-medium">Tổng điểm đáp án đúng: </span>
                   <span className="text-green-700">
-                    {formData.answers
-                      .filter((a) => a.isCorrect)
-                      .reduce((sum, a) => sum + (a.points || 0), 0)
-                      .toFixed(1)}{" "}
-                    / {questionPoints.toFixed(1)}
+                    {(() => {
+                      const totalCorrectPoints = formData.answers
+                        .filter((a) => a.isCorrect)
+                        .reduce((sum, a) => sum + (a.points || 0), 0);
+                      return `${totalCorrectPoints.toFixed(1)} / ${questionPoints.toFixed(1)}`;
+                    })()}
                   </span>
+
+                  {(() => {
+                    const totalCorrectPoints = formData.answers
+                      .filter((a) => a.isCorrect)
+                      .reduce((sum, a) => sum + (a.points || 0), 0);
+
+                    if (totalCorrectPoints > questionPoints) {
+                      return (
+                        <div className="mt-2 p-2 bg-red-100 border border-red-200 rounded text-xs text-red-700">
+                          ⚠️ <strong>Cảnh báo:</strong> Tổng điểm đáp án đúng
+                          vượt quá điểm tối đa câu hỏi. Học viên có thể đạt điểm
+                          cao hơn giới hạn.
+                        </div>
+                      );
+                    } else if (
+                      totalCorrectPoints < questionPoints &&
+                      totalCorrectPoints > 0
+                    ) {
+                      return (
+                        <div className="mt-2 p-2 bg-yellow-100 border border-yellow-200 rounded text-xs text-yellow-700">
+                          ⚠️ <strong>Cảnh báo:</strong> Tổng điểm đáp án đúng
+                          nhỏ hơn điểm tối đa câu hỏi. Học viên sẽ không bao giờ
+                          đạt điểm tối đa.
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
               </div>
             )}
@@ -1014,23 +1206,81 @@ export function QuestionManager({
                       <div className="space-y-3">
                         <div>
                           <Label className="text-xs text-slate-600 mb-1 block">
-                            Các đáp án được chấp nhận (mỗi dòng một đáp án):
+                            Đáp án mẫu chính:
                           </Label>
                           <Textarea
-                            placeholder="useState hook quản lý state&#10;useState&#10;hook state"
-                            value={answer.acceptedAnswers?.join("\n") || ""}
+                            placeholder="Đáp án mẫu hoàn hảo cho câu hỏi này"
+                            value={answer.text || ""}
                             onChange={(e) =>
-                              handleAnswerChange(
-                                index,
-                                "acceptedAnswers",
-                                e.target.value
-                                  .split("\n")
-                                  .filter((line) => line.trim()),
-                              )
+                              handleAnswerChange(index, "text", e.target.value)
                             }
                             className="border-orange-200 focus:ring-orange-500 focus:border-orange-500"
-                            rows={3}
+                            rows={2}
                           />
+                          <p className="text-xs text-slate-500 mt-1">
+                            Đây là đáp án mẫu hoàn hảo, được sử dụng để so sánh
+                            và chấm điểm
+                          </p>
+                        </div>
+
+                        {/* Accepted Answers Section */}
+                        <div>
+                          <Label className="text-xs text-slate-600 mb-2 block">
+                            Các đáp án được chấp nhận:
+                          </Label>
+                          <div className="space-y-2">
+                            {(answer.acceptedAnswers &&
+                            answer.acceptedAnswers.length > 0
+                              ? answer.acceptedAnswers
+                              : [""]
+                            ).map((acceptedAnswer, acceptedIndex) => (
+                              <div
+                                key={acceptedIndex}
+                                className="flex items-center gap-2"
+                              >
+                                <Input
+                                  placeholder={`Đáp án được chấp nhận ${acceptedIndex + 1}`}
+                                  value={acceptedAnswer}
+                                  onChange={(e) =>
+                                    handleAcceptedAnswerChange(
+                                      index,
+                                      acceptedIndex,
+                                      e.target.value,
+                                    )
+                                  }
+                                  className="flex-1 border-orange-200 focus:ring-orange-500 focus:border-orange-500"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() =>
+                                    handleRemoveAcceptedAnswer(
+                                      index,
+                                      acceptedIndex,
+                                    )
+                                  }
+                                  className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleAddAcceptedAnswer(index)}
+                              className="border-orange-300 text-orange-700 hover:bg-orange-50"
+                            >
+                              <Plus className="h-4 w-4 mr-2" />
+                              Thêm đáp án được chấp nhận
+                            </Button>
+                          </div>
+                          <p className="text-xs text-slate-500 mt-1">
+                            Danh sách các đáp án khác nhau mà hệ thống sẽ chấp
+                            nhận cho mức điểm này
+                          </p>
                         </div>
 
                         <div className="flex items-center gap-4">
@@ -1084,7 +1334,7 @@ export function QuestionManager({
                     const newAnswer: Answer = {
                       text: "",
                       isCorrect: true,
-                      acceptedAnswers: [],
+                      acceptedAnswers: [""],
                       caseSensitive: false,
                       exactMatch: false,
                       points: 1.0,
@@ -1099,6 +1349,38 @@ export function QuestionManager({
                   <Plus className="h-4 w-4 mr-2" />
                   Thêm mức điểm
                 </Button>
+
+                {/* Points validation warning for text-based questions */}
+                {(() => {
+                  const maxAnswerPoints = Math.max(
+                    ...formData.answers.map((a) => a.points || 0),
+                  );
+                  const hasInvalidPoints = formData.answers.some(
+                    (a) => (a.points || 0) > questionPoints,
+                  );
+
+                  if (hasInvalidPoints) {
+                    return (
+                      <div className="mt-3 p-3 bg-red-100 border border-red-200 rounded text-sm text-red-700">
+                        ⚠️ <strong>Lỗi:</strong> Có mức điểm vượt quá điểm tối
+                        đa câu hỏi ({questionPoints}). Vui lòng kiểm tra lại.
+                      </div>
+                    );
+                  } else if (
+                    maxAnswerPoints < questionPoints &&
+                    maxAnswerPoints > 0
+                  ) {
+                    return (
+                      <div className="mt-3 p-3 bg-yellow-100 border border-yellow-200 rounded text-sm text-yellow-700">
+                        ⚠️ <strong>Cảnh báo:</strong> Điểm cao nhất có thể đạt
+                        được là {maxAnswerPoints}, nhưng điểm tối đa câu hỏi là{" "}
+                        {questionPoints}. Học viên sẽ không bao giờ đạt điểm tối
+                        đa.
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
             )}
 
@@ -1158,252 +1440,278 @@ export function QuestionManager({
           </div>
         ) : (
           <div className="space-y-3">
-            {questions.map((question, index) => (
-              <Card
-                key={question.id}
-                className="shadow-md hover:shadow-lg transition-shadow duration-200 border-l-4 border-l-purple-500"
-              >
-                <Collapsible
-                  open={expandedQuestions.has(question.id || "")}
-                  onOpenChange={() => toggleExpanded(question.id || "")}
+            {questions
+              .sort((a, b) => (a.order || 0) - (b.order || 0))
+              .map((question, index) => (
+                <Card
+                  key={question.id}
+                  className="shadow-md hover:shadow-lg transition-shadow duration-200 border-l-4 border-l-purple-500"
                 >
-                  <CollapsibleTrigger asChild>
-                    <CardHeader className="cursor-pointer hover:bg-slate-50 transition-colors">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <div className="bg-purple-100 text-purple-700 rounded-full w-8 h-8 flex items-center justify-center font-semibold text-sm">
-                            {index + 1}
-                          </div>
-                          <div>
-                            <Badge
-                              variant="outline"
-                              className={`text-xs mb-1 ${
-                                questionTypeOptions.find(
-                                  (opt) => opt.value === question.type,
-                                )?.color || "text-slate-600"
-                              }`}
-                            >
-                              {getQuestionTypeLabel(question.type)}
-                            </Badge>
-                            <div
-                              className="text-sm text-slate-700 line-clamp-2"
-                              dangerouslySetInnerHTML={{
-                                __html:
-                                  question.text?.substring(0, 100) +
-                                    (question.text?.length > 100
-                                      ? "..."
-                                      : "") || "",
-                              }}
-                            />
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleEdit(question);
-                            }}
-                            className="text-blue-600 hover:text-blue-800 hover:bg-blue-50"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="text-red-600 hover:text-red-800 hover:bg-red-50"
-                                onClick={(e) => e.stopPropagation()}
+                  <Collapsible
+                    open={expandedQuestions.has(question.id || "")}
+                    onOpenChange={() => toggleExpanded(question.id || "")}
+                  >
+                    <CollapsibleTrigger asChild>
+                      <CardHeader className="cursor-pointer hover:bg-slate-50 transition-colors">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <div className="bg-purple-100 text-purple-700 rounded-full w-8 h-8 flex items-center justify-center font-semibold text-sm">
+                              {index + 1}
+                            </div>
+                            <div>
+                              <Badge
+                                variant="outline"
+                                className={`text-xs mb-1 ${
+                                  questionTypeOptions.find(
+                                    (opt) => opt.value === question.type,
+                                  )?.color || "text-slate-600"
+                                }`}
                               >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle className="flex items-center gap-2">
-                                  <AlertCircle className="h-5 w-5 text-red-500" />
-                                  Xác nhận xóa câu hỏi
-                                </AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Bạn có chắc chắn muốn xóa câu hỏi này? Hành
-                                  động này không thể hoàn tác và sẽ ảnh hưởng
-                                  đến kết quả quiz của học viên.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() =>
-                                    handleDelete(question.id || "")
-                                  }
-                                  className="bg-red-600 hover:bg-red-700 text-white"
+                                {getQuestionTypeLabel(question.type)}
+                              </Badge>
+                              <div
+                                className="text-sm text-slate-700 line-clamp-2"
+                                dangerouslySetInnerHTML={{
+                                  __html:
+                                    question.text?.substring(0, 100) +
+                                      (question.text?.length > 100
+                                        ? "..."
+                                        : "") || "",
+                                }}
+                              />
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                moveQuestion(question.id || "", "up");
+                              }}
+                              disabled={index === 0}
+                              className="text-slate-600 hover:text-slate-800 hover:bg-slate-50"
+                              title="Di chuyển lên"
+                            >
+                              ↑
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                moveQuestion(question.id || "", "down");
+                              }}
+                              disabled={index === questions.length - 1}
+                              className="text-slate-600 hover:text-slate-800 hover:bg-slate-50"
+                              title="Di chuyển xuống"
+                            >
+                              ↓
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEdit(question);
+                              }}
+                              className="text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="text-red-600 hover:text-red-800 hover:bg-red-50"
+                                  onClick={(e) => e.stopPropagation()}
                                 >
-                                  Xóa câu hỏi
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                          {expandedQuestions.has(question.id || "") ? (
-                            <ChevronUp className="h-4 w-4 text-slate-400" />
-                          ) : (
-                            <ChevronDown className="h-4 w-4 text-slate-400" />
-                          )}
-                        </div>
-                      </div>
-                    </CardHeader>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <CardContent className="pt-0">
-                      {/* Question Content */}
-                      <div className="mb-6 p-4 bg-slate-50 rounded-lg">
-                        <h4 className="font-semibold mb-3 text-slate-900 flex items-center gap-2">
-                          <HelpCircle className="h-4 w-4 text-purple-600" />
-                          Câu hỏi:
-                        </h4>
-                        <div
-                          className="prose max-w-none text-slate-700"
-                          dangerouslySetInnerHTML={{
-                            __html: question.text || "",
-                          }}
-                        />
-                      </div>
-
-                      {/* Answers */}
-                      {question.answers && question.answers.length > 0 && (
-                        <div>
-                          <h4 className="font-semibold mb-4 text-slate-900 flex items-center gap-2">
-                            <CheckCircle2 className="h-4 w-4 text-green-600" />
-                            Đáp án:
-                          </h4>
-
-                          {isTextBasedQuestion(question.type) ? (
-                            // Text-based question answers
-                            <div className="space-y-4">
-                              <div className="p-4 border rounded-lg bg-green-50 border-green-200">
-                                <h5 className="font-medium text-sm mb-2 text-green-800">
-                                  Đáp án tham khảo:
-                                </h5>
-                                <div
-                                  className="text-green-700"
-                                  dangerouslySetInnerHTML={{
-                                    __html: question.answers[0]?.text || "",
-                                  }}
-                                />
-                              </div>
-
-                              {question.answers[0]?.acceptedAnswers &&
-                                question.answers[0].acceptedAnswers.length >
-                                  0 && (
-                                  <div className="p-4 border rounded-lg bg-blue-50 border-blue-200">
-                                    <h5 className="font-medium text-sm mb-2 text-blue-800">
-                                      Các đáp án được chấp nhận:
-                                    </h5>
-                                    <div className="flex flex-wrap gap-2">
-                                      {question.answers[0].acceptedAnswers.map(
-                                        (accepted, idx) => (
-                                          <Badge
-                                            key={idx}
-                                            variant="outline"
-                                            className="bg-white text-blue-700 border-blue-300"
-                                          >
-                                            {accepted}
-                                          </Badge>
-                                        ),
-                                      )}
-                                    </div>
-                                  </div>
-                                )}
-
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-slate-600 bg-slate-50 p-4 rounded-lg">
-                                <div className="flex items-center gap-2">
-                                  <CheckCircle2 className="h-3 w-3 text-green-500" />
-                                  <span>
-                                    Phân biệt hoa/thường:{" "}
-                                    <strong>
-                                      {question.answers[0]?.caseSensitive
-                                        ? "Có"
-                                        : "Không"}
-                                    </strong>
-                                  </span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <CheckCircle2 className="h-3 w-3 text-blue-500" />
-                                  <span>
-                                    So sánh chính xác:{" "}
-                                    <strong>
-                                      {question.answers[0]?.exactMatch
-                                        ? "Có"
-                                        : "Không"}
-                                    </strong>
-                                  </span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <AlertCircle className="h-3 w-3 text-orange-500" />
-                                  <span>
-                                    Điểm số:{" "}
-                                    <strong>
-                                      {(
-                                        (question.answers[0]?.points || 1.0) *
-                                        100
-                                      ).toFixed(0)}
-                                      %
-                                    </strong>
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          ) : (
-                            // Multiple choice answers
-                            <div className="grid gap-3">
-                              {question.answers.map(
-                                (answer: any, idx: number) => (
-                                  <div
-                                    key={idx}
-                                    className={`p-4 border rounded-lg transition-colors ${
-                                      answer.isCorrect
-                                        ? "bg-green-50 border-green-200 shadow-sm"
-                                        : "bg-slate-50 border-slate-200"
-                                    }`}
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle className="flex items-center gap-2">
+                                    <AlertCircle className="h-5 w-5 text-red-500" />
+                                    Xác nhận xóa câu hỏi
+                                  </AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Bạn có chắc chắn muốn xóa câu hỏi này? Hành
+                                    động này không thể hoàn tác và sẽ ảnh hưởng
+                                    đến kết quả quiz của học viên.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() =>
+                                      handleDelete(question.id || "")
+                                    }
+                                    className="bg-red-600 hover:bg-red-700 text-white"
                                   >
-                                    <div className="flex items-start gap-3">
-                                      <div
-                                        className={`rounded-full w-6 h-6 flex items-center justify-center text-xs font-semibold ${
-                                          answer.isCorrect
-                                            ? "bg-green-200 text-green-800"
-                                            : "bg-slate-200 text-slate-600"
-                                        }`}
-                                      >
-                                        {String.fromCharCode(65 + idx)}
-                                      </div>
-                                      <div
-                                        className="flex-1"
-                                        dangerouslySetInnerHTML={{
-                                          __html: answer.text || "",
-                                        }}
-                                      />
-                                      {answer.isCorrect && (
-                                        <Badge className="bg-green-200 text-green-800 border-green-300">
-                                          <CheckCircle2 className="h-3 w-3 mr-1" />
-                                          Đúng
-                                        </Badge>
-                                      )}
-                                    </div>
-                                  </div>
-                                ),
-                              )}
-                            </div>
-                          )}
+                                    Xóa câu hỏi
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                            {expandedQuestions.has(question.id || "") ? (
+                              <ChevronUp className="h-4 w-4 text-slate-400" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4 text-slate-400" />
+                            )}
+                          </div>
                         </div>
-                      )}
-                    </CardContent>
-                  </CollapsibleContent>
-                </Collapsible>
-              </Card>
-            ))}
+                      </CardHeader>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <CardContent className="pt-0">
+                        {/* Question Content */}
+                        <div className="mb-6 p-4 bg-slate-50 rounded-lg">
+                          <h4 className="font-semibold mb-3 text-slate-900 flex items-center gap-2">
+                            <HelpCircle className="h-4 w-4 text-purple-600" />
+                            Câu hỏi:
+                          </h4>
+                          <div
+                            className="prose max-w-none text-slate-700"
+                            dangerouslySetInnerHTML={{
+                              __html: question.text || "",
+                            }}
+                          />
+                        </div>
+
+                        {/* Answers */}
+                        {question.answers && question.answers.length > 0 && (
+                          <div>
+                            <h4 className="font-semibold mb-4 text-slate-900 flex items-center gap-2">
+                              <CheckCircle2 className="h-4 w-4 text-green-600" />
+                              Đáp án:
+                            </h4>
+
+                            {isTextBasedQuestion(question.type) ? (
+                              // Text-based question answers
+                              <div className="space-y-4">
+                                <div className="p-4 border rounded-lg bg-green-50 border-green-200">
+                                  <h5 className="font-medium text-sm mb-2 text-green-800">
+                                    Đáp án tham khảo:
+                                  </h5>
+                                  <div
+                                    className="text-green-700"
+                                    dangerouslySetInnerHTML={{
+                                      __html: question.answers[0]?.text || "",
+                                    }}
+                                  />
+                                </div>
+
+                                {question.answers[0]?.acceptedAnswers &&
+                                  question.answers[0].acceptedAnswers.length >
+                                    0 && (
+                                    <div className="p-4 border rounded-lg bg-blue-50 border-blue-200">
+                                      <h5 className="font-medium text-sm mb-2 text-blue-800">
+                                        Các đáp án được chấp nhận:
+                                      </h5>
+                                      <div className="flex flex-wrap gap-2">
+                                        {question.answers[0].acceptedAnswers.map(
+                                          (accepted, idx) => (
+                                            <Badge
+                                              key={idx}
+                                              variant="outline"
+                                              className="bg-white text-blue-700 border-blue-300"
+                                            >
+                                              {accepted}
+                                            </Badge>
+                                          ),
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-slate-600 bg-slate-50 p-4 rounded-lg">
+                                  <div className="flex items-center gap-2">
+                                    <CheckCircle2 className="h-3 w-3 text-green-500" />
+                                    <span>
+                                      Phân biệt hoa/thường:{" "}
+                                      <strong>
+                                        {question.answers[0]?.caseSensitive
+                                          ? "Có"
+                                          : "Không"}
+                                      </strong>
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <CheckCircle2 className="h-3 w-3 text-blue-500" />
+                                    <span>
+                                      So sánh chính xác:{" "}
+                                      <strong>
+                                        {question.answers[0]?.exactMatch
+                                          ? "Có"
+                                          : "Không"}
+                                      </strong>
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <AlertCircle className="h-3 w-3 text-orange-500" />
+                                    <span>
+                                      Điểm số:{" "}
+                                      <strong>
+                                        {(question.points || 1.0).toFixed(0)}
+                                      </strong>
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              // Multiple choice answers
+                              <div className="grid gap-3">
+                                {question.answers.map(
+                                  (answer: any, idx: number) => (
+                                    <div
+                                      key={idx}
+                                      className={`p-4 border rounded-lg transition-colors ${
+                                        answer.isCorrect
+                                          ? "bg-green-50 border-green-200 shadow-sm"
+                                          : "bg-slate-50 border-slate-200"
+                                      }`}
+                                    >
+                                      <div className="flex items-start gap-3">
+                                        <div
+                                          className={`rounded-full w-6 h-6 flex items-center justify-center text-xs font-semibold ${
+                                            answer.isCorrect
+                                              ? "bg-green-200 text-green-800"
+                                              : "bg-slate-200 text-slate-600"
+                                          }`}
+                                        >
+                                          {String.fromCharCode(65 + idx)}
+                                        </div>
+                                        <div
+                                          className="flex-1"
+                                          dangerouslySetInnerHTML={{
+                                            __html: answer.text || "",
+                                          }}
+                                        />
+                                        {answer.isCorrect && (
+                                          <Badge className="bg-green-200 text-green-800 border-green-300">
+                                            <CheckCircle2 className="h-3 w-3 mr-1" />
+                                            Đúng
+                                          </Badge>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ),
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </CardContent>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </Card>
+              ))}
           </div>
         )}
       </div>

@@ -5,7 +5,7 @@ import type React from "react";
 import { useEffect, useRef, useState } from "react";
 
 import { toast } from "@/hooks/use-toast";
-import { Edit, GripVertical, Plus, Trash } from "lucide-react";
+import { Brain, Edit, GripVertical, Plus, Trash } from "lucide-react";
 
 import {
   deleteChapter,
@@ -26,6 +26,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -439,8 +440,21 @@ export function CourseContent({
                 <Link
                   href={`/admin/courses/${courseId}/chapters/${chapter.id}/lessons/create`}
                 >
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" className="gap-2">
                     <Plus className="h-4 w-4" />
+                    <span className="hidden sm:inline">Thêm bài học</span>
+                  </Button>
+                </Link>
+                <Link
+                  href={`/admin/courses/${courseId}/chapters/${chapter.id}/lessons/create?type=quiz`}
+                >
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2 border-purple-200 text-purple-600 hover:bg-purple-50"
+                  >
+                    <Brain className="h-4 w-4" />
+                    <span className="hidden sm:inline">Thêm quiz</span>
                   </Button>
                 </Link>
                 <AlertDialog>
@@ -530,7 +544,28 @@ export function CourseContent({
                   >
                     <div className="flex items-center gap-2">
                       <GripVertical className="h-4 w-4 text-gray-500" />
-                      <span>{lesson.title}</span>
+                      {lesson.type === "QUIZ" ? (
+                        <Brain className="h-4 w-4 text-purple-600" />
+                      ) : (
+                        <div className="w-4 h-4" />
+                      )}
+                      <span
+                        className={
+                          lesson.type === "QUIZ"
+                            ? "text-purple-700 font-medium"
+                            : ""
+                        }
+                      >
+                        {lesson.title}
+                      </span>
+                      {lesson.type === "QUIZ" && (
+                        <Badge
+                          variant="outline"
+                          className="border-purple-300 text-purple-700 bg-purple-100 text-xs"
+                        >
+                          Quiz
+                        </Badge>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       <Link
