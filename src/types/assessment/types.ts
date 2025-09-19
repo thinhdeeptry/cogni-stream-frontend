@@ -64,7 +64,7 @@ export interface Answer {
   questionId?: string;
 
   // Auto-grading fields cho tự luận
-  acceptedAnswers?: string[]; // Các đáp án được chấp nhận ["useState", "use state"]
+  acceptedAnswers?: string[]; // Các đáp án được chấp nhận ["use// 🆕 Cho câu hỏi tự luận (SHORT_ANSWER/ESSAY/FILL_IN_BLANK)State", "use state"]
   caseSensitive?: boolean; // Phân biệt hoa/thường
   exactMatch?: boolean; // So sánh chính xác hay fuzzy
   points?: number; // Điểm số (1.0 = 100%)
@@ -93,6 +93,7 @@ export interface Question {
   id?: string;
   text: string; // Nội dung câu hỏi
   type: QuestionType;
+  points: number; // Điểm tối đa của câu hỏi (dùng cho SINGLE_CHOICE và tham chiếu cho MULTIPLE_CHOICE)
   order?: number; // Thứ tự hiển thị
   lessonId?: string; // Thuộc lesson nào
   answers: Answer[]; // Các đáp án (cho trắc nghiệm)
@@ -126,6 +127,7 @@ export interface CreateQuestionDto {
   type: QuestionType;
   lessonId: string;
   answers: Omit<Answer, "id" | "questionId">[];
+  points: number;
   order?: number;
 }
 
@@ -133,6 +135,7 @@ export interface UpdateQuestionDto {
   text?: string;
   type?: QuestionType;
   answers?: Omit<Answer, "questionId">[];
+  points: number;
   order?: number;
 }
 

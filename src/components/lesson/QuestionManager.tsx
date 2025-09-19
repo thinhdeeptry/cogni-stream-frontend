@@ -1,7 +1,9 @@
 "use client";
 
+import type React from "react";
 import { useEffect, useState } from "react";
 
+import { toast } from "@/hooks/use-toast";
 import {
   type Answer,
   type Question,
@@ -17,9 +19,9 @@ import {
   Edit,
   HelpCircle,
   Plus,
+  Target,
   Trash2,
 } from "lucide-react";
-import { toast } from "sonner";
 
 import {
   createQuestion,
@@ -57,7 +59,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 
 // Types based on new backend structure
 interface QuestionManagerProps {
@@ -82,11 +84,13 @@ export function QuestionManager({
 }: QuestionManagerProps) {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [editingQuestion, setEditingQuestion] = useState<string | null>(null);
+  const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [expandedQuestions, setExpandedQuestions] = useState<Set<string>>(
     new Set(),
   );
+  const [questionPoints, setQuestionPoints] = useState<number>(2.0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Form state for new/editing question
   const [formData, setFormData] = useState<QuestionFormData>({
@@ -194,7 +198,11 @@ export function QuestionManager({
         setQuestions(questionsData);
       }
     } catch (error) {
-      toast.error("Không thể tải danh sách câu hỏi");
+      toast({
+        title: "Lỗi",
+        description: "Không thể tải danh sách câu hỏi",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -204,20 +212,21 @@ export function QuestionManager({
     setFormData({
       text: "",
       type: QuestionType.SINGLE_CHOICE,
-      answers: [
-        { text: "", isCorrect: false },
-        { text: "", isCorrect: false },
-      ],
+      answers: getDefaultAnswersForType(QuestionType.SINGLE_CHOICE),
     });
   };
 
   const getDefaultAnswersForType = (type: QuestionType): Answer[] => {
     switch (type) {
       case QuestionType.SINGLE_CHOICE:
+        return [
+          { text: "", isCorrect: true },
+          { text: "", isCorrect: false },
+        ];
       case QuestionType.MULTIPLE_CHOICE:
         return [
-          { text: "", isCorrect: false },
-          { text: "", isCorrect: false },
+          { text: "", isCorrect: false, points: 0.0 },
+          { text: "", isCorrect: false, points: 0.0 },
         ];
       case QuestionType.SHORT_ANSWER:
       case QuestionType.ESSAY:
@@ -229,7 +238,15 @@ export function QuestionManager({
             acceptedAnswers: [],
             caseSensitive: false,
             exactMatch: false,
-            points: 1.0,
+            points: 2.0, // Điểm đầy đủ
+          },
+          {
+            text: "",
+            isCorrect: true,
+            acceptedAnswers: [],
+            caseSensitive: false,
+            exactMatch: false,
+            points: 1.0, // Điểm một phần
           },
         ];
       default:
@@ -343,7 +360,11 @@ export function QuestionManager({
 
   const validateForm = (): boolean => {
     if (!formData.text.trim()) {
-      toast.error("Vui lòng nhập nội dung câu hỏi");
+      toast({
+        title: "Lỗi",
+        description: "Vui lòng nhập nội dung câu hỏi",
+        variant: "destructive",
+      });
       return false;
     }
 
@@ -355,7 +376,11 @@ export function QuestionManager({
         (!answer.text?.trim() &&
           (!answer.acceptedAnswers || answer.acceptedAnswers.length === 0))
       ) {
-        toast.error("Vui lòng nhập đáp án hoặc các đáp án được chấp nhận");
+        toast({
+          title: "Lỗi",
+          description: "Vui lòng nhập đáp án hoặc các đáp án được chấp nhận",
+          variant: "destructive",
+        });
         return false;
       }
     } else {
@@ -368,7 +393,11 @@ export function QuestionManager({
         formData.type === QuestionType.SINGLE_CHOICE &&
         correctAnswers.length !== 1
       ) {
-        toast.error("Câu hỏi một lựa chọn phải có đúng một đáp án đúng");
+        toast({
+          title: "Lỗi",
+          description: "Câu hỏi một lựa chọn phải có đúng một đáp án đúng",
+          variant: "destructive",
+        });
         return false;
       }
 
@@ -376,7 +405,11 @@ export function QuestionManager({
         formData.type === QuestionType.MULTIPLE_CHOICE &&
         correctAnswers.length === 0
       ) {
-        toast.error("Câu hỏi nhiều lựa chọn phải có ít nhất một đáp án đúng");
+        toast({
+          title: "Lỗi",
+          description: "Câu hỏi nhiều lựa chọn phải có ít nhất một đáp án đúng",
+          variant: "destructive",
+        });
         return false;
       }
 
@@ -385,7 +418,11 @@ export function QuestionManager({
         (answer) => !answer.text?.trim(),
       );
       if (emptyAnswers.length > 0) {
-        toast.error("Vui lòng nhập nội dung cho tất cả các đáp án");
+        toast({
+          title: "Lỗi",
+          description: "Vui lòng nhập nội dung cho tất cả các đáp án",
+          variant: "destructive",
+        });
         return false;
       }
     }
@@ -393,55 +430,95 @@ export function QuestionManager({
     return true;
   };
 
-  const handleSubmit = async () => {
-    if (!validateForm()) return;
-    if (!lessonId) {
-      toast.error("Vui lòng lưu bài học trước khi thêm câu hỏi");
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.text.trim()) {
+      toast({
+        title: "Lỗi",
+        description: "Vui lòng nhập nội dung câu hỏi",
+        variant: "destructive",
+      });
       return;
     }
 
-    setIsLoading(true);
+    if (formData.type === QuestionType.SINGLE_CHOICE && questionPoints <= 0) {
+      toast({
+        title: "Lỗi",
+        description: "Câu hỏi một lựa chọn phải có điểm số > 0",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (formData.type === QuestionType.MULTIPLE_CHOICE) {
+      const totalAnswerPoints = formData.answers
+        .filter((a) => a.isCorrect)
+        .reduce((sum, a) => sum + (a.points || 0), 0);
+
+      if (totalAnswerPoints > questionPoints) {
+        toast({
+          title: "Lỗi",
+          description:
+            "Tổng điểm các đáp án đúng không được vượt quá điểm tối đa của câu hỏi",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     try {
-      // Prepare data according to API documentation
+      setIsSubmitting(true);
+
+      if (!lessonId) {
+        toast({
+          title: "Lỗi",
+          description: "Không xác định được bài học để tạo câu hỏi",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
       const questionData = {
-        text: formData.text,
-        type: formData.type,
-        lessonId,
-        answers: formData.answers.map((answer) => ({
-          text: answer.text || "",
-          isCorrect: answer.isCorrect,
-          acceptedAnswers: answer.acceptedAnswers,
-          caseSensitive: answer.caseSensitive,
-          exactMatch: answer.exactMatch,
-          points: answer.points,
-        })),
-        order: questions.length + 1,
+        ...formData,
+        points: questionPoints,
+        lessonId: lessonId,
       };
 
       let result;
       if (editingQuestion) {
-        result = await updateQuestion(editingQuestion, questionData);
+        result = await updateQuestion(editingQuestion.id!, questionData);
       } else {
         result = await createQuestion(questionData);
       }
 
       if (result.success) {
-        toast.success(
-          editingQuestion
+        toast({
+          title: "Thành công",
+          description: editingQuestion
             ? "Cập nhật câu hỏi thành công"
             : "Tạo câu hỏi thành công",
-        );
+        });
         resetForm();
         setEditingQuestion(null);
         setShowAddForm(false);
         await loadQuestions();
       } else {
-        toast.error(result.message || "Có lỗi xảy ra");
+        toast({
+          title: "Lỗi",
+          description: result.message || "Có lỗi xảy ra",
+          variant: "destructive",
+        });
       }
     } catch (error) {
-      toast.error("Có lỗi xảy ra khi lưu câu hỏi");
+      console.error("Error saving question:", error);
+      toast({
+        title: "Lỗi",
+        description: "Có lỗi xảy ra khi lưu câu hỏi",
+        variant: "destructive",
+      });
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -452,7 +529,8 @@ export function QuestionManager({
       type: question.type,
       answers: question.answers || getDefaultAnswersForType(question.type),
     });
-    setEditingQuestion(question.id || "");
+    setQuestionPoints(question.points || 2.0);
+    setEditingQuestion(question);
     setShowAddForm(true);
   };
 
@@ -461,13 +539,24 @@ export function QuestionManager({
     try {
       const result = await deleteQuestion(questionId);
       if (result.success) {
-        toast.success("Xóa câu hỏi thành công");
+        toast({
+          title: "Thành công",
+          description: "Xóa câu hỏi thành công",
+        });
         await loadQuestions();
       } else {
-        toast.error(result.message || "Không thể xóa câu hỏi");
+        toast({
+          title: "Lỗi",
+          description: result.message || "Không thể xóa câu hỏi",
+          variant: "destructive",
+        });
       }
     } catch (error) {
-      toast.error("Có lỗi xảy ra khi xóa câu hỏi");
+      toast({
+        title: "Lỗi",
+        description: "Có lỗi xảy ra khi xóa câu hỏi",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -499,6 +588,76 @@ export function QuestionManager({
         return "Điền từ";
       default:
         return "Không xác định";
+    }
+  };
+
+  const addAnswer = () => {
+    if (isTextBasedQuestion(formData.type)) {
+      const newAnswer: Answer = {
+        text: "",
+        isCorrect: true,
+        acceptedAnswers: [],
+        caseSensitive: false,
+        exactMatch: false,
+        points: 1.0,
+      };
+      setFormData((prev) => ({
+        ...prev,
+        answers: [...prev.answers, newAnswer],
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        answers: [...prev.answers, { text: "", isCorrect: false, points: 0.0 }],
+      }));
+    }
+  };
+
+  const removeAnswer = (index: number) => {
+    setFormData((prev) => {
+      const newAnswers = [...prev.answers];
+      newAnswers.splice(index, 1);
+      return { ...prev, answers: newAnswers };
+    });
+  };
+
+  const handleEditQuestion = (question: Question) => {
+    setFormData({
+      id: question.id,
+      text: question.text,
+      type: question.type,
+      answers: question.answers || getDefaultAnswersForType(question.type),
+    });
+    setQuestionPoints(question.points || 2.0);
+    setEditingQuestion(question);
+    setShowAddForm(true);
+  };
+
+  const handleDeleteQuestion = async (questionId: string) => {
+    setIsLoading(true);
+    try {
+      const result = await deleteQuestion(questionId);
+      if (result.success) {
+        toast({
+          title: "Thành công",
+          description: "Xóa câu hỏi thành công",
+        });
+        await loadQuestions();
+      } else {
+        toast({
+          title: "Lỗi",
+          description: result.message || "Không thể xóa câu hỏi",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Lỗi",
+        description: "Có lỗi xảy ra khi xóa câu hỏi",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -613,30 +772,43 @@ export function QuestionManager({
               </Select>
             </div>
 
-            {!isTextBasedQuestion(formData.type) && (
-              <div className="space-y-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm font-semibold text-slate-900 flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-blue-600" />
-                    Các đáp án
-                    <Badge variant="outline" className="text-xs">
-                      {formData.type === QuestionType.SINGLE_CHOICE
-                        ? "Chọn 1 đáp án đúng"
-                        : "Chọn nhiều đáp án đúng"}
-                    </Badge>
-                  </Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleAddAnswer}
-                    className="border-blue-300 text-blue-700 hover:bg-blue-100 bg-transparent"
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    Thêm đáp án
-                  </Button>
+            {/* Question Points Section */}
+            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+              <Label className="text-sm font-semibold text-slate-900 flex items-center gap-2 mb-3">
+                <Target className="h-4 w-4 text-blue-600" />
+                Điểm số câu hỏi
+              </Label>
+              <div className="flex items-center gap-4">
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  value={questionPoints}
+                  onChange={(e) =>
+                    setQuestionPoints(Number.parseFloat(e.target.value) || 0)
+                  }
+                  className="w-24 border-blue-200 focus:ring-blue-500 focus:border-blue-500"
+                />
+                <div className="flex-1">
+                  <p className="text-sm text-slate-600">
+                    {formData.type === QuestionType.SINGLE_CHOICE &&
+                      "Điểm nhận được khi chọn đúng đáp án"}
+                    {formData.type === QuestionType.MULTIPLE_CHOICE &&
+                      "Điểm tối đa (tham chiếu) - điểm thực tế tính từ các đáp án"}
+                    {isTextBasedQuestion(formData.type) &&
+                      "Điểm tối đa cho câu trả lời hoàn hảo"}
+                  </p>
                 </div>
+              </div>
+            </div>
 
+            {/* Single Choice Answers */}
+            {formData.type === QuestionType.SINGLE_CHOICE && (
+              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <Label className="text-sm font-semibold text-slate-900 flex items-center gap-2 mb-3">
+                  <CheckCircle2 className="h-4 w-4 text-blue-600" />
+                  Đáp án (Chọn một)
+                </Label>
                 <div className="space-y-3">
                   {formData.answers.map((answer, index) => (
                     <div
@@ -660,16 +832,18 @@ export function QuestionManager({
                           </div>
                         </div>
                         <div className="flex flex-col items-center gap-3 pt-6">
-                          <div className="flex items-center space-x-2 bg-green-50 p-2 rounded-lg">
-                            <Switch
+                          <div className="flex items-center space-x-2 bg-blue-50 p-2 rounded-lg">
+                            <input
+                              type="radio"
+                              name="single-choice-correct"
                               checked={answer.isCorrect}
-                              onCheckedChange={(checked) => {
-                                handleAnswerChange(index, "isCorrect", checked);
+                              onChange={() => {
+                                handleAnswerChange(index, "isCorrect", true);
                               }}
-                              className="data-[state=checked]:bg-green-500"
+                              className="w-4 h-4 text-blue-600 border-blue-300 focus:ring-blue-500"
                             />
-                            <Label className="text-xs font-medium text-green-700">
-                              {answer.isCorrect ? "Đúng" : "Sai"}
+                            <Label className="text-xs font-medium text-blue-700">
+                              {answer.isCorrect ? "Đúng" : "Chọn"}
                             </Label>
                           </div>
                           {formData.answers.length > 2 && (
@@ -678,7 +852,7 @@ export function QuestionManager({
                               variant="ghost"
                               size="icon"
                               className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                              onClick={() => handleRemoveAnswer(index)}
+                              onClick={() => removeAnswer(index)}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -688,179 +862,243 @@ export function QuestionManager({
                     </div>
                   ))}
                 </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addAnswer}
+                  className="mt-3 border-blue-300 text-blue-700 hover:bg-blue-50 bg-transparent"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Thêm đáp án
+                </Button>
+                <div className="mt-3 p-2 bg-blue-100 rounded text-sm">
+                  <span className="font-medium">Đáp án đúng: </span>
+                  <span className="text-blue-700">
+                    {formData.answers.find((a) => a.isCorrect)?.text ||
+                      "Chưa chọn đáp án đúng"}
+                  </span>
+                </div>
               </div>
             )}
 
-            {isTextBasedQuestion(formData.type) && (
-              <div className="space-y-6 p-4 bg-orange-50 rounded-lg border border-orange-200">
-                {/* Reference Answer */}
+            {/* Multiple Choice Answers */}
+            {formData.type === QuestionType.MULTIPLE_CHOICE && (
+              <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                <Label className="text-sm font-semibold text-slate-900 flex items-center gap-2 mb-3">
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  Đáp án (Chọn nhiều)
+                </Label>
                 <div className="space-y-3">
-                  <Label className="text-sm font-semibold text-slate-900 flex items-center gap-2">
-                    <Edit className="h-4 w-4 text-orange-600" />
-                    Đáp án tham khảo
-                    <Badge variant="outline" className="text-xs">
-                      Cho giáo viên tham khảo
-                    </Badge>
-                  </Label>
-                  <div className="border-2 border-orange-200 rounded-lg overflow-hidden bg-white">
-                    <Editor
-                      apiKey={process.env.NEXT_PUBLIC_TINYMCE_API_KEY}
-                      init={editorConfig}
-                      value={formData.answers[0]?.text || ""}
-                      onEditorChange={(content) => {
-                        handleAnswerChange(0, "text", content);
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {/* Accepted Answers */}
-                <div className="space-y-3 p-4 bg-white rounded-lg border border-orange-200">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm font-semibold text-slate-900 flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-green-600" />
-                      Các đáp án được chấp nhận
-                      <Badge variant="outline" className="text-xs">
-                        Cho chấm điểm tự động
-                      </Badge>
-                    </Label>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={handleAddAnswer}
-                      className="border-green-300 text-green-700 hover:bg-green-100 bg-transparent"
+                  {formData.answers.map((answer, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center gap-3 p-3 bg-white rounded-lg border border-green-200"
                     >
-                      <Plus className="h-4 w-4 mr-1" />
-                      Thêm đáp án
-                    </Button>
-                  </div>
-
-                  <div className="space-y-2">
-                    {(formData.answers[0]?.acceptedAnswers || []).map(
-                      (accepted, index) => (
-                        <div key={index} className="flex gap-2 items-center">
-                          <Input
-                            value={accepted}
-                            onChange={(e) =>
-                              handleAcceptedAnswerChange(index, e.target.value)
-                            }
-                            placeholder="Nhập đáp án được chấp nhận"
-                            className="border-green-200 focus:ring-green-500 focus:border-green-500"
-                          />
-                          {(formData.answers[0]?.acceptedAnswers || []).length >
-                            1 && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                              onClick={() => handleRemoveAnswer(index)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-                      ),
-                    )}
-                  </div>
-                </div>
-
-                {/* Auto-grading Options */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-white p-4 rounded-lg border border-orange-200">
-                    <div className="flex items-center space-x-3">
                       <Checkbox
-                        id="caseSensitive"
-                        checked={formData.answers[0]?.caseSensitive || false}
-                        onCheckedChange={(checked) => {
-                          handleAnswerChange(0, "caseSensitive", checked);
-                        }}
+                        checked={answer.isCorrect}
+                        onCheckedChange={(checked) =>
+                          handleAnswerChange(index, "isCorrect", checked)
+                        }
+                        className="border-green-300 data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
                       />
-                      <div>
-                        <Label
-                          htmlFor="caseSensitive"
-                          className="text-sm font-medium"
-                        >
-                          Phân biệt hoa/thường
-                        </Label>
-                        <p className="text-xs text-slate-500">
-                          "React" khác với "react"
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-white p-4 rounded-lg border border-orange-200">
-                    <div className="flex items-center space-x-3">
-                      <Checkbox
-                        id="exactMatch"
-                        checked={formData.answers[0]?.exactMatch || false}
-                        onCheckedChange={(checked) => {
-                          handleAnswerChange(0, "exactMatch", checked);
-                        }}
+                      <Input
+                        placeholder={`Đáp án ${index + 1}`}
+                        value={answer.text}
+                        onChange={(e) =>
+                          handleAnswerChange(index, "text", e.target.value)
+                        }
+                        className="flex-1 border-green-200 focus:ring-green-500 focus:border-green-500"
                       />
-                      <div>
-                        <Label
-                          htmlFor="exactMatch"
-                          className="text-sm font-medium"
-                        >
-                          So sánh chính xác
-                        </Label>
-                        <p className="text-xs text-slate-500">
-                          Không cho phép sai sót chính tả
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Points */}
-                <div className="bg-white p-4 rounded-lg border border-orange-200">
-                  <Label
-                    htmlFor="points"
-                    className="text-sm font-semibold text-slate-900 flex items-center gap-2 mb-3"
-                  >
-                    <AlertCircle className="h-4 w-4 text-orange-600" />
-                    Điểm số
-                  </Label>
-                  <div className="flex items-center gap-4">
-                    <Input
-                      id="points"
-                      type="number"
-                      min="0"
-                      max="1"
-                      step="0.1"
-                      value={formData.answers[0]?.points || 1.0}
-                      onChange={(e) => {
-                        const points = Number.parseFloat(e.target.value) || 1.0;
-                        handleAnswerChange(
-                          0,
-                          "points",
-                          Math.min(Math.max(points, 0), 1),
-                        );
-                      }}
-                      className="w-24 border-orange-200 focus:ring-orange-500 focus:border-orange-500"
-                    />
-                    <div className="flex-1">
-                      <div className="w-full bg-slate-200 rounded-full h-2">
-                        <div
-                          className="bg-gradient-to-r from-orange-400 to-orange-600 h-2 rounded-full transition-all duration-300"
-                          style={{
-                            width: `${(formData.answers[0]?.points || 1.0) * 100}%`,
-                          }}
+                      <div className="flex items-center gap-2">
+                        <Label className="text-xs text-slate-600">Điểm:</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.5"
+                          value={answer.points || 0}
+                          onChange={(e) =>
+                            handleAnswerChange(
+                              index,
+                              "points",
+                              Number.parseFloat(e.target.value) || 0,
+                            )
+                          }
+                          className="w-16 text-xs border-green-200 focus:ring-green-500 focus:border-green-500"
+                          disabled={!answer.isCorrect}
                         />
                       </div>
-                      <p className="text-xs text-slate-600 mt-1">
-                        Điểm tối đa:{" "}
-                        {((formData.answers[0]?.points || 1.0) * 100).toFixed(
-                          0,
-                        )}
-                        %
-                      </p>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeAnswer(index)}
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
-                  </div>
+                  ))}
                 </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addAnswer}
+                  className="mt-3 border-green-300 text-green-700 hover:bg-green-50 bg-transparent"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Thêm đáp án
+                </Button>
+                <div className="mt-3 p-2 bg-green-100 rounded text-sm">
+                  <span className="font-medium">Tổng điểm đáp án đúng: </span>
+                  <span className="text-green-700">
+                    {formData.answers
+                      .filter((a) => a.isCorrect)
+                      .reduce((sum, a) => sum + (a.points || 0), 0)
+                      .toFixed(1)}{" "}
+                    / {questionPoints.toFixed(1)}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Text-based Questions */}
+            {isTextBasedQuestion(formData.type) && (
+              <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
+                <Label className="text-sm font-semibold text-slate-900 flex items-center gap-2 mb-3">
+                  <Edit className="h-4 w-4 text-orange-600" />
+                  Đáp án mẫu và chấm điểm tự động
+                </Label>
+                <div className="space-y-4">
+                  {formData.answers.map((answer, index) => (
+                    <div
+                      key={index}
+                      className="p-4 bg-white rounded-lg border border-orange-200"
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <Label className="text-sm font-medium text-slate-700">
+                          Mức điểm {index + 1}
+                        </Label>
+                        <div className="flex items-center gap-2">
+                          <Label className="text-xs text-slate-600">
+                            Điểm:
+                          </Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            max={questionPoints}
+                            step="0.5"
+                            value={answer.points || 0}
+                            onChange={(e) =>
+                              handleAnswerChange(
+                                index,
+                                "points",
+                                Number.parseFloat(e.target.value) || 0,
+                              )
+                            }
+                            className="w-16 text-xs border-orange-200 focus:ring-orange-500 focus:border-orange-500"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeAnswer(index)}
+                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div>
+                          <Label className="text-xs text-slate-600 mb-1 block">
+                            Các đáp án được chấp nhận (mỗi dòng một đáp án):
+                          </Label>
+                          <Textarea
+                            placeholder="useState hook quản lý state&#10;useState&#10;hook state"
+                            value={answer.acceptedAnswers?.join("\n") || ""}
+                            onChange={(e) =>
+                              handleAnswerChange(
+                                index,
+                                "acceptedAnswers",
+                                e.target.value
+                                  .split("\n")
+                                  .filter((line) => line.trim()),
+                              )
+                            }
+                            className="border-orange-200 focus:ring-orange-500 focus:border-orange-500"
+                            rows={3}
+                          />
+                        </div>
+
+                        <div className="flex items-center gap-4">
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`caseSensitive-${index}`}
+                              checked={answer.caseSensitive || false}
+                              onCheckedChange={(checked) =>
+                                handleAnswerChange(
+                                  index,
+                                  "caseSensitive",
+                                  checked,
+                                )
+                              }
+                              className="border-orange-300 data-[state=checked]:bg-orange-600"
+                            />
+                            <Label
+                              htmlFor={`caseSensitive-${index}`}
+                              className="text-xs text-slate-600"
+                            >
+                              Phân biệt hoa/thường
+                            </Label>
+                          </div>
+
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`exactMatch-${index}`}
+                              checked={answer.exactMatch || false}
+                              onCheckedChange={(checked) =>
+                                handleAnswerChange(index, "exactMatch", checked)
+                              }
+                              className="border-orange-300 data-[state=checked]:bg-orange-600"
+                            />
+                            <Label
+                              htmlFor={`exactMatch-${index}`}
+                              className="text-xs text-slate-600"
+                            >
+                              So sánh chính xác
+                            </Label>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const newAnswer: Answer = {
+                      text: "",
+                      isCorrect: true,
+                      acceptedAnswers: [],
+                      caseSensitive: false,
+                      exactMatch: false,
+                      points: 1.0,
+                    };
+                    setFormData((prev) => ({
+                      ...prev,
+                      answers: [...prev.answers, newAnswer],
+                    }));
+                  }}
+                  className="mt-3 border-orange-300 text-orange-700 hover:bg-orange-50"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Thêm mức điểm
+                </Button>
               </div>
             )}
 
@@ -880,10 +1118,10 @@ export function QuestionManager({
               <Button
                 type="button"
                 onClick={handleSubmit}
-                disabled={isLoading}
+                disabled={isSubmitting}
                 className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-lg px-8"
               >
-                {isLoading ? (
+                {isSubmitting ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2" />
                     Đang lưu...

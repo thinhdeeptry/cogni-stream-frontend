@@ -52,6 +52,13 @@ const getMenuItems = (userRole: string) => {
       //   color: "text-amber-500",
       //   bgColor: "bg-amber-50",
     },
+    {
+      title: "Lịch của tôi",
+      url: "/schedule",
+      icon: Calendar,
+      color: "text-gray-600",
+      bgColor: "bg-purple-50",
+    },
   ];
 
   if (userRole === "ADMIN") {
@@ -60,13 +67,6 @@ const getMenuItems = (userRole: string) => {
         title: "Quản lý",
         url: "/admin/courses",
         icon: LayoutDashboard,
-        color: "text-gray-600",
-        bgColor: "bg-purple-50",
-      },
-      {
-        title: "Lịch của tôi",
-        url: "/schedule",
-        icon: Calendar,
         color: "text-gray-600",
         bgColor: "bg-purple-50",
       },
