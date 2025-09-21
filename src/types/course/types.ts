@@ -344,6 +344,13 @@ export interface SyllabusItem {
   classId: string;
   lessonId?: string;
   classSessionId?: string;
+
+  // 🆕 ATTENDANCE SETTINGS - Chỉ áp dụng cho LIVE_SESSION
+  attendanceEnabled?: boolean; // Có cho phép điểm danh không
+  attendanceStartTime?: string; // Thời gian bắt đầu cho phép điểm danh
+  attendanceEndTime?: string; // Thời gian kết thúc điểm danh
+  lateThresholdMinutes?: number; // Số phút được coi là trễ
+
   lesson?: {
     id: string;
     title: string;
@@ -373,6 +380,12 @@ export interface CreateSyllabusItemRequest {
   lessonId?: string;
   classSessionId?: string;
   classId: string;
+
+  // 🆕 ATTENDANCE SETTINGS
+  attendanceEnabled?: boolean;
+  attendanceStartTime?: string;
+  attendanceEndTime?: string;
+  lateThresholdMinutes?: number;
 }
 
 // Interface cho update Syllabus Item
@@ -382,6 +395,12 @@ export interface UpdateSyllabusItemRequest {
   itemType?: SyllabusItemType;
   lessonId?: string;
   classSessionId?: string;
+
+  // 🆕 ATTENDANCE SETTINGS
+  attendanceEnabled?: boolean;
+  attendanceStartTime?: string;
+  attendanceEndTime?: string;
+  lateThresholdMinutes?: number;
 }
 
 // Interfaces mới cho question management
@@ -495,4 +514,49 @@ export interface ClassStructure {
     sessionItems: number;
     daysCovered: number;
   };
+}
+
+// 🆕 ATTENDANCE SYSTEM ENUMS & INTERFACES
+// =============================================
+
+export enum AttendanceStatus {
+  PRESENT = "PRESENT",
+  ABSENT = "ABSENT",
+  LATE = "LATE",
+}
+
+export interface AttendanceCode {
+  id: string;
+  code: string;
+  isActive: boolean;
+  createdAt: string;
+  expiresAt?: string;
+  syllabusItemId: string;
+  instructorId: string;
+}
+
+export interface AttendanceRecord {
+  id: string;
+  status: AttendanceStatus;
+  attendedAt: string;
+  isLate: boolean;
+  studentId: string;
+  syllabusItemId: string;
+  attendanceCodeId: string;
+  enrollmentId: string;
+  student?: {
+    id: string;
+    name: string;
+    email: string;
+    image?: string;
+  };
+}
+
+export interface AttendanceStats {
+  totalEnrolled: number;
+  presentCount: number;
+  lateCount: number;
+  absentCount: number;
+  attendanceRate: number;
+  records?: AttendanceRecord[];
 }

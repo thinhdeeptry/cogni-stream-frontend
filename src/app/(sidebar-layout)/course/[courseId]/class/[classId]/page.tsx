@@ -16,6 +16,7 @@ import { motion } from "framer-motion";
 import {
   BookOpen,
   Calendar,
+  CheckCircle,
   ChevronLeft,
   ChevronRight,
   Clock,
@@ -47,6 +48,8 @@ import {
 import { useProgressStore } from "@/stores/useProgressStore";
 import useUserStore from "@/stores/useUserStore";
 
+import AttendanceChecker from "@/components/attendance/AttendanceChecker";
+import AttendanceManager from "@/components/attendance/AttendanceManager";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -445,6 +448,16 @@ export default function ClassLearningPage() {
       : -1;
   }, [allItems, currentItem]);
 
+  // Helper function to check if an item is completed
+  const isItemCompleted = (item: SyllabusItem) => {
+    if (!progress || !Array.isArray(progress)) return false;
+
+    // Check if this item has progress and is completed
+    return progress.some(
+      (p: any) => p.syllabusItemId === item.id && p.isCompleted === true,
+    );
+  };
+
   // Navigation functions
   const goToPrevious = () => {
     if (currentItemIndex > 0) {
@@ -541,11 +554,14 @@ export default function ClassLearningPage() {
 
   // Handler for completing a live session
   const handleCompleteLiveSession = async () => {
+    console.log("Enroll: ", enrollmentId);
+    console.log("Curr item: ", currentItem);
     if (!enrollmentId || !currentItem) return;
     const nextItem = allItems[currentItemIndex + 1];
     const isLastItem = currentItemIndex === allItems.length - 1;
 
     try {
+      console.log("Handle done session");
       await updateLessonProgress({
         progress: Math.min(
           100,
@@ -885,6 +901,38 @@ export default function ClassLearningPage() {
                               : "Đánh dấu hoàn thành buổi học"}
                           </Button>
                         )}
+
+                        {/* Attendance System - Chỉ hiển thị cho LIVE_SESSION */}
+                        {user?.role === "INSTRUCTOR" ? (
+                          // Giao diện cho giảng viên
+                          <div className="mt-6">
+                            <AttendanceManager
+                              syllabusItemId={currentItem.id}
+                              instructorId={user.id}
+                              isLiveSession={true}
+                              sessionTopic={
+                                currentItem.classSession?.topic ||
+                                "Buổi học live"
+                              }
+                            />
+                          </div>
+                        ) : enrollmentId ? (
+                          // Giao diện cho học viên
+                          <div className="mt-6">
+                            <AttendanceChecker
+                              syllabusItemId={currentItem.id}
+                              enrollmentId={enrollmentId}
+                              isLiveSession={true}
+                              sessionTopic={
+                                currentItem.classSession?.topic ||
+                                "Buổi học live"
+                              }
+                              attendanceEnabled={
+                                currentItem.attendanceEnabled || false
+                              }
+                            />
+                          </div>
+                        ) : null}
                       </div>
                     </CardContent>
                   </Card>
@@ -1032,65 +1080,95 @@ export default function ClassLearningPage() {
                       <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">
                         Ngày {group.day}
                       </div>
-                      {group.items.map((item) => (
-                        <Card
-                          key={item.id}
-                          className={`cursor-pointer transition-all hover:shadow-md ${
-                            currentItem?.id === item.id
-                              ? "ring-2 ring-orange-500 bg-orange-50"
-                              : "hover:bg-gray-50"
-                          }`}
-                          onClick={() => setCurrentItem(item)}
-                        >
-                          <CardContent className="p-3">
-                            <div className="flex items-center gap-3">
-                              {item.itemType === SyllabusItemType.LESSON ? (
-                                <BookOpen className="h-4 w-4 text-blue-500 flex-shrink-0" />
-                              ) : (
-                                <Video className="h-4 w-4 text-red-500 flex-shrink-0" />
-                              )}
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-gray-900 truncate">
-                                  {item.itemType === SyllabusItemType.LESSON
-                                    ? item.lesson?.title
-                                    : item.classSession?.topic}
-                                </p>
-                                <div className="flex items-center gap-2 mt-1">
-                                  <Badge
-                                    variant="secondary"
-                                    className="text-xs"
+                      {group.items.map((item) => {
+                        const isCompleted = isItemCompleted(item);
+                        return (
+                          <Card
+                            key={item.id}
+                            className={`cursor-pointer transition-all hover:shadow-md ${
+                              currentItem?.id === item.id
+                                ? "ring-2 ring-orange-500 bg-orange-50"
+                                : "hover:bg-gray-50"
+                            }`}
+                            onClick={() => setCurrentItem(item)}
+                          >
+                            <CardContent className="p-3">
+                              <div className="flex items-center gap-3">
+                                <div className="flex-shrink-0 flex items-center gap-2">
+                                  {item.itemType === SyllabusItemType.LESSON ? (
+                                    <BookOpen className="h-4 w-4 text-blue-500" />
+                                  ) : (
+                                    <Video className="h-4 w-4 text-red-500" />
+                                  )}
+                                  {isCompleted && (
+                                    <CheckCircle className="h-4 w-4 text-green-500" />
+                                  )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p
+                                    className={`text-sm font-medium truncate ${
+                                      isCompleted
+                                        ? "text-green-700"
+                                        : "text-gray-900"
+                                    }`}
                                   >
                                     {item.itemType === SyllabusItemType.LESSON
-                                      ? "Bài học"
-                                      : "Buổi học"}
-                                  </Badge>
-                                  {item.itemType ===
-                                    SyllabusItemType.LIVE_SESSION &&
-                                    item.classSession && (
-                                      <div className="flex items-center gap-1 text-xs text-gray-500">
-                                        <Clock className="h-3 w-3" />
-                                        <span>
-                                          {item.classSession.durationMinutes}{" "}
-                                          phút
-                                        </span>
-                                      </div>
+                                      ? item.lesson?.title
+                                      : item.classSession?.topic}
+                                  </p>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <Badge
+                                      variant="secondary"
+                                      className={`text-xs ${
+                                        isCompleted
+                                          ? "bg-green-100 text-green-700"
+                                          : ""
+                                      }`}
+                                    >
+                                      {item.itemType === SyllabusItemType.LESSON
+                                        ? "Bài học"
+                                        : "Buổi học"}
+                                    </Badge>
+                                    {isCompleted && (
+                                      <Badge
+                                        variant="secondary"
+                                        className="text-xs bg-green-100 text-green-700"
+                                      >
+                                        Đã hoàn thành
+                                      </Badge>
                                     )}
-                                  {item.itemType === SyllabusItemType.LESSON &&
-                                    item.lesson && (
-                                      <div className="flex items-center gap-1 text-xs text-gray-500">
-                                        <Clock className="h-3 w-3" />
-                                        <span>
-                                          {item.lesson.estimatedDurationMinutes}{" "}
-                                          phút
-                                        </span>
-                                      </div>
-                                    )}
+                                    {item.itemType ===
+                                      SyllabusItemType.LIVE_SESSION &&
+                                      item.classSession && (
+                                        <div className="flex items-center gap-1 text-xs text-gray-500">
+                                          <Clock className="h-3 w-3" />
+                                          <span>
+                                            {item.classSession.durationMinutes}{" "}
+                                            phút
+                                          </span>
+                                        </div>
+                                      )}
+                                    {item.itemType ===
+                                      SyllabusItemType.LESSON &&
+                                      item.lesson && (
+                                        <div className="flex items-center gap-1 text-xs text-gray-500">
+                                          <Clock className="h-3 w-3" />
+                                          <span>
+                                            {
+                                              item.lesson
+                                                .estimatedDurationMinutes
+                                            }{" "}
+                                            phút
+                                          </span>
+                                        </div>
+                                      )}
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
                     </div>
                   ))}
                 </div>
