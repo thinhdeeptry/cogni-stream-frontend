@@ -1,15 +1,13 @@
 "use client";
 
-import Image from "next/image";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import React, { useEffect, useMemo, useState } from "react";
 
 import { toast } from "@/hooks/use-toast";
 import {
-  Course,
-  CourseType,
+  type Course,
   LessonType,
-  SyllabusItem,
+  type SyllabusItem,
   SyllabusItemType,
 } from "@/types/course/types";
 import { motion } from "framer-motion";
@@ -23,8 +21,6 @@ import {
   EyeOff,
   Info,
   Loader2,
-  Menu,
-  Play,
   Users,
   Video,
   X,
@@ -40,13 +36,14 @@ import {
   markCourseAsCompleted,
 } from "@/actions/enrollmentActions";
 import {
-  GroupedSyllabusItem,
+  type GroupedSyllabusItem,
   getSyllabusByClassId,
 } from "@/actions/syllabusActions";
 
 import { useProgressStore } from "@/stores/useProgressStore";
 import useUserStore from "@/stores/useUserStore";
 
+import QuizSection from "@/components/quiz/QuizSection";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -166,9 +163,7 @@ const renderBlockToHtml = (block: Block): React.ReactElement => {
       return React.createElement(
         HeadingComponent,
         {
-          className: `mb-4 font-semibold ${
-            level === 1 ? "text-3xl" : level === 2 ? "text-2xl" : "text-xl"
-          }`,
+          className: `mb-4 font-semibold ${level === 1 ? "text-3xl" : level === 2 ? "text-2xl" : "text-xl"}`,
           style: baseStyles,
         },
         renderContent(),
@@ -297,6 +292,7 @@ export default function ClassLearningPage() {
   // Hooks
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: session } = useSession();
   const { user } = useUserStore();
   const {
@@ -387,14 +383,7 @@ export default function ClassLearningPage() {
 
       if (syllabusResponse && syllabusResponse.groupedItems) {
         setSyllabusData(syllabusResponse.groupedItems);
-
-        // Set first item as current if no current item
-        if (!currentItem && syllabusResponse.groupedItems.length > 0) {
-          const firstGroup = syllabusResponse.groupedItems[0];
-          if (firstGroup.items.length > 0) {
-            setCurrentItem(firstGroup.items[0]);
-          }
-        }
+        // Note: currentItem will be set by separate useEffect that handles lesson parameter and localStorage
       }
     } catch (error) {
       console.error("Error fetching syllabus:", error);
@@ -402,6 +391,37 @@ export default function ClassLearningPage() {
       setIsLoadingSyllabus(false);
     }
   };
+
+  // Restore lesson từ localStorage hoặc set lesson đầu tiên
+  useEffect(() => {
+    if (syllabusData.length > 0 && !currentItem && params.classId) {
+      // Tìm lesson từ localStorage
+      const savedLessonId = localStorage.getItem(
+        `class-${params.classId}-current-lesson`,
+      );
+
+      if (savedLessonId) {
+        // Tìm lesson item từ syllabus data
+        for (const group of syllabusData) {
+          const foundItem = group.items.find(
+            (item) =>
+              item.itemType === SyllabusItemType.LESSON &&
+              item.lesson?.id === savedLessonId,
+          );
+          if (foundItem) {
+            setCurrentItem(foundItem);
+            return;
+          }
+        }
+      }
+
+      // Nếu không tìm thấy lesson từ localStorage, set lesson đầu tiên
+      const firstGroup = syllabusData[0];
+      if (firstGroup?.items?.length > 0) {
+        setCurrentItem(firstGroup.items[0]);
+      }
+    }
+  }, [syllabusData, currentItem, params.classId]);
 
   // Fetch lesson data when lesson item is selected
   const fetchLessonData = async (lessonId: string) => {
@@ -432,6 +452,166 @@ export default function ClassLearningPage() {
       setCurrentLessonData(null);
     }
   }, [currentItem]);
+
+  // Effect to handle lesson navigation from URL parameters
+  useEffect(() => {
+    const targetLessonId = searchParams.get("lesson");
+
+    if (targetLessonId && syllabusData.length > 0) {
+      // Find the syllabus item that contains the target lesson
+      const targetItem = syllabusData
+        .flatMap((group) => group.items)
+        .find(
+          (item) =>
+            item.itemType === SyllabusItemType.LESSON &&
+            item.lesson?.id === targetLessonId,
+        );
+
+      if (targetItem && targetItem.id !== currentItem?.id) {
+        setCurrentItem(targetItem);
+
+        // Save to localStorage for persistence
+        localStorage.setItem(
+          `class-${params.classId}-current-lesson`,
+          targetLessonId,
+        );
+
+        // Clean up URL parameter after navigation
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.delete("lesson");
+        router.replace(newUrl.pathname + newUrl.search, { scroll: false });
+
+        toast({
+          title: "Đã chuyển đến bài học",
+          description: targetItem.lesson?.title || "Bài học được yêu cầu",
+        });
+      }
+    }
+  }, [syllabusData, searchParams, currentItem, params.classId, router]);
+
+  // Effect to restore lesson from localStorage on page load
+  useEffect(() => {
+    if (!currentItem && syllabusData.length > 0) {
+      const savedLessonId = localStorage.getItem(
+        `class-${params.classId}-current-lesson`,
+      );
+
+      if (savedLessonId) {
+        const savedItem = syllabusData
+          .flatMap((group) => group.items)
+          .find(
+            (item) =>
+              item.itemType === SyllabusItemType.LESSON &&
+              item.lesson?.id === savedLessonId,
+          );
+
+        if (savedItem) {
+          setCurrentItem(savedItem);
+          return;
+        }
+      }
+
+      // Fallback to first item if no saved lesson or saved lesson not found
+      const firstGroup = syllabusData[0];
+      if (firstGroup && firstGroup.items.length > 0) {
+        setCurrentItem(firstGroup.items[0]);
+      }
+    }
+  }, [syllabusData, currentItem, params.classId]);
+
+  // Effect to save current lesson to localStorage when it changes
+  useEffect(() => {
+    if (
+      currentItem?.itemType === SyllabusItemType.LESSON &&
+      currentItem.lesson?.id &&
+      params.classId
+    ) {
+      localStorage.setItem(
+        `class-${params.classId}-current-lesson`,
+        currentItem.lesson.id,
+      );
+    }
+  }, [currentItem, params.classId]);
+
+  // Effect to handle lesson navigation from URL parameters
+  useEffect(() => {
+    const targetLessonId = searchParams.get("lesson");
+
+    if (targetLessonId && syllabusData.length > 0) {
+      // Find the syllabus item that contains the target lesson
+      const targetItem = syllabusData
+        .flatMap((group) => group.items)
+        .find(
+          (item) =>
+            item.itemType === SyllabusItemType.LESSON &&
+            item.lesson?.id === targetLessonId,
+        );
+
+      if (targetItem && targetItem.id !== currentItem?.id) {
+        setCurrentItem(targetItem);
+
+        // Save to localStorage for persistence
+        localStorage.setItem(
+          `class-${params.classId}-current-lesson`,
+          targetLessonId,
+        );
+
+        // Clean up URL parameter after navigation
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.delete("lesson");
+        router.replace(newUrl.pathname + newUrl.search, { scroll: false });
+
+        toast({
+          title: "Đã chuyển đến bài học",
+          description: targetItem.lesson?.title || "Bài học được yêu cầu",
+        });
+      }
+    }
+  }, [syllabusData, searchParams, currentItem, params.classId, router]);
+
+  // Effect to restore lesson from localStorage on page load
+  useEffect(() => {
+    if (!currentItem && syllabusData.length > 0) {
+      const savedLessonId = localStorage.getItem(
+        `class-${params.classId}-current-lesson`,
+      );
+
+      if (savedLessonId) {
+        const savedItem = syllabusData
+          .flatMap((group) => group.items)
+          .find(
+            (item) =>
+              item.itemType === SyllabusItemType.LESSON &&
+              item.lesson?.id === savedLessonId,
+          );
+
+        if (savedItem) {
+          setCurrentItem(savedItem);
+          return;
+        }
+      }
+
+      // Fallback to first item if no saved lesson or saved lesson not found
+      const firstGroup = syllabusData[0];
+      if (firstGroup && firstGroup.items.length > 0) {
+        setCurrentItem(firstGroup.items[0]);
+      }
+    }
+  }, [syllabusData, currentItem, params.classId]);
+
+  // Effect to save current lesson to localStorage when it changes
+  useEffect(() => {
+    if (
+      currentItem?.itemType === SyllabusItemType.LESSON &&
+      currentItem.lesson?.id &&
+      params.classId
+    ) {
+      localStorage.setItem(
+        `class-${params.classId}-current-lesson`,
+        currentItem.lesson.id,
+      );
+    }
+  }, [currentItem, params.classId]);
 
   // Get all items in order for navigation
   const allItems = useMemo(() => {
@@ -637,7 +817,12 @@ export default function ClassLearningPage() {
         initial="hidden"
         animate="visible"
         variants={fadeIn}
-        className={`flex-1 ${isSidebarOpen ? "pr-[350px]" : ""} transition-all duration-300`}
+        className={`flex-1 ${
+          isSidebarOpen &&
+          !(currentLessonData && currentLessonData.type === LessonType.QUIZ)
+            ? "pr-[350px]"
+            : ""
+        } transition-all duration-300`}
       >
         <div className="space-y-6 mx-auto">
           {/* Header */}
@@ -737,8 +922,19 @@ export default function ClassLearningPage() {
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: 0.4 }}
                         >
-                          {currentLessonData.type === LessonType.BLOG ||
-                          currentLessonData.type === LessonType.MIXED ? (
+                          {currentLessonData.type === LessonType.QUIZ ? (
+                            // Quiz Content
+                            <div className="max-w-none prose-headings:text-gray-900 prose-p:text-gray-700">
+                              <QuizSection
+                                lessonId={currentLessonData.id}
+                                lessonTitle={currentLessonData.title}
+                                isEnrolled={isEnrolled}
+                                classId={params.classId as string}
+                                courseId={params.courseId as string}
+                              />
+                            </div>
+                          ) : currentLessonData.type === LessonType.BLOG ||
+                            currentLessonData.type === LessonType.MIXED ? (
                             <div>
                               {(() => {
                                 let contentBlocks: Block[] = [];
@@ -901,204 +1097,221 @@ export default function ClassLearningPage() {
       </motion.div>
 
       {/* Navigation Footer */}
-      <motion.div
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.3, duration: 0.4 }}
-        className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t px-6 py-3 z-1"
-      >
-        <div className="flex items-center justify-center gap-4">
-          <Button
-            variant="outline"
-            onClick={goToPrevious}
-            disabled={currentItemIndex <= 0}
-          >
-            <ChevronLeft className="h-4 w-4 mr-2" />
-            Trước
-          </Button>
+      {!(currentLessonData && currentLessonData.type === LessonType.QUIZ) && (
+        <motion.div
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.3, duration: 0.4 }}
+          className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t px-6 py-3 z-1"
+        >
+          <div className="flex items-center justify-center gap-4">
+            <Button
+              variant="outline"
+              onClick={goToPrevious}
+              disabled={currentItemIndex <= 0}
+            >
+              <ChevronLeft className="h-4 w-4 mr-2" />
+              Trước
+            </Button>
 
-          <span className="text-sm text-gray-600">
-            {currentItemIndex + 1} / {allItems.length}
-          </span>
+            <span className="text-sm text-gray-600">
+              {currentItemIndex + 1} / {allItems.length}
+            </span>
 
-          <Button
-            onClick={goToNext}
-            disabled={currentItemIndex >= allItems.length - 1}
-            className="bg-orange-500 hover:bg-orange-600"
-          >
-            Tiếp theo
-            <ChevronRight className="h-4 w-4 ml-2" />
-          </Button>
-        </div>
+            <Button
+              onClick={goToNext}
+              disabled={currentItemIndex >= allItems.length - 1}
+              className="bg-orange-500 hover:bg-orange-600"
+            >
+              Tiếp theo
+              <ChevronRight className="h-4 w-4 ml-2" />
+            </Button>
+          </div>
 
-        {/* Sidebar toggle button */}
-        <div className="absolute top-1/2 -translate-y-1/2 right-4">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            className="flex items-center gap-2"
-          >
-            {isSidebarOpen ? (
-              <>
-                <EyeOff className="h-4 w-4" />
-                <span className="hidden sm:inline">Ẩn</span>
-              </>
-            ) : (
-              <>
-                <Eye className="h-4 w-4" />
-                <span className="hidden sm:inline">Hiện</span>
-              </>
-            )}
-          </Button>
-        </div>
-      </motion.div>
+          {/* Sidebar toggle button */}
+          <div className="absolute top-1/2 -translate-y-1/2 right-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className="flex items-center gap-2"
+            >
+              {isSidebarOpen ? (
+                <>
+                  <EyeOff className="h-4 w-4" />
+                  <span className="hidden sm:inline">Ẩn</span>
+                </>
+              ) : (
+                <>
+                  <Eye className="h-4 w-4" />
+                  <span className="hidden sm:inline">Hiện</span>
+                </>
+              )}
+            </Button>
+          </div>
+        </motion.div>
+      )}
 
       {/* Sidebar */}
-      <div
-        className={`fixed right-0 top-0 h-[calc(100vh-73px)] w-[350px] bg-gray-50 border-l transform transition-transform duration-300 ${
-          isSidebarOpen ? "translate-x-0" : "translate-x-full"
-        }`}
-      >
-        <div className="h-full flex flex-col">
-          {/* Sidebar Header */}
-          <div className="p-4 border-b border-gray-200 bg-white sticky top-0 z-10">
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="font-semibold text-gray-800 truncate">
-                {course?.title}
-              </h2>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsSidebarOpen(false)}
-                className="lg:hidden"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-
-            {/* Class Information */}
-            {classInfo && (
-              <div className="bg-orange-50 p-3 rounded-lg">
-                <div className="flex items-center gap-2 mb-1">
-                  <Calendar className="h-4 w-4 text-orange-600" />
-                  <span className="text-sm font-medium text-orange-800">
-                    {classInfo.name}
-                  </span>
-                </div>
-                <div className="text-xs text-orange-600">
-                  {formatDate(classInfo.startDate)}
-                </div>
-              </div>
-            )}
-
-            {/* Progress Display */}
-            <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+      {!(currentLessonData && currentLessonData.type === LessonType.QUIZ) && (
+        <div
+          className={`fixed right-0 top-0 h-[calc(100vh-73px)] w-[350px] bg-gray-50 border-l transform transition-transform duration-300 ${
+            isSidebarOpen ? "translate-x-0" : "translate-x-full"
+          }`}
+        >
+          <div className="h-full flex flex-col">
+            {/* Sidebar Header */}
+            <div className="p-4 border-b border-gray-200 bg-white sticky top-0 z-10">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-blue-800">
-                  Tiến độ học tập
-                </span>
-                <span className="text-sm text-blue-600">
-                  {Math.round(overallProgress || 0)}%
-                </span>
+                <h2 className="font-semibold text-gray-800 truncate">
+                  {course?.title}
+                </h2>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsSidebarOpen(false)}
+                  className="lg:hidden"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
-              <div className="w-full bg-blue-200 rounded-full h-2">
-                <div
-                  className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${overallProgress || 0}%` }}
-                />
-              </div>
-            </div>
-          </div>
 
-          {/* Syllabus Content */}
-          <div className="flex-1 overflow-y-auto">
-            <div className="p-4">
-              <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                <BookOpen className="h-4 w-4 text-orange-500" />
-                Lộ trình học tập
-              </h3>
-
-              {isLoadingSyllabus ? (
-                <div className="space-y-2">
-                  {Array.from({ length: 3 }).map((_, i) => (
-                    <Skeleton key={i} className="h-12 w-full" />
-                  ))}
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {syllabusData.map((group) => (
-                    <div key={group.day} className="space-y-2">
-                      <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-                        Ngày {group.day}
-                      </div>
-                      {group.items.map((item) => (
-                        <Card
-                          key={item.id}
-                          className={`cursor-pointer transition-all hover:shadow-md ${
-                            currentItem?.id === item.id
-                              ? "ring-2 ring-orange-500 bg-orange-50"
-                              : "hover:bg-gray-50"
-                          }`}
-                          onClick={() => setCurrentItem(item)}
-                        >
-                          <CardContent className="p-3">
-                            <div className="flex items-center gap-3">
-                              {item.itemType === SyllabusItemType.LESSON ? (
-                                <BookOpen className="h-4 w-4 text-blue-500 flex-shrink-0" />
-                              ) : (
-                                <Video className="h-4 w-4 text-red-500 flex-shrink-0" />
-                              )}
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-gray-900 truncate">
-                                  {item.itemType === SyllabusItemType.LESSON
-                                    ? item.lesson?.title
-                                    : item.classSession?.topic}
-                                </p>
-                                <div className="flex items-center gap-2 mt-1">
-                                  <Badge
-                                    variant="secondary"
-                                    className="text-xs"
-                                  >
-                                    {item.itemType === SyllabusItemType.LESSON
-                                      ? "Bài học"
-                                      : "Buổi học"}
-                                  </Badge>
-                                  {item.itemType ===
-                                    SyllabusItemType.LIVE_SESSION &&
-                                    item.classSession && (
-                                      <div className="flex items-center gap-1 text-xs text-gray-500">
-                                        <Clock className="h-3 w-3" />
-                                        <span>
-                                          {item.classSession.durationMinutes}{" "}
-                                          phút
-                                        </span>
-                                      </div>
-                                    )}
-                                  {item.itemType === SyllabusItemType.LESSON &&
-                                    item.lesson && (
-                                      <div className="flex items-center gap-1 text-xs text-gray-500">
-                                        <Clock className="h-3 w-3" />
-                                        <span>
-                                          {item.lesson.estimatedDurationMinutes}{" "}
-                                          phút
-                                        </span>
-                                      </div>
-                                    )}
-                                </div>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  ))}
+              {/* Class Information */}
+              {classInfo && (
+                <div className="bg-orange-50 p-3 rounded-lg">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Calendar className="h-4 w-4 text-orange-600" />
+                    <span className="text-sm font-medium text-orange-800">
+                      {classInfo.name}
+                    </span>
+                  </div>
+                  <div className="text-xs text-orange-600">
+                    {formatDate(classInfo.startDate)}
+                  </div>
                 </div>
               )}
+
+              {/* Progress Display */}
+              <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-blue-800">
+                    Tiến độ học tập
+                  </span>
+                  <span className="text-sm text-blue-600">
+                    {Math.round(overallProgress || 0)}%
+                  </span>
+                </div>
+                <div className="w-full bg-blue-200 rounded-full h-2">
+                  <div
+                    className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${overallProgress || 0}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Syllabus Content */}
+            <div className="flex-1 overflow-y-auto">
+              <div className="p-4">
+                <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                  <BookOpen className="h-4 w-4 text-orange-500" />
+                  Lộ trình học tập
+                </h3>
+
+                {isLoadingSyllabus ? (
+                  <div className="space-y-2">
+                    {Array.from({ length: 3 }).map((_, i) => (
+                      <Skeleton key={i} className="h-12 w-full" />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {syllabusData.map((group) => (
+                      <div key={group.day} className="space-y-2">
+                        <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                          Ngày {group.day}
+                        </div>
+                        {group.items.map((item) => (
+                          <Card
+                            key={item.id}
+                            className={`cursor-pointer transition-all hover:shadow-md ${
+                              currentItem?.id === item.id
+                                ? "ring-2 ring-orange-500 bg-orange-50"
+                                : "hover:bg-gray-50"
+                            }`}
+                            onClick={() => {
+                              setCurrentItem(item);
+                              // Lưu lesson hiện tại vào localStorage để lưu tiến độ học
+                              if (params.classId && item.lesson?.id) {
+                                localStorage.setItem(
+                                  `class-${params.classId}-current-lesson`,
+                                  item.lesson.id,
+                                );
+                              }
+                            }}
+                          >
+                            <CardContent className="p-3">
+                              <div className="flex items-center gap-3">
+                                {item.itemType === SyllabusItemType.LESSON ? (
+                                  <BookOpen className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                                ) : (
+                                  <Video className="h-4 w-4 text-red-500 flex-shrink-0" />
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-gray-900 truncate">
+                                    {item.itemType === SyllabusItemType.LESSON
+                                      ? item.lesson?.title
+                                      : item.classSession?.topic}
+                                  </p>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <Badge
+                                      variant="secondary"
+                                      className="text-xs"
+                                    >
+                                      {item.itemType === SyllabusItemType.LESSON
+                                        ? "Bài học"
+                                        : "Buổi học"}
+                                    </Badge>
+                                    {item.itemType ===
+                                      SyllabusItemType.LIVE_SESSION &&
+                                      item.classSession && (
+                                        <div className="flex items-center gap-1 text-xs text-gray-500">
+                                          <Clock className="h-3 w-3" />
+                                          <span>
+                                            {item.classSession.durationMinutes}{" "}
+                                            phút
+                                          </span>
+                                        </div>
+                                      )}
+                                    {item.itemType ===
+                                      SyllabusItemType.LESSON &&
+                                      item.lesson && (
+                                        <div className="flex items-center gap-1 text-xs text-gray-500">
+                                          <Clock className="h-3 w-3" />
+                                          <span>
+                                            {
+                                              item.lesson
+                                                .estimatedDurationMinutes
+                                            }{" "}
+                                            phút
+                                          </span>
+                                        </div>
+                                      )}
+                                  </div>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
     </motion.div>
   );
 }

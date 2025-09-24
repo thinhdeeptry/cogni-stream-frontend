@@ -8,17 +8,46 @@ const quizApi = await AxiosFactory.getApiInstance("courses");
 // ===== QUIZ MANAGEMENT APIs =====
 
 export interface QuizStatus {
-  canAttempt: boolean;
-  attemptsUsed: number;
-  maxAttempts: number | null;
-  lastScore: number | null;
-  isPassed: boolean;
-  nextAllowedAt: string | null;
-  timeUntilNextAttempt: number | null; // in minutes
+  canAttempt: boolean /** Học viên có thể làm bài quiz không */;
+  reason: string /** Lý do không thể làm bài (nếu có) */;
+  attemptsUsed: number /** Số lần đã làm bài */;
+  maxAttempts:
+    | number
+    | null /** Số lần làm bài tối đa (null = không giới hạn) */;
+  timeLimit:
+    | number
+    | null /** Thời gian giới hạn làm bài (phút, null = không giới hạn) */;
+  retryDelay:
+    | number
+    | null /** Thời gian chờ giữa các lần làm (phút, null = không có) */;
+  passPercent: number /** Phần trăm điểm cần để qua bài */;
+  lastScore: number /** Điểm số lần làm gần nhất (0 nếu chưa từng làm) */;
+  bestScore: number /** Điểm cao nhất trong các lần làm */;
+  isPassed: boolean /** Đã qua bài quiz chưa */;
+  timeUntilNextAttempt:
+    | number
+    | null /** Số phút còn lại đến lần làm tiếp theo (null = có thể làm ngay) */;
+  nextAllowedAt:
+    | string
+    | null /** Thời gian (ISO string) được phép làm tiếp (null = có thể làm ngay) */;
+  isBlocked: boolean /** Có đang bị chặn làm bài không */;
+  blockedUntil:
+    | string
+    | null /** Thời gian hết bị chặn (ISO string, null = không bị chặn) */;
+  blockedReason?: string /** Lý do bị chặn (nếu có) */;
+  requireUnlockAction: boolean /** Có yêu cầu hành động mở khóa trước khi làm không */;
+  unlockRequirements: any[] /** Danh sách điều kiện để mở khóa quiz */;
+  lesson: {
+    /** Thông tin bài học liên quan quiz */ id: string;
+    title: string;
+    description: string | null;
+    blockAfterMaxAttempts: boolean;
+    blockDuration: number | null;
+  };
 }
 
 export interface QuizAttempt {
-  attemptId: string;
+  id: string;
   attemptNumber: number;
   timeLimit: number | null; // in minutes
   nextAllowedAt: string | null;

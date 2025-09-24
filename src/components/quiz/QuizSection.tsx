@@ -1,20 +1,27 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { cn } from "@/lib/utils";
+import type { Question } from "@/types/assessment/quiz-types";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertCircle,
+  Ban,
+  BookOpen,
   CheckCircle,
   ChevronLeft,
   ChevronRight,
   Clock,
+  ExternalLink,
   FileText,
   History,
+  Info,
   Menu,
   Play,
   RefreshCw,
+  RotateCcw,
   Timer,
   Trophy,
   X,
@@ -29,6 +36,7 @@ import {
   type QuizStatus,
   type QuizSubmission,
   canStartQuiz,
+  formatTimeLimit,
   formatWaitTime,
   getQuizHistory,
   getQuizQuestions,
@@ -37,6 +45,7 @@ import {
   submitQuizAttempt,
 } from "@/actions/quizAction";
 
+import QuizSidebar from "@/components/quiz/quiz-sidebar";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -57,13 +66,18 @@ interface QuizSectionProps {
   lessonId: string;
   lessonTitle: string;
   isEnrolled: boolean;
+  classId?: string; // For navigation to specific lessons in class
+  courseId?: string; // For navigation
 }
 
 export default function QuizSection({
   lessonId,
   lessonTitle,
   isEnrolled,
+  classId,
+  courseId,
 }: QuizSectionProps) {
+  const router = useRouter();
   const [status, setStatus] = useState<QuizStatus | null>(null);
   const [currentAttempt, setCurrentAttempt] = useState<QuizAttempt | null>(
     null,
@@ -79,12 +93,16 @@ export default function QuizSection({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState<QuizResult | null>(null);
 
-  const [allQuestions, setAllQuestions] = useState<any[]>([]);
+  const [allQuestions, setAllQuestions] = useState<Question[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalQuestions, setTotalQuestions] = useState(0);
   const [isLoadingQuestions, setIsLoadingQuestions] = useState(false);
   const [quizStartTime, setQuizStartTime] = useState<Date | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [flaggedQuestions, setFlaggedQuestions] = useState<Set<string>>(
+    new Set(),
+  );
+  const [blockCountdown, setBlockCountdown] = useState<number | null>(null);
 
   const questionsPerPage = 5;
   const totalPages = Math.ceil(totalQuestions / questionsPerPage);
@@ -115,6 +133,33 @@ export default function QuizSection({
     return () => clearInterval(interval);
   }, [currentAttempt, timeRemaining]);
 
+  // Block countdown timer effect
+  useEffect(() => {
+    if (!status?.lesson.blockDuration || !status?.blockedUntil) return;
+
+    const updateCountdown = () => {
+      const now = new Date().getTime();
+      const blockEnd = new Date(status.blockedUntil!).getTime();
+      const timeLeft = Math.floor((blockEnd - now) / 1000);
+
+      if (timeLeft <= 0) {
+        setBlockCountdown(null);
+        // Refresh quiz status when block expires
+        fetchQuizData();
+      } else {
+        setBlockCountdown(timeLeft);
+      }
+    };
+
+    // Initial update
+    updateCountdown();
+
+    // Update every second
+    const interval = setInterval(updateCountdown, 1000);
+
+    return () => clearInterval(interval);
+  }, [status?.blockedUntil, status?.lesson.blockDuration]);
+
   const fetchQuizData = async () => {
     try {
       setIsLoading(true);
@@ -144,9 +189,20 @@ export default function QuizSection({
       const result = await getQuizQuestions(lessonId, 1, 100); // Fetch up to 100 questions
 
       if (result.success && result.data) {
-        setAllQuestions(result.data.questions);
+        // Convert API data to Question type format
+        const questions: Question[] = result.data.questions.map((q: any) => ({
+          id: q.id,
+          text: q.text,
+          type: q.type,
+          order: q.order,
+          points: 1, // Default points
+          answers: q.answers,
+          isRequired: true, // Default required
+        }));
+
+        setAllQuestions(questions);
         setTotalQuestions(result.data.total);
-        console.log("Fetched all questions:", result.data.questions);
+        console.log("Fetched all questions:", questions);
       } else {
         toast.error(result.message);
       }
@@ -167,14 +223,14 @@ export default function QuizSection({
     try {
       setIsStarting(true);
       const result = await startQuizAttempt(lessonId);
-
+      console.log("result start Quiz: ", result);
       if (result.success && result.data) {
         setCurrentAttempt(result.data);
         setCurrentPage(1);
         setAnswers({});
         setResult(null);
         setQuizStartTime(new Date());
-
+        setFlaggedQuestions(new Set());
         if (result.data.timeLimit) {
           setTimeRemaining(result.data.timeLimit * 60);
         }
@@ -191,7 +247,6 @@ export default function QuizSection({
       setIsStarting(false);
     }
   };
-
   const handleAnswerChange = (
     questionId: string,
     answer: string | string[],
@@ -249,10 +304,7 @@ export default function QuizSection({
         }),
       };
 
-      const result = await submitQuizAttempt(
-        currentAttempt.attemptId,
-        submission,
-      );
+      const result = await submitQuizAttempt(currentAttempt.id, submission);
 
       if (result.success && result.data) {
         setResult(result.data);
@@ -291,6 +343,23 @@ export default function QuizSection({
     return `${minutes}:${secs.toString().padStart(2, "0")}`;
   };
 
+  const formatCountdownTime = (seconds: number): string => {
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+
+    if (days > 0) {
+      return `${days} ngày ${hours} giờ ${minutes} phút`;
+    } else if (hours > 0) {
+      return `${hours} giờ ${minutes} phút ${secs} giây`;
+    } else if (minutes > 0) {
+      return `${minutes} phút ${secs} giây`;
+    } else {
+      return `${secs} giây`;
+    }
+  };
+
   const getTimerColor = (seconds: number) => {
     if (seconds < 300) return "text-red-500"; // < 5 minutes
     if (seconds < 600) return "text-orange-500"; // < 10 minutes
@@ -325,6 +394,18 @@ export default function QuizSection({
     const targetPage = Math.ceil((questionIndex + 1) / questionsPerPage);
     setCurrentPage(targetPage);
     setSidebarOpen(false);
+  };
+
+  const handleToggleFlag = (questionId: string) => {
+    setFlaggedQuestions((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(questionId)) {
+        newSet.delete(questionId);
+      } else {
+        newSet.add(questionId);
+      }
+      return newSet;
+    });
   };
 
   const getQuestionStatus = (questionId: string) => {
@@ -514,72 +595,161 @@ export default function QuizSection({
                           question.type === "MULTIPLE_CHOICE") &&
                           question.answers &&
                           question.answers.length > 0 && (
-                            <div className="space-y-3 ml-12">
-                              {question.answers.map((answer, answerIndex) => (
-                                <div
-                                  key={answer.id}
-                                  className="flex items-start space-x-3"
-                                >
-                                  <input
-                                    type={
-                                      question.type === "SINGLE_CHOICE"
-                                        ? "radio"
-                                        : "checkbox"
-                                    }
-                                    id={`${question.id}-${answer.id}`}
-                                    name={question.id}
-                                    value={answer.id}
-                                    checked={
-                                      question.type === "SINGLE_CHOICE"
-                                        ? answers[question.id] === answer.id
-                                        : Array.isArray(answers[question.id]) &&
-                                          (
-                                            answers[question.id] as string[]
-                                          ).includes(answer.id)
-                                    }
-                                    onChange={(e) => {
-                                      if (question.type === "SINGLE_CHOICE") {
-                                        handleAnswerChange(
-                                          question.id,
-                                          answer.id,
-                                        );
-                                      } else {
-                                        const currentAnswers = Array.isArray(
-                                          answers[question.id],
-                                        )
-                                          ? (answers[question.id] as string[])
-                                          : [];
+                            <div className="space-y-2 ml-0">
+                              {question.answers.map(
+                                (answer: any, answerIndex: number) => {
+                                  const isSelected =
+                                    question.type === "SINGLE_CHOICE"
+                                      ? answers[question.id] === answer.id
+                                      : Array.isArray(answers[question.id]) &&
+                                        (
+                                          answers[question.id] as string[]
+                                        ).includes(answer.id);
 
-                                        if (e.target.checked) {
-                                          handleAnswerChange(question.id, [
-                                            ...currentAnswers,
-                                            answer.id,
-                                          ]);
-                                        } else {
+                                  return (
+                                    <div
+                                      key={answer.id}
+                                      className={cn(
+                                        "relative group transition-all duration-200 cursor-pointer",
+                                        "border rounded-lg p-4 hover:border-blue-300 hover:bg-blue-50/50",
+                                        isSelected
+                                          ? "border-blue-500 bg-blue-50 shadow-md"
+                                          : "border-gray-200 bg-white hover:shadow-sm",
+                                      )}
+                                      onClick={() => {
+                                        if (question.type === "SINGLE_CHOICE") {
                                           handleAnswerChange(
                                             question.id,
-                                            currentAnswers.filter(
-                                              (id) => id !== answer.id,
-                                            ),
+                                            answer.id,
                                           );
+                                        } else {
+                                          const currentAnswers = Array.isArray(
+                                            answers[question.id],
+                                          )
+                                            ? (answers[question.id] as string[])
+                                            : [];
+
+                                          if (isSelected) {
+                                            handleAnswerChange(
+                                              question.id,
+                                              currentAnswers.filter(
+                                                (id) => id !== answer.id,
+                                              ),
+                                            );
+                                          } else {
+                                            handleAnswerChange(question.id, [
+                                              ...currentAnswers,
+                                              answer.id,
+                                            ]);
+                                          }
                                         }
-                                      }
-                                    }}
-                                    className="w-4 h-4 mt-1 text-primary focus:ring-primary flex-shrink-0"
-                                  />
-                                  <label
-                                    htmlFor={`${question.id}-${answer.id}`}
-                                    className="flex-1 cursor-pointer"
-                                  >
-                                    <span className="text-sm font-medium mr-2 text-blue-600">
-                                      {String.fromCharCode(65 + answerIndex)}.
-                                    </span>
-                                    <div className="inline">
-                                      {renderHTMLContent(answer.text)}
+                                      }}
+                                    >
+                                      <div className="flex items-start gap-3">
+                                        {/* Custom Radio/Checkbox */}
+                                        <div className="flex-shrink-0 mt-0.5">
+                                          {question.type === "SINGLE_CHOICE" ? (
+                                            <div
+                                              className={cn(
+                                                "w-5 h-5 rounded-full border-2 transition-all duration-200 flex items-center justify-center",
+                                                isSelected
+                                                  ? "border-blue-500 bg-blue-500"
+                                                  : "border-gray-300 group-hover:border-blue-400",
+                                              )}
+                                            >
+                                              {isSelected && (
+                                                <div className="w-2 h-2 rounded-full bg-white"></div>
+                                              )}
+                                            </div>
+                                          ) : (
+                                            <div
+                                              className={cn(
+                                                "w-5 h-5 rounded border-2 transition-all duration-200 flex items-center justify-center",
+                                                isSelected
+                                                  ? "border-blue-500 bg-blue-500"
+                                                  : "border-gray-300 group-hover:border-blue-400",
+                                              )}
+                                            >
+                                              {isSelected && (
+                                                <svg
+                                                  className="w-3 h-3 text-white"
+                                                  fill="currentColor"
+                                                  viewBox="0 0 20 20"
+                                                >
+                                                  <path
+                                                    fillRule="evenodd"
+                                                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                                    clipRule="evenodd"
+                                                  />
+                                                </svg>
+                                              )}
+                                            </div>
+                                          )}
+                                        </div>
+
+                                        {/* Answer Option Label */}
+                                        <div className="flex-1 min-w-0">
+                                          <div className="flex items-start gap-2">
+                                            <span
+                                              className={cn(
+                                                "inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-semibold flex-shrink-0 transition-colors",
+                                                isSelected
+                                                  ? "bg-blue-500 text-white"
+                                                  : "bg-gray-100 text-gray-600 group-hover:bg-blue-100 group-hover:text-blue-600",
+                                              )}
+                                            >
+                                              {String.fromCharCode(
+                                                65 + answerIndex,
+                                              )}
+                                            </span>
+                                            <div className="flex-1 min-w-0">
+                                              <div
+                                                className={cn(
+                                                  "prose prose-sm max-w-none transition-colors",
+                                                  "[&>p]:mb-1 [&>p]:leading-relaxed",
+                                                  "[&>ul]:mb-1 [&>ol]:mb-1 [&>ul]:pl-4 [&>ol]:pl-4",
+                                                  "[&>img]:rounded [&>img]:max-w-full [&>img]:h-auto",
+                                                  isSelected
+                                                    ? "prose-blue [&>p]:text-blue-900"
+                                                    : "prose-gray [&>p]:text-gray-700 group-hover:[&>p]:text-gray-900",
+                                                )}
+                                              >
+                                                <div
+                                                  dangerouslySetInnerHTML={{
+                                                    __html: answer.text,
+                                                  }}
+                                                />
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      {/* Selection Indicator */}
+                                      {isSelected && (
+                                        <div className="absolute top-2 right-2">
+                                          <CheckCircle className="w-4 h-4 text-blue-500" />
+                                        </div>
+                                      )}
+
+                                      {/* Hidden input for form compatibility */}
+                                      <input
+                                        type={
+                                          question.type === "SINGLE_CHOICE"
+                                            ? "radio"
+                                            : "checkbox"
+                                        }
+                                        id={`${question.id}-${answer.id}`}
+                                        name={question.id}
+                                        value={answer.id}
+                                        checked={isSelected}
+                                        onChange={() => {}} // Controlled by onClick
+                                        className="sr-only"
+                                      />
                                     </div>
-                                  </label>
-                                </div>
-                              ))}
+                                  );
+                                },
+                              )}
                             </div>
                           )}
 
@@ -699,94 +869,21 @@ export default function QuizSection({
           </Card>
         </div>
 
-        <AnimatePresence>
-          {(sidebarOpen || window.innerWidth >= 1024) && (
-            <motion.div
-              initial={{ x: 300, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: 300, opacity: 0 }}
-              className={cn(
-                "w-80 space-y-4",
-                sidebarOpen
-                  ? "fixed right-4 top-4 bottom-4 z-50 lg:relative lg:top-0 lg:bottom-0"
-                  : "hidden lg:block",
-              )}
-            >
-              <Card className="h-full">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg">Danh sách câu hỏi</CardTitle>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setSidebarOpen(false)}
-                      className="lg:hidden"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    Đã trả lời: {answeredCount}/{totalQuestions}
-                  </p>
-                </CardHeader>
-                <CardContent className="space-y-2 max-h-[calc(100vh-200px)] overflow-y-auto">
-                  {allQuestions.map((question, index) => {
-                    const questionNumber = index + 1;
-                    const isAnswered =
-                      getQuestionStatus(question.id) === "answered";
-                    const isCurrentPage =
-                      Math.ceil(questionNumber / questionsPerPage) ===
-                      currentPage;
-
-                    return (
-                      <Button
-                        key={question.id}
-                        variant={isCurrentPage ? "default" : "ghost"}
-                        size="sm"
-                        onClick={() => goToQuestion(index)}
-                        className={cn(
-                          "w-full justify-start text-left h-auto p-3",
-                          isAnswered && "border-l-4 border-l-green-500",
-                        )}
-                      >
-                        <div className="flex items-center gap-3 w-full">
-                          <Badge
-                            variant={isAnswered ? "default" : "secondary"}
-                            className="flex-shrink-0"
-                          >
-                            {questionNumber}
-                          </Badge>
-                          <div className="flex-1 min-w-0">
-                            <div
-                              className="text-xs truncate"
-                              dangerouslySetInnerHTML={{
-                                __html:
-                                  question.text
-                                    .replace(/<[^>]*>/g, "")
-                                    .substring(0, 50) + "...",
-                              }}
-                            />
-                          </div>
-                          {isAnswered && (
-                            <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
-                          )}
-                        </div>
-                      </Button>
-                    );
-                  })}
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Mobile Overlay */}
-        {sidebarOpen && (
-          <div
-            className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-            onClick={() => setSidebarOpen(false)}
-          />
-        )}
+        {/* Quiz Sidebar */}
+        <QuizSidebar
+          questions={allQuestions}
+          answers={answers}
+          flaggedQuestions={flaggedQuestions}
+          currentPage={currentPage}
+          questionsPerPage={questionsPerPage}
+          timeRemaining={timeRemaining}
+          isOpen={sidebarOpen || window.innerWidth >= 1024}
+          onClose={() => setSidebarOpen(false)}
+          onQuestionClick={goToQuestion}
+          onToggleFlag={handleToggleFlag}
+          onSubmitQuiz={handleSubmitQuiz}
+          isSubmitting={isSubmitting}
+        />
 
         {timeRemaining !== null &&
           timeRemaining <= 300 &&
@@ -906,8 +1003,8 @@ export default function QuizSection({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Quiz Status */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Quiz Overview Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="text-center p-4 bg-white/80 rounded-lg border border-blue-100">
               <div className="text-2xl font-bold text-blue-600">
                 {status.attemptsUsed}
@@ -917,7 +1014,14 @@ export default function QuizSection({
               </div>
             </div>
 
-            {status.lastScore !== null && (
+            <div className="text-center p-4 bg-white/80 rounded-lg border border-purple-100">
+              <div className="text-2xl font-bold text-purple-600">
+                {status.passPercent}%
+              </div>
+              <div className="text-sm text-purple-700">Điểm cần đạt</div>
+            </div>
+
+            {status.lastScore !== null && status.lastScore > 0 && (
               <div className="text-center p-4 bg-white/80 rounded-lg border border-orange-100">
                 <div className="text-2xl font-bold text-orange-500">
                   {status.lastScore}%
@@ -926,43 +1030,471 @@ export default function QuizSection({
               </div>
             )}
 
-            {history && history.bestScore > 0 && (
+            {status.bestScore > 0 && (
               <div className="text-center p-4 bg-yellow-50 rounded-lg border border-yellow-200">
                 <div className="text-2xl font-bold text-yellow-600 flex items-center justify-center gap-1">
                   <Trophy className="h-5 w-5" />
-                  {history.bestScore}%
+                  {status.bestScore}%
                 </div>
                 <div className="text-sm text-yellow-700">Điểm cao nhất</div>
               </div>
             )}
           </div>
 
-          {/* Status Messages */}
-          {status.isPassed && (
-            <div className="flex items-center gap-2 p-4 bg-green-50 border border-green-200 rounded-lg">
-              <CheckCircle className="h-5 w-5 text-green-600" />
-              <span className="text-green-800 font-medium">
-                Bạn đã hoàn thành quiz này!
-              </span>
-            </div>
-          )}
+          {/* Detailed Quiz Information */}
+          <div className="bg-white/60 rounded-lg border border-blue-100 p-4">
+            <h3 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
+              <Info className="h-4 w-4" />
+              Thông tin chi tiết quiz
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              {/* Time Limit */}
+              <div className="flex justify-between items-center py-2 border-b border-blue-100">
+                <span className="text-gray-600 flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  Thời gian làm bài:
+                </span>
+                <span className="font-medium text-blue-800">
+                  {formatTimeLimit(status.timeLimit)}
+                </span>
+              </div>
 
-          {!canStartQuiz(status) && status.nextAllowedAt && (
-            <div className="flex items-center gap-2 p-4 bg-orange-50 border border-orange-200 rounded-lg">
-              <Clock className="h-5 w-5 text-orange-600" />
-              <span className="text-orange-800">
-                Bạn cần chờ {formatWaitTime(status.nextAllowedAt)} nữa để làm
-                lại
-              </span>
-            </div>
-          )}
+              {/* Retry Delay */}
+              {status.retryDelay && (
+                <div className="flex justify-between items-center py-2 border-b border-blue-100">
+                  <span className="text-gray-600 flex items-center gap-2">
+                    <Timer className="h-4 w-4" />
+                    Thời gian chờ giữa các lần:
+                  </span>
+                  <span className="font-medium text-blue-800">
+                    {status.retryDelay} phút
+                  </span>
+                </div>
+              )}
 
-          {!status.canAttempt && (
-            <div className="flex items-center gap-2 p-4 bg-red-50 border border-red-200 rounded-lg">
-              <XCircle className="h-5 w-5 text-red-600" />
-              <span className="text-red-800">
-                Bạn đã hết lượt thử cho quiz này
-              </span>
+              {/* Max Attempts */}
+              <div className="flex justify-between items-center py-2 border-b border-blue-100">
+                <span className="text-gray-600 flex items-center gap-2">
+                  <RotateCcw className="h-4 w-4" />
+                  Số lần làm tối đa:
+                </span>
+                <span className="font-medium text-blue-800">
+                  {status.maxAttempts || "Không giới hạn"}
+                </span>
+              </div>
+
+              {/* Current Status */}
+              <div className="flex justify-between items-center py-2 border-b border-blue-100">
+                <span className="text-gray-600 flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4" />
+                  Trạng thái:
+                </span>
+                <span
+                  className={`font-medium ${status.isPassed ? "text-green-600" : "text-orange-600"}`}
+                >
+                  {status.isPassed ? "Đã hoàn thành" : "Chưa hoàn thành"}
+                </span>
+              </div>
+
+              {/* Block Status */}
+              {status.isBlocked && (
+                <div className="flex justify-between items-center py-2 border-b border-red-100 md:col-span-2">
+                  <span className="text-gray-600 flex items-center gap-2">
+                    <Ban className="h-4 w-4" />
+                    Bị chặn đến:
+                  </span>
+                  <span className="font-medium text-red-600">
+                    {status.blockedUntil
+                      ? new Date(status.blockedUntil).toLocaleString("vi-VN")
+                      : "Vô thời hạn"}
+                  </span>
+                </div>
+              )}
+
+              {/* Block Reason */}
+              {status.isBlocked && status.blockedReason && (
+                <div className="md:col-span-2 py-2">
+                  <span className="text-gray-600 block mb-1">
+                    Lý do bị chặn:
+                  </span>
+                  <span className="text-red-600 font-medium bg-red-50 px-2 py-1 rounded text-xs">
+                    {status.blockedReason}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Status Messages & Notifications */}
+          <div className="space-y-3">
+            {/* Success - Passed */}
+            {status.isPassed && (
+              <div className="flex items-center gap-2 p-4 bg-green-50 border border-green-200 rounded-lg">
+                <CheckCircle className="h-5 w-5 text-green-600" />
+                <div className="flex-1">
+                  <span className="text-green-800 font-medium block">
+                    🎉 Chúc mừng! Bạn đã hoàn thành quiz này!
+                  </span>
+                  <span className="text-green-600 text-sm">
+                    Điểm số tốt nhất: {status.bestScore}% (cần{" "}
+                    {status.passPercent}% để đạt)
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Warning - Wait Time */}
+            {!canStartQuiz(status) && status.nextAllowedAt && (
+              <div className="flex items-center gap-2 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                <Clock className="h-5 w-5 text-orange-600" />
+                <div className="flex-1">
+                  <span className="text-orange-800 font-medium block">
+                    ⏳ Cần chờ thêm thời gian
+                  </span>
+                  <span className="text-orange-600 text-sm">
+                    Bạn có thể làm lại sau:{" "}
+                    {formatWaitTime(status.nextAllowedAt)}
+                    {status.retryDelay &&
+                      ` (Thời gian chờ: ${status.retryDelay} phút)`}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Error - No More Attempts */}
+            {!status.canAttempt &&
+              status.attemptsUsed >= (status.maxAttempts || 0) &&
+              status.maxAttempts !== null && (
+                <div className="space-y-4">
+                  {/* Base message about exhausted attempts */}
+                  {/* <div className="flex items-center gap-2 p-4 bg-red-50 border border-red-200 rounded-lg">
+                    <XCircle className="h-5 w-5 text-red-600" />
+                    <div className="flex-1">
+                      <span className="text-red-800 font-medium block">
+                        🚫 Đã hết số lần làm bài
+                      </span>
+                      <span className="text-red-600 text-sm">
+                        Bạn đã sử dụng hết {status.maxAttempts} lần thử cho phép
+                      </span>
+                    </div>
+                  </div> */}
+
+                  {/* Priority 1: Unlock Requirements - Show study requirements if available */}
+                  {status.unlockRequirements &&
+                  status.unlockRequirements.length > 0 ? (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg "
+                    >
+                      <div className="space-y-4">
+                        <div className="text-center">
+                          <div className="flex items-center justify-center gap-2 text-blue-700 mb-2">
+                            <BookOpen className="h-6 w-6" />
+                            <h3 className="text-lg font-semibold">
+                              📚 Bạn cần hoàn thành các bài học sau để có thể
+                              làm lại quiz
+                            </h3>
+                          </div>
+                          <p className="text-blue-600 text-sm">
+                            Hãy ôn tập lại kiến thức từ những bài học này để
+                            chuẩn bị tốt hơn cho lần làm bài tiếp theo nhé! 💪
+                          </p>
+                        </div>
+
+                        <div className="space-y-3">
+                          {status.unlockRequirements.map(
+                            (requirement: any, index: number) => {
+                              const handleNavigateToLesson = () => {
+                                if (requirement.targetLesson.id) {
+                                  const targetPath = classId
+                                    ? `/course/${courseId || requirement.courseId || ""}/class/${classId}?lesson=${requirement.targetLesson.id}`
+                                    : `/course/${courseId || requirement.courseId || ""}/lesson/${requirement.targetLesson.id}`;
+                                  router.push(targetPath);
+                                }
+                              };
+                              return (
+                                <div
+                                  key={requirement.id || index}
+                                  className="bg-white/80 border border-blue-100 rounded-lg p-4 hover:bg-white/90 transition-colors"
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <div className="flex-shrink-0">
+                                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                        <span className="text-blue-600 font-semibold text-sm">
+                                          {index + 1}
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    <div className="flex-1 min-w-0">
+                                      <h4 className="font-medium text-blue-900 mb-1">
+                                        {requirement.title ||
+                                          requirement.description ||
+                                          "Yêu cầu học tập"}
+                                      </h4>
+                                      {requirement.description &&
+                                        requirement.title && (
+                                          <p className="text-blue-600 text-sm">
+                                            {requirement.description}
+                                          </p>
+                                        )}
+
+                                      {/* Display requirement type */}
+                                      <div className="flex items-center gap-2 mt-2">
+                                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                          {requirement.type ===
+                                            "WATCH_LESSON" && "👁️ Xem bài học"}
+                                          {requirement.type ===
+                                            "COMPLETE_QUIZ" &&
+                                            "📝 Hoàn thành quiz"}
+                                          {requirement.type === "WAIT_TIME" &&
+                                            "⏱️ Chờ thời gian"}
+                                          {![
+                                            "WATCH_LESSON",
+                                            "COMPLETE_QUIZ",
+                                            "WAIT_TIME",
+                                          ].includes(requirement.type) &&
+                                            "📖 Yêu cầu học tập"}
+                                        </span>
+
+                                        {requirement.isRequired && (
+                                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                                            Bắt buộc
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    {/* Navigation button for lessons */}
+                                    {requirement.targetLesson.id && (
+                                      <button
+                                        onClick={handleNavigateToLesson}
+                                        className="flex-shrink-0 inline-flex items-center gap-1 px-3 py-2 bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-600 transition-colors"
+                                      >
+                                        <span>Học ngay</span>
+                                        <ExternalLink className="h-3 w-3" />
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            },
+                          )}
+                        </div>
+
+                        <div className="text-center pt-2">
+                          <div className="flex items-center justify-center gap-4 text-xs text-blue-500">
+                            <div className="flex items-center gap-1">
+                              <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
+                              <span>Học tập để mở khóa</span>
+                            </div>
+                            <div className="w-1 h-1 bg-blue-300 rounded-full"></div>
+                            <div className="flex items-center gap-1">
+                              <Trophy className="h-3 w-3" />
+                              <span>Thành công đang chờ đón bạn</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ) : (
+                    /* Priority 2: Block Duration Countdown - Only show if no unlock requirements */
+                    status.lesson.blockDuration &&
+                    blockCountdown !== null &&
+                    blockCountdown > 0 && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6"
+                      >
+                        <div className="text-center space-y-4">
+                          <div className="flex items-center justify-center gap-2 text-blue-700">
+                            <Clock className="h-6 w-6" />
+                            <h3 className="text-lg font-semibold">
+                              ⏰ Thời gian chờ để thử lại
+                            </h3>
+                          </div>
+
+                          <div className="bg-white/80 rounded-xl p-4 border border-blue-100">
+                            <div className="text-3xl font-bold text-blue-600 font-mono">
+                              {formatCountdownTime(blockCountdown)}
+                            </div>
+                            <div className="text-sm text-blue-500 mt-1">
+                              còn lại để có thể làm lại quiz
+                            </div>
+                          </div>
+
+                          <div className="space-y-2 text-center">
+                            <p className="text-blue-800 font-medium">
+                              📚 Hãy ôn tập lại kiến thức nhé!
+                            </p>
+                            <p className="text-blue-600 text-sm leading-relaxed">
+                              Thời gian này là cơ hội tuyệt vời để bạn xem lại
+                              tài liệu, làm bài tập thêm và chuẩn bị kỹ càng hơn
+                              cho lần thử tiếp theo. Chúc bạn học tập hiệu quả!
+                              💪
+                            </p>
+                          </div>
+
+                          <div className="flex items-center justify-center gap-4 text-xs text-blue-500">
+                            <div className="flex items-center gap-1">
+                              <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
+                              <span>Đang đếm ngược</span>
+                            </div>
+                            <div className="w-1 h-1 bg-blue-300 rounded-full"></div>
+                            <div className="flex items-center gap-1">
+                              <Trophy className="h-3 w-3" />
+                              <span>Chuẩn bị cho thành công</span>
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )
+                  )}
+
+                  {/* Success message when countdown expires or requirements are complete */}
+                  {(!status.unlockRequirements ||
+                    status.unlockRequirements.length === 0) &&
+                    status.lesson.blockDuration &&
+                    (!blockCountdown || blockCountdown <= 0) && (
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <div className="text-center">
+                          <CheckCircle className="h-8 w-8 text-green-600 mx-auto mb-2" />
+                          <p className="text-green-800 font-medium">
+                            🎉 Bạn đã có thể làm lại quiz!
+                          </p>
+                          <p className="text-green-600 text-sm">
+                            Nhấn "Làm lại" để bắt đầu lần thử mới
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                </div>
+              )}
+
+            {/* Error - Blocked */}
+            {status.isBlocked && (
+              <div className="flex items-center gap-2 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <Ban className="h-5 w-5 text-red-600" />
+                <div className="flex-1">
+                  <span className="text-red-800 font-medium block">
+                    🔒 Tài khoản bị chặn làm quiz
+                  </span>
+                  <span className="text-red-600 text-sm block">
+                    {status.blockedReason ||
+                      "Bạn đã vi phạm quy định khi làm quiz"}
+                  </span>
+                  {status.blockedUntil && (
+                    <span className="text-red-500 text-xs">
+                      Hết hạn chặn:{" "}
+                      {new Date(status.blockedUntil).toLocaleString("vi-VN")}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Warning - Time Until Next Attempt */}
+            {status.timeUntilNextAttempt && status.timeUntilNextAttempt > 0 && (
+              <div className="flex items-center gap-2 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <Timer className="h-5 w-5 text-yellow-600" />
+                <div className="flex-1">
+                  <span className="text-yellow-800 font-medium block">
+                    ⏱️ Thời gian chờ còn lại
+                  </span>
+                  <span className="text-yellow-600 text-sm">
+                    {Math.ceil(status.timeUntilNextAttempt)} phút nữa bạn có thể
+                    làm lại
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Info - Unlock Requirements */}
+            {status.requireUnlockAction &&
+              status.unlockRequirements.length > 0 && (
+                <div className="flex items-center gap-2 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <Info className="h-5 w-5 text-blue-600" />
+                  <div className="flex-1">
+                    <span className="text-blue-800 font-medium block">
+                      🔐 Cần hoàn thành điều kiện mở khóa
+                    </span>
+                    <div className="text-blue-600 text-sm mt-1">
+                      {status.unlockRequirements.map((req, index) => (
+                        <div key={index} className="flex items-center gap-1">
+                          <span className="w-1 h-1 bg-blue-400 rounded-full"></span>
+                          {typeof req === "string"
+                            ? req
+                            : req.description || "Điều kiện chưa xác định"}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+          </div>
+
+          {/* Performance Summary */}
+          {history && history.totalAttempts > 0 && (
+            <div className="bg-white/60 rounded-lg border border-gray-200 p-4">
+              <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                <Trophy className="h-4 w-4" />
+                Thống kê hiệu suất
+              </h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div className="text-center">
+                  <div className="text-lg font-bold text-blue-600">
+                    {history.totalAttempts}
+                  </div>
+                  <div className="text-gray-600">Tổng lần thử</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-lg font-bold text-green-600">
+                    {history.bestScore}%
+                  </div>
+                  <div className="text-gray-600">Điểm cao nhất</div>
+                </div>
+                <div className="text-center">
+                  <div
+                    className={`text-lg font-bold ${history.isPassed ? "text-green-600" : "text-orange-600"}`}
+                  >
+                    {history.isPassed ? "✅" : "⏳"}
+                  </div>
+                  <div className="text-gray-600">
+                    {history.isPassed ? "Đã hoàn thành" : "Chưa hoàn thành"}
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="text-lg font-bold text-purple-600">
+                    {status.passPercent}%
+                  </div>
+                  <div className="text-gray-600">Điểm yêu cầu</div>
+                </div>
+              </div>
+
+              {/* Progress Bar */}
+              <div className="mt-3">
+                <div className="flex justify-between text-xs text-gray-600 mb-1">
+                  <span>Tiến độ đạt điểm</span>
+                  <span>
+                    {Math.round((history.bestScore / status.passPercent) * 100)}
+                    %
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div
+                    className={`h-2 rounded-full transition-all duration-300 ${
+                      history.bestScore >= status.passPercent
+                        ? "bg-green-500"
+                        : "bg-orange-400"
+                    }`}
+                    style={{
+                      width: `${Math.min((history.bestScore / status.passPercent) * 100, 100)}%`,
+                    }}
+                  />
+                </div>
+              </div>
             </div>
           )}
 
