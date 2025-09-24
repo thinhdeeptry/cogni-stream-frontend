@@ -425,6 +425,7 @@ export const createLesson = async (
     type: string;
     videoUrl?: string;
     isPublished?: boolean;
+    estimatedDurationMinutes?: number;
     isFreePreview?: boolean;
     passPercent?: number;
     timeLimit?: number | null;

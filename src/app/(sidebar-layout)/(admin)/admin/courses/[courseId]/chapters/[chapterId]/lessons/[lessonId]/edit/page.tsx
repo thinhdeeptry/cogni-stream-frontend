@@ -69,6 +69,9 @@ export default function EditLessonPage({
   const [isLoading, setIsLoading] = useState(true);
   const [title, setTitle] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
+  const [estimatedDurationMinutes, setEstimatedDurationMinutes] = useState<
+    number | null
+  >(null);
   const [isFreePreview, setIsFreePreview] = useState(false);
   const [isPublished, setIsPublished] = useState(false);
   const [lessonType, setLessonType] = useState<string>(LessonType.BLOG);
@@ -164,6 +167,7 @@ export default function EditLessonPage({
         if (data) {
           setTitle(data.title);
           setVideoUrl(data.videoUrl || "");
+          setEstimatedDurationMinutes(data.estimatedDurationMinutes || null);
           setIsFreePreview(data.isFreePreview);
           setIsPublished(data.isPublished);
           setLessonType(data.type || LessonType.BLOG);
@@ -226,6 +230,7 @@ export default function EditLessonPage({
         content: type === LessonType.QUIZ ? undefined : content,
         type,
         videoUrl: videoUrl || undefined,
+        estimatedDurationMinutes: estimatedDurationMinutes || undefined,
         isPublished,
         isFreePreview,
         passPercent: type === LessonType.QUIZ ? passPercent : undefined,
@@ -451,6 +456,40 @@ export default function EditLessonPage({
                       })}
                     </SelectContent>
                   </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="estimatedDurationMinutes"
+                    className="text-sm font-semibold text-slate-900 flex items-center gap-2"
+                  >
+                    <Clock className="h-4 w-4 text-blue-500" />
+                    Thời lượng ước tính (phút)
+                    <Badge variant="outline" className="text-xs">
+                      Tùy chọn
+                    </Badge>
+                  </Label>
+                  <Input
+                    id="estimatedDurationMinutes"
+                    type="number"
+                    min="1"
+                    max="9999"
+                    value={estimatedDurationMinutes || ""}
+                    onChange={(e) =>
+                      setEstimatedDurationMinutes(
+                        e.target.value
+                          ? parseInt(e.target.value) || null
+                          : null,
+                      )
+                    }
+                    className="border-slate-200 focus:ring-orange-500 focus:border-orange-500 transition-colors h-10 text-base"
+                    placeholder="Ví dụ: 30, 45, 60..."
+                  />
+                  <p className="text-xs text-slate-500">
+                    💡 Thời gian dự kiến học viên hoàn thành bài học này. Giúp
+                    học viên lập kế hoạch học tập và theo dõi tiến độ học tập
+                    hiệu quả hơn.
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -863,6 +902,7 @@ export default function EditLessonPage({
           title={title}
           lessonType={lessonType}
           videoUrl={videoUrl}
+          estimatedDurationMinutes={estimatedDurationMinutes}
           isFreePreview={isFreePreview}
           isPublished={isPublished}
           passPercent={passPercent}

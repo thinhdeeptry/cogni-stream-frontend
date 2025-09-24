@@ -29,6 +29,7 @@ interface LessonReviewSidebarProps {
   title: string;
   lessonType: string;
   videoUrl?: string;
+  estimatedDurationMinutes?: number | null;
   isFreePreview: boolean;
   isPublished: boolean;
   passPercent?: number;
@@ -45,6 +46,7 @@ export default function LessonReviewSidebar({
   title,
   lessonType,
   videoUrl,
+  estimatedDurationMinutes,
   isFreePreview,
   isPublished,
   passPercent,
@@ -211,6 +213,20 @@ export default function LessonReviewSidebar({
                 <div>
                   <p className="text-xs text-gray-500 mb-1">Video URL</p>
                   <p className="text-xs text-gray-700 truncate">{videoUrl}</p>
+                </div>
+              )}
+
+              {estimatedDurationMinutes && (
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">
+                    Thời lượng ước tính
+                  </p>
+                  <div className="flex items-center gap-1">
+                    <Clock className="h-3 w-3 text-blue-500" />
+                    <span className="text-sm font-medium text-gray-900">
+                      {estimatedDurationMinutes} phút
+                    </span>
+                  </div>
                 </div>
               )}
 

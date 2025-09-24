@@ -122,6 +122,7 @@ export interface Lesson {
   content?: string;
   type: LessonType;
   videoUrl?: string;
+  estimatedDurationMinutes?: number; // Thời gian ước tính để hoàn thành bài học (phút)
   order: number;
   chapterId: string;
   isPublished: boolean;
