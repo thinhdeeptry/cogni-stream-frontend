@@ -993,7 +993,7 @@ export default function QuizSection({
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="space-y-6"
+      className="space-y-6 -mt-10"
     >
       <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
         <CardHeader>
@@ -1374,7 +1374,7 @@ export default function QuizSection({
               )}
 
             {/* Error - Blocked */}
-            {status.isBlocked && (
+            {/* {status.isBlocked && (
               <div className="flex items-center gap-2 p-4 bg-red-50 border border-red-200 rounded-lg">
                 <Ban className="h-5 w-5 text-red-600" />
                 <div className="flex-1">
@@ -1393,10 +1393,10 @@ export default function QuizSection({
                   )}
                 </div>
               </div>
-            )}
+            )} */}
 
             {/* Warning - Time Until Next Attempt */}
-            {status.timeUntilNextAttempt && status.timeUntilNextAttempt > 0 && (
+            {status.timeUntilNextAttempt !== 0 && (
               <div className="flex items-center gap-2 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                 <Timer className="h-5 w-5 text-yellow-600" />
                 <div className="flex-1">
@@ -1404,15 +1404,18 @@ export default function QuizSection({
                     ⏱️ Thời gian chờ còn lại
                   </span>
                   <span className="text-yellow-600 text-sm">
-                    {Math.ceil(status.timeUntilNextAttempt)} phút nữa bạn có thể
-                    làm lại
+                    {Math.ceil(status?.timeUntilNextAttempt ?? 0)} phút nữa bạn
+                    có thể làm lại
                   </span>
                 </div>
               </div>
             )}
 
             {/* Info - Unlock Requirements */}
-            {status.requireUnlockAction &&
+            {!status.canAttempt &&
+              status.attemptsUsed >= (status.maxAttempts || 0) &&
+              status.maxAttempts !== null &&
+              status.requireUnlockAction &&
               status.unlockRequirements.length > 0 && (
                 <div className="flex items-center gap-2 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                   <Info className="h-5 w-5 text-blue-600" />

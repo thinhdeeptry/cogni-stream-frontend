@@ -827,7 +827,7 @@ export default function ClassLearningPage() {
         <div className="space-y-6 mx-auto">
           {/* Header */}
           <motion.div
-            className="bg-white border-b border-gray-200 p-4 flex items-center justify-between sticky top-0 z-10"
+            className="bg-white border-b border-gray-200 px-4 py-2 flex items-center justify-between sticky top-0 z-10"
             initial={{ y: -20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.2 }}
