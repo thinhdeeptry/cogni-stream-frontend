@@ -6,6 +6,11 @@ import { useEffect, useMemo, useState } from "react";
 
 import { useOtherUser } from "@/hooks/useOtherUser";
 import { usePopupChatbot } from "@/hooks/usePopupChatbot";
+import {
+  formatTime,
+  formatTimeMinutes,
+  useTimeTracking,
+} from "@/hooks/useTimeTracking";
 import { Course, LessonType } from "@/types/course/types";
 import {
   Collapsible,
@@ -17,14 +22,17 @@ import {
   ArrowBigRight,
   BookOpen,
   Calendar,
+  Check,
   ChevronLeft,
   ChevronRight,
   Clock,
   Menu,
   MessageSquare,
   Minus,
+  Pause,
   Play,
   Plus,
+  Timer,
   Trophy,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
@@ -390,10 +398,20 @@ export default function LessonDetail() {
   const [enrollmentId, setEnrollmentId] = useState<string | null>(null);
   const [hasCertificate, setHasCertificate] = useState<boolean>(false);
   const [certificateId, setCertificateId] = useState<string | null>(null);
+
   const { user } = useUserStore();
   const params = useParams();
   const router = useRouter();
   const { data: session } = useSession();
+
+  // Time tracking state - Moved after params declaration
+  const timeTracking = useTimeTracking({
+    itemId: `lesson-${params.lessonId}`,
+    requiredMinutes: lesson?.estimatedDurationMinutes || 5,
+    onTimeComplete: () => {
+      console.log("Time tracking completed for lesson");
+    },
+  });
 
   // Progress store
   const {
@@ -688,6 +706,44 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
 
   // New state for video loading
   const [isVideoLoading, setIsVideoLoading] = useState(true);
+
+  // Auto start time tracking when lesson loads and user is enrolled
+  useEffect(() => {
+    if (lesson && isEnrolled && !lesson.isFreePreview) {
+      timeTracking.start();
+    }
+
+    return () => {
+      if (timeTracking.isActive) {
+        timeTracking.pause();
+      }
+    };
+  }, [lesson, isEnrolled]);
+
+  // Handle page visibility to pause/resume tracking
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        if (timeTracking.isActive) {
+          timeTracking.pause();
+        }
+      } else {
+        if (
+          lesson &&
+          isEnrolled &&
+          !lesson.isFreePreview &&
+          !timeTracking.isActive
+        ) {
+          timeTracking.resume();
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [timeTracking.isActive, lesson, isEnrolled]);
 
   // New animation variants
   const fadeIn = {
@@ -1134,6 +1190,74 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
                       <span>{lesson.title}</span>
                     </h2>
 
+                    {/* Time Tracking Component */}
+                    {isEnrolled &&
+                      !lesson.isFreePreview &&
+                      lesson.estimatedDurationMinutes && (
+                        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                          <div className="flex items-center justify-between mb-3">
+                            <h3 className="font-semibold text-blue-800 flex items-center gap-2">
+                              <Timer className="h-5 w-5" />
+                              Thời gian học tập
+                            </h3>
+                            <div className="flex items-center gap-2">
+                              {timeTracking.isActive ? (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={timeTracking.pause}
+                                  className="text-blue-600 border-blue-300 hover:bg-blue-100"
+                                >
+                                  <Pause className="h-4 w-4 mr-1" />
+                                  Tạm dừng
+                                </Button>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={timeTracking.resume}
+                                  className="text-blue-600 border-blue-300 hover:bg-blue-100"
+                                >
+                                  <Play className="h-4 w-4 mr-1" />
+                                  Tiếp tục
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-sm text-blue-700">
+                              <span>
+                                Thời gian đã học:{" "}
+                                {formatTime(timeTracking.elapsedSeconds)}
+                              </span>
+                              <span>
+                                Yêu cầu: {lesson.estimatedDurationMinutes} phút
+                              </span>
+                            </div>
+
+                            <Progress
+                              value={timeTracking.progress}
+                              className="w-full h-2 bg-blue-200"
+                            />
+
+                            {!timeTracking.isTimeComplete && (
+                              <p className="text-sm text-blue-600">
+                                Còn lại: {timeTracking.remainingMinutes} phút để
+                                hoàn thành bài học
+                              </p>
+                            )}
+
+                            {timeTracking.isTimeComplete && (
+                              <p className="text-sm text-green-600 font-medium flex items-center gap-1">
+                                <Check className="h-4 w-4" />
+                                Đã học đủ thời gian yêu cầu
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
                     {/* Render Parsed Content for BLOG or MIXED */}
                     {(lesson.type === LessonType.BLOG ||
                       lesson.type === LessonType.MIXED) &&
@@ -1236,10 +1360,44 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
             {nextLesson ? (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button className="w-40 bg-gradient-to-r from-orange-500 to-red-500 text-white hover:from-orange-600 hover:to-red-600 transition-all duration-300 group">
-                    Học tiếp{" "}
-                    <ChevronRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                  </Button>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div>
+                          <Button
+                            className={`w-40 transition-all duration-300 group ${
+                              // Check if user has completed required time OR is viewing free preview OR not enrolled
+                              timeTracking.isTimeComplete ||
+                              lesson.isFreePreview ||
+                              !isEnrolled
+                                ? "bg-gradient-to-r from-orange-500 to-red-500 text-white hover:from-orange-600 hover:to-red-600"
+                                : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                            }`}
+                            disabled={
+                              // Disable if user is enrolled, not a free preview, and hasn't completed required time
+                              isEnrolled &&
+                              !lesson.isFreePreview &&
+                              !timeTracking.isTimeComplete
+                            }
+                          >
+                            Học tiếp{" "}
+                            <ChevronRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                          </Button>
+                        </div>
+                      </TooltipTrigger>
+                      {isEnrolled &&
+                        !lesson.isFreePreview &&
+                        !timeTracking.isTimeComplete && (
+                          <TooltipContent>
+                            <p>
+                              Bạn cần học ít nhất{" "}
+                              {lesson.estimatedDurationMinutes || 5} phút để
+                              hoàn thành bài học này
+                            </p>
+                          </TooltipContent>
+                        )}
+                    </Tooltip>
+                  </TooltipProvider>
                 </AlertDialogTrigger>
                 <AlertDialogContent className="rounded-xl border-none shadow-xl">
                   <motion.div
@@ -1252,9 +1410,19 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
                         Xác nhận hoàn thành bài học
                       </AlertDialogTitle>
                       <AlertDialogDescription className="text-center text-gray-600 mt-2">
-                        Bạn đã hoàn thành bài học này chưa? Hãy đảm bảo rằng bạn
-                        đã nắm vững kiến thức trước khi chuyển sang bài tiếp
-                        theo.
+                        {isEnrolled &&
+                        !lesson.isFreePreview &&
+                        lesson.estimatedDurationMinutes ? (
+                          <>
+                            Bạn đã học {formatTime(timeTracking.elapsedSeconds)}{" "}
+                            / {lesson.estimatedDurationMinutes} phút yêu cầu.
+                            <br />
+                            Hãy đảm bảo rằng bạn đã nắm vững kiến thức trước khi
+                            chuyển sang bài tiếp theo.
+                          </>
+                        ) : (
+                          "Bạn đã hoàn thành bài học này chưa? Hãy đảm bảo rằng bạn đã nắm vững kiến thức trước khi chuyển sang bài tiếp theo."
+                        )}
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter className="flex gap-3 mt-4">
@@ -1283,10 +1451,42 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
               ) : (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button className="w-40 bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 transition-all duration-300 group">
-                      Hoàn thành{" "}
-                      <ChevronRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                    </Button>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div>
+                            <Button
+                              className={`w-40 transition-all duration-300 group ${
+                                timeTracking.isTimeComplete ||
+                                lesson.isFreePreview ||
+                                !isEnrolled
+                                  ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600"
+                                  : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                              }`}
+                              disabled={
+                                isEnrolled &&
+                                !lesson.isFreePreview &&
+                                !timeTracking.isTimeComplete
+                              }
+                            >
+                              Hoàn thành{" "}
+                              <ChevronRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                            </Button>
+                          </div>
+                        </TooltipTrigger>
+                        {isEnrolled &&
+                          !lesson.isFreePreview &&
+                          !timeTracking.isTimeComplete && (
+                            <TooltipContent>
+                              <p>
+                                Bạn cần học ít nhất{" "}
+                                {lesson.estimatedDurationMinutes || 5} phút để
+                                hoàn thành bài học này
+                              </p>
+                            </TooltipContent>
+                          )}
+                      </Tooltip>
+                    </TooltipProvider>
                   </AlertDialogTrigger>
                   <AlertDialogContent className="rounded-xl border-none shadow-xl">
                     <motion.div

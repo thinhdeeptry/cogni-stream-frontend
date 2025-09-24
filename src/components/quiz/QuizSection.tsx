@@ -1396,7 +1396,7 @@ export default function QuizSection({
             )} */}
 
             {/* Warning - Time Until Next Attempt */}
-            {status.timeUntilNextAttempt !== 0 && (
+            {/* {status.timeUntilNextAttempt !== 0 && (
               <div className="flex items-center gap-2 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                 <Timer className="h-5 w-5 text-yellow-600" />
                 <div className="flex-1">
@@ -1409,7 +1409,7 @@ export default function QuizSection({
                   </span>
                 </div>
               </div>
-            )}
+            )} */}
 
             {/* Info - Unlock Requirements */}
             {!status.canAttempt &&

@@ -109,7 +109,7 @@ export default function CertificateView({
       if (navigator.share) {
         await navigator.share({
           title: `Chứng chỉ khóa học ${certificate.course.title}`,
-          text: `Tôi đã hoàn thành khóa học ${certificate.course.title} trên EduForge!`,
+          text: `Tôi đã hoàn thành khóa học ${certificate.course.title} trên CogniStream!`,
           url: window.location.href,
         });
         toast.success("Đã chia sẻ chứng chỉ!");
@@ -127,7 +127,7 @@ export default function CertificateView({
     ? format(new Date(certificate.issuedAt), "dd.MM.yyyy", { locale: vi })
     : "";
 
-  const verificationUrl = `https://eduforge.io.vn/certificate/${certificate.id}`;
+  const verificationUrl = `https://cognistream.id.vn/certificate/${certificate.id}`;
   const tags = courseInfo?.tags || ["Programming"];
 
   return (
@@ -147,8 +147,8 @@ export default function CertificateView({
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5, delay: 0.2 }}
         >
-          EduForge ghi nhận sự nỗ lực của bạn! Bằng cách nhận chứng chỉ này, bạn
-          chính thức hoàn thành khóa học{" "}
+          CogniStream ghi nhận sự nỗ lực của bạn! Bằng cách nhận chứng chỉ này,
+          bạn chính thức hoàn thành khóa học{" "}
           <span className="font-semibold">{certificate.course.title}</span>.
         </motion.p>
       </div>
@@ -193,7 +193,7 @@ export default function CertificateView({
                 <div className="relative z-10 flex flex-col justify-between h-full py-2">
                   <div>
                     <h3 className="mb-2 text-xl md:text-2xl font-medium text-gray-700 font-playfair">
-                      EduForge
+                      CogniStream
                     </h3>
                     <h1 className="mb-5 md:mb-8 text-3xl md:text-4xl font-bold uppercase tracking-wide text-gray-800 font-playfair">
                       Certificate of Completion
@@ -243,7 +243,7 @@ export default function CertificateView({
                     <div className="text-center">
                       <img
                         src="/images/logo.jpg"
-                        alt="EduForge Logo"
+                        alt="CogniStream Logo"
                         className="h-12 w-12 md:h-16 md:w-16 rounded-lg mx-auto mb-1 md:mb-2"
                         crossOrigin="anonymous"
                       />

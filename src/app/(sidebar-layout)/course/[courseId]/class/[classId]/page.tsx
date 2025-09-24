@@ -5,6 +5,11 @@ import React, { useEffect, useMemo, useState } from "react";
 
 import { toast } from "@/hooks/use-toast";
 import {
+  formatTime,
+  formatTimeMinutes,
+  useTimeTracking,
+} from "@/hooks/useTimeTracking";
+import {
   type Course,
   LessonType,
   type SyllabusItem,
@@ -14,6 +19,8 @@ import { motion } from "framer-motion";
 import {
   BookOpen,
   Calendar,
+  Check,
+  CheckCircle,
   ChevronLeft,
   ChevronRight,
   Clock,
@@ -21,6 +28,10 @@ import {
   EyeOff,
   Info,
   Loader2,
+  Menu,
+  Pause,
+  Play,
+  Timer,
   Users,
   Video,
   X,
@@ -43,11 +54,20 @@ import {
 import { useProgressStore } from "@/stores/useProgressStore";
 import useUserStore from "@/stores/useUserStore";
 
+import AttendanceChecker from "@/components/attendance/AttendanceChecker";
+import AttendanceManager from "@/components/attendance/AttendanceManager";
 import QuizSection from "@/components/quiz/QuizSection";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 // Animation variants
 const fadeIn = {
@@ -289,6 +309,28 @@ export default function ClassLearningPage() {
   const [hasCertificate, setHasCertificate] = useState<boolean>(false);
   const [certificateId, setCertificateId] = useState<string | null>(null);
 
+  // Time tracking for current item
+  const timeTracking = useTimeTracking({
+    itemId: currentItem?.id || "",
+    requiredMinutes: getCurrentItemRequiredMinutes(),
+    onTimeComplete: () => {
+      console.log("Time tracking completed for item:", currentItem?.id);
+    },
+  });
+
+  // Helper function to get required minutes for current item
+  function getCurrentItemRequiredMinutes(): number {
+    if (!currentItem) return 5;
+
+    if (currentItem.itemType === SyllabusItemType.LESSON) {
+      return currentItem.lesson?.estimatedDurationMinutes || 5;
+    } else if (currentItem.itemType === SyllabusItemType.LIVE_SESSION) {
+      return currentItem.classSession?.durationMinutes || 30;
+    }
+
+    return 5;
+  }
+
   // Hooks
   const params = useParams();
   const router = useRouter();
@@ -452,6 +494,41 @@ export default function ClassLearningPage() {
       setCurrentLessonData(null);
     }
   }, [currentItem]);
+
+  // Time tracking effects
+  useEffect(() => {
+    // Reset and start tracking when currentItem changes
+    if (currentItem && isEnrolled) {
+      timeTracking.reset();
+      timeTracking.start();
+    }
+
+    return () => {
+      if (timeTracking.isActive) {
+        timeTracking.pause();
+      }
+    };
+  }, [currentItem?.id, isEnrolled]);
+
+  // Handle page visibility to pause/resume tracking
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        if (timeTracking.isActive) {
+          timeTracking.pause();
+        }
+      } else {
+        if (currentItem && isEnrolled && !timeTracking.isActive) {
+          timeTracking.resume();
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [timeTracking.isActive, currentItem, isEnrolled]);
 
   // Effect to handle lesson navigation from URL parameters
   useEffect(() => {
@@ -625,6 +702,16 @@ export default function ClassLearningPage() {
       : -1;
   }, [allItems, currentItem]);
 
+  // Helper function to check if an item is completed
+  const isItemCompleted = (item: SyllabusItem) => {
+    if (!progress || !Array.isArray(progress)) return false;
+
+    // Check if this item has progress and is completed
+    return progress.some(
+      (p: any) => p.syllabusItemId === item.id && p.isCompleted === true,
+    );
+  };
+
   // Navigation functions
   const goToPrevious = () => {
     if (currentItemIndex > 0) {
@@ -721,11 +808,14 @@ export default function ClassLearningPage() {
 
   // Handler for completing a live session
   const handleCompleteLiveSession = async () => {
+    console.log("Enroll: ", enrollmentId);
+    console.log("Curr item: ", currentItem);
     if (!enrollmentId || !currentItem) return;
     const nextItem = allItems[currentItemIndex + 1];
     const isLastItem = currentItemIndex === allItems.length - 1;
 
     try {
+      console.log("Handle done session");
       await updateLessonProgress({
         progress: Math.min(
           100,
@@ -915,6 +1005,84 @@ export default function ClassLearningPage() {
                           </motion.div>
                         )}
 
+                        {/* Time Tracking Component for Lessons */}
+                        {currentLessonData.type !== LessonType.QUIZ &&
+                          isEnrolled &&
+                          currentItem.lesson?.estimatedDurationMinutes && (
+                            <motion.div
+                              className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg -mt-10"
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: 0.3 }}
+                            >
+                              <div className="flex items-center justify-between mb-3">
+                                <h3 className="font-semibold text-blue-800 flex items-center gap-2">
+                                  <Timer className="h-5 w-5" />
+                                  Thời gian học tập
+                                </h3>
+                                <div className="flex items-center gap-2">
+                                  {timeTracking.isActive ? (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={timeTracking.pause}
+                                      className="text-blue-600 border-blue-300 hover:bg-blue-100"
+                                    >
+                                      <Pause className="h-4 w-4 mr-1" />
+                                      Tạm dừng
+                                    </Button>
+                                  ) : (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={timeTracking.resume}
+                                      className="text-blue-600 border-blue-300 hover:bg-blue-100"
+                                    >
+                                      <Play className="h-4 w-4 mr-1" />
+                                      Tiếp tục
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="space-y-2">
+                                <div className="flex justify-between text-sm text-blue-700">
+                                  <span>
+                                    Thời gian đã học:{" "}
+                                    {formatTime(timeTracking.elapsedSeconds)}
+                                  </span>
+                                  <span>
+                                    Yêu cầu:{" "}
+                                    {
+                                      currentItem.lesson
+                                        .estimatedDurationMinutes
+                                    }{" "}
+                                    phút
+                                  </span>
+                                </div>
+
+                                <Progress
+                                  value={timeTracking.progress}
+                                  className="w-full h-2 bg-blue-200"
+                                />
+
+                                {!timeTracking.isTimeComplete && (
+                                  <p className="text-sm text-blue-600">
+                                    Còn lại: {timeTracking.remainingMinutes}{" "}
+                                    phút để hoàn thành bài học
+                                  </p>
+                                )}
+
+                                {timeTracking.isTimeComplete && (
+                                  <p className="text-sm text-green-600 font-medium flex items-center gap-1">
+                                    <Check className="h-4 w-4" />
+                                    Đã học đủ thời gian yêu cầu
+                                  </p>
+                                )}
+                              </div>
+                            </motion.div>
+                          )}
+
                         {/* Lesson Content */}
                         <motion.div
                           className="prose prose-lg max-w-none"
@@ -1048,6 +1216,75 @@ export default function ClassLearningPage() {
                           </div>
                         )}
 
+                        {/* Time Tracking Component for Live Sessions */}
+                        {isEnrolled &&
+                          currentItem.classSession?.durationMinutes && (
+                            <div className="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                              <div className="flex items-center justify-between mb-3">
+                                <h3 className="font-semibold text-orange-800 flex items-center gap-2">
+                                  <Timer className="h-5 w-5" />
+                                  Thời gian tham gia buổi học
+                                </h3>
+                                <div className="flex items-center gap-2">
+                                  {timeTracking.isActive ? (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={timeTracking.pause}
+                                      className="text-orange-600 border-orange-300 hover:bg-orange-100"
+                                    >
+                                      <Pause className="h-4 w-4 mr-1" />
+                                      Tạm dừng
+                                    </Button>
+                                  ) : (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={timeTracking.resume}
+                                      className="text-orange-600 border-orange-300 hover:bg-orange-100"
+                                    >
+                                      <Play className="h-4 w-4 mr-1" />
+                                      Tiếp tục
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="space-y-2">
+                                <div className="flex justify-between text-sm text-orange-700">
+                                  <span>
+                                    Thời gian đã tham gia:{" "}
+                                    {formatTime(timeTracking.elapsedSeconds)}
+                                  </span>
+                                  <span>
+                                    Yêu cầu:{" "}
+                                    {currentItem.classSession.durationMinutes}{" "}
+                                    phút
+                                  </span>
+                                </div>
+
+                                <Progress
+                                  value={timeTracking.progress}
+                                  className="w-full h-2 bg-orange-200"
+                                />
+
+                                {!timeTracking.isTimeComplete && (
+                                  <p className="text-sm text-orange-600">
+                                    Còn lại: {timeTracking.remainingMinutes}{" "}
+                                    phút để hoàn thành buổi học
+                                  </p>
+                                )}
+
+                                {timeTracking.isTimeComplete && (
+                                  <p className="text-sm text-green-600 font-medium flex items-center gap-1">
+                                    <Check className="h-4 w-4" />
+                                    Đã tham gia đủ thời gian yêu cầu
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
                         <Button
                           className="mt-4 bg-red-500 hover:bg-red-600"
                           disabled={
@@ -1071,16 +1308,72 @@ export default function ClassLearningPage() {
                             Xem bằng
                           </Button>
                         ) : (
-                          <Button
-                            className="mt-4 ml-4 bg-green-600 hover:bg-green-700"
-                            onClick={handleCompleteLiveSession}
-                            disabled={!currentProgress?.id}
-                          >
-                            {currentItemIndex === allItems.length - 1
-                              ? "Hoàn thành khóa học"
-                              : "Đánh dấu hoàn thành buổi học"}
-                          </Button>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div>
+                                  <Button
+                                    className={`mt-4 ml-4 transition-all duration-300 ${
+                                      timeTracking.isTimeComplete
+                                        ? "bg-green-600 hover:bg-green-700"
+                                        : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                                    }`}
+                                    onClick={handleCompleteLiveSession}
+                                    disabled={
+                                      !currentProgress?.id ||
+                                      !timeTracking.isTimeComplete
+                                    }
+                                  >
+                                    {currentItemIndex === allItems.length - 1
+                                      ? "Hoàn thành khóa học"
+                                      : "Đánh dấu hoàn thành buổi học"}
+                                  </Button>
+                                </div>
+                              </TooltipTrigger>
+                              {!timeTracking.isTimeComplete && (
+                                <TooltipContent>
+                                  <p>
+                                    Bạn cần tham gia ít nhất{" "}
+                                    {getCurrentItemRequiredMinutes()} phút để
+                                    hoàn thành buổi học này
+                                  </p>
+                                </TooltipContent>
+                              )}
+                            </Tooltip>
+                          </TooltipProvider>
                         )}
+
+                        {/* Attendance System - Chỉ hiển thị cho LIVE_SESSION */}
+                        {user?.role === "INSTRUCTOR" ? (
+                          // Giao diện cho giảng viên
+                          <div className="mt-6">
+                            <AttendanceManager
+                              syllabusItemId={currentItem.id}
+                              instructorId={user.id}
+                              isLiveSession={true}
+                              sessionTopic={
+                                currentItem.classSession?.topic ||
+                                "Buổi học live"
+                              }
+                            />
+                          </div>
+                        ) : enrollmentId ? (
+                          // Giao diện cho học viên
+                          <div className="mt-6">
+                            <AttendanceChecker
+                              syllabusItemId={currentItem.id}
+                              enrollmentId={enrollmentId}
+                              isLiveSession={true}
+                              sessionTopic={
+                                currentItem.classSession?.topic ||
+                                "Buổi học live"
+                              }
+                              attendanceEnabled={
+                                currentItem.attendanceEnabled || false
+                              }
+                            />
+                          </div>
+                        ) : null}
                       </div>
                     </CardContent>
                   </Card>
@@ -1231,78 +1524,109 @@ export default function ClassLearningPage() {
                         <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">
                           Ngày {group.day}
                         </div>
-                        {group.items.map((item) => (
-                          <Card
-                            key={item.id}
-                            className={`cursor-pointer transition-all hover:shadow-md ${
-                              currentItem?.id === item.id
-                                ? "ring-2 ring-orange-500 bg-orange-50"
-                                : "hover:bg-gray-50"
-                            }`}
-                            onClick={() => {
-                              setCurrentItem(item);
-                              // Lưu lesson hiện tại vào localStorage để lưu tiến độ học
-                              if (params.classId && item.lesson?.id) {
-                                localStorage.setItem(
-                                  `class-${params.classId}-current-lesson`,
-                                  item.lesson.id,
-                                );
-                              }
-                            }}
-                          >
-                            <CardContent className="p-3">
-                              <div className="flex items-center gap-3">
-                                {item.itemType === SyllabusItemType.LESSON ? (
-                                  <BookOpen className="h-4 w-4 text-blue-500 flex-shrink-0" />
-                                ) : (
-                                  <Video className="h-4 w-4 text-red-500 flex-shrink-0" />
-                                )}
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium text-gray-900 truncate">
-                                    {item.itemType === SyllabusItemType.LESSON
-                                      ? item.lesson?.title
-                                      : item.classSession?.topic}
-                                  </p>
-                                  <div className="flex items-center gap-2 mt-1">
-                                    <Badge
-                                      variant="secondary"
-                                      className="text-xs"
+                        {group.items.map((item) => {
+                          const isCompleted = isItemCompleted(item);
+                          return (
+                            <Card
+                              key={item.id}
+                              className={`cursor-pointer transition-all hover:shadow-md ${
+                                currentItem?.id === item.id
+                                  ? "ring-2 ring-orange-500 bg-orange-50"
+                                  : "hover:bg-gray-50"
+                              }`}
+                              onClick={() => {
+                                setCurrentItem(item);
+                                // Lưu lesson hiện tại vào localStorage để lưu tiến độ học
+                                if (params.classId && item.lesson?.id) {
+                                  localStorage.setItem(
+                                    `class-${params.classId}-current-lesson`,
+                                    item.lesson.id,
+                                  );
+                                }
+                              }}
+                            >
+                              <CardContent className="p-3">
+                                <div className="flex items-center gap-3">
+                                  <div className="flex-shrink-0 flex items-center gap-2">
+                                    {item.itemType ===
+                                    SyllabusItemType.LESSON ? (
+                                      <BookOpen className="h-4 w-4 text-blue-500" />
+                                    ) : (
+                                      <Video className="h-4 w-4 text-red-500" />
+                                    )}
+                                    {isCompleted && (
+                                      <CheckCircle className="h-4 w-4 text-green-500" />
+                                    )}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p
+                                      className={`text-sm font-medium truncate ${
+                                        isCompleted
+                                          ? "text-green-700"
+                                          : "text-gray-900"
+                                      }`}
                                     >
                                       {item.itemType === SyllabusItemType.LESSON
-                                        ? "Bài học"
-                                        : "Buổi học"}
-                                    </Badge>
-                                    {item.itemType ===
-                                      SyllabusItemType.LIVE_SESSION &&
-                                      item.classSession && (
-                                        <div className="flex items-center gap-1 text-xs text-gray-500">
-                                          <Clock className="h-3 w-3" />
-                                          <span>
-                                            {item.classSession.durationMinutes}{" "}
-                                            phút
-                                          </span>
-                                        </div>
+                                        ? item.lesson?.title
+                                        : item.classSession?.topic}
+                                    </p>
+                                    <div className="flex items-center gap-2 mt-1">
+                                      <Badge
+                                        variant="secondary"
+                                        className={`text-xs ${
+                                          isCompleted
+                                            ? "bg-green-100 text-green-700"
+                                            : ""
+                                        }`}
+                                      >
+                                        {item.itemType ===
+                                        SyllabusItemType.LESSON
+                                          ? "Bài học"
+                                          : "Buổi học"}
+                                      </Badge>
+                                      {isCompleted && (
+                                        <Badge
+                                          variant="secondary"
+                                          className="text-xs bg-green-100 text-green-700"
+                                        >
+                                          Đã hoàn thành
+                                        </Badge>
                                       )}
-                                    {item.itemType ===
-                                      SyllabusItemType.LESSON &&
-                                      item.lesson && (
-                                        <div className="flex items-center gap-1 text-xs text-gray-500">
-                                          <Clock className="h-3 w-3" />
-                                          <span>
-                                            {
-                                              item.lesson
-                                                .estimatedDurationMinutes
-                                            }{" "}
-                                            phút
-                                          </span>
-                                        </div>
-                                      )}
+                                      {item.itemType ===
+                                        SyllabusItemType.LIVE_SESSION &&
+                                        item.classSession && (
+                                          <div className="flex items-center gap-1 text-xs text-gray-500">
+                                            <Clock className="h-3 w-3" />
+                                            <span>
+                                              {
+                                                item.classSession
+                                                  .durationMinutes
+                                              }{" "}
+                                              phút
+                                            </span>
+                                          </div>
+                                        )}
+                                      {item.itemType ===
+                                        SyllabusItemType.LESSON &&
+                                        item.lesson && (
+                                          <div className="flex items-center gap-1 text-xs text-gray-500">
+                                            <Clock className="h-3 w-3" />
+                                            <span>
+                                              {
+                                                item.lesson
+                                                  .estimatedDurationMinutes
+                                              }{" "}
+                                              phút
+                                            </span>
+                                          </div>
+                                        )}
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
                       </div>
                     ))}
                   </div>
