@@ -54,10 +54,6 @@ import { getYoutubeTranscript } from "@/actions/youtubeTranscript.action";
 import { useProgressStore } from "@/stores/useProgressStore";
 import useUserStore from "@/stores/useUserStore";
 
-import {
-  canAccessLesson,
-  getAccessControlMessage,
-} from "@/utils/accessControl";
 import { extractPlainTextFromBlockNote } from "@/utils/blocknote";
 
 import Discussion from "@/components/discussion";
@@ -407,12 +403,11 @@ export default function LessonDetail() {
   const [forceRender, setForceRender] = useState(0);
   const [isButtonEnabled, setIsButtonEnabled] = useState(false);
 
-  // Debug logging
-  console.log("🔍 Component render - Current states:", {
-    isButtonEnabled,
-    forceRender,
-    timeCompleteNotified,
-  });
+  // console.log("🔍 Component render - Current states:", {
+  //   isButtonEnabled,
+  //   forceRender,
+  //   timeCompleteNotified,
+  // });
 
   const { user } = useUserStore();
   const params = useParams();
@@ -445,7 +440,6 @@ export default function LessonDetail() {
       elapsedSeconds: timeTracking.elapsedSeconds,
       requiredMinutes: lesson?.estimatedDurationMinutes || 5,
       isEnrolled,
-      isFreePreview: lesson?.isFreePreview,
     });
   }, [timeTracking.isTimeComplete, timeTracking.elapsedSeconds]);
 
@@ -456,33 +450,6 @@ export default function LessonDetail() {
       setForceRender((prev) => prev + 1);
     }
   }, [timeTracking.isTimeComplete]);
-
-  // Update button enabled state
-  useEffect(() => {
-    // Determine if button should be enabled based on multiple conditions
-    const shouldEnable =
-      // If not enrolled or free preview lesson, enable immediately
-      !isEnrolled ||
-      lesson?.isFreePreview ||
-      // If enrolled and not free preview, require time completion
-      (isEnrolled && !lesson?.isFreePreview && timeTracking.isTimeComplete);
-
-    console.log("🔄 Button state useEffect triggered:", {
-      timeTracking_isTimeComplete: timeTracking.isTimeComplete,
-      isEnrolled,
-      lesson_isFreePreview: lesson?.isFreePreview,
-      shouldEnable,
-      currentButtonState: isButtonEnabled,
-    });
-
-    setIsButtonEnabled(shouldEnable);
-
-    // Force re-render để đảm bảo UI update
-    if (shouldEnable !== isButtonEnabled) {
-      console.log("🚀 Forcing re-render due to button state change");
-      setForceRender((prev) => prev + 1);
-    }
-  }, [timeTracking.isTimeComplete, isEnrolled, lesson?.isFreePreview]);
 
   // Progress store
   const {
@@ -496,6 +463,32 @@ export default function LessonDetail() {
     updateLessonProgress,
     setCurrentCourseId,
   } = useProgressStore();
+
+  // Tính toán danh sách tất cả bài học từ các chương
+  const allLessons = useMemo(() => {
+    return course?.chapters?.flatMap((chapter) => chapter.lessons) || [];
+  }, [course?.chapters]);
+
+  // Update button enabled state
+  useEffect(() => {
+    const shouldEnable = timeTracking.isTimeComplete;
+
+    setIsButtonEnabled(shouldEnable);
+
+    // Force re-render để đảm bảo UI update
+    if (shouldEnable !== isButtonEnabled) {
+      console.log("🚀 Forcing re-render due to button state change");
+      setForceRender((prev) => prev + 1);
+    }
+  }, [timeTracking.isTimeComplete, timeTracking.elapsedSeconds]);
+
+  // Enable button when lesson loads (for immediate testing)
+  useEffect(() => {
+    if (lesson && course) {
+      console.log("📚 Lesson loaded, enabling button for testing");
+      setIsButtonEnabled(true);
+    }
+  }, [lesson, course]);
 
   const [expandedChapters, setExpandedChapters] = useState<
     Record<string, boolean>
@@ -640,7 +633,8 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
         // Reset states when lesson changes
         setTimeCompleteNotified(false);
         setForceRender(0);
-        setIsButtonEnabled(false);
+        // Don't immediately disable the button, let the useEffect handle it
+        // setIsButtonEnabled(false);
 
         // Clear any existing time tracking data for fresh start (for testing)
         localStorage.removeItem(`time-tracking-lesson-${params.lessonId}`);
@@ -835,6 +829,22 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
     visible: { y: 0, opacity: 1, transition: { duration: 0.5 } },
   };
 
+  // Tính toán logic trước khi return để tránh hooks order issues
+  const currentLessonIndex = allLessons.findIndex(
+    (lessonItem) => lessonItem?.id === params.lessonId,
+  );
+
+  // Calculate total lessons
+  const totalLessons = allLessons.length;
+
+  // Đơn giản hóa - chỉ lấy bài học trước/sau theo index
+  const previousLesson =
+    currentLessonIndex > 0 ? allLessons[currentLessonIndex - 1] : null;
+  const nextLesson =
+    currentLessonIndex < allLessons.length - 1
+      ? allLessons[currentLessonIndex + 1]
+      : null;
+
   if (isLoading) {
     return (
       <div className="w-full flex-1 flex flex-col min-h-screen relative px-1">
@@ -951,50 +961,6 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
     );
   }
 
-  // Hàm kiểm tra quyền truy cập bài học với logic tuần tự
-  const canAccessLessonItem = (lesson: any, lessonIndex: number) => {
-    return canAccessLesson(lesson, lessonIndex, isEnrolled, allLessons, []);
-  };
-
-  // Tìm bài học trước/sau có thể truy cập
-  const findAccessibleLesson = (
-    lessons: any[],
-    currentIndex: number,
-    direction: "prev" | "next",
-  ) => {
-    const step = direction === "prev" ? -1 : 1;
-    let index = currentIndex + step;
-
-    while (index >= 0 && index < lessons.length) {
-      if (canAccessLessonItem(lessons[index], index)) {
-        return lessons[index];
-      }
-      index += step;
-    }
-    return null;
-  };
-
-  const allLessons =
-    course.chapters?.flatMap((chapter) => chapter.lessons) || [];
-  const currentLessonIndex = allLessons.findIndex(
-    (lessonItem) => lessonItem?.id === params.lessonId,
-  );
-
-  // Calculate total lessons
-  const totalLessons = allLessons.length;
-
-  // Cập nhật logic tìm bài học trước/sau
-  const previousLesson = findAccessibleLesson(
-    allLessons,
-    currentLessonIndex,
-    "prev",
-  );
-  const nextLesson = findAccessibleLesson(
-    allLessons,
-    currentLessonIndex,
-    "next",
-  );
-
   // Parse lesson content for BLOG or MIXED types
   let contentBlocks: Block[] = [];
   if (
@@ -1020,13 +986,29 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
 
   // Handle lesson completion and navigation to next lesson
   const handleLessonCompletion = async () => {
-    console.log(
-      "Check khi handle complete: ",
+    console.log("🚀 handleLessonCompletion called with: ", {
       enrollmentId,
-      lesson,
-      nextLesson,
-    );
-    if (!enrollmentId || !lesson || !nextLesson) return;
+      lessonId: lesson?.id,
+      lessonTitle: lesson?.title,
+      nextLessonId: nextLesson?.id,
+      nextLessonTitle: nextLesson?.title,
+      isEnrolled,
+    });
+    if (!lesson || !nextLesson) {
+      console.log("❌ Missing required data:", {
+        lesson: !!lesson,
+        nextLesson: !!nextLesson,
+      });
+      return;
+    }
+
+    // If not enrolled, just navigate without updating progress
+    if (!enrollmentId) {
+      console.log("⏭️ Not enrolled, just navigating to next lesson");
+      toast.info("Chuyển sang bài học tiếp theo");
+      router.push(`/course/${course ? course.id : ""}/lesson/${nextLesson.id}`);
+      return;
+    }
     try {
       // Lấy index của bài học hiện tại
       const currentLessonIndex = allLessons.findIndex(
@@ -1373,90 +1355,86 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
             )}
 
             {nextLesson ? (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div>
-                          <Button
-                            key={`next-lesson-btn-${isButtonEnabled}-${forceRender}`}
-                            className={`w-40 transition-all duration-300 group ${
-                              isButtonEnabled
-                                ? "bg-gradient-to-r from-orange-500 to-red-500 text-white hover:from-orange-600 hover:to-red-600"
-                                : "bg-gray-300 text-gray-500 cursor-not-allowed"
-                            }`}
-                            disabled={!isButtonEnabled}
-                            onClick={() => {
-                              console.log("🎯 Button clicked! Current state:", {
-                                isButtonEnabled,
-                                timeTracking_isTimeComplete:
-                                  timeTracking.isTimeComplete,
-                                lesson_isFreePreview: lesson?.isFreePreview,
-                                isEnrolled,
-                                forceRender,
-                              });
-                            }}
-                          >
-                            Học tiếp{" "}
-                            <ChevronRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                          </Button>
-                        </div>
-                      </TooltipTrigger>
-                      {isEnrolled &&
-                        !lesson?.isFreePreview &&
-                        !timeTracking.isTimeComplete && (
-                          <TooltipContent>
-                            <p>
-                              Bạn cần học ít nhất{" "}
-                              {lesson.estimatedDurationMinutes || 5} phút để
-                              hoàn thành bài học này
-                            </p>
-                          </TooltipContent>
-                        )}
-                    </Tooltip>
-                  </TooltipProvider>
-                </AlertDialogTrigger>
-                <AlertDialogContent className="rounded-xl border-none shadow-xl">
-                  <motion.div
-                    initial={{ scale: 0.9, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <AlertDialogHeader>
-                      <AlertDialogTitle className="text-xl font-bold text-center bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">
-                        Xác nhận hoàn thành bài học
-                      </AlertDialogTitle>
-                      <AlertDialogDescription className="text-center text-gray-600 mt-2">
-                        {isEnrolled &&
-                        !lesson.isFreePreview &&
-                        lesson.estimatedDurationMinutes ? (
-                          <>
-                            Bạn đã học {formatTime(timeTracking.elapsedSeconds)}{" "}
-                            / {lesson.estimatedDurationMinutes} phút yêu cầu.
-                            <br />
-                            Hãy đảm bảo rằng bạn đã nắm vững kiến thức trước khi
-                            chuyển sang bài tiếp theo.
-                          </>
-                        ) : (
-                          "Bạn đã hoàn thành bài học này chưa? Hãy đảm bảo rằng bạn đã nắm vững kiến thức trước khi chuyển sang bài tiếp theo."
-                        )}
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter className="flex gap-3 mt-4">
-                      <AlertDialogCancel className="w-full">
-                        Chưa, tôi cần học lại
-                      </AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={handleLessonCompletion}
-                        className="w-full bg-gradient-to-r from-orange-500 to-red-500 text-white hover:from-orange-600 hover:to-red-600"
-                      >
-                        Đã hoàn thành, học tiếp
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </motion.div>
-                </AlertDialogContent>
-              </AlertDialog>
+              isButtonEnabled ? (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      key={`next-lesson-btn-enabled-${forceRender}`}
+                      className="w-40 transition-all duration-300 group bg-gradient-to-r from-orange-500 to-red-500 text-white hover:from-orange-600 hover:to-red-600"
+                      onClick={() => {
+                        console.log(
+                          "🎯 Next Button clicked! Opening dialog...",
+                        );
+                      }}
+                    >
+                      Học tiếp{" "}
+                      <ChevronRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent className="rounded-xl border-none shadow-xl">
+                    <motion.div
+                      initial={{ scale: 0.9, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <AlertDialogHeader>
+                        <AlertDialogTitle className="text-xl font-bold text-center bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">
+                          Xác nhận hoàn thành bài học
+                        </AlertDialogTitle>
+                        <AlertDialogDescription className="text-center text-gray-600 mt-2">
+                          {isEnrolled &&
+                          timeTracking.isTimeComplete &&
+                          lesson.estimatedDurationMinutes ? (
+                            <>
+                              Bạn đã học{" "}
+                              {formatTime(timeTracking.elapsedSeconds)} /{" "}
+                              {lesson.estimatedDurationMinutes} phút yêu cầu.
+                              <br />
+                              Hãy đảm bảo rằng bạn đã nắm vững kiến thức trước
+                              khi chuyển sang bài tiếp theo.
+                            </>
+                          ) : (
+                            "Bạn đã hoàn thành bài học này chưa? Hãy đảm bảo rằng bạn đã nắm vững kiến thức trước khi chuyển sang bài tiếp theo."
+                          )}
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter className="flex gap-3 mt-4">
+                        <AlertDialogCancel className="w-full">
+                          Chưa, tôi cần học lại
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={handleLessonCompletion}
+                          className="w-full bg-gradient-to-r from-orange-500 to-red-500 text-white hover:from-orange-600 hover:to-red-600"
+                        >
+                          Đã hoàn thành, học tiếp
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </motion.div>
+                  </AlertDialogContent>
+                </AlertDialog>
+              ) : (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        <Button
+                          className="w-40 bg-gray-300 text-gray-500 cursor-not-allowed transition-all duration-300"
+                          disabled={true}
+                        >
+                          Học tiếp <ChevronRight className="ml-2 h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>
+                        Bạn cần học ít nhất{" "}
+                        {lesson?.estimatedDurationMinutes || 5} phút để hoàn
+                        thành bài học này
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )
             ) : isEnrolled && currentLessonIndex === allLessons.length - 1 ? (
               hasCertificate ? (
                 <Button
@@ -1466,53 +1444,27 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
                   Xem bằng{" "}
                   <ChevronRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
                 </Button>
-              ) : (
+              ) : isButtonEnabled ? (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div>
-                            <Button
-                              key={`complete-course-btn-${isButtonEnabled}-${forceRender}`}
-                              className={`w-40 transition-all duration-300 group ${
-                                isButtonEnabled
-                                  ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600"
-                                  : "bg-gray-300 text-gray-500 cursor-not-allowed"
-                              }`}
-                              disabled={!isButtonEnabled}
-                              onClick={() => {
-                                console.log(
-                                  "🎯 Complete Course Button clicked! Current state:",
-                                  {
-                                    isButtonEnabled,
-                                    timeTracking_isTimeComplete:
-                                      timeTracking.isTimeComplete,
-                                    lesson_isFreePreview: lesson?.isFreePreview,
-                                    isEnrolled,
-                                    forceRender,
-                                  },
-                                );
-                              }}
-                            >
-                              Hoàn thành{" "}
-                              <ChevronRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                            </Button>
-                          </div>
-                        </TooltipTrigger>
-                        {isEnrolled &&
-                          !lesson?.isFreePreview &&
-                          !timeTracking.isTimeComplete && (
-                            <TooltipContent>
-                              <p>
-                                Bạn cần học ít nhất{" "}
-                                {lesson.estimatedDurationMinutes || 5} phút để
-                                hoàn thành bài học này
-                              </p>
-                            </TooltipContent>
-                          )}
-                      </Tooltip>
-                    </TooltipProvider>
+                    <Button
+                      key={`complete-course-btn-enabled-${forceRender}`}
+                      className="w-40 transition-all duration-300 group bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600"
+                      onClick={() => {
+                        console.log(
+                          "🎯 Complete Course Button clicked! Opening dialog...",
+                        );
+                        console.log("isenrolled: ", isEnrolled);
+                        console.log(
+                          "time tracking.iscomplete: ",
+                          timeTracking.isTimeComplete,
+                        );
+                        console.log("isbuttonenabled: ", isButtonEnabled);
+                      }}
+                    >
+                      Hoàn thành{" "}
+                      <ChevronRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                    </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent className="rounded-xl border-none shadow-xl">
                     <motion.div
@@ -1544,10 +1496,33 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
                     </motion.div>
                   </AlertDialogContent>
                 </AlertDialog>
+              ) : (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        <Button
+                          className="w-40 bg-gray-300 text-gray-500 cursor-not-allowed transition-all duration-300"
+                          disabled={true}
+                        >
+                          Hoàn thành <ChevronRight className="ml-2 h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>
+                        Bạn cần học ít nhất{" "}
+                        {lesson?.estimatedDurationMinutes || 5} phút để hoàn
+                        thành bài học này
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               )
             ) : (
               <Button variant="outline" className="w-40 opacity-50" disabled>
-                Học tiếp <ChevronRight className="ml-2 h-4 w-4" />
+                Học tiếp
+                <ChevronRight className="ml-2 h-4 w-4" />
               </Button>
             )}
           </div>
@@ -1614,76 +1589,101 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
                   <CollapsibleContent className="pl-4">
                     <ul className="mt-2 space-y-2">
                       {chapter.lessons?.map((lesson) => {
-                        const lessonIndex = allLessons.findIndex(
-                          (l) => l!.id === lesson.id,
+                        // Tính toán index của lesson hiện tại và lesson trong list
+                        const currentLessonIndex = allLessons.findIndex(
+                          (lessonItem) => lessonItem?.id === params.lessonId,
                         );
-                        const canAccess = canAccessLessonItem(
-                          lesson,
-                          lessonIndex,
+                        const lessonIndex = allLessons.findIndex(
+                          (lessonItem) => lessonItem?.id === lesson.id,
                         );
 
-                        return (
+                        // Kiểm tra bài học đã hoàn thành - dựa trên logic:
+                        // - Bài học có index nhỏ hơn bài học hiện tại được coi là đã hoàn thành
+                        // - Chỉ áp dụng khi đã enroll và không phải bài miễn phí
+                        const isLessonCompleted =
+                          isEnrolled &&
+                          !lesson.isFreePreview &&
+                          lessonIndex < currentLessonIndex;
+
+                        // Kiểm tra xem có được phép truy cập bài học này không
+                        const canAccessLesson =
+                          !isEnrolled || // Nếu chưa enroll thì cho xem tất cả (để hiển thị preview)
+                          lesson.isFreePreview || // Bài preview luôn được phép
+                          isLessonCompleted || // Bài học đã hoàn thành luôn được phép truy cập
+                          lessonIndex <= currentLessonIndex || // Các bài trước và bài hiện tại
+                          (lessonIndex === currentLessonIndex + 1 &&
+                            isButtonEnabled); // Bài tiếp theo chỉ khi button enabled
+
+                        const linkContent = (
+                          <div className="flex items-center gap-2 min-h-[32px]">
+                            <div className="flex-shrink-0">
+                              {isLessonCompleted ? (
+                                <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                                  <Check className="w-3 h-3 text-white" />
+                                </div>
+                              ) : lesson.id === params.lessonId ? (
+                                <div className="w-5 h-5 bg-orange-500 rounded-full flex items-center justify-center">
+                                  <Play className="w-3 h-3 text-white" />
+                                </div>
+                              ) : (
+                                <div className="w-5 h-5 bg-gray-300 rounded-full"></div>
+                              )}
+                            </div>
+                            <div className="flex-1 overflow-hidden">
+                              <span
+                                className={`block truncate text-[15px] ${
+                                  lesson.id === params.lessonId
+                                    ? "font-medium"
+                                    : ""
+                                } ${!canAccessLesson ? "text-gray-400" : ""}`}
+                              >
+                                {lesson.title}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              {lesson.id === lastLessonId && (
+                                <span className="flex-shrink-0 text-xs px-1 py-0.5 rounded bg-orange-100 text-orange-600">
+                                  Đang học
+                                </span>
+                              )}
+                              {lesson.isFreePreview && (
+                                <span className="flex-shrink-0 text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded">
+                                  Miễn phí
+                                </span>
+                              )}
+                              {!canAccessLesson && isEnrolled && (
+                                <span className="flex-shrink-0 text-xs bg-gray-200 text-gray-500 px-2 py-1 rounded">
+                                  Đã khóa
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+
+                        return canAccessLesson ? (
                           <Link
-                            href={
-                              canAccess
-                                ? `/course/${course ? course.id : ""}/lesson/${lesson.id}`
-                                : "#"
-                            }
+                            href={`/course/${course ? course.id : ""}/lesson/${lesson.id}`}
                             key={lesson.id}
                             className={`block p-2 rounded-lg transition-colors ${
                               lesson.id === params.lessonId
                                 ? "bg-orange-100"
                                 : "hover:bg-gray-200"
-                            } ${
-                              !canAccess
-                                ? "opacity-50 cursor-not-allowed"
-                                : "cursor-pointer"
-                            }`}
-                            onClick={(e) => {
-                              if (!canAccess) {
-                                e.preventDefault();
-                                // Hiển thị toast thông báo
-                                const message =
-                                  getAccessControlMessage(isEnrolled);
-                                useToast({
-                                  title: message.title,
-                                  description: message.description,
-                                  variant: "destructive",
-                                });
-                              }
-                            }}
+                            } cursor-pointer`}
                           >
-                            <div className="flex items-center gap-2 min-h-[32px]">
-                              <div className="flex-1 overflow-hidden">
-                                <span
-                                  className={`block truncate text-[15px] ${
-                                    lesson.id === params.lessonId
-                                      ? "font-medium"
-                                      : ""
-                                  }`}
-                                >
-                                  {lesson.title}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-1">
-                                {lesson.id === lastLessonId && (
-                                  <span className="flex-shrink-0 text-xs px-1 py-0.5 rounded bg-orange-100 text-orange-600">
-                                    Đang học
-                                  </span>
-                                )}
-                                {lesson.isFreePreview && (
-                                  <span className="flex-shrink-0 text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded">
-                                    Miễn phí
-                                  </span>
-                                )}
-                                {!canAccess && !lesson.isFreePreview && (
-                                  <span className="flex-shrink-0 text-xs bg-red-100 text-red-600 px-2 py-1 rounded flex items-center gap-1">
-                                    🔒 Khóa
-                                  </span>
-                                )}
-                              </div>
-                            </div>
+                            {linkContent}
                           </Link>
+                        ) : (
+                          <div
+                            key={lesson.id}
+                            className={`block p-2 rounded-lg transition-colors ${
+                              lesson.id === params.lessonId
+                                ? "bg-orange-100"
+                                : "bg-gray-50"
+                            } cursor-not-allowed opacity-60`}
+                            title="Bạn cần hoàn thành bài học hiện tại trước khi tiếp tục"
+                          >
+                            {linkContent}
+                          </div>
                         );
                       })}
                     </ul>

@@ -89,16 +89,16 @@ export const useTimeTracking = (
 
   // Debug logging
   if (itemId && itemId.includes("lesson")) {
-    console.log("Time tracking debug:", {
-      itemId,
-      requiredMinutes,
-      requiredSeconds,
-      elapsedSeconds,
-      isTimeComplete,
-      progress: progress.toFixed(1) + "%",
-      remainingMinutes,
-      isActive,
-    });
+    // console.log("Time tracking debug:", {
+    //   itemId,
+    //   requiredMinutes,
+    //   requiredSeconds,
+    //   elapsedSeconds,
+    //   isTimeComplete,
+    //   progress: progress.toFixed(1) + "%",
+    //   remainingMinutes,
+    //   isActive,
+    // });
   }
 
   // Call completion callback when time is complete (only once)
