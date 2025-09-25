@@ -402,6 +402,7 @@ export default function LessonDetail() {
   const [timeCompleteNotified, setTimeCompleteNotified] = useState(false);
   const [forceRender, setForceRender] = useState(0);
   const [isButtonEnabled, setIsButtonEnabled] = useState(false);
+  const [completedLessonIds, setCompletedLessonIds] = useState<string[]>([]);
 
   // console.log("🔍 Component render - Current states:", {
   //   isButtonEnabled,
@@ -413,6 +414,20 @@ export default function LessonDetail() {
   const params = useParams();
   const router = useRouter();
   const { data: session } = useSession();
+
+  // Progress store - Moved up to avoid hook order issues
+  const {
+    progress,
+    overallProgress,
+    lessonId: lastLessonId,
+    currentLesson: lastLessonTitle,
+    completedLessonIds: storeCompletedLessonIds,
+    setEnrollmentId: setProgressEnrollmentId,
+    fetchInitialProgress,
+    fetchOverallProgress,
+    updateLessonProgress,
+    setCurrentCourseId,
+  } = useProgressStore();
 
   // Time tracking callback - memoized to prevent re-creation
   const handleTimeComplete = useCallback(() => {
@@ -435,12 +450,12 @@ export default function LessonDetail() {
 
   // Debug time tracking state
   useEffect(() => {
-    console.log("⏰ Time tracking update:", {
-      isTimeComplete: timeTracking.isTimeComplete,
-      elapsedSeconds: timeTracking.elapsedSeconds,
-      requiredMinutes: lesson?.estimatedDurationMinutes || 5,
-      isEnrolled,
-    });
+    // console.log("⏰ Time tracking update:", {
+    //   isTimeComplete: timeTracking.isTimeComplete,
+    //   elapsedSeconds: timeTracking.elapsedSeconds,
+    //   requiredMinutes: lesson?.estimatedDurationMinutes || 5,
+    //   isEnrolled,
+    // });
   }, [timeTracking.isTimeComplete, timeTracking.elapsedSeconds]);
 
   // Force re-render when time tracking completes
@@ -451,44 +466,69 @@ export default function LessonDetail() {
     }
   }, [timeTracking.isTimeComplete]);
 
-  // Progress store
-  const {
-    progress,
-    overallProgress,
-    lessonId: lastLessonId,
-    currentLesson: lastLessonTitle,
-    setEnrollmentId: setProgressEnrollmentId,
-    fetchInitialProgress,
-    fetchOverallProgress,
-    updateLessonProgress,
-    setCurrentCourseId,
-  } = useProgressStore();
+  // Sync completed lessons from store
+  useEffect(() => {
+    if (storeCompletedLessonIds.length > 0) {
+      setCompletedLessonIds(storeCompletedLessonIds);
+      // Save to localStorage
+      if (typeof window !== "undefined" && course?.id) {
+        localStorage.setItem(
+          `completed-lessons-${course.id}`,
+          JSON.stringify(storeCompletedLessonIds),
+        );
+      }
+      console.log(
+        "🔄 Synced completed lessons from store:",
+        storeCompletedLessonIds,
+      );
+    }
+  }, [storeCompletedLessonIds, course?.id]);
+
+  // Persist completed lessons to localStorage when it changes
+  useEffect(() => {
+    if (
+      typeof window !== "undefined" &&
+      course?.id &&
+      completedLessonIds.length > 0
+    ) {
+      localStorage.setItem(
+        `completed-lessons-${course.id}`,
+        JSON.stringify(completedLessonIds),
+      );
+      // console.log("💾 Saved completed lessons to localStorage:", completedLessonIds);
+    }
+  }, [completedLessonIds, course?.id]);
 
   // Tính toán danh sách tất cả bài học từ các chương
   const allLessons = useMemo(() => {
     return course?.chapters?.flatMap((chapter) => chapter.lessons) || [];
   }, [course?.chapters]);
 
-  // Update button enabled state
+  // Update button enabled state - Check if current lesson is already completed
   useEffect(() => {
-    const shouldEnable = timeTracking.isTimeComplete;
+    const currentLessonId = params.lessonId as string;
+    const isCurrentLessonCompleted =
+      completedLessonIds.includes(currentLessonId);
+
+    // If lesson is already completed, enable button immediately
+    // Otherwise, wait for time tracking completion
+    const shouldEnable =
+      isCurrentLessonCompleted || timeTracking.isTimeComplete;
 
     setIsButtonEnabled(shouldEnable);
 
     // Force re-render để đảm bảo UI update
     if (shouldEnable !== isButtonEnabled) {
-      console.log("🚀 Forcing re-render due to button state change");
+      // console.log("🚀 Forcing re-render due to button state change");
       setForceRender((prev) => prev + 1);
     }
-  }, [timeTracking.isTimeComplete, timeTracking.elapsedSeconds]);
-
-  // Enable button when lesson loads (for immediate testing)
-  useEffect(() => {
-    if (lesson && course) {
-      console.log("📚 Lesson loaded, enabling button for testing");
-      setIsButtonEnabled(true);
-    }
-  }, [lesson, course]);
+  }, [
+    timeTracking.isTimeComplete,
+    timeTracking.elapsedSeconds,
+    completedLessonIds,
+    params.lessonId,
+    isButtonEnabled,
+  ]);
 
   const [expandedChapters, setExpandedChapters] = useState<
     Record<string, boolean>
@@ -633,11 +673,20 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
         // Reset states when lesson changes
         setTimeCompleteNotified(false);
         setForceRender(0);
-        // Don't immediately disable the button, let the useEffect handle it
-        // setIsButtonEnabled(false);
 
-        // Clear any existing time tracking data for fresh start (for testing)
-        localStorage.removeItem(`time-tracking-lesson-${params.lessonId}`);
+        // Clear time tracking data when switching lessons
+        // BUT only clear if the lesson is not completed
+        const currentLessonId = params.lessonId as string;
+        const isCurrentLessonCompleted =
+          completedLessonIds.includes(currentLessonId);
+
+        if (!isCurrentLessonCompleted) {
+          // Clear tracking data for incomplete lessons to restart tracking
+          localStorage.removeItem(`time-tracking-lesson-${params.lessonId}`);
+          console.log("🧹 Cleared time tracking for incomplete lesson");
+        } else {
+          console.log("✅ Keeping time tracking data for completed lesson");
+        }
 
         const [courseData, lessonData] = await Promise.all([
           getCourseById(params.courseId as string),
@@ -750,6 +799,34 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
             // Fetch initial progress
             const res = await fetchInitialProgress();
 
+            // Update local completed lessons from store
+            const currentStore = useProgressStore.getState();
+            let completedIds = currentStore.completedLessonIds || [];
+
+            // If backend doesn't provide completedLessonIds, generate from current progress
+            if (
+              completedIds.length === 0 &&
+              course?.chapters &&
+              currentStore.progress > 0
+            ) {
+              const allCourseLessons = course.chapters.flatMap(
+                (chapter) => chapter.lessons || [],
+              );
+              const progressPercentage = currentStore.progress;
+              const totalLessons = allCourseLessons.length;
+              const completedLessonsCount = Math.floor(
+                (progressPercentage / 100) * totalLessons,
+              );
+
+              // Mark lessons as completed based on progress percentage
+              completedIds = allCourseLessons
+                .slice(0, completedLessonsCount)
+                .map((lesson) => lesson.id)
+                .filter(Boolean);
+            }
+
+            setCompletedLessonIds(completedIds);
+
             await fetchOverallProgress();
           }
         } catch (err: any) {
@@ -782,8 +859,25 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
 
   // Auto start time tracking when lesson loads and user is enrolled
   useEffect(() => {
-    if (lesson && isEnrolled && !lesson.isFreePreview) {
+    const currentLessonId = params.lessonId as string;
+    const isCurrentLessonCompleted =
+      completedLessonIds.includes(currentLessonId);
+
+    // Only start tracking if lesson is not completed yet
+    if (
+      lesson &&
+      isEnrolled &&
+      !lesson.isFreePreview &&
+      !isCurrentLessonCompleted
+    ) {
+      console.log("🕒 Starting time tracking for incomplete lesson");
       timeTracking.start();
+    } else if (isCurrentLessonCompleted) {
+      // console.log("✅ Lesson already completed - skipping time tracking");
+      // Stop tracking if it's currently active
+      if (timeTracking.isActive) {
+        timeTracking.pause();
+      }
     }
 
     return () => {
@@ -791,20 +885,26 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
         timeTracking.pause();
       }
     };
-  }, [lesson, isEnrolled]);
+  }, [lesson, isEnrolled, completedLessonIds, params.lessonId]);
 
   // Handle page visibility to pause/resume tracking
   useEffect(() => {
     const handleVisibilityChange = () => {
+      const currentLessonId = params.lessonId as string;
+      const isCurrentLessonCompleted =
+        completedLessonIds.includes(currentLessonId);
+
       if (document.hidden) {
         if (timeTracking.isActive) {
           timeTracking.pause();
         }
       } else {
+        // Only resume tracking if lesson is not completed
         if (
           lesson &&
           isEnrolled &&
           !lesson.isFreePreview &&
+          !isCurrentLessonCompleted &&
           !timeTracking.isActive
         ) {
           timeTracking.resume();
@@ -816,7 +916,13 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [timeTracking.isActive, lesson, isEnrolled]);
+  }, [
+    timeTracking.isActive,
+    lesson,
+    isEnrolled,
+    completedLessonIds,
+    params.lessonId,
+  ]);
 
   // New animation variants
   const fadeIn = {
@@ -1063,6 +1169,23 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
         nextLesson: nextLesson.title, // Sử dụng tên của bài học tiếp theo
         nextLessonId: nextLesson.id, // Sử dụng ID của bài học tiếp theo
         isLessonCompleted: true,
+      });
+
+      // Add current lesson to completed list locally for immediate UI update
+      const currentLessonId = params.lessonId as string;
+      setCompletedLessonIds((prev) => {
+        if (!prev.includes(currentLessonId)) {
+          const newCompleted = [...prev, currentLessonId];
+          // Save to localStorage
+          if (typeof window !== "undefined") {
+            localStorage.setItem(
+              `completed-lessons-${course?.id}`,
+              JSON.stringify(newCompleted),
+            );
+          }
+          return newCompleted;
+        }
+        return prev;
       });
 
       toast.success("Tiến độ học tập đã được cập nhật!");
@@ -1589,7 +1712,12 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
                   <CollapsibleContent className="pl-4">
                     <ul className="mt-2 space-y-2">
                       {chapter.lessons?.map((lesson) => {
-                        // Tính toán index của lesson hiện tại và lesson trong list
+                        // Kiểm tra bài học đã hoàn thành - dựa trên dữ liệu từ server
+                        const isLessonCompleted = completedLessonIds.includes(
+                          lesson.id,
+                        );
+
+                        // Tính toán index để kiểm tra khả năng truy cập
                         const currentLessonIndex = allLessons.findIndex(
                           (lessonItem) => lessonItem?.id === params.lessonId,
                         );
@@ -1597,20 +1725,12 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
                           (lessonItem) => lessonItem?.id === lesson.id,
                         );
 
-                        // Kiểm tra bài học đã hoàn thành - dựa trên logic:
-                        // - Bài học có index nhỏ hơn bài học hiện tại được coi là đã hoàn thành
-                        // - Chỉ áp dụng khi đã enroll và không phải bài miễn phí
-                        const isLessonCompleted =
-                          isEnrolled &&
-                          !lesson.isFreePreview &&
-                          lessonIndex < currentLessonIndex;
-
                         // Kiểm tra xem có được phép truy cập bài học này không
                         const canAccessLesson =
                           !isEnrolled || // Nếu chưa enroll thì cho xem tất cả (để hiển thị preview)
                           lesson.isFreePreview || // Bài preview luôn được phép
                           isLessonCompleted || // Bài học đã hoàn thành luôn được phép truy cập
-                          lessonIndex <= currentLessonIndex || // Các bài trước và bài hiện tại
+                          lesson.id === params.lessonId || // Bài hiện tại
                           (lessonIndex === currentLessonIndex + 1 &&
                             isButtonEnabled); // Bài tiếp theo chỉ khi button enabled
 

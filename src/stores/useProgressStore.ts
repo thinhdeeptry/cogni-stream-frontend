@@ -20,6 +20,7 @@ interface ProgressState {
   isCompleted: boolean;
   status: string;
   currentProgress: any;
+  completedLessonIds: string[];
   error: string | null;
 
   // Actions
@@ -54,6 +55,7 @@ export const useProgressStore = create<ProgressState>()(
       isCompleted: false,
       status: "",
       currentProgress: null,
+      completedLessonIds: [],
       error: null,
 
       // Actions
@@ -71,6 +73,7 @@ export const useProgressStore = create<ProgressState>()(
           overallProgress: 0,
           isCompleted: false,
           status: "",
+          completedLessonIds: [],
           error: null,
         }),
 
@@ -96,6 +99,7 @@ export const useProgressStore = create<ProgressState>()(
               isLessonCompleted: result.data.isLessonCompleted,
               lastUpdated: result.data.lastUpdated,
               currentProgress: result.data.currentProgress,
+              completedLessonIds: result.data.completedLessonIds || [],
               error: null,
             });
           } else {
