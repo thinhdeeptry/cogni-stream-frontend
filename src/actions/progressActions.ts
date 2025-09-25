@@ -118,6 +118,34 @@ export const updateProgress = async (
     };
   }
 };
+export const createProgress = async (
+  enrollmentId: string,
+  currentSyllabusItemId?: string,
+) => {
+  try {
+    const api = await AxiosFactory.getApiInstance("progress");
+    const dto = {
+      enrollmentId,
+      syllabusItemId: currentSyllabusItemId,
+    };
+    const response = await api.post(`/progress`, dto);
+    return {
+      error: false,
+      success: true,
+      message: "tạo tiến trình học tập thành công!",
+      data: response.data,
+    };
+  } catch (error: any) {
+    return {
+      error: true,
+      success: false,
+      message:
+        error.response?.data?.message ||
+        "Không thể cập nhật tiến trình học tập.",
+      data: null,
+    };
+  }
+};
 export const verifyCourseCompletion = async (enrollmentId: string) => {
   try {
     const progressApi = await AxiosFactory.getApiInstance("progress");

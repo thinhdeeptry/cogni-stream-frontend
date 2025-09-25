@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 import {
+  createProgress,
   getInitialProgress,
   getOverallProgress,
   updateProgress,
@@ -20,6 +21,7 @@ interface ProgressState {
   isCompleted: boolean;
   status: string;
   currentProgress: any;
+  completedItems: any;
   error: string | null;
 
   // Actions
@@ -28,6 +30,7 @@ interface ProgressState {
   clearProgress: () => void;
   fetchInitialProgress: () => Promise<void>;
   fetchOverallProgress: () => Promise<void>;
+  createSyllabusProgress: (currentSyllabusItemId?: string) => Promise<void>;
   updateLessonProgress: (progressData: {
     progress: number;
     currentProgressId: string;
@@ -54,15 +57,39 @@ export const useProgressStore = create<ProgressState>()(
       isCompleted: false,
       status: "",
       currentProgress: null,
+      completedItems: null,
       error: null,
 
       // Actions
-      setEnrollmentId: (enrollmentId) => set({ enrollmentId }),
+      setEnrollmentId: (enrollmentId) => {
+        const currentEnrollmentId = get().enrollmentId;
+
+        // Clear progress data when switching to different enrollment
+        if (currentEnrollmentId && currentEnrollmentId !== enrollmentId) {
+          set({
+            enrollmentId,
+            progress: 0,
+            currentLesson: "",
+            lessonId: "",
+            isLessonCompleted: false,
+            lastUpdated: "",
+            overallProgress: 0,
+            isCompleted: false,
+            status: "",
+            currentProgress: null,
+            completedItems: null,
+            error: null,
+          });
+        } else {
+          set({ enrollmentId });
+        }
+      },
       setCurrentCourseId: (courseId) => set({ currentCourseId: courseId }),
 
       clearProgress: () =>
         set({
           enrollmentId: null,
+          currentCourseId: null,
           progress: 0,
           currentLesson: "",
           lessonId: "",
@@ -71,6 +98,8 @@ export const useProgressStore = create<ProgressState>()(
           overallProgress: 0,
           isCompleted: false,
           status: "",
+          currentProgress: null,
+          completedItems: null,
           error: null,
         }),
 
@@ -83,15 +112,11 @@ export const useProgressStore = create<ProgressState>()(
 
         try {
           const result = await getInitialProgress(enrollmentId);
-          console.log("res của lấy progress detail: ", result);
           if (result.success && result.data) {
-            console.log(
-              "Setting progress state with currentProgress:",
-              result.data.currentProgress,
-            );
             set({
               progress: result.data.progress,
               currentLesson: result.data.currentLesson,
+              completedItems: result.data.completedItems,
               lessonId: result.data.lessonId,
               isLessonCompleted: result.data.isLessonCompleted,
               lastUpdated: result.data.lastUpdated,
@@ -147,8 +172,9 @@ export const useProgressStore = create<ProgressState>()(
             set({
               progress: result.data.progress,
               currentLesson: result.data.currentLesson,
+              completedItems: result.data.completedItems,
               lessonId: result.data.lessonId,
-              isLessonCompleted: result.data.isLessonCompleted,
+              isCompleted: result.data.isCompleted,
               lastUpdated: result.data.lastUpdated,
               error: null,
             });
@@ -161,7 +187,37 @@ export const useProgressStore = create<ProgressState>()(
           set({ error: "Failed to update progress" });
         }
       },
+      createSyllabusProgress: async (currentSyllabusItemId?: string) => {
+        const { enrollmentId } = get();
+        if (!enrollmentId) {
+          set({ error: "No enrollment ID provided" });
+          return;
+        }
 
+        try {
+          const result = await createProgress(
+            enrollmentId,
+            currentSyllabusItemId,
+          );
+          if (result.success && result.data) {
+            set({
+              progress: result.data.progress,
+              currentLesson: result.data.currentLesson,
+              completedItems: result.data.completedItems,
+              lessonId: result.data.lessonId,
+              isCompleted: result.data.isCompleted,
+              lastUpdated: result.data.lastUpdated,
+              error: null,
+            });
+            // After create lesson progress, fetch overall progress
+            await get().fetchOverallProgress();
+          } else {
+            set({ error: result.message || "Failed to create progress" });
+          }
+        } catch (error) {
+          set({ error: "Failed to create progress" });
+        }
+      },
       verifyCompletion: async () => {
         const { enrollmentId } = get();
         if (!enrollmentId) {

@@ -68,6 +68,7 @@ interface QuizSectionProps {
   isEnrolled: boolean;
   classId?: string; // For navigation to specific lessons in class
   courseId?: string; // For navigation
+  onQuizCompleted?: (success: boolean) => void; // Callback when quiz is completed successfully
 }
 
 export default function QuizSection({
@@ -76,6 +77,7 @@ export default function QuizSection({
   isEnrolled,
   classId,
   courseId,
+  onQuizCompleted,
 }: QuizSectionProps) {
   const router = useRouter();
   const [status, setStatus] = useState<QuizStatus | null>(null);
@@ -175,6 +177,7 @@ export default function QuizSection({
       if (historyResult.success && historyResult.data) {
         setHistory(historyResult.data);
       }
+      console.log("getQuizStatus: ", statusResult);
     } catch (error) {
       console.error("Error fetching quiz data:", error);
       toast.error("Không thể tải thông tin quiz");
@@ -278,7 +281,7 @@ export default function QuizSection({
           if (question.type === "SINGLE_CHOICE" && typeof answer === "string") {
             return {
               questionId: question.id,
-              answerId: answer,
+              answerId: [answer], // Chuyển thành array với 1 phần tử
             };
           } else if (
             question.type === "MULTIPLE_CHOICE" &&
@@ -286,7 +289,7 @@ export default function QuizSection({
           ) {
             return {
               questionId: question.id,
-              answerId: answer[0] || "",
+              answerId: answer, // Giữ nguyên array
             };
           } else if (
             ["SHORT_ANSWER", "ESSAY", "FILL_IN_BLANK"].includes(question.type)
@@ -303,7 +306,7 @@ export default function QuizSection({
           };
         }),
       };
-
+      console.log("submission: ", submission);
       const result = await submitQuizAttempt(currentAttempt.id, submission);
 
       if (result.success && result.data) {
@@ -316,10 +319,20 @@ export default function QuizSection({
           toast.success(
             `Chúc mừng! Bạn đã đạt ${result.data.score}% và vượt qua quiz!`,
           );
+
+          // Call callback when quiz is completed successfully
+          if (onQuizCompleted) {
+            onQuizCompleted(true);
+          }
         } else {
           toast.warning(
             `Bạn đạt ${result.data.score}%. ${result.data.canRetry ? "Hãy cố gắng lần sau!" : "Bạn đã hết lượt thử."}`,
           );
+
+          // Call callback even when not passed to update progress
+          if (onQuizCompleted) {
+            onQuizCompleted(false);
+          }
         }
       } else {
         toast.error(result.message);
@@ -941,31 +954,59 @@ export default function QuizSection({
                 <p className="text-sm text-muted-foreground">
                   Thời gian làm bài: {result.timeSpent} phút
                 </p>
-                {quizStartTime && (
-                  <p className="text-sm text-muted-foreground">
-                    Bắt đầu: {quizStartTime.toLocaleTimeString("vi-VN")} - Kết
-                    thúc: {new Date().toLocaleTimeString("vi-VN")}
-                  </p>
-                )}
               </div>
 
-              {!result.isPassed && result.canRetry && (
-                <div className="space-y-2">
-                  <p className="text-sm">
-                    Bạn có thể làm lại bài quiz
-                    {result.nextAllowedAt &&
-                      ` sau ${formatWaitTime(result.nextAllowedAt)}`}
-                  </p>
+              <div className="flex gap-3 justify-center">
+                {result.isPassed ? (
+                  // Nút "Tiếp tục học" khi đã đạt
+                  <Button
+                    onClick={() => {
+                      const backPath = classId
+                        ? `/course/${courseId}/class/${classId}`
+                        : `/course/${courseId}`;
+                      router.push(backPath);
+                    }}
+                    className="bg-green-600 hover:bg-green-700 flex items-center gap-2"
+                  >
+                    <span>Tiếp tục học</span>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                ) : (
+                  // Nút "Làm lại" khi chưa đạt
                   <Button
                     onClick={() => {
                       setResult(null);
                       fetchQuizData();
                     }}
-                    className="mt-4"
+                    className="bg-orange-600 hover:bg-orange-700 flex items-center gap-2"
                   >
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Làm lại
+                    <RefreshCw className="h-4 w-4" />
+                    <span>Làm lại quiz</span>
                   </Button>
+                )}
+
+                {/* Nút quay về khóa học */}
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    const backPath = classId
+                      ? `/course/${courseId}/class/${classId}`
+                      : `/course/${courseId}`;
+                    router.push(backPath);
+                  }}
+                  className="flex items-center gap-2"
+                >
+                  <span>Quay về khóa học</span>
+                </Button>
+              </div>
+
+              {!result.isPassed && (
+                <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-sm text-red-700 text-center">
+                    {result.nextAllowedAt
+                      ? `Bạn có thể làm lại sau ${formatWaitTime(result.nextAllowedAt)}`
+                      : "Bạn đã hết lượt thử cho quiz này"}
+                  </p>
                 </div>
               )}
             </div>
@@ -1041,95 +1082,97 @@ export default function QuizSection({
             )}
           </div>
 
-          {/* Detailed Quiz Information */}
-          <div className="bg-white/60 rounded-lg border border-blue-100 p-4">
-            <h3 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
-              <Info className="h-4 w-4" />
-              Thông tin chi tiết quiz
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              {/* Time Limit */}
-              <div className="flex justify-between items-center py-2 border-b border-blue-100">
-                <span className="text-gray-600 flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
-                  Thời gian làm bài:
-                </span>
-                <span className="font-medium text-blue-800">
-                  {formatTimeLimit(status.timeLimit)}
-                </span>
-              </div>
-
-              {/* Retry Delay */}
-              {status.retryDelay && (
+          {/* Detailed Quiz Information - Only show if not passed */}
+          {!status.isPassed && (
+            <div className="bg-white/60 rounded-lg border border-blue-100 p-4">
+              <h3 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
+                <Info className="h-4 w-4" />
+                Thông tin chi tiết quiz
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                {/* Time Limit */}
                 <div className="flex justify-between items-center py-2 border-b border-blue-100">
                   <span className="text-gray-600 flex items-center gap-2">
-                    <Timer className="h-4 w-4" />
-                    Thời gian chờ giữa các lần:
+                    <Clock className="h-4 w-4" />
+                    Thời gian làm bài:
                   </span>
                   <span className="font-medium text-blue-800">
-                    {status.retryDelay} phút
+                    {formatTimeLimit(status.timeLimit)}
                   </span>
                 </div>
-              )}
 
-              {/* Max Attempts */}
-              <div className="flex justify-between items-center py-2 border-b border-blue-100">
-                <span className="text-gray-600 flex items-center gap-2">
-                  <RotateCcw className="h-4 w-4" />
-                  Số lần làm tối đa:
-                </span>
-                <span className="font-medium text-blue-800">
-                  {status.maxAttempts || "Không giới hạn"}
-                </span>
-              </div>
+                {/* Retry Delay */}
+                {status.retryDelay && (
+                  <div className="flex justify-between items-center py-2 border-b border-blue-100">
+                    <span className="text-gray-600 flex items-center gap-2">
+                      <Timer className="h-4 w-4" />
+                      Thời gian chờ giữa các lần:
+                    </span>
+                    <span className="font-medium text-blue-800">
+                      {status.retryDelay} phút
+                    </span>
+                  </div>
+                )}
 
-              {/* Current Status */}
-              <div className="flex justify-between items-center py-2 border-b border-blue-100">
-                <span className="text-gray-600 flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4" />
-                  Trạng thái:
-                </span>
-                <span
-                  className={`font-medium ${status.isPassed ? "text-green-600" : "text-orange-600"}`}
-                >
-                  {status.isPassed ? "Đã hoàn thành" : "Chưa hoàn thành"}
-                </span>
-              </div>
-
-              {/* Block Status */}
-              {status.isBlocked && (
-                <div className="flex justify-between items-center py-2 border-b border-red-100 md:col-span-2">
+                {/* Max Attempts */}
+                <div className="flex justify-between items-center py-2 border-b border-blue-100">
                   <span className="text-gray-600 flex items-center gap-2">
-                    <Ban className="h-4 w-4" />
-                    Bị chặn đến:
+                    <RotateCcw className="h-4 w-4" />
+                    Số lần làm tối đa:
                   </span>
-                  <span className="font-medium text-red-600">
-                    {status.blockedUntil
-                      ? new Date(status.blockedUntil).toLocaleString("vi-VN")
-                      : "Vô thời hạn"}
+                  <span className="font-medium text-blue-800">
+                    {status.maxAttempts || "Không giới hạn"}
                   </span>
                 </div>
-              )}
 
-              {/* Block Reason */}
-              {status.isBlocked && status.blockedReason && (
-                <div className="md:col-span-2 py-2">
-                  <span className="text-gray-600 block mb-1">
-                    Lý do bị chặn:
+                {/* Current Status */}
+                <div className="flex justify-between items-center py-2 border-b border-blue-100">
+                  <span className="text-gray-600 flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4" />
+                    Trạng thái:
                   </span>
-                  <span className="text-red-600 font-medium bg-red-50 px-2 py-1 rounded text-xs">
-                    {status.blockedReason}
+                  <span
+                    className={`font-medium ${status.isPassed ? "text-green-600" : "text-orange-600"}`}
+                  >
+                    {status.isPassed ? "Đã hoàn thành" : "Chưa hoàn thành"}
                   </span>
                 </div>
-              )}
+
+                {/* Block Status */}
+                {status.isBlocked && (
+                  <div className="flex justify-between items-center py-2 border-b border-red-100 md:col-span-2">
+                    <span className="text-gray-600 flex items-center gap-2">
+                      <Ban className="h-4 w-4" />
+                      Bị chặn đến:
+                    </span>
+                    <span className="font-medium text-red-600">
+                      {status.blockedUntil
+                        ? new Date(status.blockedUntil).toLocaleString("vi-VN")
+                        : "Vô thời hạn"}
+                    </span>
+                  </div>
+                )}
+
+                {/* Block Reason */}
+                {status.isBlocked && status.blockedReason && (
+                  <div className="md:col-span-2 py-2">
+                    <span className="text-gray-600 block mb-1">
+                      Lý do bị chặn:
+                    </span>
+                    <span className="text-red-600 font-medium bg-red-50 px-2 py-1 rounded text-xs">
+                      {status.blockedReason}
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Status Messages & Notifications */}
           <div className="space-y-3">
             {/* Success - Passed */}
             {status.isPassed && (
-              <div className="flex items-center gap-2 p-4 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-lg">
                 <CheckCircle className="h-5 w-5 text-green-600" />
                 <div className="flex-1">
                   <span className="text-green-800 font-medium block">
@@ -1140,45 +1183,47 @@ export default function QuizSection({
                     {status.passPercent}% để đạt)
                   </span>
                 </div>
+                <button
+                  onClick={() => {
+                    // Navigate back to the class or course to access next lesson
+                    const backPath = classId
+                      ? `/course/${courseId}/class/${classId}`
+                      : `/course/${courseId}`;
+                    router.push(backPath);
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors duration-200 shadow-sm hover:shadow-md"
+                >
+                  <span>Tiếp tục học</span>
+                  <ChevronRight className="h-4 w-4" />
+                </button>
               </div>
             )}
 
             {/* Warning - Wait Time */}
-            {!canStartQuiz(status) && status.nextAllowedAt && (
-              <div className="flex items-center gap-2 p-4 bg-orange-50 border border-orange-200 rounded-lg">
-                <Clock className="h-5 w-5 text-orange-600" />
-                <div className="flex-1">
-                  <span className="text-orange-800 font-medium block">
-                    ⏳ Cần chờ thêm thời gian
-                  </span>
-                  <span className="text-orange-600 text-sm">
-                    Bạn có thể làm lại sau:{" "}
-                    {formatWaitTime(status.nextAllowedAt)}
-                    {status.retryDelay &&
-                      ` (Thời gian chờ: ${status.retryDelay} phút)`}
-                  </span>
+            {!canStartQuiz(status) &&
+              status.nextAllowedAt &&
+              new Date(status.nextAllowedAt).getTime() > Date.now() && (
+                <div className="flex items-center gap-2 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                  <Clock className="h-5 w-5 text-orange-600" />
+                  <div className="flex-1">
+                    <span className="text-orange-800 font-medium block">
+                      ⏳ Cần chờ thêm thời gian
+                    </span>
+                    <span className="text-orange-600 text-sm">
+                      Bạn có thể làm lại sau:{" "}
+                      {formatWaitTime(status.nextAllowedAt)}
+                      {status.retryDelay &&
+                        ` (Thời gian chờ: ${status.retryDelay} phút)`}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
             {/* Error - No More Attempts */}
             {!status.canAttempt &&
               status.attemptsUsed >= (status.maxAttempts || 0) &&
               status.maxAttempts !== null && (
                 <div className="space-y-4">
-                  {/* Base message about exhausted attempts */}
-                  {/* <div className="flex items-center gap-2 p-4 bg-red-50 border border-red-200 rounded-lg">
-                    <XCircle className="h-5 w-5 text-red-600" />
-                    <div className="flex-1">
-                      <span className="text-red-800 font-medium block">
-                        🚫 Đã hết số lần làm bài
-                      </span>
-                      <span className="text-red-600 text-sm">
-                        Bạn đã sử dụng hết {status.maxAttempts} lần thử cho phép
-                      </span>
-                    </div>
-                  </div> */}
-
                   {/* Priority 1: Unlock Requirements - Show study requirements if available */}
                   {status.unlockRequirements &&
                   status.unlockRequirements.length > 0 ? (
@@ -1216,11 +1261,11 @@ export default function QuizSection({
                               return (
                                 <div
                                   key={requirement.id || index}
-                                  className="bg-white/80 border border-blue-100 rounded-lg p-4 hover:bg-white/90 transition-colors"
+                                  className="p-4 mb-4 rounded-xl hover:bg-blue-100/60 transition-colors"
                                 >
-                                  <div className="flex items-center gap-3">
+                                  <div className="flex items-center -mt-8">
                                     <div className="flex-shrink-0">
-                                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-5">
                                         <span className="text-blue-600 font-semibold text-sm">
                                           {index + 1}
                                         </span>
@@ -1241,8 +1286,8 @@ export default function QuizSection({
                                         )}
 
                                       {/* Display requirement type */}
-                                      <div className="flex items-center gap-2 mt-2">
-                                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                      <div className="flex items-center gap-2">
+                                        <span className="inline-flex items-center py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                                           {requirement.type ===
                                             "WATCH_LESSON" && "👁️ Xem bài học"}
                                           {requirement.type ===

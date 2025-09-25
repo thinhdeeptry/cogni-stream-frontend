@@ -303,6 +303,28 @@ export async function getEnrollmentByCourse(courseId: string) {
   }
 }
 
+export async function getEnrollmentByCourseAndType(
+  courseId: string,
+  type: "STREAM" | "ONLINE",
+  studentId: string,
+  classId?: string,
+) {
+  try {
+    const api = await AxiosFactory.getApiInstance("enrollment");
+
+    const res = await api.get(
+      `/enrollments/course/${courseId}/classId/${classId}/studentId/${studentId}/type/${type}`,
+    );
+
+    return { success: true, data: res.data };
+  } catch (error: any) {
+    return {
+      success: false,
+      message: error?.response?.data?.message || "Error fetching enrollment",
+    };
+  }
+}
+
 export async function getProgressByEnrollment(enrollmentId: string) {
   try {
     const api = await AxiosFactory.getApiInstance("enrollment");

@@ -82,7 +82,7 @@ export interface QuizAnswer {
 export interface QuizSubmission {
   answers: Array<{
     questionId: string;
-    answerId?: string;
+    answerId?: string[]; // Luôn là array cho cả SINGLE_CHOICE và MULTIPLE_CHOICE
     textAnswer?: string;
   }>;
 }
@@ -365,6 +365,69 @@ export function calculateScorePercentage(
   maxScore: number = 100,
 ): number {
   return Math.round((score / maxScore) * 100);
+}
+
+/**
+ * Mở khóa quiz sau khi hoàn thành unlock requirements
+ */
+export async function unlockQuiz(lessonId: string): Promise<{
+  success: boolean;
+  data?: any;
+  message: string;
+}> {
+  try {
+    const { data } = await quizApi.post(`/quizzes/lesson/${lessonId}/unlock`);
+    return {
+      success: true,
+      data: data,
+      message: "Mở khóa quiz thành công",
+    };
+  } catch (error: any) {
+    const errorMessage =
+      error.response?.data?.message ||
+      error.message ||
+      "Đã xảy ra lỗi khi mở khóa quiz";
+    console.error("Error unlocking quiz:", errorMessage);
+    return {
+      success: false,
+      message: errorMessage,
+    };
+  }
+}
+
+/**
+ * Đánh dấu hoàn thành một yêu cầu unlock
+ */
+export async function completeUnlockRequirement(
+  lessonId: string,
+  requirementId: string,
+  completionData?: any,
+): Promise<{
+  success: boolean;
+  data?: any;
+  message: string;
+}> {
+  try {
+    const { data } = await quizApi.post(
+      `/quizzes/lesson/${lessonId}/unlock-requirement/${requirementId}/complete`,
+      completionData || {},
+    );
+    return {
+      success: true,
+      data: data,
+      message: "Hoàn thành yêu cầu unlock thành công",
+    };
+  } catch (error: any) {
+    const errorMessage =
+      error.response?.data?.message ||
+      error.message ||
+      "Đã xảy ra lỗi khi xác nhận hoàn thành yêu cầu";
+    console.error("Error completing unlock requirement:", errorMessage);
+    return {
+      success: false,
+      message: errorMessage,
+    };
+  }
 }
 
 /**

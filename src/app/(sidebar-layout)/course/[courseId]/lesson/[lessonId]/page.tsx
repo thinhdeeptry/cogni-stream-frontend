@@ -632,7 +632,6 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
   useEffect(() => {
     const fetchEnrollmentId = async () => {
       if (session?.user?.id && course?.id) {
-        console.log("yes");
         try {
           // Kiểm tra xem lesson hiện tại có phải là preview không
           const allCourseLessons =
@@ -647,7 +646,6 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
           setCurrentCourseId(course.id);
 
           // Nếu đang xem bài học preview mà chưa enrolled, không cần fetch enrollment
-          console.log("is enroll: ", isEnrolled);
           // const checkEnroll = await checkEnrollmentStatus
 
           // if (isCurrentLessonPreview && isEnrolled) {
@@ -659,9 +657,7 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
 
           // const enrollmentApi = await AxiosFactory.getApiInstance("enrollment");
           const response = await getEnrollmentByCourse(course.id);
-          console.log("response.data", response);
           if (response.data?.data.id) {
-            console.log("có data: ");
             setEnrollmentId(response.data.data.id);
             setProgressEnrollmentId(response.data.data.id);
 

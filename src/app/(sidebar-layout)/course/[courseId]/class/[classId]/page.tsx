@@ -44,8 +44,14 @@ import { getLessonById } from "@/actions/courseAction";
 import {
   checkEnrollmentStatus,
   getEnrollmentByCourse,
+  getEnrollmentByCourseAndType,
   markCourseAsCompleted,
 } from "@/actions/enrollmentActions";
+import {
+  completeUnlockRequirement,
+  getQuizStatus,
+  unlockQuiz,
+} from "@/actions/quizAction";
 import {
   type GroupedSyllabusItem,
   getSyllabusByClassId,
@@ -60,6 +66,14 @@ import QuizSection from "@/components/quiz/QuizSection";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -309,6 +323,11 @@ export default function ClassLearningPage() {
   const [hasCertificate, setHasCertificate] = useState<boolean>(false);
   const [certificateId, setCertificateId] = useState<string | null>(null);
 
+  // Modal states
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [pendingNavigation, setPendingNavigation] =
+    useState<SyllabusItem | null>(null);
+
   // Time tracking for current item
   const timeTracking = useTimeTracking({
     itemId: currentItem?.id || "",
@@ -340,12 +359,15 @@ export default function ClassLearningPage() {
   const {
     progress,
     overallProgress,
-    updateLessonProgress,
+    createSyllabusProgress,
     fetchInitialProgress,
     currentProgress,
+    completedItems,
     enrollmentId,
+    isLessonCompleted, // bài học này đã hoàn thành hay chưa
+    setEnrollmentId,
+    setCurrentCourseId,
   } = useProgressStore();
-
   // Fetch initial data
   useEffect(() => {
     const fetchData = async () => {
@@ -357,6 +379,9 @@ export default function ClassLearningPage() {
         // Fetch course data
         const courseData = await getCourseById(params.courseId as string);
         setCourse(courseData);
+
+        // Set course ID in progress store
+        setCurrentCourseId(courseData.id);
 
         // Find class info from course data
         const selectedClass = courseData.classes?.find(
@@ -371,9 +396,7 @@ export default function ClassLearningPage() {
             courseData.id,
             params.classId as string,
           );
-          //   setIsEnrolled(enrollmentResult.success && enrollmentResult.isEnrolled);
-          //test
-          setIsEnrolled(true);
+          if (enrollmentResult.success) setIsEnrolled(true);
         }
 
         // Fetch syllabus for the class
@@ -387,17 +410,32 @@ export default function ClassLearningPage() {
     };
 
     fetchData();
-  }, [params.courseId, params.classId, user?.id]);
-
-  // Fetch enrollment data to check certificate status
+  }, [params.courseId, params.classId, user?.id, setCurrentCourseId]);
+  //fetch progress data
+  useEffect(() => {
+    if (enrollmentId) {
+      fetchInitialProgress();
+    }
+  }, [enrollmentId]);
+  // Fetch enrollment data to check certificate status and set enrollmentId for progress
   useEffect(() => {
     const fetchEnrollmentData = async () => {
-      if (!user?.id || !course?.id) return;
+      if (!user?.id || !course?.id || !params.classId) return;
 
       try {
-        const response = await getEnrollmentByCourse(course.id);
-        if (response.data?.data) {
+        useProgressStore.getState().clearProgress();
+        // Lấy STREAM enrollment cho class này
+        const response = await getEnrollmentByCourseAndType(
+          course.id,
+          "STREAM",
+          user?.id,
+          params.classId as string,
+        );
+
+        if (response.success && response.data?.data) {
           const enrollmentData = response.data.data;
+          // Set enrollmentId vào progress store
+          setEnrollmentId(enrollmentData.id);
 
           // Kiểm tra xem có certificate không
           if (enrollmentData.certificate) {
@@ -411,7 +449,13 @@ export default function ClassLearningPage() {
     };
 
     fetchEnrollmentData();
-  }, [user?.id, course?.id]);
+  }, [
+    user?.id,
+    course?.id,
+    params.classId,
+    setEnrollmentId,
+    fetchInitialProgress,
+  ]);
 
   // Fetch syllabus data
   const fetchSyllabus = async () => {
@@ -434,36 +478,41 @@ export default function ClassLearningPage() {
     }
   };
 
-  // Restore lesson từ localStorage hoặc set lesson đầu tiên
+  // Restore lesson từ currentProgress hoặc set lesson đầu tiên
   useEffect(() => {
     if (syllabusData.length > 0 && !currentItem && params.classId) {
-      // Tìm lesson từ localStorage
-      const savedLessonId = localStorage.getItem(
-        `class-${params.classId}-current-lesson`,
-      );
-
-      if (savedLessonId) {
-        // Tìm lesson item từ syllabus data
+      const savedSyllabusItemId = currentProgress?.syllabusItemId;
+      if (savedSyllabusItemId) {
+        // Tìm syllabus item theo syllabusItemId từ currentProgress
         for (const group of syllabusData) {
           const foundItem = group.items.find(
-            (item) =>
-              item.itemType === SyllabusItemType.LESSON &&
-              item.lesson?.id === savedLessonId,
+            (item) => item.id === savedSyllabusItemId,
           );
           if (foundItem) {
             setCurrentItem(foundItem);
             return;
           }
         }
+        console.log(
+          "⚠️ Saved syllabus item not found, falling back to first item",
+        );
       }
 
-      // Nếu không tìm thấy lesson từ localStorage, set lesson đầu tiên
+      // Nếu không tìm thấy item từ progress, set item đầu tiên
       const firstGroup = syllabusData[0];
       if (firstGroup?.items?.length > 0) {
+        console.log("📍 Setting first item as default:", firstGroup.items[0]);
         setCurrentItem(firstGroup.items[0]);
       }
     }
-  }, [syllabusData, currentItem, params.classId]);
+  }, [
+    currentProgress,
+    completedItems,
+    enrollmentId,
+    syllabusData,
+    currentItem,
+    params.classId,
+  ]);
 
   // Fetch lesson data when lesson item is selected
   const fetchLessonData = async (lessonId: string) => {
@@ -547,12 +596,6 @@ export default function ClassLearningPage() {
       if (targetItem && targetItem.id !== currentItem?.id) {
         setCurrentItem(targetItem);
 
-        // Save to localStorage for persistence
-        localStorage.setItem(
-          `class-${params.classId}-current-lesson`,
-          targetLessonId,
-        );
-
         // Clean up URL parameter after navigation
         const newUrl = new URL(window.location.href);
         newUrl.searchParams.delete("lesson");
@@ -565,130 +608,6 @@ export default function ClassLearningPage() {
       }
     }
   }, [syllabusData, searchParams, currentItem, params.classId, router]);
-
-  // Effect to restore lesson from localStorage on page load
-  useEffect(() => {
-    if (!currentItem && syllabusData.length > 0) {
-      const savedLessonId = localStorage.getItem(
-        `class-${params.classId}-current-lesson`,
-      );
-
-      if (savedLessonId) {
-        const savedItem = syllabusData
-          .flatMap((group) => group.items)
-          .find(
-            (item) =>
-              item.itemType === SyllabusItemType.LESSON &&
-              item.lesson?.id === savedLessonId,
-          );
-
-        if (savedItem) {
-          setCurrentItem(savedItem);
-          return;
-        }
-      }
-
-      // Fallback to first item if no saved lesson or saved lesson not found
-      const firstGroup = syllabusData[0];
-      if (firstGroup && firstGroup.items.length > 0) {
-        setCurrentItem(firstGroup.items[0]);
-      }
-    }
-  }, [syllabusData, currentItem, params.classId]);
-
-  // Effect to save current lesson to localStorage when it changes
-  useEffect(() => {
-    if (
-      currentItem?.itemType === SyllabusItemType.LESSON &&
-      currentItem.lesson?.id &&
-      params.classId
-    ) {
-      localStorage.setItem(
-        `class-${params.classId}-current-lesson`,
-        currentItem.lesson.id,
-      );
-    }
-  }, [currentItem, params.classId]);
-
-  // Effect to handle lesson navigation from URL parameters
-  useEffect(() => {
-    const targetLessonId = searchParams.get("lesson");
-
-    if (targetLessonId && syllabusData.length > 0) {
-      // Find the syllabus item that contains the target lesson
-      const targetItem = syllabusData
-        .flatMap((group) => group.items)
-        .find(
-          (item) =>
-            item.itemType === SyllabusItemType.LESSON &&
-            item.lesson?.id === targetLessonId,
-        );
-
-      if (targetItem && targetItem.id !== currentItem?.id) {
-        setCurrentItem(targetItem);
-
-        // Save to localStorage for persistence
-        localStorage.setItem(
-          `class-${params.classId}-current-lesson`,
-          targetLessonId,
-        );
-
-        // Clean up URL parameter after navigation
-        const newUrl = new URL(window.location.href);
-        newUrl.searchParams.delete("lesson");
-        router.replace(newUrl.pathname + newUrl.search, { scroll: false });
-
-        toast({
-          title: "Đã chuyển đến bài học",
-          description: targetItem.lesson?.title || "Bài học được yêu cầu",
-        });
-      }
-    }
-  }, [syllabusData, searchParams, currentItem, params.classId, router]);
-
-  // Effect to restore lesson from localStorage on page load
-  useEffect(() => {
-    if (!currentItem && syllabusData.length > 0) {
-      const savedLessonId = localStorage.getItem(
-        `class-${params.classId}-current-lesson`,
-      );
-
-      if (savedLessonId) {
-        const savedItem = syllabusData
-          .flatMap((group) => group.items)
-          .find(
-            (item) =>
-              item.itemType === SyllabusItemType.LESSON &&
-              item.lesson?.id === savedLessonId,
-          );
-
-        if (savedItem) {
-          setCurrentItem(savedItem);
-          return;
-        }
-      }
-
-      // Fallback to first item if no saved lesson or saved lesson not found
-      const firstGroup = syllabusData[0];
-      if (firstGroup && firstGroup.items.length > 0) {
-        setCurrentItem(firstGroup.items[0]);
-      }
-    }
-  }, [syllabusData, currentItem, params.classId]);
-
-  // Effect to save current lesson to localStorage when it changes
-  useEffect(() => {
-    if (
-      currentItem?.itemType === SyllabusItemType.LESSON &&
-      currentItem.lesson?.id &&
-      params.classId
-    ) {
-      localStorage.setItem(
-        `class-${params.classId}-current-lesson`,
-        currentItem.lesson.id,
-      );
-    }
-  }, [currentItem, params.classId]);
 
   // Get all items in order for navigation
   const allItems = useMemo(() => {
@@ -704,12 +623,40 @@ export default function ClassLearningPage() {
 
   // Helper function to check if an item is completed
   const isItemCompleted = (item: SyllabusItem) => {
-    if (!progress || !Array.isArray(progress)) return false;
-
+    if (!completedItems || !Array.isArray(completedItems)) return false;
     // Check if this item has progress and is completed
-    return progress.some(
-      (p: any) => p.syllabusItemId === item.id && p.isCompleted === true,
-    );
+    return completedItems.some((p: any) => p.id === item.id);
+  };
+
+  // Helper function to check if navigation to an item is allowed
+  const canNavigateToItem = (targetItem: SyllabusItem) => {
+    const targetIndex = allItems.findIndex((item) => item.id === targetItem.id);
+    const currentIndex = currentItemIndex;
+
+    // Allow navigation to current item or previous items
+    if (targetIndex <= currentIndex) return true;
+
+    // Allow navigation to immediate next item
+    if (targetIndex === currentIndex + 1) return true;
+
+    // Check if all items before the target are completed
+    for (let i = currentIndex + 1; i < targetIndex; i++) {
+      if (!isItemCompleted(allItems[i])) {
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  // Helper function to find the next available lesson
+  const getNextAvailableItem = () => {
+    for (let i = currentItemIndex + 1; i < allItems.length; i++) {
+      if (canNavigateToItem(allItems[i])) {
+        return allItems[i];
+      }
+    }
+    return null;
   };
 
   // Navigation functions
@@ -723,6 +670,196 @@ export default function ClassLearningPage() {
     if (currentItemIndex < allItems.length - 1) {
       setCurrentItem(allItems[currentItemIndex + 1]);
     }
+  };
+  // Function to handle lesson completion and check unlock requirements
+  const handleLessonCompletion = async (completedLessonId: string) => {
+    if (!completedLessonId) return;
+
+    try {
+      console.log(
+        "Processing lesson completion for unlock requirements:",
+        completedLessonId,
+      );
+
+      // Tìm tất cả quiz lessons để xử lý unlock requirements
+      const quizLessons = syllabusData
+        .flatMap((group) => group.items)
+        .filter(
+          (item) =>
+            item.itemType === SyllabusItemType.LESSON &&
+            item.lesson?.type === LessonType.QUIZ,
+        );
+
+      console.log(
+        `Found ${quizLessons.length} quiz lessons to check unlock requirements`,
+      );
+
+      let totalRequirementsProcessed = 0;
+      let successfulUnlocks: any[] = [];
+
+      for (const quizItem of quizLessons) {
+        if (!quizItem.lesson?.id) continue;
+
+        try {
+          // Gọi API để lấy quiz status và kiểm tra unlock requirements
+          const statusResult = await getQuizStatus(quizItem.lesson.id);
+
+          if (statusResult.success && statusResult.data?.unlockRequirements) {
+            const requirements = statusResult.data.unlockRequirements;
+
+            // Tìm requirement liên quan đến lesson vừa hoàn thành
+            const matchingRequirements = requirements.filter(
+              (req: any) =>
+                req.type === "WATCH_LESSON" &&
+                req.targetLesson.id === completedLessonId &&
+                !req.isCompleted,
+            );
+            matchingRequirements.forEach((requirement: any) => {
+              console.log("is check matching requirement: ", {
+                type: requirement.type,
+                targetLessonId: requirement.targetLesson.id,
+                completedLessonId,
+                isCompleted: requirement.isCompleted,
+              });
+            });
+
+            console.log(
+              `Found ${matchingRequirements.length} matching requirements for quiz ${quizItem.lesson.title}`,
+            );
+
+            // Xử lý từng requirement
+            for (const requirement of matchingRequirements) {
+              try {
+                const completeResult = await completeUnlockRequirement(
+                  quizItem.lesson.id,
+                  requirement.id, // Sử dụng đúng requirement ID
+                  {
+                    completedLessonId: completedLessonId,
+                    completedAt: new Date().toISOString(),
+                    progress: 100,
+                  },
+                );
+
+                if (completeResult.success) {
+                  console.log(
+                    `✅ Completed requirement ${requirement.id} for quiz ${quizItem.lesson.title}`,
+                  );
+                  totalRequirementsProcessed++;
+
+                  // Thử unlock quiz
+                  const unlockResult = await unlockQuiz(quizItem.lesson.id);
+                  if (unlockResult.success) {
+                    successfulUnlocks.push({
+                      lessonId: quizItem.lesson.id,
+                      lessonTitle: quizItem.lesson.title,
+                    });
+                  }
+                }
+              } catch (error) {
+                console.log(
+                  `Could not complete requirement ${requirement.id}:`,
+                  error,
+                );
+              }
+            }
+          }
+        } catch (error) {
+          console.log(
+            `Could not check quiz status for ${quizItem.lesson.id}:`,
+            error,
+          );
+        }
+      }
+
+      // Hiển thị thông báo cho các quiz đã được unlock
+      for (const unlock of successfulUnlocks) {
+        toast({
+          title: "🎉 Quiz đã được mở khóa!",
+          description: `Bạn có thể làm quiz "${unlock.lessonTitle}" ngay bây giờ.`,
+          duration: 5000,
+        });
+      }
+
+      if (totalRequirementsProcessed > 0) {
+        console.log(
+          `✅ Successfully processed ${totalRequirementsProcessed} unlock requirements`,
+        );
+      } else {
+        console.log("No unlock requirements found for this lesson completion");
+      }
+    } catch (error) {
+      console.error(
+        "Error processing lesson completion for unlock requirements:",
+        error,
+      );
+    }
+  };
+
+  // Enhanced goToNext with lesson completion handling
+  const handleGoToNext = () => {
+    const nextItem = allItems[currentItemIndex + 1];
+    if (!nextItem) return;
+
+    // If current lesson is not completed, show confirmation modal
+    if (
+      currentItem?.itemType === SyllabusItemType.LESSON &&
+      currentItem.lesson?.type !== LessonType.QUIZ &&
+      !isItemCompleted(currentItem)
+    ) {
+      setPendingNavigation(nextItem);
+      setIsConfirmModalOpen(true);
+      return;
+    }
+
+    // If already completed or is a quiz, navigate directly
+    goToNext();
+  };
+
+  // Handle confirmed navigation (complete current lesson and go to next)
+  const handleConfirmedNavigation = async () => {
+    if (!pendingNavigation) return;
+
+    // Complete current lesson if it's not a quiz
+    if (
+      currentItem?.itemType === SyllabusItemType.LESSON &&
+      currentItem.lesson?.id &&
+      currentItem.lesson?.type !== LessonType.QUIZ
+    ) {
+      try {
+        // create progress cho lesson hiện tại
+        await createSyllabusProgress(currentItem?.id);
+
+        // Xử lý unlock requirements
+        await handleLessonCompletion(currentItem.lesson.id);
+
+        toast({
+          title: "✅ Đã hoàn thành bài học!",
+          description: "Chuyển sang bài học tiếp theo.",
+        });
+      } catch (error) {
+        console.error("Error completing lesson:", error);
+        toast({
+          title: "Lỗi",
+          description: "Không thể cập nhật tiến độ học tập",
+          variant: "destructive",
+        });
+      }
+    }
+
+    // Navigate to next item
+    setCurrentItem(pendingNavigation);
+
+    // Current lesson is automatically tracked by progress store
+
+    // Close modal
+    setIsConfirmModalOpen(false);
+    setPendingNavigation(null);
+  };
+
+  // Handle cancelled navigation
+  const handleCancelledNavigation = () => {
+    setIsConfirmModalOpen(false);
+    setPendingNavigation(null);
   };
 
   // Format date helper
@@ -816,15 +953,7 @@ export default function ClassLearningPage() {
 
     try {
       console.log("Handle done session");
-      await updateLessonProgress({
-        progress: Math.min(
-          100,
-          ((currentItemIndex + 2) / allItems.length) * 100,
-        ),
-        currentProgressId: currentProgress?.id,
-        nextSyllabusItemId: nextItem?.id,
-        isLessonCompleted: true,
-      });
+      await createSyllabusProgress(currentItem?.id);
 
       // Nếu là buổi học cuối cùng, xử lý hoàn thành khóa học
       if (isLastItem) {
@@ -952,13 +1081,13 @@ export default function ClassLearningPage() {
 
           {/* Main Content */}
           <motion.div
-            className="p-6"
+            className="p-6 -mt-10"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3 }}
           >
             {currentItem ? (
-              <div className="max-w-full">
+              <div className="max-w-full -mt-10">
                 {currentItem.itemType === SyllabusItemType.LESSON ? (
                   // Lesson Content - Display inline like lesson page
                   <div>
@@ -1006,7 +1135,7 @@ export default function ClassLearningPage() {
                         )}
 
                         {/* Time Tracking Component for Lessons */}
-                        {currentLessonData.type !== LessonType.QUIZ &&
+                        {/* {currentLessonData.type !== LessonType.QUIZ &&
                           isEnrolled &&
                           currentItem.lesson?.estimatedDurationMinutes && (
                             <motion.div
@@ -1081,6 +1210,64 @@ export default function ClassLearningPage() {
                                 )}
                               </div>
                             </motion.div>
+                          )} */}
+
+                        {/* Lesson Completion Button */}
+                        {currentLessonData.type !== LessonType.QUIZ &&
+                          isEnrolled &&
+                          isItemCompleted(currentItem) && (
+                            <motion.div
+                              className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg"
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: 0.4 }}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <h3 className="font-semibold text-green-800 flex items-center gap-2 mb-1">
+                                    <CheckCircle className="h-5 w-5" />
+                                    Hoàn thành bài học
+                                  </h3>
+                                  <p className="text-sm text-green-600">
+                                    Đánh dấu bài học này đã hoàn thành để mở
+                                    khóa các quiz liên quan.
+                                  </p>
+                                </div>
+                                <Button
+                                  onClick={async () => {
+                                    if (currentItem?.lesson?.id) {
+                                      await handleLessonCompletion(
+                                        currentItem.lesson.id,
+                                      );
+                                      await handleGoToNext();
+                                    }
+                                  }}
+                                  className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2"
+                                >
+                                  <Check className="h-4 w-4" />
+                                  Hoàn thành
+                                </Button>
+                              </div>
+                            </motion.div>
+                          )}
+
+                        {/* Already completed indicator */}
+                        {currentLessonData.type !== LessonType.QUIZ &&
+                          isEnrolled &&
+                          isItemCompleted(currentItem) && (
+                            <motion.div
+                              className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-lg"
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: 0.4 }}
+                            >
+                              <div className="flex items-center gap-2 text-emerald-700">
+                                <CheckCircle className="h-5 w-5 text-emerald-600" />
+                                <span className="font-medium">
+                                  Bài học đã hoàn thành
+                                </span>
+                              </div>
+                            </motion.div>
                           )}
 
                         {/* Lesson Content */}
@@ -1099,6 +1286,14 @@ export default function ClassLearningPage() {
                                 isEnrolled={isEnrolled}
                                 classId={params.classId as string}
                                 courseId={params.courseId as string}
+                                onQuizCompleted={(success: boolean) => {
+                                  if (success && currentLessonData?.id) {
+                                    // Khi quiz hoàn thành thành công, xử lý unlock requirements
+                                    handleLessonCompletion(
+                                      currentLessonData.id,
+                                    );
+                                  }
+                                }}
                               />
                             </div>
                           ) : currentLessonData.type === LessonType.BLOG ||
@@ -1217,7 +1412,7 @@ export default function ClassLearningPage() {
                         )}
 
                         {/* Time Tracking Component for Live Sessions */}
-                        {isEnrolled &&
+                        {/* {isEnrolled &&
                           currentItem.classSession?.durationMinutes && (
                             <div className="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
                               <div className="flex items-center justify-between mb-3">
@@ -1283,7 +1478,7 @@ export default function ClassLearningPage() {
                                 )}
                               </div>
                             </div>
-                          )}
+                          )} */}
 
                         <Button
                           className="mt-4 bg-red-500 hover:bg-red-600"
@@ -1412,7 +1607,7 @@ export default function ClassLearningPage() {
             </span>
 
             <Button
-              onClick={goToNext}
+              onClick={handleGoToNext}
               disabled={currentItemIndex >= allItems.length - 1}
               className="bg-orange-500 hover:bg-orange-600"
             >
@@ -1491,13 +1686,13 @@ export default function ClassLearningPage() {
                     Tiến độ học tập
                   </span>
                   <span className="text-sm text-blue-600">
-                    {Math.round(overallProgress || 0)}%
+                    {Math.round(progress || 0)}%
                   </span>
                 </div>
                 <div className="w-full bg-blue-200 rounded-full h-2">
                   <div
                     className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${overallProgress || 0}%` }}
+                    style={{ width: `${progress || 0}%` }}
                   />
                 </div>
               </div>
@@ -1535,14 +1730,30 @@ export default function ClassLearningPage() {
                                   : "hover:bg-gray-50"
                               }`}
                               onClick={() => {
-                                setCurrentItem(item);
-                                // Lưu lesson hiện tại vào localStorage để lưu tiến độ học
-                                if (params.classId && item.lesson?.id) {
-                                  localStorage.setItem(
-                                    `class-${params.classId}-current-lesson`,
-                                    item.lesson.id,
+                                // Check if navigation to this item is allowed
+                                if (!canNavigateToItem(item)) {
+                                  const targetIndex = allItems.findIndex(
+                                    (i) => i.id === item.id,
                                   );
+                                  const nextAvailable = getNextAvailableItem();
+
+                                  toast({
+                                    title: "❌ Không thể bỏ qua bài học",
+                                    description: nextAvailable
+                                      ? `Bạn cần hoàn thành các bài học trước đó. Bài học tiếp theo: "${
+                                          nextAvailable.itemType ===
+                                          SyllabusItemType.LESSON
+                                            ? nextAvailable.lesson?.title
+                                            : nextAvailable.classSession?.topic
+                                        }"`
+                                      : "Bạn cần hoàn thành tất cả các bài học trước đó.",
+                                    variant: "destructive",
+                                  });
+                                  return;
                                 }
+
+                                setCurrentItem(item);
+                                // Progress is automatically tracked when lesson changes
                               }}
                             >
                               <CardContent className="p-3">
@@ -1554,7 +1765,7 @@ export default function ClassLearningPage() {
                                     ) : (
                                       <Video className="h-4 w-4 text-red-500" />
                                     )}
-                                    {isCompleted && (
+                                    {isLessonCompleted && (
                                       <CheckCircle className="h-4 w-4 text-green-500" />
                                     )}
                                   </div>
@@ -1636,6 +1847,52 @@ export default function ClassLearningPage() {
           </div>
         </div>
       )}
+
+      {/* Confirmation Modal for lesson completion */}
+      <Dialog open={isConfirmModalOpen} onOpenChange={setIsConfirmModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Info className="h-5 w-5 text-orange-500" />
+              Xác nhận hoàn thành bài học
+            </DialogTitle>
+            <DialogDescription>
+              Bạn có chắc chắn muốn hoàn thành bài học hiện tại và chuyển sang
+              bài học tiếp theo không?
+            </DialogDescription>
+          </DialogHeader>
+
+          {currentItem && (
+            <div className="mt-2 p-3 bg-gray-50 rounded-lg">
+              <p className="text-sm font-medium text-gray-900">
+                Bài học hiện tại:{" "}
+                {currentItem.itemType === SyllabusItemType.LESSON
+                  ? currentItem.lesson?.title
+                  : currentItem.classSession?.topic}
+              </p>
+              {pendingNavigation && (
+                <p className="text-sm text-gray-600 mt-1">
+                  Bài học tiếp theo:{" "}
+                  {pendingNavigation.itemType === SyllabusItemType.LESSON
+                    ? pendingNavigation.lesson?.title
+                    : pendingNavigation.classSession?.topic}
+                </p>
+              )}
+            </div>
+          )}
+          <DialogFooter className="flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
+            <Button variant="outline" onClick={handleCancelledNavigation}>
+              Hủy
+            </Button>
+            <Button
+              onClick={handleConfirmedNavigation}
+              className="bg-orange-500 hover:bg-orange-600"
+            >
+              Xác nhận hoàn thành
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   );
 }
