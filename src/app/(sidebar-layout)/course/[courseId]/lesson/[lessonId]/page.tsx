@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { toast as useToast } from "@/hooks/use-toast";
 import { useOtherUser } from "@/hooks/useOtherUser";
 import { usePopupChatbot } from "@/hooks/usePopupChatbot";
 import {
@@ -53,6 +54,10 @@ import { getYoutubeTranscript } from "@/actions/youtubeTranscript.action";
 import { useProgressStore } from "@/stores/useProgressStore";
 import useUserStore from "@/stores/useUserStore";
 
+import {
+  canAccessLesson,
+  getAccessControlMessage,
+} from "@/utils/accessControl";
 import { extractPlainTextFromBlockNote } from "@/utils/blocknote";
 
 import Discussion from "@/components/discussion";
@@ -398,20 +403,86 @@ export default function LessonDetail() {
   const [enrollmentId, setEnrollmentId] = useState<string | null>(null);
   const [hasCertificate, setHasCertificate] = useState<boolean>(false);
   const [certificateId, setCertificateId] = useState<string | null>(null);
+  const [timeCompleteNotified, setTimeCompleteNotified] = useState(false);
+  const [forceRender, setForceRender] = useState(0);
+  const [isButtonEnabled, setIsButtonEnabled] = useState(false);
+
+  // Debug logging
+  console.log("🔍 Component render - Current states:", {
+    isButtonEnabled,
+    forceRender,
+    timeCompleteNotified,
+  });
 
   const { user } = useUserStore();
   const params = useParams();
   const router = useRouter();
   const { data: session } = useSession();
 
+  // Time tracking callback - memoized to prevent re-creation
+  const handleTimeComplete = useCallback(() => {
+    if (!timeCompleteNotified) {
+      console.log(
+        "Time tracking completed for lesson: ",
+        lesson?.estimatedDurationMinutes,
+      );
+      setTimeCompleteNotified(true);
+      setForceRender((prev) => prev + 1); // Force re-render
+    }
+  }, [lesson?.estimatedDurationMinutes, timeCompleteNotified]);
+
   // Time tracking state - Moved after params declaration
   const timeTracking = useTimeTracking({
-    itemId: `lesson-${params.lessonId}`,
+    itemId: lesson ? `lesson-${params.lessonId}` : "",
     requiredMinutes: lesson?.estimatedDurationMinutes || 5,
-    onTimeComplete: () => {
-      console.log("Time tracking completed for lesson");
-    },
+    onTimeComplete: handleTimeComplete,
   });
+
+  // Debug time tracking state
+  useEffect(() => {
+    console.log("⏰ Time tracking update:", {
+      isTimeComplete: timeTracking.isTimeComplete,
+      elapsedSeconds: timeTracking.elapsedSeconds,
+      requiredMinutes: lesson?.estimatedDurationMinutes || 5,
+      isEnrolled,
+      isFreePreview: lesson?.isFreePreview,
+    });
+  }, [timeTracking.isTimeComplete, timeTracking.elapsedSeconds]);
+
+  // Force re-render when time tracking completes
+  useEffect(() => {
+    if (timeTracking.isTimeComplete) {
+      console.log("Time tracking completed - forcing UI update");
+      setForceRender((prev) => prev + 1);
+    }
+  }, [timeTracking.isTimeComplete]);
+
+  // Update button enabled state
+  useEffect(() => {
+    // Determine if button should be enabled based on multiple conditions
+    const shouldEnable =
+      // If not enrolled or free preview lesson, enable immediately
+      !isEnrolled ||
+      lesson?.isFreePreview ||
+      // If enrolled and not free preview, require time completion
+      (isEnrolled && !lesson?.isFreePreview && timeTracking.isTimeComplete);
+
+    console.log("🔄 Button state useEffect triggered:", {
+      timeTracking_isTimeComplete: timeTracking.isTimeComplete,
+      isEnrolled,
+      lesson_isFreePreview: lesson?.isFreePreview,
+      shouldEnable,
+      currentButtonState: isButtonEnabled,
+    });
+
+    setIsButtonEnabled(shouldEnable);
+
+    // Force re-render để đảm bảo UI update
+    if (shouldEnable !== isButtonEnabled) {
+      console.log("🚀 Forcing re-render due to button state change");
+      setForceRender((prev) => prev + 1);
+    }
+  }, [timeTracking.isTimeComplete, isEnrolled, lesson?.isFreePreview]);
 
   // Progress store
   const {
@@ -566,6 +637,14 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
   useEffect(() => {
     const fetchData = async () => {
       try {
+        // Reset states when lesson changes
+        setTimeCompleteNotified(false);
+        setForceRender(0);
+        setIsButtonEnabled(false);
+
+        // Clear any existing time tracking data for fresh start (for testing)
+        localStorage.removeItem(`time-tracking-lesson-${params.lessonId}`);
+
         const [courseData, lessonData] = await Promise.all([
           getCourseById(params.courseId as string),
           getLessonById(params.lessonId as string),
@@ -872,9 +951,9 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
     );
   }
 
-  // Hàm kiểm tra quyền truy cập bài học
-  const canAccessLesson = (lesson: any) => {
-    return lesson.isFreePreview || isEnrolled;
+  // Hàm kiểm tra quyền truy cập bài học với logic tuần tự
+  const canAccessLessonItem = (lesson: any, lessonIndex: number) => {
+    return canAccessLesson(lesson, lessonIndex, isEnrolled, allLessons, []);
   };
 
   // Tìm bài học trước/sau có thể truy cập
@@ -887,7 +966,7 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
     let index = currentIndex + step;
 
     while (index >= 0 && index < lessons.length) {
-      if (canAccessLesson(lessons[index])) {
+      if (canAccessLessonItem(lessons[index], index)) {
         return lessons[index];
       }
       index += step;
@@ -970,8 +1049,9 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
 
       // Luôn cập nhật tiến trình với thông tin của bài học tiếp theo
       // vì chúng ta đang chuyển đến bài học đó
+      const currentProgress = typeof progress === "number" ? progress : 0;
       const newProgressPercentage = Math.max(
-        progress, // Current progress from store
+        currentProgress, // Current progress from store
         ((nextLessonIndex + 1) / totalLessons) * 100,
       );
 
@@ -1190,73 +1270,8 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
                       <span>{lesson.title}</span>
                     </h2>
 
-                    {/* Time Tracking Component */}
-                    {isEnrolled &&
-                      !lesson.isFreePreview &&
-                      lesson.estimatedDurationMinutes && (
-                        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                          <div className="flex items-center justify-between mb-3">
-                            <h3 className="font-semibold text-blue-800 flex items-center gap-2">
-                              <Timer className="h-5 w-5" />
-                              Thời gian học tập
-                            </h3>
-                            <div className="flex items-center gap-2">
-                              {timeTracking.isActive ? (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={timeTracking.pause}
-                                  className="text-blue-600 border-blue-300 hover:bg-blue-100"
-                                >
-                                  <Pause className="h-4 w-4 mr-1" />
-                                  Tạm dừng
-                                </Button>
-                              ) : (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={timeTracking.resume}
-                                  className="text-blue-600 border-blue-300 hover:bg-blue-100"
-                                >
-                                  <Play className="h-4 w-4 mr-1" />
-                                  Tiếp tục
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="space-y-2">
-                            <div className="flex justify-between text-sm text-blue-700">
-                              <span>
-                                Thời gian đã học:{" "}
-                                {formatTime(timeTracking.elapsedSeconds)}
-                              </span>
-                              <span>
-                                Yêu cầu: {lesson.estimatedDurationMinutes} phút
-                              </span>
-                            </div>
-
-                            <Progress
-                              value={timeTracking.progress}
-                              className="w-full h-2 bg-blue-200"
-                            />
-
-                            {!timeTracking.isTimeComplete && (
-                              <p className="text-sm text-blue-600">
-                                Còn lại: {timeTracking.remainingMinutes} phút để
-                                hoàn thành bài học
-                              </p>
-                            )}
-
-                            {timeTracking.isTimeComplete && (
-                              <p className="text-sm text-green-600 font-medium flex items-center gap-1">
-                                <Check className="h-4 w-4" />
-                                Đã học đủ thời gian yêu cầu
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      )}
+                    {/* Time Tracking Component - HIDDEN but still tracking */}
+                    {/* Time tracking is running in background via timeTracking hook */}
 
                     {/* Render Parsed Content for BLOG or MIXED */}
                     {(lesson.type === LessonType.BLOG ||
@@ -1365,20 +1380,23 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
                       <TooltipTrigger asChild>
                         <div>
                           <Button
+                            key={`next-lesson-btn-${isButtonEnabled}-${forceRender}`}
                             className={`w-40 transition-all duration-300 group ${
-                              // Check if user has completed required time OR is viewing free preview OR not enrolled
-                              timeTracking.isTimeComplete ||
-                              lesson.isFreePreview ||
-                              !isEnrolled
+                              isButtonEnabled
                                 ? "bg-gradient-to-r from-orange-500 to-red-500 text-white hover:from-orange-600 hover:to-red-600"
                                 : "bg-gray-300 text-gray-500 cursor-not-allowed"
                             }`}
-                            disabled={
-                              // Disable if user is enrolled, not a free preview, and hasn't completed required time
-                              isEnrolled &&
-                              !lesson.isFreePreview &&
-                              !timeTracking.isTimeComplete
-                            }
+                            disabled={!isButtonEnabled}
+                            onClick={() => {
+                              console.log("🎯 Button clicked! Current state:", {
+                                isButtonEnabled,
+                                timeTracking_isTimeComplete:
+                                  timeTracking.isTimeComplete,
+                                lesson_isFreePreview: lesson?.isFreePreview,
+                                isEnrolled,
+                                forceRender,
+                              });
+                            }}
                           >
                             Học tiếp{" "}
                             <ChevronRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
@@ -1386,7 +1404,7 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
                         </div>
                       </TooltipTrigger>
                       {isEnrolled &&
-                        !lesson.isFreePreview &&
+                        !lesson?.isFreePreview &&
                         !timeTracking.isTimeComplete && (
                           <TooltipContent>
                             <p>
@@ -1456,18 +1474,26 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
                         <TooltipTrigger asChild>
                           <div>
                             <Button
+                              key={`complete-course-btn-${isButtonEnabled}-${forceRender}`}
                               className={`w-40 transition-all duration-300 group ${
-                                timeTracking.isTimeComplete ||
-                                lesson.isFreePreview ||
-                                !isEnrolled
+                                isButtonEnabled
                                   ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600"
                                   : "bg-gray-300 text-gray-500 cursor-not-allowed"
                               }`}
-                              disabled={
-                                isEnrolled &&
-                                !lesson.isFreePreview &&
-                                !timeTracking.isTimeComplete
-                              }
+                              disabled={!isButtonEnabled}
+                              onClick={() => {
+                                console.log(
+                                  "🎯 Complete Course Button clicked! Current state:",
+                                  {
+                                    isButtonEnabled,
+                                    timeTracking_isTimeComplete:
+                                      timeTracking.isTimeComplete,
+                                    lesson_isFreePreview: lesson?.isFreePreview,
+                                    isEnrolled,
+                                    forceRender,
+                                  },
+                                );
+                              }}
                             >
                               Hoàn thành{" "}
                               <ChevronRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
@@ -1475,7 +1501,7 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
                           </div>
                         </TooltipTrigger>
                         {isEnrolled &&
-                          !lesson.isFreePreview &&
+                          !lesson?.isFreePreview &&
                           !timeTracking.isTimeComplete && (
                             <TooltipContent>
                               <p>
@@ -1587,56 +1613,79 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
                   </CollapsibleTrigger>
                   <CollapsibleContent className="pl-4">
                     <ul className="mt-2 space-y-2">
-                      {chapter.lessons?.map((lesson) => (
-                        <Link
-                          href={
-                            canAccessLesson(lesson)
-                              ? `/course/${course ? course.id : ""}/lesson/${lesson.id}`
-                              : "#"
-                          }
-                          key={lesson.id}
-                          className={`block p-2 rounded-lg transition-colors ${
-                            lesson.id === params.lessonId
-                              ? "bg-orange-100"
-                              : "hover:bg-gray-200"
-                          } ${
-                            !canAccessLesson(lesson)
-                              ? "opacity-50 cursor-not-allowed"
-                              : "cursor-pointer"
-                          }`}
-                          onClick={(e) => {
-                            if (!canAccessLesson(lesson)) {
-                              e.preventDefault();
+                      {chapter.lessons?.map((lesson) => {
+                        const lessonIndex = allLessons.findIndex(
+                          (l) => l!.id === lesson.id,
+                        );
+                        const canAccess = canAccessLessonItem(
+                          lesson,
+                          lessonIndex,
+                        );
+
+                        return (
+                          <Link
+                            href={
+                              canAccess
+                                ? `/course/${course ? course.id : ""}/lesson/${lesson.id}`
+                                : "#"
                             }
-                          }}
-                        >
-                          <div className="flex items-center gap-2 min-h-[32px]">
-                            <div className="flex-1 overflow-hidden">
-                              <span
-                                className={`block truncate text-[15px] ${
-                                  lesson.id === params.lessonId
-                                    ? "font-medium"
-                                    : ""
-                                }`}
-                              >
-                                {lesson.title}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              {lesson.id === lastLessonId && (
-                                <span className="flex-shrink-0 text-xs px-1 py-0.5 rounded bg-orange-100 text-orange-600">
-                                  Đang học
+                            key={lesson.id}
+                            className={`block p-2 rounded-lg transition-colors ${
+                              lesson.id === params.lessonId
+                                ? "bg-orange-100"
+                                : "hover:bg-gray-200"
+                            } ${
+                              !canAccess
+                                ? "opacity-50 cursor-not-allowed"
+                                : "cursor-pointer"
+                            }`}
+                            onClick={(e) => {
+                              if (!canAccess) {
+                                e.preventDefault();
+                                // Hiển thị toast thông báo
+                                const message =
+                                  getAccessControlMessage(isEnrolled);
+                                useToast({
+                                  title: message.title,
+                                  description: message.description,
+                                  variant: "destructive",
+                                });
+                              }
+                            }}
+                          >
+                            <div className="flex items-center gap-2 min-h-[32px]">
+                              <div className="flex-1 overflow-hidden">
+                                <span
+                                  className={`block truncate text-[15px] ${
+                                    lesson.id === params.lessonId
+                                      ? "font-medium"
+                                      : ""
+                                  }`}
+                                >
+                                  {lesson.title}
                                 </span>
-                              )}
-                              {lesson.isFreePreview && (
-                                <span className="flex-shrink-0 text-xs bg-gray-200 px-2 py-1 rounded">
-                                  Miễn phí
-                                </span>
-                              )}
+                              </div>
+                              <div className="flex items-center gap-1">
+                                {lesson.id === lastLessonId && (
+                                  <span className="flex-shrink-0 text-xs px-1 py-0.5 rounded bg-orange-100 text-orange-600">
+                                    Đang học
+                                  </span>
+                                )}
+                                {lesson.isFreePreview && (
+                                  <span className="flex-shrink-0 text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded">
+                                    Miễn phí
+                                  </span>
+                                )}
+                                {!canAccess && !lesson.isFreePreview && (
+                                  <span className="flex-shrink-0 text-xs bg-red-100 text-red-600 px-2 py-1 rounded flex items-center gap-1">
+                                    🔒 Khóa
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        </Link>
-                      ))}
+                          </Link>
+                        );
+                      })}
                     </ul>
                   </CollapsibleContent>
                 </Collapsible>

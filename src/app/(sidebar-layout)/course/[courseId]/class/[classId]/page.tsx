@@ -56,6 +56,11 @@ import {
 import { useProgressStore } from "@/stores/useProgressStore";
 import useUserStore from "@/stores/useUserStore";
 
+import {
+  canAccessSyllabusItem,
+  getAccessControlMessage,
+} from "@/utils/accessControl";
+
 import AttendanceChecker from "@/components/attendance/AttendanceChecker";
 import AttendanceManager from "@/components/attendance/AttendanceManager";
 import { Badge } from "@/components/ui/badge";
@@ -530,6 +535,17 @@ export default function ClassLearningPage() {
     );
   };
 
+  // Helper function to check if user can access an item with sequential logic
+  const canAccessItem = (item: SyllabusItem, itemIndex: number) => {
+    return canAccessSyllabusItem(
+      item,
+      itemIndex,
+      isEnrolled,
+      allItems,
+      progress || [],
+    );
+  };
+
   // Navigation functions
   const goToPrevious = () => {
     if (currentItemIndex > 0) {
@@ -818,82 +834,8 @@ export default function ClassLearningPage() {
                           </motion.div>
                         )}
 
-                        {/* Time Tracking Component for Lessons */}
-                        {isEnrolled &&
-                          currentItem.lesson?.estimatedDurationMinutes && (
-                            <motion.div
-                              className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg"
-                              initial={{ opacity: 0, y: 10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              transition={{ delay: 0.3 }}
-                            >
-                              <div className="flex items-center justify-between mb-3">
-                                <h3 className="font-semibold text-blue-800 flex items-center gap-2">
-                                  <Timer className="h-5 w-5" />
-                                  Thời gian học tập
-                                </h3>
-                                <div className="flex items-center gap-2">
-                                  {timeTracking.isActive ? (
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={timeTracking.pause}
-                                      className="text-blue-600 border-blue-300 hover:bg-blue-100"
-                                    >
-                                      <Pause className="h-4 w-4 mr-1" />
-                                      Tạm dừng
-                                    </Button>
-                                  ) : (
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={timeTracking.resume}
-                                      className="text-blue-600 border-blue-300 hover:bg-blue-100"
-                                    >
-                                      <Play className="h-4 w-4 mr-1" />
-                                      Tiếp tục
-                                    </Button>
-                                  )}
-                                </div>
-                              </div>
-
-                              <div className="space-y-2">
-                                <div className="flex justify-between text-sm text-blue-700">
-                                  <span>
-                                    Thời gian đã học:{" "}
-                                    {formatTime(timeTracking.elapsedSeconds)}
-                                  </span>
-                                  <span>
-                                    Yêu cầu:{" "}
-                                    {
-                                      currentItem.lesson
-                                        .estimatedDurationMinutes
-                                    }{" "}
-                                    phút
-                                  </span>
-                                </div>
-
-                                <Progress
-                                  value={timeTracking.progress}
-                                  className="w-full h-2 bg-blue-200"
-                                />
-
-                                {!timeTracking.isTimeComplete && (
-                                  <p className="text-sm text-blue-600">
-                                    Còn lại: {timeTracking.remainingMinutes}{" "}
-                                    phút để hoàn thành bài học
-                                  </p>
-                                )}
-
-                                {timeTracking.isTimeComplete && (
-                                  <p className="text-sm text-green-600 font-medium flex items-center gap-1">
-                                    <Check className="h-4 w-4" />
-                                    Đã học đủ thời gian yêu cầu
-                                  </p>
-                                )}
-                              </div>
-                            </motion.div>
-                          )}
+                        {/* Time Tracking Component for Lessons - HIDDEN but still tracking */}
+                        {/* Time tracking is running in background via timeTracking hook */}
 
                         {/* Lesson Content */}
                         <motion.div
@@ -1017,74 +959,8 @@ export default function ClassLearningPage() {
                           </div>
                         )}
 
-                        {/* Time Tracking Component for Live Sessions */}
-                        {isEnrolled &&
-                          currentItem.classSession?.durationMinutes && (
-                            <div className="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
-                              <div className="flex items-center justify-between mb-3">
-                                <h3 className="font-semibold text-orange-800 flex items-center gap-2">
-                                  <Timer className="h-5 w-5" />
-                                  Thời gian tham gia buổi học
-                                </h3>
-                                <div className="flex items-center gap-2">
-                                  {timeTracking.isActive ? (
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={timeTracking.pause}
-                                      className="text-orange-600 border-orange-300 hover:bg-orange-100"
-                                    >
-                                      <Pause className="h-4 w-4 mr-1" />
-                                      Tạm dừng
-                                    </Button>
-                                  ) : (
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={timeTracking.resume}
-                                      className="text-orange-600 border-orange-300 hover:bg-orange-100"
-                                    >
-                                      <Play className="h-4 w-4 mr-1" />
-                                      Tiếp tục
-                                    </Button>
-                                  )}
-                                </div>
-                              </div>
-
-                              <div className="space-y-2">
-                                <div className="flex justify-between text-sm text-orange-700">
-                                  <span>
-                                    Thời gian đã tham gia:{" "}
-                                    {formatTime(timeTracking.elapsedSeconds)}
-                                  </span>
-                                  <span>
-                                    Yêu cầu:{" "}
-                                    {currentItem.classSession.durationMinutes}{" "}
-                                    phút
-                                  </span>
-                                </div>
-
-                                <Progress
-                                  value={timeTracking.progress}
-                                  className="w-full h-2 bg-orange-200"
-                                />
-
-                                {!timeTracking.isTimeComplete && (
-                                  <p className="text-sm text-orange-600">
-                                    Còn lại: {timeTracking.remainingMinutes}{" "}
-                                    phút để hoàn thành buổi học
-                                  </p>
-                                )}
-
-                                {timeTracking.isTimeComplete && (
-                                  <p className="text-sm text-green-600 font-medium flex items-center gap-1">
-                                    <Check className="h-4 w-4" />
-                                    Đã tham gia đủ thời gian yêu cầu
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          )}
+                        {/* Time Tracking Component for Live Sessions - HIDDEN but still tracking */}
+                        {/* Time tracking is running in background via timeTracking hook */}
 
                         <Button
                           className="mt-4 bg-red-500 hover:bg-red-600"
@@ -1324,15 +1200,34 @@ export default function ClassLearningPage() {
                       </div>
                       {group.items.map((item) => {
                         const isCompleted = isItemCompleted(item);
+                        const itemIndex = allItems.findIndex(
+                          (i) => i.id === item.id,
+                        );
+                        const canAccess = canAccessItem(item, itemIndex);
+
                         return (
                           <Card
                             key={item.id}
-                            className={`cursor-pointer transition-all hover:shadow-md ${
+                            className={`transition-all hover:shadow-md ${
                               currentItem?.id === item.id
                                 ? "ring-2 ring-orange-500 bg-orange-50"
-                                : "hover:bg-gray-50"
-                            }`}
-                            onClick={() => setCurrentItem(item)}
+                                : canAccess
+                                  ? "hover:bg-gray-50 cursor-pointer"
+                                  : "opacity-50"
+                            } ${!canAccess ? "cursor-not-allowed" : "cursor-pointer"}`}
+                            onClick={() => {
+                              if (canAccess) {
+                                setCurrentItem(item);
+                              } else {
+                                const message =
+                                  getAccessControlMessage(isEnrolled);
+                                toast({
+                                  title: message.title,
+                                  description: message.description,
+                                  variant: "destructive",
+                                });
+                              }
+                            }}
                           >
                             <CardContent className="p-3">
                               <div className="flex items-center gap-3">
@@ -1377,6 +1272,14 @@ export default function ClassLearningPage() {
                                         className="text-xs bg-green-100 text-green-700"
                                       >
                                         Đã hoàn thành
+                                      </Badge>
+                                    )}
+                                    {!canAccess && (
+                                      <Badge
+                                        variant="secondary"
+                                        className="text-xs bg-red-100 text-red-600"
+                                      >
+                                        🔒 Khóa
                                       </Badge>
                                     )}
                                     {item.itemType ===

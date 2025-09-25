@@ -85,7 +85,8 @@ export async function checkEnrollmentStatus(
     }
 
     const res = await api.get(
-      `/enrollments/check/${userId}/${courseId}?${queryParams.toString()}`,
+      // `/enrollments/check/${userId}/${courseId}?${queryParams.toString()}`,
+      `/enrollments/check/${courseId}?${queryParams.toString()}`,
     );
     console.log("Data của check enroll: ", res.data);
 
