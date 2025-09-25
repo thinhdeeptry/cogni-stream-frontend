@@ -87,7 +87,6 @@ export async function checkEnrollmentStatus(
     const res = await api.get(
       `/enrollments/check/${courseId}?${queryParams.toString()}`,
     );
-    console.log("Data của check enroll: ", res.data);
 
     return {
       success: true,
@@ -277,7 +276,6 @@ export const getMyClasses = async (userId: string) => {
     const response = await enrollmentApi.get(
       `/enrollments/my-classes?userId=${userId}`,
     );
-    console.log("Lớp của tôi: ", response);
     return {
       success: true,
       data: response.data,
@@ -294,7 +292,6 @@ export const getMyClasses = async (userId: string) => {
 
 export async function getEnrollmentByCourse(courseId: string) {
   try {
-    console.log("gọi api lấy theo course id");
     const api = await AxiosFactory.getApiInstance("enrollment");
     const res = await api.get(`/enrollments/find/${courseId}`);
     return { success: true, data: res.data };

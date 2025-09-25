@@ -38,9 +38,7 @@ export async function getSyllabusByClassId(
   classId: string,
 ): Promise<SyllabusResponse> {
   try {
-    console.log("Fetching syllabus for classId:", classId);
     const { data } = await syllabusApi.get(`/syllabus/class/${classId}`);
-    console.log("Syllabus data:", data);
     return data;
   } catch (error: any) {
     console.error("Lỗi khi fetch lộ trình:", error);
@@ -57,9 +55,7 @@ export async function getSyllabusByClass(
   classId: string,
 ): Promise<SyllabusItem[]> {
   try {
-    console.log("Fetching syllabus for classId:", classId);
     const { data } = await syllabusApi.get(`/syllabus/class/${classId}`);
-    console.log("Syllabus data:", data);
     // Nếu API trả về object với items, lấy items, không thì trả về data
     return Array.isArray(data) ? data : data.items || [];
   } catch (error: any) {

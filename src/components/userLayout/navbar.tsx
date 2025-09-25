@@ -58,10 +58,6 @@ export default function Navbar({
   const searchParams = useSearchParams();
   const params = useParams();
   const [searchQuery, setSearchQuery] = useState("");
-  // Initialize search query from URL on mount
-  useEffect(() => {
-    console.log("Image URL:", image);
-  }, [image]);
   useEffect(() => {
     const query = searchParams.get("q");
     if (query) {
@@ -82,10 +78,8 @@ export default function Navbar({
         try {
           const result = await getMyClasses(session.user.id);
           if (result.success) {
-            console.log("Data my class: ", result.data);
             // API trả về { data: { data: [...] } }, nên cần lấy result.data.data
             const classesData = result.data?.data || result.data || [];
-            console.log("classData: ", classesData);
             setMyClasses(
               Array.isArray(classesData.data) ? classesData.data : [],
             );
