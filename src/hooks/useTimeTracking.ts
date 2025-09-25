@@ -36,6 +36,9 @@ export const useTimeTracking = (
   useEffect(() => {
     if (!storageKey) return;
 
+    // Reset completion flag when itemId changes
+    hasCalledCompleteRef.current = false;
+
     const savedTime = localStorage.getItem(storageKey);
     if (savedTime) {
       const parsed = parseInt(savedTime, 10);
@@ -78,18 +81,46 @@ export const useTimeTracking = (
   }, [isActive]);
 
   // Calculate derived values
-  const requiredSeconds = requiredMinutes * 60;
+  const requiredSeconds = Math.max((requiredMinutes || 0) * 60, 1); // Minimum 1 second to avoid division by 0
   const isTimeComplete = elapsedSeconds >= requiredSeconds;
   const progress = Math.min((elapsedSeconds / requiredSeconds) * 100, 100);
   const remainingSeconds = Math.max(requiredSeconds - elapsedSeconds, 0);
   const remainingMinutes = Math.ceil(remainingSeconds / 60);
 
-  // Call completion callback when time is complete
+  // Debug logging
+  if (itemId && itemId.includes("lesson")) {
+    // console.log("Time tracking debug:", {
+    //   itemId,
+    //   requiredMinutes,
+    //   requiredSeconds,
+    //   elapsedSeconds,
+    //   isTimeComplete,
+    //   progress: progress.toFixed(1) + "%",
+    //   remainingMinutes,
+    //   isActive,
+    // });
+  }
+
+  // Call completion callback when time is complete (only once)
+  const onTimeCompleteRef = useRef(onTimeComplete);
+  const hasCalledCompleteRef = useRef(false);
+  onTimeCompleteRef.current = onTimeComplete;
+
   useEffect(() => {
-    if (isTimeComplete && onTimeComplete) {
-      onTimeComplete();
+    if (
+      isTimeComplete &&
+      onTimeCompleteRef.current &&
+      !hasCalledCompleteRef.current
+    ) {
+      hasCalledCompleteRef.current = true;
+      onTimeCompleteRef.current();
     }
-  }, [isTimeComplete, onTimeComplete]);
+
+    // Reset when time tracking is reset or itemId changes
+    if (!isTimeComplete) {
+      hasCalledCompleteRef.current = false;
+    }
+  }, [isTimeComplete]);
 
   // Control functions
   const start = useCallback(() => {
@@ -120,6 +151,7 @@ export const useTimeTracking = (
     setIsActive(false);
     pausedTimeRef.current = 0;
     startTimeRef.current = null;
+    hasCalledCompleteRef.current = false; // Reset completion flag
     if (storageKey) {
       localStorage.removeItem(storageKey);
     }

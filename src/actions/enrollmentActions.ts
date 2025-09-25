@@ -85,6 +85,7 @@ export async function checkEnrollmentStatus(
     }
 
     const res = await api.get(
+      // `/enrollments/check/${courseId}?${queryParams.toString()}`,
       `/enrollments/check/${courseId}?${queryParams.toString()}`,
     );
 
