@@ -34,6 +34,8 @@ interface RatingModalProps {
   courseId: string;
   courseName: string;
   classId?: string;
+  isEnrolled?: boolean; // Thêm prop để kiểm tra enrollment
+  onRatingUpdate?: () => void; // Callback để cập nhật data sau khi rating
 }
 
 export function RatingModal({
@@ -42,6 +44,8 @@ export function RatingModal({
   courseId,
   courseName,
   classId,
+  isEnrolled = false,
+  onRatingUpdate,
 }: RatingModalProps) {
   const { data: session } = useSession();
   const [ratings, setRatings] = useState<RatingType[]>([]);
@@ -99,6 +103,11 @@ export function RatingModal({
       return;
     }
 
+    if (!isEnrolled) {
+      toast.error("Vui lòng đăng ký khóa học trước khi đánh giá");
+      return;
+    }
+
     if (ratingFormData.stars === 0) {
       toast.error("Vui lòng chọn số sao đánh giá");
       return;
@@ -132,6 +141,11 @@ export function RatingModal({
         setShowRatingForm(false);
         setUserRating(result.data || null);
         fetchData(1); // Refresh ratings
+
+        // Gọi callback để cập nhật data ở trang chính
+        if (onRatingUpdate) {
+          onRatingUpdate();
+        }
       } else {
         toast.error(result.message);
       }
@@ -174,7 +188,7 @@ export function RatingModal({
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="fixed right-0 top-0 h-full w-full max-w-4xl bg-white shadow-2xl"
+            className="fixed right-0 top-0 h-full w-full max-w-4xl bg-white shadow-2xl flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -221,7 +235,7 @@ export function RatingModal({
                     </span>
                   </div>
 
-                  {session?.user && (
+                  {session?.user && isEnrolled && (
                     <Button
                       onClick={() => setShowRatingForm(!showRatingForm)}
                       variant="outline"
@@ -230,6 +244,14 @@ export function RatingModal({
                     >
                       {userRating ? "Sửa đánh giá" : "Viết đánh giá"}
                     </Button>
+                  )}
+
+                  {session?.user && !isEnrolled && (
+                    <div className="ml-auto">
+                      <p className="text-sm text-gray-500 italic">
+                        Đăng ký khóa học để có thể đánh giá
+                      </p>
+                    </div>
                   )}
                 </div>
               )}
@@ -286,179 +308,184 @@ export function RatingModal({
               </div>
             )}
 
-            {/* Search & Filter */}
-            <div className="px-6 py-4 border-b bg-white">
-              <div className="flex gap-4">
-                <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    placeholder="Tìm kiếm đánh giá..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-                {filterRating && (
-                  <Badge
-                    variant="secondary"
-                    className="flex items-center gap-1 px-3 py-2"
-                  >
-                    {filterRating} <Star className="h-3 w-3" />
-                    <button
-                      onClick={() => setFilterRating(null)}
-                      className="ml-1 hover:text-gray-600"
+            {/* Scrollable Content Area */}
+            <div className="flex-1 overflow-y-auto">
+              {/* Search & Filter */}
+              <div className="sticky top-0 px-6 py-4 border-b bg-white z-20">
+                <div className="flex gap-4">
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                      placeholder="Tìm kiếm đánh giá..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                  {filterRating && (
+                    <Badge
+                      variant="secondary"
+                      className="flex items-center gap-1 px-3 py-2"
                     >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                )}
+                      {filterRating} <Star className="h-3 w-3" />
+                      <button
+                        onClick={() => setFilterRating(null)}
+                        className="ml-1 hover:text-gray-600"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  )}
+                </div>
               </div>
-            </div>
 
-            {/* Rating Form */}
-            <AnimatePresence>
-              {showRatingForm && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: "auto", opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  className="border-b bg-orange-50 overflow-hidden"
-                >
-                  <div className="p-6">
-                    <h3 className="font-semibold mb-4">
-                      {userRating ? "Sửa đánh giá của bạn" : "Viết đánh giá"}
-                    </h3>
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium mb-2">
-                          Đánh giá sao
-                        </label>
-                        <Rating
-                          value={ratingFormData.stars}
-                          onChange={(value) =>
-                            setRatingFormData((prev) => ({
-                              ...prev,
-                              stars: value,
-                            }))
-                          }
-                          size="lg"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium mb-2">
-                          Nội dung đánh giá (tùy chọn)
-                        </label>
-                        <Textarea
-                          placeholder="Chia sẻ trải nghiệm của bạn về khóa học..."
-                          value={ratingFormData.content}
-                          onChange={(e) =>
-                            setRatingFormData((prev) => ({
-                              ...prev,
-                              content: e.target.value,
-                            }))
-                          }
-                          rows={3}
-                        />
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          onClick={handleSubmitRating}
-                          disabled={
-                            submittingRating || ratingFormData.stars === 0
-                          }
-                          className="bg-orange-500 hover:bg-orange-600"
-                        >
-                          {submittingRating ? "Đang gửi..." : "Gửi đánh giá"}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          onClick={() => setShowRatingForm(false)}
-                        >
-                          Hủy
-                        </Button>
+              {/* Rating Form */}
+              <AnimatePresence>
+                {showRatingForm && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="border-b bg-orange-50 overflow-hidden"
+                  >
+                    <div className="p-6">
+                      <h3 className="font-semibold mb-4">
+                        {userRating ? "Sửa đánh giá của bạn" : "Viết đánh giá"}
+                      </h3>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium mb-2">
+                            Đánh giá sao
+                          </label>
+                          <Rating
+                            value={ratingFormData.stars}
+                            onChange={(value) =>
+                              setRatingFormData((prev) => ({
+                                ...prev,
+                                stars: value,
+                              }))
+                            }
+                            size="lg"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium mb-2">
+                            Nội dung đánh giá (tùy chọn)
+                          </label>
+                          <Textarea
+                            placeholder="Chia sẻ trải nghiệm của bạn về khóa học..."
+                            value={ratingFormData.content}
+                            onChange={(e) =>
+                              setRatingFormData((prev) => ({
+                                ...prev,
+                                content: e.target.value,
+                              }))
+                            }
+                            rows={3}
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={handleSubmitRating}
+                            disabled={
+                              submittingRating || ratingFormData.stars === 0
+                            }
+                            className="bg-orange-500 hover:bg-orange-600"
+                          >
+                            {submittingRating ? "Đang gửi..." : "Gửi đánh giá"}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            onClick={() => setShowRatingForm(false)}
+                          >
+                            Hủy
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
-            {/* Ratings List */}
-            <div className="flex-1 overflow-y-auto">
-              {loading ? (
-                <div className="p-6">
-                  <div className="space-y-4">
-                    {[...Array(5)].map((_, i) => (
-                      <div key={i} className="animate-pulse">
-                        <div className="flex gap-4">
-                          <div className="w-12 h-12 bg-gray-200 rounded-full" />
-                          <div className="flex-1">
-                            <div className="h-4 bg-gray-200 rounded mb-2" />
-                            <div className="h-3 bg-gray-200 rounded w-3/4 mb-2" />
-                            <div className="h-16 bg-gray-200 rounded" />
+              {/* Ratings List */}
+              <div className="min-h-0">
+                {loading ? (
+                  <div className="p-6">
+                    <div className="space-y-4">
+                      {[...Array(5)].map((_, i) => (
+                        <div key={i} className="animate-pulse">
+                          <div className="flex gap-4">
+                            <div className="w-12 h-12 bg-gray-200 rounded-full" />
+                            <div className="flex-1">
+                              <div className="h-4 bg-gray-200 rounded mb-2" />
+                              <div className="h-3 bg-gray-200 rounded w-3/4 mb-2" />
+                              <div className="h-16 bg-gray-200 rounded" />
+                            </div>
                           </div>
                         </div>
-                      </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : filteredRatings.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+                    <Star className="h-12 w-12 mb-4" />
+                    <p>
+                      {searchTerm || filterRating
+                        ? "Không tìm thấy đánh giá phù hợp"
+                        : "Chưa có đánh giá nào"}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="p-6 space-y-6">
+                    {filteredRatings.map((rating) => (
+                      <motion.div
+                        key={rating.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="flex gap-4 p-4 bg-gray-50 rounded-lg"
+                      >
+                        <Avatar className="w-12 h-12">
+                          <AvatarImage src={rating.student.image} />
+                          <AvatarFallback>
+                            {rating.student.name.charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h4 className="font-medium">
+                              {rating.student.name}
+                            </h4>
+                            <div className="flex items-center gap-1">
+                              {[...Array(5)].map((_, i) => (
+                                <Star
+                                  key={i}
+                                  className={cn(
+                                    "h-4 w-4",
+                                    i < rating.stars
+                                      ? "text-yellow-500 fill-current"
+                                      : "text-gray-300",
+                                  )}
+                                />
+                              ))}
+                            </div>
+                            <span className="text-sm text-gray-500 flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {new Date(rating.createdAt).toLocaleDateString(
+                                "vi-VN",
+                              )}
+                            </span>
+                          </div>
+                          {rating.content && (
+                            <p className="text-gray-700 leading-relaxed">
+                              {rating.content}
+                            </p>
+                          )}
+                        </div>
+                      </motion.div>
                     ))}
                   </div>
-                </div>
-              ) : filteredRatings.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-gray-500">
-                  <Star className="h-12 w-12 mb-4" />
-                  <p>
-                    {searchTerm || filterRating
-                      ? "Không tìm thấy đánh giá phù hợp"
-                      : "Chưa có đánh giá nào"}
-                  </p>
-                </div>
-              ) : (
-                <div className="p-6 space-y-6">
-                  {filteredRatings.map((rating) => (
-                    <motion.div
-                      key={rating.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="flex gap-4 p-4 bg-gray-50 rounded-lg"
-                    >
-                      <Avatar className="w-12 h-12">
-                        <AvatarImage src={rating.student.image} />
-                        <AvatarFallback>
-                          {rating.student.name.charAt(0).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <h4 className="font-medium">{rating.student.name}</h4>
-                          <div className="flex items-center gap-1">
-                            {[...Array(5)].map((_, i) => (
-                              <Star
-                                key={i}
-                                className={cn(
-                                  "h-4 w-4",
-                                  i < rating.stars
-                                    ? "text-yellow-500 fill-current"
-                                    : "text-gray-300",
-                                )}
-                              />
-                            ))}
-                          </div>
-                          <span className="text-sm text-gray-500 flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            {new Date(rating.createdAt).toLocaleDateString(
-                              "vi-VN",
-                            )}
-                          </span>
-                        </div>
-                        {rating.content && (
-                          <p className="text-gray-700 leading-relaxed">
-                            {rating.content}
-                          </p>
-                        )}
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              )}
+                )}
+              </div>
             </div>
 
             {/* Pagination */}
