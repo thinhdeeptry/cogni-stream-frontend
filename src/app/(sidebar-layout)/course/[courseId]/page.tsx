@@ -57,6 +57,7 @@ import ClassSessionsModal from "@/components/course/ClassSessionsModal";
 import SyllabusDisplay from "@/components/course/SyllabusDisplay";
 import Discussion from "@/components/discussion";
 import { DiscussionType } from "@/components/discussion/type";
+import { RatingModal } from "@/components/rating/RatingModal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -116,6 +117,9 @@ export default function CourseDetail() {
   // Pricing state
   const [pricing, setPricing] = useState<CoursePrice | null>(null);
   const [loadingPrice, setLoadingPrice] = useState(true);
+
+  // Rating modal state
+  const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
 
   // Progress store
   const {
@@ -637,7 +641,7 @@ export default function CourseDetail() {
                           </span>
                         </div>
                         <span className="text-sm text-gray-500">
-                          ({course.instructor.totalRatings} đánh giá)
+                          ({course.instructor.totalRatings} đánh giá giảng viên)
                         </span>
                       </div>
                     )}
@@ -645,6 +649,71 @@ export default function CourseDetail() {
               </div>
             </div>
           )}
+
+          {/* Course Rating Section */}
+          <div className="border-t pt-6">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+              {/* <Star className="h-5 w-5 text-orange-500" /> */}
+              Đánh giá khóa học
+            </h3>
+            {course!.avgRating > 0 && course!.totalRatings > 0 ? (
+              <button
+                onClick={() => setIsRatingModalOpen(true)}
+                className="flex items-center gap-3 hover:bg-gray-50 p-3 rounded-md transition-colors border border-gray-200 hover:border-gray-300"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="flex">
+                    {[...Array(5)].map((_, i) => (
+                      <Star
+                        key={i}
+                        className={cn(
+                          "h-5 w-5",
+                          i < Math.floor(course.avgRating)
+                            ? "text-yellow-500 fill-current"
+                            : "text-gray-300",
+                        )}
+                      />
+                    ))}
+                  </div>
+                  <span className="text-lg font-semibold text-gray-800">
+                    {course.avgRating.toFixed(1)}
+                  </span>
+                </div>
+                <div className="flex flex-col items-start">
+                  <span className="text-sm font-medium text-gray-700">
+                    {course.totalRatings} đánh giá
+                  </span>
+                  {/* <span className="text-xs text-gray-500">
+                    Xem chi tiết và viết đánh giá
+                  </span> */}
+                </div>
+              </button>
+            ) : (
+              <button
+                onClick={() => setIsRatingModalOpen(true)}
+                className="flex items-center gap-3 hover:bg-gray-50 p-3 rounded-md transition-colors border border-gray-200 hover:border-gray-300"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="flex">
+                    {[...Array(5)].map((_, i) => (
+                      <Star key={i} className="h-5 w-5 text-gray-300" />
+                    ))}
+                  </div>
+                  <span className="text-sm text-gray-500">
+                    Chưa có đánh giá
+                  </span>
+                </div>
+                <div className="flex flex-col items-start">
+                  <span className="text-sm font-medium text-orange-600">
+                    Hãy là người đầu tiên đánh giá!
+                  </span>
+                  <span className="text-xs text-gray-500">
+                    Chia sẻ trải nghiệm của bạn
+                  </span>
+                </div>
+              </button>
+            )}
+          </div>
         </motion.div>
 
         {/* Learning Outcomes */}
@@ -1176,6 +1245,17 @@ export default function CourseDetail() {
         classItem={viewingClass}
         onSelectClass={handleSelectClassFromModal}
       />
+
+      {/* Rating Modal */}
+      {course && (
+        <RatingModal
+          isOpen={isRatingModalOpen}
+          onClose={() => setIsRatingModalOpen(false)}
+          courseId={course.id}
+          courseName={course.title}
+          classId={selectedClassId || undefined}
+        />
+      )}
     </motion.div>
   );
 }
