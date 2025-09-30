@@ -57,6 +57,7 @@ import ClassSessionsModal from "@/components/course/ClassSessionsModal";
 import SyllabusDisplay from "@/components/course/SyllabusDisplay";
 import Discussion from "@/components/discussion";
 import { DiscussionType } from "@/components/discussion/type";
+import { RatingModal } from "@/components/rating/RatingModal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -116,6 +117,9 @@ export default function CourseDetail() {
   // Pricing state
   const [pricing, setPricing] = useState<CoursePrice | null>(null);
   const [loadingPrice, setLoadingPrice] = useState(true);
+
+  // Rating modal state
+  const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
 
   // Progress store
   const {
@@ -637,7 +641,7 @@ export default function CourseDetail() {
                           </span>
                         </div>
                         <span className="text-sm text-gray-500">
-                          ({course.instructor.totalRatings} đánh giá)
+                          ({course.instructor.totalRatings} đánh giá giảng viên)
                         </span>
                       </div>
                     )}
@@ -645,6 +649,71 @@ export default function CourseDetail() {
               </div>
             </div>
           )}
+
+          {/* Course Rating Section */}
+          <div className="border-t pt-6">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+              {/* <Star className="h-5 w-5 text-orange-500" /> */}
+              Đánh giá khóa học
+            </h3>
+            {course!.avgRating > 0 && course!.totalRatings > 0 ? (
+              <button
+                onClick={() => setIsRatingModalOpen(true)}
+                className="flex items-center gap-3 hover:bg-gray-50 p-3 rounded-md transition-colors border border-gray-200 hover:border-gray-300"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="flex">
+                    {[...Array(5)].map((_, i) => (
+                      <Star
+                        key={i}
+                        className={cn(
+                          "h-5 w-5",
+                          i < Math.floor(course.avgRating)
+                            ? "text-yellow-500 fill-current"
+                            : "text-gray-300",
+                        )}
+                      />
+                    ))}
+                  </div>
+                  <span className="text-lg font-semibold text-gray-800">
+                    {course.avgRating.toFixed(1)}
+                  </span>
+                </div>
+                <div className="flex flex-col items-start">
+                  <span className="text-sm font-medium text-gray-700">
+                    {course.totalRatings} đánh giá
+                  </span>
+                  {/* <span className="text-xs text-gray-500">
+                    Xem chi tiết và viết đánh giá
+                  </span> */}
+                </div>
+              </button>
+            ) : (
+              <button
+                onClick={() => setIsRatingModalOpen(true)}
+                className="flex items-center gap-3 hover:bg-gray-50 p-3 rounded-md transition-colors border border-gray-200 hover:border-gray-300"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="flex">
+                    {[...Array(5)].map((_, i) => (
+                      <Star key={i} className="h-5 w-5 text-gray-300" />
+                    ))}
+                  </div>
+                  <span className="text-sm text-gray-500">
+                    Chưa có đánh giá
+                  </span>
+                </div>
+                <div className="flex flex-col items-start">
+                  <span className="text-sm font-medium text-orange-600">
+                    Hãy là người đầu tiên đánh giá!
+                  </span>
+                  <span className="text-xs text-gray-500">
+                    Chia sẻ trải nghiệm của bạn
+                  </span>
+                </div>
+              </button>
+            )}
+          </div>
         </motion.div>
 
         {/* Learning Outcomes */}
@@ -862,7 +931,7 @@ export default function CourseDetail() {
       {/* Right Column - Course Card */}
       <div className="w-1/3">
         <motion.div
-          className="sticky top-8"
+          className="fixed top-20 right-8 w-[calc(30%-2rem)] z-10"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 0.5 }}
@@ -894,82 +963,87 @@ export default function CourseDetail() {
             </motion.div>
             <CardContent className="p-6">
               <div className="space-y-6">
-                {/* Price Display */}
-                <motion.div
-                  className="flex items-center gap-2"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.6 }}
-                >
-                  {loadingPrice ? (
-                    <div className="h-8 w-32 bg-gray-200 animate-pulse rounded"></div>
-                  ) : (
-                    (() => {
-                      const currentPriceNumber = Number(pricing?.currentPrice);
-                      const isFree =
-                        !pricing?.currentPrice ||
-                        pricing?.currentPrice === null ||
-                        isNaN(currentPriceNumber) ||
-                        currentPriceNumber === 0;
-                      // console.log("Price display check:", {
-                      //   currentPrice: pricing?.currentPrice,
-                      //   type: typeof pricing?.currentPrice,
-                      //   isFree: isFree,
-                      // });
+                {/* Price Display - Only show if not enrolled */}
+                {!isEnrolled && (
+                  <motion.div
+                    className="flex items-center gap-2"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.6 }}
+                  >
+                    {loadingPrice ? (
+                      <div className="h-8 w-32 bg-gray-200 animate-pulse rounded"></div>
+                    ) : (
+                      (() => {
+                        const currentPriceNumber = Number(
+                          pricing?.currentPrice,
+                        );
+                        const isFree =
+                          !pricing?.currentPrice ||
+                          pricing?.currentPrice === null ||
+                          isNaN(currentPriceNumber) ||
+                          currentPriceNumber === 0;
+                        // console.log("Price display check:", {
+                        //   currentPrice: pricing?.currentPrice,
+                        //   type: typeof pricing?.currentPrice,
+                        //   isFree: isFree,
+                        // });
 
-                      if (isFree) {
+                        if (isFree) {
+                          return (
+                            // <p className="text-green-600 text-2xl font-semibold">
+                            //   Miễn phí
+                            // </p>
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <p className="text-green-600 text-2xl font-semibold">
+                                  {Number(
+                                    pricing?.currentPrice || 0,
+                                  ).toLocaleString()}{" "}
+                                  VND
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        }
+
                         return (
-                          // <p className="text-green-600 text-2xl font-semibold">
-                          //   Miễn phí
-                          // </p>
                           <div className="space-y-2">
                             <div className="flex items-center gap-2">
-                              <p className="text-green-600 text-2xl font-semibold">
-                                {Number(
-                                  pricing?.currentPrice || 0,
-                                ).toLocaleString()}{" "}
+                              <p className="text-red-600 text-2xl font-semibold">
+                                {Number(pricing?.currentPrice).toLocaleString()}{" "}
                                 VND
                               </p>
+                              {pricing.hasPromotion &&
+                                pricing.promotionName && (
+                                  <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded">
+                                    {pricing.priceType === "promotion"
+                                      ? "🎉 Khuyến mãi"
+                                      : "Giá gốc"}
+                                  </span>
+                                )}
                             </div>
-                          </div>
-                        );
-                      }
-
-                      return (
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <p className="text-red-600 text-2xl font-semibold">
-                              {Number(pricing?.currentPrice).toLocaleString()}{" "}
-                              VND
-                            </p>
                             {pricing.hasPromotion && pricing.promotionName && (
-                              <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded">
-                                {pricing.priceType === "promotion"
-                                  ? "🎉 Khuyến mãi"
-                                  : "Giá gốc"}
-                              </span>
+                              <div className="bg-red-50 p-2 rounded-md">
+                                <p className="text-sm text-red-700 font-medium">
+                                  🎉 {pricing.promotionName}
+                                </p>
+                                {pricing.promotionEndDate && (
+                                  <p className="text-xs text-red-600">
+                                    Hết hạn:{" "}
+                                    {new Date(
+                                      pricing.promotionEndDate,
+                                    ).toLocaleDateString("vi-VN")}
+                                  </p>
+                                )}
+                              </div>
                             )}
                           </div>
-                          {pricing.hasPromotion && pricing.promotionName && (
-                            <div className="bg-red-50 p-2 rounded-md">
-                              <p className="text-sm text-red-700 font-medium">
-                                🎉 {pricing.promotionName}
-                              </p>
-                              {pricing.promotionEndDate && (
-                                <p className="text-xs text-red-600">
-                                  Hết hạn:{" "}
-                                  {new Date(
-                                    pricing.promotionEndDate,
-                                  ).toLocaleDateString("vi-VN")}
-                                </p>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })()
-                  )}
-                </motion.div>
+                        );
+                      })()
+                    )}
+                  </motion.div>
+                )}
 
                 {/* Course Stats */}
                 <motion.div
@@ -1107,7 +1181,9 @@ export default function CourseDetail() {
                           ? selectedClassId
                             ? "Vào lớp học"
                             : "Chọn lớp để bắt đầu"
-                          : "Bắt đầu học"}
+                          : lastStudiedLessonId
+                            ? "Tiếp tục học"
+                            : "Bắt đầu học"}
                       </span>
                       <span className="absolute inset-0 bg-gradient-to-r from-orange-400 to-orange-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
                       <span className="absolute -inset-1 rounded-lg bg-gradient-to-r from-orange-400 via-orange-500 to-orange-400 opacity-0 group-hover:opacity-30 blur-md transition-opacity duration-300 animate-pulse"></span>
@@ -1145,7 +1221,7 @@ export default function CourseDetail() {
                   </motion.div>
                 )}
 
-                {course.requirements && course.requirements.length > 0 && (
+                {/* {course.requirements && course.requirements.length > 0 && (
                   <motion.div
                     className="pt-2"
                     initial={{ opacity: 0 }}
@@ -1161,7 +1237,7 @@ export default function CourseDetail() {
                       {course.requirements.length > 1 ? "..." : ""}
                     </p>
                   </motion.div>
-                )}
+                )} */}
               </div>
             </CardContent>
           </Card>
@@ -1176,6 +1252,19 @@ export default function CourseDetail() {
         classItem={viewingClass}
         onSelectClass={handleSelectClassFromModal}
       />
+
+      {/* Rating Modal */}
+      {course && (
+        <RatingModal
+          isOpen={isRatingModalOpen}
+          onClose={() => setIsRatingModalOpen(false)}
+          courseId={course.id}
+          courseName={course.title}
+          classId={selectedClassId || undefined}
+          isEnrolled={isEnrolled}
+          onRatingUpdate={fetchCourseData} // Refresh course data sau khi rating
+        />
+      )}
     </motion.div>
   );
 }
