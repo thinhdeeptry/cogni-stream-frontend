@@ -322,7 +322,6 @@ export default function ClassLearningPage() {
   const [isVideoLoading, setIsVideoLoading] = useState(true);
   const [hasCertificate, setHasCertificate] = useState<boolean>(false);
   const [certificateId, setCertificateId] = useState<string | null>(null);
-
   // Modal states
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [pendingNavigation, setPendingNavigation] =
@@ -703,10 +702,8 @@ export default function ClassLearningPage() {
         try {
           // Gọi API để lấy quiz status và kiểm tra unlock requirements
           const statusResult = await getQuizStatus(quizItem.lesson.id);
-
           if (statusResult.success && statusResult.data?.unlockRequirements) {
             const requirements = statusResult.data.unlockRequirements;
-
             // Tìm requirement liên quan đến lesson vừa hoàn thành
             const matchingRequirements = requirements.filter(
               (req: any) =>
@@ -730,14 +727,16 @@ export default function ClassLearningPage() {
             // Xử lý từng requirement
             for (const requirement of matchingRequirements) {
               try {
+                console.log("currentItem: ", currentItem);
                 const completeResult = await completeUnlockRequirement(
                   quizItem.lesson.id,
+                  currentItem?.classId ?? "",
                   requirement.id, // Sử dụng đúng requirement ID
-                  {
-                    completedLessonId: completedLessonId,
-                    completedAt: new Date().toISOString(),
-                    progress: 100,
-                  },
+                  // {
+                  //   completedLessonId: completedLessonId,
+                  //   completedAt: new Date().toISOString(),
+                  //   progress: 100,
+                  // },
                 );
 
                 if (completeResult.success) {
@@ -746,14 +745,14 @@ export default function ClassLearningPage() {
                   );
                   totalRequirementsProcessed++;
 
-                  // Thử unlock quiz
-                  const unlockResult = await unlockQuiz(quizItem.lesson.id);
-                  if (unlockResult.success) {
-                    successfulUnlocks.push({
-                      lessonId: quizItem.lesson.id,
-                      lessonTitle: quizItem.lesson.title,
-                    });
-                  }
+                  // // Thử unlock quiz
+                  // const unlockResult = await unlockQuiz(quizItem.lesson.id);
+                  // if (unlockResult.success) {
+                  //   successfulUnlocks.push({
+                  //     lessonId: quizItem.lesson.id,
+                  //     lessonTitle: quizItem.lesson.title,
+                  //   });
+                  // }
                 }
               } catch (error) {
                 console.log(

@@ -44,6 +44,13 @@ export interface QuizStatus {
     blockAfterMaxAttempts: boolean;
     blockDuration: number | null;
   };
+  unlockRequirementsSummary: {
+    total: number;
+    completed: number;
+    pending: number;
+    inProgress: number;
+    allCompleted: boolean;
+  };
 }
 
 export interface QuizAttempt {
@@ -350,7 +357,11 @@ export function formatWaitTime(nextAllowedAt: string | null): string {
 /**
  * Kiểm tra xem học viên có thể làm quiz không
  */
-export function canStartQuiz(status: QuizStatus): boolean {
+export function canStartQuiz(
+  status: QuizStatus,
+  isComfirmRequirement?: boolean,
+): boolean {
+  if (isComfirmRequirement) return true;
   return (
     status.canAttempt &&
     (!status.nextAllowedAt || new Date(status.nextAllowedAt) <= new Date())
@@ -400,6 +411,7 @@ export async function unlockQuiz(lessonId: string): Promise<{
  */
 export async function completeUnlockRequirement(
   lessonId: string,
+  classId: string,
   requirementId: string,
   completionData?: any,
 ): Promise<{
@@ -409,8 +421,7 @@ export async function completeUnlockRequirement(
 }> {
   try {
     const { data } = await quizApi.post(
-      `/quizzes/lesson/${lessonId}/unlock-requirement/${requirementId}/complete`,
-      completionData || {},
+      `/quizzes/unlock-requirement/${requirementId}/classId/${classId}/lessonId/${lessonId}/complete`,
     );
     return {
       success: true,

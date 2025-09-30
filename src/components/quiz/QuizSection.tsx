@@ -177,7 +177,6 @@ export default function QuizSection({
       if (historyResult.success && historyResult.data) {
         setHistory(historyResult.data);
       }
-      console.log("getQuizStatus: ", statusResult);
     } catch (error) {
       console.error("Error fetching quiz data:", error);
       toast.error("Không thể tải thông tin quiz");
@@ -218,7 +217,10 @@ export default function QuizSection({
   };
 
   const handleStartQuiz = async () => {
-    if (!status || !canStartQuiz(status)) {
+    if (
+      !status ||
+      !canStartQuiz(status, status.unlockRequirementsSummary.allCompleted)
+    ) {
       toast.error("Không thể bắt đầu quiz lúc này");
       return;
     }
@@ -1550,7 +1552,12 @@ export default function QuizSection({
           <div className="flex gap-4 justify-center">
             <Button
               onClick={handleStartQuiz}
-              disabled={!canStartQuiz(status) || isStarting}
+              disabled={
+                !canStartQuiz(
+                  status,
+                  status.unlockRequirementsSummary.allCompleted,
+                ) || isStarting
+              }
               size="lg"
               className="px-8 bg-blue-600 hover:bg-blue-700"
             >
