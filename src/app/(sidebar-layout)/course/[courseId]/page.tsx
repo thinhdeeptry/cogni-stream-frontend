@@ -656,7 +656,9 @@ export default function CourseDetail() {
               {/* <Star className="h-5 w-5 text-orange-500" /> */}
               Đánh giá khóa học
             </h3>
-            {course!.avgRating > 0 && course!.totalRatings > 0 ? (
+            {course &&
+            (course.avgRating ?? 0) > 0 &&
+            (course.totalRatings ?? 0) > 0 ? (
               <button
                 onClick={() => setIsRatingModalOpen(true)}
                 className="flex items-center gap-3 hover:bg-gray-50 p-3 rounded-md transition-colors border border-gray-200 hover:border-gray-300"
@@ -668,7 +670,7 @@ export default function CourseDetail() {
                         key={i}
                         className={cn(
                           "h-5 w-5",
-                          i < Math.floor(course.avgRating)
+                          i < Math.floor(course.avgRating ?? 0)
                             ? "text-yellow-500 fill-current"
                             : "text-gray-300",
                         )}
@@ -676,7 +678,7 @@ export default function CourseDetail() {
                     ))}
                   </div>
                   <span className="text-lg font-semibold text-gray-800">
-                    {course.avgRating.toFixed(1)}
+                    {(course.avgRating ?? 0).toFixed(1)}
                   </span>
                 </div>
                 <div className="flex flex-col items-start">
@@ -961,8 +963,8 @@ export default function CourseDetail() {
                 </motion.div>
               )}
             </motion.div>
-            <CardContent className="p-6">
-              <div className="space-y-6">
+            <CardContent className="p-4">
+              <div className="space-y-4">
                 {/* Price Display - Only show if not enrolled */}
                 {!isEnrolled && (
                   <motion.div
@@ -1047,46 +1049,62 @@ export default function CourseDetail() {
 
                 {/* Course Stats */}
                 <motion.div
-                  className="space-y-3 border-t border-b border-gray-100 py-4"
+                  className="space-y-2 border-t border-b border-gray-100 py-3"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.7 }}
                 >
                   {course.courseType === CourseType.LIVE ? (
                     <>
-                      <div className="flex items-center gap-3 text-gray-700">
-                        <Video className="h-4 w-4 text-orange-500" />
-                        <span>Khóa học trực tuyến</span>
+                      {/* Compact grid layout for LIVE course stats */}
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div className="flex items-center gap-2 text-gray-700">
+                          <Video className="h-3.5 w-3.5 text-orange-500 flex-shrink-0" />
+                          <span className="text-xs">Trực tuyến</span>
+                        </div>
+
+                        {course.chapters && course.chapters.length > 0 && (
+                          <>
+                            <div className="flex items-center gap-2 text-gray-700">
+                              <Book className="h-3.5 w-3.5 text-orange-500 flex-shrink-0" />
+                              <span className="text-xs">
+                                {course.totalLessons || 0} bài
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 text-gray-700">
+                              <ListChecks className="h-3.5 w-3.5 text-orange-500 flex-shrink-0" />
+                              <span className="text-xs">
+                                {course.chapters?.length || 0} chương
+                              </span>
+                            </div>
+                          </>
+                        )}
+
+                        <div className="flex items-center gap-2 text-gray-700">
+                          <Target className="h-3.5 w-3.5 text-orange-500 flex-shrink-0" />
+                          <span className="text-xs">
+                            {course.learningOutcomes?.length || 0} mục tiêu
+                          </span>
+                        </div>
                       </div>
 
-                      {/* Show course content stats for LIVE courses too */}
-                      {course.chapters && course.chapters.length > 0 && (
-                        <>
-                          <div className="flex items-center gap-3 text-gray-700">
-                            <Book className="h-4 w-4 text-orange-500" />
-                            <span>{course.totalLessons || 0} bài học</span>
-                          </div>
-                          <div className="flex items-center gap-3 text-gray-700">
-                            <ListChecks className="h-4 w-4 text-orange-500" />
-                            <span>{course.chapters?.length || 0} chương</span>
-                          </div>
-                        </>
-                      )}
-
+                      {/* Compact selected class info */}
                       {selectedClassId && getSelectedClass() && (
-                        <div className="bg-orange-50 p-3 rounded-lg">
-                          <p className="text-sm font-medium text-orange-800 mb-1">
-                            Lớp học đã chọn:
-                          </p>
-                          <p className="text-sm text-orange-700">
-                            {getSelectedClass()?.name}
-                          </p>
-                          <div className="flex items-center gap-2 mt-2 text-xs text-orange-600">
-                            <Calendar className="h-3 w-3" />
-                            <span>
-                              Bắt đầu:{" "}
-                              {formatDateShort(getSelectedClass()!.startDate)}
-                            </span>
+                        <div className="bg-orange-50 p-2 rounded-md mt-2">
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium text-orange-800 truncate">
+                                {getSelectedClass()?.name}
+                              </p>
+                              <div className="flex items-center gap-1 mt-0.5">
+                                <Calendar className="h-3 w-3 text-orange-600 flex-shrink-0" />
+                                <span className="text-xs text-orange-600">
+                                  {formatDateShort(
+                                    getSelectedClass()!.startDate,
+                                  )}
+                                </span>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       )}
@@ -1101,15 +1119,15 @@ export default function CourseDetail() {
                         <ListChecks className="h-4 w-4 text-orange-500" />
                         <span>{course.chapters?.length || 0} chương</span>
                       </div>
+                      <div className="flex items-center gap-3 text-gray-700">
+                        <Target className="h-4 w-4 text-orange-500" />
+                        <span>
+                          {course.learningOutcomes?.length || 0} mục tiêu học
+                          tập
+                        </span>
+                      </div>
                     </>
                   )}
-
-                  <div className="flex items-center gap-3 text-gray-700">
-                    <Target className="h-4 w-4 text-orange-500" />
-                    <span>
-                      {course.learningOutcomes?.length || 0} mục tiêu học tập
-                    </span>
-                  </div>
                 </motion.div>
 
                 {/* Enroll/Start Learning Button */}

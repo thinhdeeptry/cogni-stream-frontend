@@ -97,10 +97,10 @@ export interface Course {
   learningOutcomes: string[];
   requirements: string[];
   targetAudience?: string;
+  // rating--
   avgRating?: number;
   totalRatings?: number;
   totalStudents?: number;
-  // Loại bỏ price, currency, promotionPrice - sẽ được lấy từ API riêng
 }
 
 export interface Chapter {

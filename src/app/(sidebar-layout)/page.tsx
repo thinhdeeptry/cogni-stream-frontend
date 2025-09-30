@@ -281,7 +281,7 @@ function HomeContent() {
                     title={course.title}
                     thumbnailUrl={course.thumbnailUrl}
                     totalLessons={course.totalLessons}
-                    enrollmentCount={getEnrollmentCount(course.id)}
+                    enrollmentCount={course.totalStudents}
                     categories={[course.categoryId || ""]}
                     instructor={course.instructor}
                     avgRating={course.avgRating}
@@ -322,7 +322,7 @@ function HomeContent() {
                     title={course.title}
                     thumbnailUrl={course.thumbnailUrl}
                     totalLessons={course.totalLessons}
-                    enrollmentCount={getEnrollmentCount(course.id)}
+                    enrollmentCount={course.totalStudents}
                     categories={[course.categoryId || ""]}
                     instructor={course.instructor}
                     avgRating={course.avgRating}
@@ -380,7 +380,7 @@ function HomeContent() {
                   title={course.title}
                   thumbnailUrl={course.thumbnailUrl}
                   totalLessons={course.totalLessons}
-                  enrollmentCount={getEnrollmentCount(course.id)}
+                  enrollmentCount={course.totalStudents}
                   categories={[course.categoryId || ""]}
                   instructor={course.instructor}
                   avgRating={course.avgRating}
@@ -437,7 +437,7 @@ function HomeContent() {
                   title={course.title}
                   thumbnailUrl={course.thumbnailUrl}
                   totalLessons={course.totalLessons}
-                  enrollmentCount={getEnrollmentCount(course.id)}
+                  enrollmentCount={course.totalStudents}
                   categories={[course.categoryId || ""]}
                   instructor={course.instructor}
                   avgRating={course.avgRating}
