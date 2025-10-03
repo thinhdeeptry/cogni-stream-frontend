@@ -156,13 +156,18 @@ export async function getQuizStatus(lessonId: string): Promise<{
 /**
  * Bắt đầu quiz attempt
  */
-export async function startQuizAttempt(lessonId: string): Promise<{
+export async function startQuizAttempt(
+  lessonId: string,
+  enrollmentId: string,
+): Promise<{
   success: boolean;
   data?: QuizAttempt;
   message: string;
 }> {
   try {
-    const { data } = await quizApi.post(`/quizzes/attempt/${lessonId}/start`);
+    const { data } = await quizApi.post(
+      `/quizzes/attempt/${lessonId}/${enrollmentId}/start`,
+    );
     return {
       success: true,
       data: data as QuizAttempt,

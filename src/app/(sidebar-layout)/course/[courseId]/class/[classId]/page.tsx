@@ -62,6 +62,7 @@ import useUserStore from "@/stores/useUserStore";
 
 import AttendanceChecker from "@/components/attendance/AttendanceChecker";
 import AttendanceManager from "@/components/attendance/AttendanceManager";
+import CourseSidebar from "@/components/course/CourseSidebar";
 import QuizSection from "@/components/quiz/QuizSection";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -481,12 +482,14 @@ export default function ClassLearningPage() {
   useEffect(() => {
     if (syllabusData.length > 0 && !currentItem && params.classId) {
       const savedSyllabusItemId = currentProgress?.syllabusItemId;
+      console.log("savedSyllabusItemId: ", savedSyllabusItemId);
       if (savedSyllabusItemId) {
         // Tìm syllabus item theo syllabusItemId từ currentProgress
         for (const group of syllabusData) {
           const foundItem = group.items.find(
             (item) => item.id === savedSyllabusItemId,
           );
+          console.log("📍 Found saved syllabus item:", foundItem);
           if (foundItem) {
             setCurrentItem(foundItem);
             return;
@@ -1279,21 +1282,28 @@ export default function ClassLearningPage() {
                           {currentLessonData.type === LessonType.QUIZ ? (
                             // Quiz Content
                             <div className="max-w-none prose-headings:text-gray-900 prose-p:text-gray-700">
-                              <QuizSection
-                                lessonId={currentLessonData.id}
-                                lessonTitle={currentLessonData.title}
-                                isEnrolled={isEnrolled}
-                                classId={params.classId as string}
-                                courseId={params.courseId as string}
-                                onQuizCompleted={(success: boolean) => {
-                                  if (success && currentLessonData?.id) {
-                                    // Khi quiz hoàn thành thành công, xử lý unlock requirements
-                                    handleLessonCompletion(
-                                      currentLessonData.id,
-                                    );
-                                  }
-                                }}
-                              />
+                              {enrollmentId ? (
+                                <QuizSection
+                                  lessonId={currentLessonData.id}
+                                  enrollmentId={enrollmentId}
+                                  lessonTitle={currentLessonData.title}
+                                  isEnrolled={isEnrolled}
+                                  classId={params.classId as string}
+                                  courseId={params.courseId as string}
+                                  onQuizCompleted={(success: boolean) => {
+                                    if (success && currentLessonData?.id) {
+                                      // Khi quiz hoàn thành thành công, xử lý unlock requirements
+                                      handleLessonCompletion(
+                                        currentLessonData.id,
+                                      );
+                                    }
+                                  }}
+                                />
+                              ) : (
+                                <div className="flex items-center justify-center p-8">
+                                  <Loader2 className="h-8 w-8 animate-spin text-gray-500" />
+                                </div>
+                              )}
                             </div>
                           ) : currentLessonData.type === LessonType.BLOG ||
                             currentLessonData.type === LessonType.MIXED ? (
@@ -1641,210 +1651,44 @@ export default function ClassLearningPage() {
 
       {/* Sidebar */}
       {!(currentLessonData && currentLessonData.type === LessonType.QUIZ) && (
-        <div
-          className={`fixed right-0 top-0 h-[calc(100vh-73px)] w-[350px] bg-gray-50 border-l transform transition-transform duration-300 ${
-            isSidebarOpen ? "translate-x-0" : "translate-x-full"
-          }`}
-        >
-          <div className="h-full flex flex-col">
-            {/* Sidebar Header */}
-            <div className="p-4 border-b border-gray-200 bg-white sticky top-0 z-10">
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="font-semibold text-gray-800 truncate">
-                  {course?.title}
-                </h2>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsSidebarOpen(false)}
-                  className="lg:hidden"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
+        <CourseSidebar
+          isOpen={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
+          course={course}
+          classInfo={classInfo}
+          progress={progress || 0}
+          syllabusData={syllabusData}
+          isLoadingSyllabus={isLoadingSyllabus}
+          currentItem={currentItem}
+          completedItems={completedItems}
+          allItems={allItems}
+          isItemCompleted={isItemCompleted}
+          canNavigateToItem={canNavigateToItem}
+          getNextAvailableItem={getNextAvailableItem}
+          onItemSelect={(item: SyllabusItem) => {
+            // // Check if navigation to this item is allowed
+            // if (!canNavigateToItem(item)) {
+            //   const targetIndex = allItems.findIndex((i) => i.id === item.id);
+            //   const nextAvailable = getNextAvailableItem();
 
-              {/* Class Information */}
-              {classInfo && (
-                <div className="bg-orange-50 p-3 rounded-lg">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Calendar className="h-4 w-4 text-orange-600" />
-                    <span className="text-sm font-medium text-orange-800">
-                      {classInfo.name}
-                    </span>
-                  </div>
-                  <div className="text-xs text-orange-600">
-                    {formatDate(classInfo.startDate)}
-                  </div>
-                </div>
-              )}
+            //   toast({
+            //     title: "❌ Không thể bỏ qua bài học",
+            //     description: nextAvailable
+            //       ? `Bạn cần hoàn thành các bài học trước đó. Bài học tiếp theo: "${
+            //           nextAvailable.itemType === SyllabusItemType.LESSON
+            //             ? nextAvailable.lesson?.title
+            //             : nextAvailable.classSession?.topic
+            //         }"`
+            //       : "Bạn cần hoàn thành tất cả các bài học trước đó.",
+            //     variant: "destructive",
+            //   });
+            //   return;
+            // }
 
-              {/* Progress Display */}
-              <div className="mt-3 p-3 bg-blue-50 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-blue-800">
-                    Tiến độ học tập
-                  </span>
-                  <span className="text-sm text-blue-600">
-                    {Math.round(progress || 0)}%
-                  </span>
-                </div>
-                <div className="w-full bg-blue-200 rounded-full h-2">
-                  <div
-                    className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${progress || 0}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Syllabus Content */}
-            <div className="flex-1 overflow-y-auto">
-              <div className="p-4">
-                <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                  <BookOpen className="h-4 w-4 text-orange-500" />
-                  Lộ trình học tập
-                </h3>
-
-                {isLoadingSyllabus ? (
-                  <div className="space-y-2">
-                    {Array.from({ length: 3 }).map((_, i) => (
-                      <Skeleton key={i} className="h-12 w-full" />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {syllabusData.map((group) => (
-                      <div key={group.day} className="space-y-2">
-                        <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-                          Ngày {group.day}
-                        </div>
-                        {group.items.map((item) => {
-                          const isCompleted = isItemCompleted(item);
-                          return (
-                            <Card
-                              key={item.id}
-                              className={`cursor-pointer transition-all hover:shadow-md ${
-                                currentItem?.id === item.id
-                                  ? "ring-2 ring-orange-500 bg-orange-50"
-                                  : "hover:bg-gray-50"
-                              }`}
-                              onClick={() => {
-                                // Check if navigation to this item is allowed
-                                if (!canNavigateToItem(item)) {
-                                  const targetIndex = allItems.findIndex(
-                                    (i) => i.id === item.id,
-                                  );
-                                  const nextAvailable = getNextAvailableItem();
-
-                                  toast({
-                                    title: "❌ Không thể bỏ qua bài học",
-                                    description: nextAvailable
-                                      ? `Bạn cần hoàn thành các bài học trước đó. Bài học tiếp theo: "${
-                                          nextAvailable.itemType ===
-                                          SyllabusItemType.LESSON
-                                            ? nextAvailable.lesson?.title
-                                            : nextAvailable.classSession?.topic
-                                        }"`
-                                      : "Bạn cần hoàn thành tất cả các bài học trước đó.",
-                                    variant: "destructive",
-                                  });
-                                  return;
-                                }
-
-                                setCurrentItem(item);
-                                // Progress is automatically tracked when lesson changes
-                              }}
-                            >
-                              <CardContent className="p-3">
-                                <div className="flex items-center gap-3">
-                                  <div className="flex-shrink-0 flex items-center gap-2">
-                                    {item.itemType ===
-                                    SyllabusItemType.LESSON ? (
-                                      <BookOpen className="h-4 w-4 text-blue-500" />
-                                    ) : (
-                                      <Video className="h-4 w-4 text-red-500" />
-                                    )}
-                                    {isLessonCompleted && (
-                                      <CheckCircle className="h-4 w-4 text-green-500" />
-                                    )}
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <p
-                                      className={`text-sm font-medium truncate ${
-                                        isCompleted
-                                          ? "text-green-700"
-                                          : "text-gray-900"
-                                      }`}
-                                    >
-                                      {item.itemType === SyllabusItemType.LESSON
-                                        ? item.lesson?.title
-                                        : item.classSession?.topic}
-                                    </p>
-                                    <div className="flex items-center gap-2 mt-1">
-                                      <Badge
-                                        variant="secondary"
-                                        className={`text-xs ${
-                                          isCompleted
-                                            ? "bg-green-100 text-green-700"
-                                            : ""
-                                        }`}
-                                      >
-                                        {item.itemType ===
-                                        SyllabusItemType.LESSON
-                                          ? "Bài học"
-                                          : "Buổi học"}
-                                      </Badge>
-                                      {isCompleted && (
-                                        <Badge
-                                          variant="secondary"
-                                          className="text-xs bg-green-100 text-green-700"
-                                        >
-                                          Đã hoàn thành
-                                        </Badge>
-                                      )}
-                                      {item.itemType ===
-                                        SyllabusItemType.LIVE_SESSION &&
-                                        item.classSession && (
-                                          <div className="flex items-center gap-1 text-xs text-gray-500">
-                                            <Clock className="h-3 w-3" />
-                                            <span>
-                                              {
-                                                item.classSession
-                                                  .durationMinutes
-                                              }{" "}
-                                              phút
-                                            </span>
-                                          </div>
-                                        )}
-                                      {item.itemType ===
-                                        SyllabusItemType.LESSON &&
-                                        item.lesson && (
-                                          <div className="flex items-center gap-1 text-xs text-gray-500">
-                                            <Clock className="h-3 w-3" />
-                                            <span>
-                                              {
-                                                item.lesson
-                                                  .estimatedDurationMinutes
-                                              }{" "}
-                                              phút
-                                            </span>
-                                          </div>
-                                        )}
-                                    </div>
-                                  </div>
-                                </div>
-                              </CardContent>
-                            </Card>
-                          );
-                        })}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+            setCurrentItem(item);
+            // Progress is automatically tracked when lesson changes
+          }}
+        />
       )}
 
       {/* Confirmation Modal for lesson completion */}

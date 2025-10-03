@@ -64,6 +64,7 @@ import { Progress } from "@/components/ui/progress";
 
 interface QuizSectionProps {
   lessonId: string;
+  enrollmentId: string;
   lessonTitle: string;
   isEnrolled: boolean;
   classId?: string; // For navigation to specific lessons in class
@@ -73,6 +74,7 @@ interface QuizSectionProps {
 
 export default function QuizSection({
   lessonId,
+  enrollmentId,
   lessonTitle,
   isEnrolled,
   classId,
@@ -227,7 +229,7 @@ export default function QuizSection({
 
     try {
       setIsStarting(true);
-      const result = await startQuizAttempt(lessonId);
+      const result = await startQuizAttempt(lessonId, enrollmentId);
       console.log("result start Quiz: ", result);
       if (result.success && result.data) {
         setCurrentAttempt(result.data);
