@@ -12,7 +12,7 @@ import {
   formatTimeMinutes,
   useTimeTracking,
 } from "@/hooks/useTimeTracking";
-import { Course, LessonType } from "@/types/course/types";
+import { Course, Lesson, LessonType } from "@/types/course/types";
 import {
   Collapsible,
   CollapsibleContent,
@@ -1709,6 +1709,9 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
                     <ul className="mt-2 space-y-2">
                       {chapter.lessons?.map((lesson) => {
                         // Kiểm tra bài học đã hoàn thành - dựa trên dữ liệu từ server
+                        if (lesson.status !== "PUBLISHED") {
+                          return null;
+                        }
                         const isLessonCompleted = completedLessonIds.includes(
                           lesson.id,
                         );

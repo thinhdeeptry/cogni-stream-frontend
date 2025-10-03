@@ -154,6 +154,7 @@ export default function CourseDetail() {
     return course.classes
       .filter(
         (classItem) =>
+          classItem.statusActive === "PUBLISHED" &&
           classItem.isPublished &&
           classItem.currentStudents < classItem.maxStudents &&
           new Date(classItem.startDate) > new Date(),
@@ -765,7 +766,7 @@ export default function CourseDetail() {
             {/* Class Selector */}
             <div className="mb-6">
               <ClassSelector
-                classes={course.classes || []}
+                classes={getAvailableClasses() || []}
                 selectedClassId={selectedClassId}
                 onClassSelect={(classId: string) => setSelectedClassId(classId)}
               />

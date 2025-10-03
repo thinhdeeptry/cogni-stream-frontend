@@ -16,7 +16,12 @@ export enum LessonType {
   MIXED = "MIXED",
   QUIZ = "QUIZ",
 }
-
+export enum LessonStatus {
+  PENDING_APPROVAL = "PENDING_APPROVAL", /// Đã gửi chờ admin duyệt
+  APPROVED = "APPROVED", /// Admin đã duyệt, sẵn sàng để xuất bản
+  REJECTED = "REJECTED", /// Admin từ chối, cần sửa lại
+  PUBLISHED = "PUBLISHED", /// Đã xuất bản, học viên có thể truy cập
+}
 // Enums mới cho hệ thống pricing
 export enum PricingType {
   BASE_PRICE = "BASE_PRICE",
@@ -29,7 +34,13 @@ export enum PricingStatus {
   SCHEDULED = "SCHEDULED",
   EXPIRED = "EXPIRED",
 }
-
+/// 🆕 ENUM MỚI ĐỂ QUẢN LÝ VÒNG ĐỜI CỦA KHÓA HỌC
+export enum CourseStatus {
+  PENDING_APPROVAL = "PENDING_APPROVAL", /// Đã gửi chờ admin duyệt
+  APPROVED = "APPROVED", /// Admin đã duyệt, sẵn sàng để xuất bản
+  REJECTED = "REJECTED", /// Admin từ chối, cần sửa lại
+  PUBLISHED = "PUBLISHED", /// Đã xuất bản, học viên có thể đăng ký
+}
 // Enums cho unlock requirements
 export enum UnlockRequirementType {
   WATCH_LESSON = "WATCH_LESSON",
@@ -37,7 +48,12 @@ export enum UnlockRequirementType {
   COMPLETE_QUIZ = "COMPLETE_QUIZ",
   WAIT_TIME = "WAIT_TIME",
 }
-
+export enum ClassStatusActive {
+  PENDING_APPROVAL = "PENDING_APPROVAL", /// Đã gửi chờ admin duyệt
+  APPROVED = "APPROVED", /// Admin đã duyệt, sẵn sàng để xuất bản
+  REJECTED = "REJECTED", /// Admin từ chối, cần sửa lại
+  PUBLISHED = "PUBLISHED", /// Đã xuất bản, học viên có thể truy cập
+}
 // Interfaces cho unlock requirements
 export interface UnlockRequirement {
   id?: string;
@@ -70,7 +86,8 @@ export interface Course {
   title: string;
   description?: string;
   categoryId: string;
-  isPublished: boolean;
+  // isPublished: boolean;
+  status: CourseStatus;
   category?: Category;
   level?: CourseLevel;
   courseType: CourseType; // Thêm loại khóa học
@@ -121,6 +138,7 @@ export interface Lesson {
   title: string;
   content?: string;
   type: LessonType;
+  status: LessonStatus;
   videoUrl?: string;
   estimatedDurationMinutes?: number; // Thời gian ước tính để hoàn thành bài học (phút)
   order: number;
@@ -305,6 +323,7 @@ export interface Class {
   schedules?: Schedule[]; // Lịch học đơn giản theo API response
   isPublished: boolean; // Trạng thái mở/đóng đăng ký
   status?: "DRAFT" | "PUBLISHED" | "ONGOING" | "COMPLETED" | "CANCELLED";
+  statusActive: ClassStatusActive;
   createdAt?: Date;
   updatedAt?: Date;
 }

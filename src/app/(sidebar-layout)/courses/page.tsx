@@ -107,13 +107,12 @@ function CoursesContent() {
         setIsLoading(true);
         // Fetch courses
         const response = await getAllCourses({
-          isPublished: true,
           skipPagination: true,
         });
 
         // Ensure we only display published courses
         const publishedCourses = response.data.filter(
-          (course) => course.isPublished === true,
+          (course) => course.status === "PUBLISHED",
         );
 
         setCourses(publishedCourses);

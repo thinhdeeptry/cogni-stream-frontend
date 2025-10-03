@@ -52,7 +52,6 @@ function HomeContent() {
       try {
         // Get all published courses without pagination
         const response = await getAllCourses({
-          isPublished: true, // Only get published courses
           skipPagination: true, // Get all courses, not just the first page
         });
 
@@ -60,7 +59,7 @@ function HomeContent() {
 
         // Double-check to make sure we only show published courses
         const publishedCourses = response.data.filter(
-          (course) => course.isPublished === true,
+          (course) => course.status === "PUBLISHED",
         );
         console.log("Filtered published courses:", publishedCourses.length);
 
