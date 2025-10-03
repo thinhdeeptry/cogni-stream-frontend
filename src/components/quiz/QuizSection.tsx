@@ -70,6 +70,7 @@ interface QuizSectionProps {
   classId?: string; // For navigation to specific lessons in class
   courseId?: string; // For navigation
   onQuizCompleted?: (success: boolean) => void; // Callback when quiz is completed successfully
+  onNavigateToLesson?: (lessonId: string) => void; // Callback to navigate to required lesson
 }
 
 export default function QuizSection({
@@ -80,6 +81,7 @@ export default function QuizSection({
   classId,
   courseId,
   onQuizCompleted,
+  onNavigateToLesson,
 }: QuizSectionProps) {
   const router = useRouter();
   const [status, setStatus] = useState<QuizStatus | null>(null);
@@ -1234,7 +1236,7 @@ export default function QuizSection({
                     <motion.div
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg "
+                      className=" bg-white/60 border border-blue-200 rounded-lg "
                     >
                       <div className="space-y-4">
                         <div className="text-center">
@@ -1254,14 +1256,6 @@ export default function QuizSection({
                         <div className="space-y-3">
                           {status.unlockRequirements.map(
                             (requirement: any, index: number) => {
-                              const handleNavigateToLesson = () => {
-                                if (requirement.targetLesson.id) {
-                                  const targetPath = classId
-                                    ? `/course/${courseId || requirement.courseId || ""}/class/${classId}?lesson=${requirement.targetLesson.id}`
-                                    : `/course/${courseId || requirement.courseId || ""}/lesson/${requirement.targetLesson.id}`;
-                                  router.push(targetPath);
-                                }
-                              };
                               return (
                                 <div
                                   key={requirement.id || index}
@@ -1316,15 +1310,20 @@ export default function QuizSection({
                                     </div>
 
                                     {/* Navigation button for lessons */}
-                                    {requirement.targetLesson.id && (
-                                      <button
-                                        onClick={handleNavigateToLesson}
-                                        className="flex-shrink-0 inline-flex items-center gap-1 px-3 py-2 bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-600 transition-colors"
-                                      >
-                                        <span>Học ngay</span>
-                                        <ExternalLink className="h-3 w-3" />
-                                      </button>
-                                    )}
+                                    {requirement.targetLesson?.id &&
+                                      onNavigateToLesson && (
+                                        <button
+                                          onClick={() =>
+                                            onNavigateToLesson(
+                                              requirement.targetLesson.id,
+                                            )
+                                          }
+                                          className="flex-shrink-0 inline-flex items-center gap-1 px-3 py-2 bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-600 transition-colors"
+                                        >
+                                          <span>Học ngay</span>
+                                          <ExternalLink className="h-3 w-3" />
+                                        </button>
+                                      )}
                                   </div>
                                 </div>
                               );
@@ -1461,7 +1460,7 @@ export default function QuizSection({
             )} */}
 
             {/* Info - Unlock Requirements */}
-            {!status.canAttempt &&
+            {/* {!status.canAttempt &&
               status.attemptsUsed >= (status.maxAttempts || 0) &&
               status.maxAttempts !== null &&
               status.requireUnlockAction &&
@@ -1484,7 +1483,7 @@ export default function QuizSection({
                     </div>
                   </div>
                 </div>
-              )}
+              )} */}
           </div>
 
           {/* Performance Summary */}

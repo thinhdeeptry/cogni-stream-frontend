@@ -354,13 +354,15 @@ export const CourseSidebar: React.FC<CourseSidebarProps> = ({
                               >
                                 <Card
                                   className={`cursor-pointer transition-all duration-300 hover:shadow-lg ${
-                                    isCurrent
-                                      ? "ring-2 ring-orange-400 bg-gradient-to-r from-orange-50 to-amber-50 shadow-md"
-                                      : isReviewable
-                                        ? "bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 hover:scale-[1.02] hover:shadow-md"
-                                        : canAccess
-                                          ? "hover:bg-gray-50 hover:scale-[1.02]"
-                                          : "opacity-60 cursor-not-allowed"
+                                    isCurrent && isCompleted
+                                      ? "ring-2 ring-purple-400 bg-gradient-to-r from-purple-50 via-indigo-50 to-blue-50 shadow-md"
+                                      : isCurrent
+                                        ? "ring-2 ring-orange-400 bg-gradient-to-r from-orange-50 to-amber-50 shadow-md"
+                                        : isReviewable
+                                          ? "bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 hover:scale-[1.02] hover:shadow-md"
+                                          : canAccess
+                                            ? "hover:bg-gray-50 hover:scale-[1.02]"
+                                            : "opacity-60 cursor-not-allowed"
                                   }`}
                                   onClick={() => {
                                     // Check if user can access this item
@@ -388,7 +390,21 @@ export const CourseSidebar: React.FC<CourseSidebarProps> = ({
                                     }
 
                                     // Show different messages based on item status
-                                    if (isReviewable) {
+                                    if (isCurrent && isCompleted) {
+                                      const completedDate = completedAt
+                                        ? formatCompletedDate(completedAt)
+                                        : "";
+                                      toast({
+                                        title: "🔄 Ôn tập lại",
+                                        description: `Đang ôn tập: "${
+                                          item.itemType ===
+                                          SyllabusItemType.LESSON
+                                            ? item.lesson?.title
+                                            : item.classSession?.topic
+                                        }"${completedDate ? ` (Đã học: ${completedDate})` : ""}`,
+                                        duration: 2500,
+                                      });
+                                    } else if (isReviewable) {
                                       const completedDate = completedAt
                                         ? formatCompletedDate(completedAt)
                                         : "";
@@ -424,9 +440,11 @@ export const CourseSidebar: React.FC<CourseSidebarProps> = ({
                                       <div className="flex items-center justify-between">
                                         <h4
                                           className={`text-sm font-semibold leading-tight ${
-                                            isCompleted
-                                              ? "text-green-800"
-                                              : "text-gray-900"
+                                            isCurrent && isCompleted
+                                              ? "text-purple-800"
+                                              : isCompleted
+                                                ? "text-green-800"
+                                                : "text-gray-900"
                                           } flex items-center gap-2 flex-1 min-w-0`}
                                           title={
                                             isCompleted && completedAt
@@ -474,21 +492,27 @@ export const CourseSidebar: React.FC<CourseSidebarProps> = ({
                                       {/* Badges and info - more compact layout */}
                                       <div className="flex flex-wrap items-center gap-1.5">
                                         {/* Status badges */}
-                                        {isCompleted && (
+                                        {isCurrent && isCompleted && (
+                                          <Badge className="text-xs bg-gradient-to-r from-purple-500 to-indigo-500 text-white px-2 py-0.5 animate-pulse">
+                                            🔄 Đang ôn tập
+                                          </Badge>
+                                        )}
+
+                                        {isCurrent && !isCompleted && (
+                                          <Badge className="text-xs bg-orange-500 text-white px-2 py-0.5 animate-pulse">
+                                            📚 Đang học
+                                          </Badge>
+                                        )}
+
+                                        {!isCurrent && isCompleted && (
                                           <Badge className="text-xs bg-green-500 text-white px-2 py-0.5">
                                             ✓ Hoàn thành
                                           </Badge>
                                         )}
 
-                                        {isReviewable && (
+                                        {!isCurrent && isReviewable && (
                                           <Badge className="text-xs bg-blue-500 text-white px-2 py-0.5">
-                                            📚 Xem lại
-                                          </Badge>
-                                        )}
-
-                                        {isCurrent && (
-                                          <Badge className="text-xs bg-orange-500 text-white px-2 py-0.5 animate-pulse">
-                                            👁️ Đang học
+                                            📚 Có thể xem lại
                                           </Badge>
                                         )}
 

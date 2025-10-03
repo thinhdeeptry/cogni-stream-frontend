@@ -874,6 +874,51 @@ export default function ClassLearningPage() {
     });
   };
 
+  // Handler to navigate to a required lesson to unlock quiz
+  const handleNavigateToLesson = (targetLessonId: string) => {
+    if (!targetLessonId) {
+      toast({
+        title: "❌ Lỗi",
+        description: "Không tìm thấy bài học cần học",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Find the syllabus item that contains this lesson
+    let targetItem: SyllabusItem | null = null;
+
+    for (const group of syllabusData) {
+      const found = group.items.find(
+        (item) =>
+          item.itemType === SyllabusItemType.LESSON &&
+          item.lesson?.id === targetLessonId,
+      );
+      if (found) {
+        targetItem = found;
+        break;
+      }
+    }
+
+    if (!targetItem) {
+      toast({
+        title: "❌ Không tìm thấy bài học",
+        description: "Bài học này không có trong lộ trình của lớp",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Navigate to the lesson
+    setCurrentItem(targetItem);
+
+    toast({
+      title: "🎯 Chuyển đến bài học",
+      description: `Đang mở bài học: ${targetItem.lesson?.title || "Bài học"}`,
+      duration: 3000,
+    });
+  };
+
   // Loading state
   if (isLoading) {
     return (
@@ -1298,6 +1343,7 @@ export default function ClassLearningPage() {
                                       );
                                     }
                                   }}
+                                  onNavigateToLesson={handleNavigateToLesson}
                                 />
                               ) : (
                                 <div className="flex items-center justify-center p-8">
