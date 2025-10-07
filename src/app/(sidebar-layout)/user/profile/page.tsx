@@ -5,20 +5,30 @@ import { useEffect, useState } from "react";
 
 import { toast } from "@/hooks/use-toast";
 import {
+  InstructorRegistration,
+  RegistrationStatus,
+} from "@/types/instructor/types";
+import {
   Calendar,
+  CheckCircle,
+  Clock,
   Edit,
   LogOut,
   Mail,
   MapPin,
   Phone,
   Shield,
+  XCircle,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
+
+import { getUserInstructorRegistration } from "@/actions/instructorRegistrationAction";
 
 import useUserStore from "@/stores/useUserStore";
 
 import { AvatarUpload } from "@/components/auth/avatar-upload";
 import { ProfileUpdateForm } from "@/components/auth/profile-update-form";
+import InstructorInfo from "@/components/profile/InstructorInfo";
 import MyClassesList from "@/components/profile/MyClassesList";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -50,6 +60,8 @@ export default function ProfilePage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isAvatarDialogOpen, setIsAvatarDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("profile");
+  const [instructorRegistration, setInstructorRegistration] =
+    useState<InstructorRegistration | null>(null);
 
   // Handle hydration
   useEffect(() => {
@@ -59,22 +71,45 @@ export default function ProfilePage() {
     // If we have a session but no user in store, sync them
     if (session?.user && !user && hydrated) {
       if (session.user && session.accessToken) {
-        setUser(session.user as IUser, session.accessToken as string);
+        setUser(session.user, session.accessToken as string);
       }
     }
 
     setIsLoading(false);
   }, [session, user, hydrated, setHydrated, setUser]);
 
+  // Check instructor registration status
+  useEffect(() => {
+    const checkInstructorRegistration = async () => {
+      if (user?.id && user?.role?.toLowerCase() === "student") {
+        try {
+          const registration = await getUserInstructorRegistration(user.id);
+          setInstructorRegistration(registration);
+        } catch (error) {
+          console.error("Error checking instructor registration:", error);
+        }
+      }
+    };
+
+    if (user?.id) {
+      checkInstructorRegistration();
+    }
+  }, [user?.id, user?.role]);
+
   // Handle tab from URL parameter
   useEffect(() => {
     const tab = searchParams.get("tab");
     if (tab === "classes") {
       setActiveTab("classes");
+    } else if (
+      tab === "instructor" &&
+      user?.role?.toLowerCase() === "instructor"
+    ) {
+      setActiveTab("instructor");
     } else {
       setActiveTab("profile");
     }
-  }, [searchParams]);
+  }, [searchParams, user?.role]);
 
   // Handle redirection if no user after hydration
   // useEffect(() => {
@@ -94,6 +129,96 @@ export default function ProfilePage() {
 
   const handleAvatarUpdateSuccess = () => {
     setIsAvatarDialogOpen(false);
+  };
+
+  const getInstructorRegistrationButton = () => {
+    // Nếu đã là giảng viên thì không hiển thị gì cả
+    if (user?.role?.toLowerCase() === "instructor") {
+      return null;
+    }
+
+    // Nếu không phải student thì cũng không hiển thị
+    if (!user || user.role?.toLowerCase() !== "student") {
+      return null;
+    }
+
+    if (!instructorRegistration) {
+      // Chưa có đơn đăng ký - hiển thị nút đăng ký
+      return (
+        <div className="mt-2">
+          <Button
+            variant="outline"
+            className="w-full border-orange-500 text-orange-500 hover:bg-orange-50"
+            onClick={() => router.push("/instructor/apply")}
+          >
+            Đăng ký làm giảng viên
+          </Button>
+        </div>
+      );
+    }
+
+    // Đã có đơn đăng ký - hiển thị trạng thái
+    const getStatusInfo = () => {
+      switch (instructorRegistration.status) {
+        case RegistrationStatus.PENDING:
+          return {
+            text: "Đơn đăng ký đang chờ duyệt",
+            icon: <Clock className="h-4 w-4" />,
+            className: "border-yellow-500 text-yellow-600 bg-yellow-50",
+          };
+        case RegistrationStatus.APPROVED:
+          return {
+            text: "Đơn đăng ký đã được duyệt",
+            icon: <CheckCircle className="h-4 w-4" />,
+            className: "border-green-500 text-green-600 bg-green-50",
+          };
+        case RegistrationStatus.REJECTED:
+          return {
+            text: "Đơn đăng ký bị từ chối",
+            icon: <XCircle className="h-4 w-4" />,
+            className: "border-red-500 text-red-600 bg-red-50",
+          };
+        default:
+          return {
+            text: "Trạng thái không xác định",
+            icon: <Clock className="h-4 w-4" />,
+            className: "border-gray-500 text-gray-600 bg-gray-50",
+          };
+      }
+    };
+
+    const statusInfo = getStatusInfo();
+
+    return (
+      <div className="mt-2">
+        <Button
+          variant="outline"
+          className={`w-full cursor-default ${statusInfo.className}`}
+          disabled
+        >
+          <div className="flex items-center gap-2">
+            {statusInfo.icon}
+            {statusInfo.text}
+          </div>
+        </Button>
+        {instructorRegistration.status === RegistrationStatus.REJECTED &&
+          instructorRegistration.rejectionReason && (
+            <p className="text-xs text-red-600 mt-1 px-2">
+              Lý do: {instructorRegistration.rejectionReason}
+            </p>
+          )}
+        {instructorRegistration.status === RegistrationStatus.REJECTED && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full mt-2 border-orange-500 text-orange-500 hover:bg-orange-50"
+            onClick={() => router.push("/instructor/apply")}
+          >
+            Đăng ký lại
+          </Button>
+        )}
+      </div>
+    );
   };
 
   // Show loading state while checking authentication
@@ -180,7 +305,7 @@ export default function ProfilePage() {
               <Badge variant="outline" className="capitalize">
                 {user.role?.toLowerCase() === "admin"
                   ? "Quản trị viên"
-                  : user.role?.toLowerCase() === "teacher"
+                  : user.role?.toLowerCase() === "instructor"
                     ? "Giảng viên"
                     : "Học viên"}
               </Badge>
@@ -249,9 +374,14 @@ export default function ProfilePage() {
         {/* Main Content */}
         <div className="md:col-span-2 -mt-6">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList
+              className={`grid w-full ${user.role?.toLowerCase() === "instructor" ? "grid-cols-3" : "grid-cols-2"}`}
+            >
               <TabsTrigger value="profile">Thông tin cá nhân</TabsTrigger>
               <TabsTrigger value="classes">Lớp học của tôi</TabsTrigger>
+              {user.role?.toLowerCase() === "instructor" && (
+                <TabsTrigger value="instructor">Hồ sơ giảng viên</TabsTrigger>
+              )}
             </TabsList>
 
             <TabsContent value="profile" className="mt-6">
@@ -339,6 +469,8 @@ export default function ProfilePage() {
                         </Button>
                       </div>
                     )}
+
+                    {getInstructorRegistrationButton()}
                   </div>
                 </CardContent>
               </Card>
@@ -357,6 +489,12 @@ export default function ProfilePage() {
                 </CardContent>
               </Card>
             </TabsContent>
+
+            {user.role?.toLowerCase() === "instructor" && (
+              <TabsContent value="instructor" className="mt-6">
+                <InstructorInfo userId={user.id} />
+              </TabsContent>
+            )}
           </Tabs>
         </div>
       </div>
