@@ -76,7 +76,7 @@ export const getAllCourses = async (
       if (filters.isPublished === true) {
         console.log("Filtering for published courses only");
         filteredData = data.filter(
-          (course: Course) => course.isPublished === true,
+          (course: Course) => course.status === "PUBLISHED",
         );
         console.log("Filtered data length:", filteredData.length);
       }
@@ -127,7 +127,7 @@ export const getAllCourses = async (
       filters.isPublished === true
     ) {
       const filteredData = data.data.filter(
-        (course: Course) => course.isPublished === true,
+        (course: Course) => course.status === "PUBLISHED",
       );
       return {
         data: filteredData,

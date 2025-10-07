@@ -48,6 +48,12 @@ export enum UnlockRequirementType {
   COMPLETE_QUIZ = "COMPLETE_QUIZ",
   WAIT_TIME = "WAIT_TIME",
 }
+export enum ClassStatus {
+  UPCOMING = "UPCOMING",
+  IN_PROGRESS = "IN_PROGRESS",
+  FINISHED = "FINISHED",
+  CANCELED = "CANCELED",
+}
 export enum ClassStatusActive {
   PENDING_APPROVAL = "PENDING_APPROVAL", /// Đã gửi chờ admin duyệt
   APPROVED = "APPROVED", /// Admin đã duyệt, sẵn sàng để xuất bản
@@ -322,7 +328,7 @@ export interface Class {
   endDate?: string; // Ngày kết thúc lớp (có thể không có)
   schedules?: Schedule[]; // Lịch học đơn giản theo API response
   isPublished: boolean; // Trạng thái mở/đóng đăng ký
-  status?: "DRAFT" | "PUBLISHED" | "ONGOING" | "COMPLETED" | "CANCELLED";
+  status: ClassStatus;
   statusActive: ClassStatusActive;
   createdAt?: Date;
   updatedAt?: Date;

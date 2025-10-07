@@ -10,7 +10,16 @@ import {
   CoursePrice,
   CourseType,
 } from "@/types/course/types";
-import { BookOpen, Edit, Eye, Filter, Play, Plus, Trash } from "lucide-react";
+import {
+  BookOpen,
+  CheckCircle,
+  Edit,
+  Eye,
+  Filter,
+  Play,
+  Plus,
+  Trash,
+} from "lucide-react";
 
 import {
   CourseFilters,
@@ -376,6 +385,17 @@ export default function AdminCoursesPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          {/* 🆕 New approval link */}
+          <Link href="/admin/approvals">
+            <Button
+              variant="outline"
+              className="border-orange-200 text-orange-600 hover:bg-orange-50"
+            >
+              <CheckCircle className="mr-2 h-4 w-4" />
+              Xét duyệt nội dung
+            </Button>
+          </Link>
+
           <Dialog open={isFilterOpen} onOpenChange={setIsFilterOpen}>
             <DialogTrigger asChild>
               <Button

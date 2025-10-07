@@ -9,6 +9,7 @@ import {
   Bell,
   BookOpen,
   Calendar,
+  CheckSquare,
   GraduationCap,
   Home,
   LayoutDashboard,
@@ -69,6 +70,13 @@ const getMenuItems = (userRole: string) => {
         icon: LayoutDashboard,
         color: "text-gray-600",
         bgColor: "bg-purple-50",
+      },
+      {
+        title: "Nội dung",
+        url: "/admin/approvals",
+        icon: CheckSquare,
+        color: "text-emerald-600",
+        bgColor: "bg-emerald-50",
       },
       // {
       //   title: "QL Bài viết",
