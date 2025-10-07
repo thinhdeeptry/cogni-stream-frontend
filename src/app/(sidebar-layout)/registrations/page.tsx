@@ -3,21 +3,36 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { InstructorRegistration } from "@/types/instructor/types";
-import { Eye } from "lucide-react";
+import {
+  InstructorRegistration,
+  RegistrationStatus,
+} from "@/types/instructor/types";
+import {
+  Calendar,
+  CheckCircle,
+  Clock,
+  Eye,
+  Filter,
+  RefreshCw,
+  Search,
+  User,
+  XCircle,
+} from "lucide-react";
 
 import { getAllInstructorRegistrations } from "@/actions/instructorRegistrationAction";
 
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -27,30 +42,22 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-export default function InstructorListPage() {
+export default function InstructorRegistrationsPage() {
   const [data, setData] = useState<InstructorRegistration[]>([]);
+  const [filteredData, setFilteredData] = useState<InstructorRegistration[]>(
+    [],
+  );
   const [loading, setLoading] = useState(true);
-  const [pagination, setPagination] = useState({
-    page: 1,
-    limit: 10,
-    total: 0,
-    totalPages: 1,
-  });
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const router = useRouter();
 
-  const fetchData = async (page = pagination.page) => {
+  const fetchData = async () => {
     try {
       setLoading(true);
       const registrations = await getAllInstructorRegistrations();
       setData(registrations);
-
-      // Giả sử chưa có API phân trang, mình set tạm
-      setPagination({
-        page,
-        limit: 10,
-        total: registrations.length,
-        totalPages: Math.ceil(registrations.length / 10),
-      });
+      setFilteredData(registrations);
     } catch (err) {
       console.error("Fetch error", err);
     } finally {
@@ -62,10 +69,71 @@ export default function InstructorListPage() {
     fetchData();
   }, []);
 
-  const handlePageChange = (page: number) => {
-    if (page < 1 || page > pagination.totalPages) return;
-    fetchData(page);
+  // Filter and search
+  useEffect(() => {
+    let filtered = data;
+
+    // Filter by status
+    if (statusFilter !== "ALL") {
+      filtered = filtered.filter((item) => item.status === statusFilter);
+    }
+
+    // Filter by search term
+    if (searchTerm.trim()) {
+      filtered = filtered.filter(
+        (item) =>
+          item.user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          item.user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          item.headline?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          item.specialization?.toLowerCase().includes(searchTerm.toLowerCase()),
+      );
+    }
+
+    setFilteredData(filtered);
+  }, [data, searchTerm, statusFilter]);
+
+  const getStatusBadge = (status: RegistrationStatus) => {
+    switch (status) {
+      case RegistrationStatus.PENDING:
+        return (
+          <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+            <Clock className="w-3 h-3 mr-1" />
+            Chờ duyệt
+          </Badge>
+        );
+      case RegistrationStatus.APPROVED:
+        return (
+          <Badge variant="secondary" className="bg-green-100 text-green-800">
+            <CheckCircle className="w-3 h-3 mr-1" />
+            Đã duyệt
+          </Badge>
+        );
+      case RegistrationStatus.REJECTED:
+        return (
+          <Badge variant="secondary" className="bg-red-100 text-red-800">
+            <XCircle className="w-3 h-3 mr-1" />
+            Từ chối
+          </Badge>
+        );
+    }
   };
+
+  const getStats = () => {
+    const total = data.length;
+    const pending = data.filter(
+      (item) => item.status === RegistrationStatus.PENDING,
+    ).length;
+    const approved = data.filter(
+      (item) => item.status === RegistrationStatus.APPROVED,
+    ).length;
+    const rejected = data.filter(
+      (item) => item.status === RegistrationStatus.REJECTED,
+    ).length;
+
+    return { total, pending, approved, rejected };
+  };
+
+  const stats = getStats();
 
   return (
     <div className="w-full space-y-6 p-6 bg-slate-50">
@@ -76,64 +144,206 @@ export default function InstructorListPage() {
             Quản lý đăng ký giảng viên
           </h1>
           <p className="text-slate-500 text-sm">
-            Danh sách các đăng ký trở thành giảng viên trên hệ thống
+            Xem xét và phê duyệt các đơn đăng ký trở thành giảng viên
           </p>
         </div>
+        <Button onClick={fetchData} variant="outline" size="icon">
+          <RefreshCw className="h-4 w-4" />
+        </Button>
       </div>
 
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <User className="h-5 w-5 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-sm text-slate-600">Tổng số đơn</p>
+                <p className="text-2xl font-bold text-slate-900">
+                  {stats.total}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-yellow-100 rounded-lg">
+                <Clock className="h-5 w-5 text-yellow-600" />
+              </div>
+              <div>
+                <p className="text-sm text-slate-600">Chờ duyệt</p>
+                <p className="text-2xl font-bold text-yellow-600">
+                  {stats.pending}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-green-100 rounded-lg">
+                <CheckCircle className="h-5 w-5 text-green-600" />
+              </div>
+              <div>
+                <p className="text-sm text-slate-600">Đã duyệt</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {stats.approved}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-red-100 rounded-lg">
+                <XCircle className="h-5 w-5 text-red-600" />
+              </div>
+              <div>
+                <p className="text-sm text-slate-600">Đã từ chối</p>
+                <p className="text-2xl font-bold text-red-600">
+                  {stats.rejected}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filters */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Input
+                  placeholder="Tìm kiếm theo tên, email, tiêu đề..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            <div className="min-w-[200px]">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger>
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Lọc theo trạng thái" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">Tất cả trạng thái</SelectItem>
+                  <SelectItem value={RegistrationStatus.PENDING}>
+                    Chờ duyệt
+                  </SelectItem>
+                  <SelectItem value={RegistrationStatus.APPROVED}>
+                    Đã duyệt
+                  </SelectItem>
+                  <SelectItem value={RegistrationStatus.REJECTED}>
+                    Đã từ chối
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Table */}
-      <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-slate-50 hover:bg-slate-100/50">
-              <TableHead className="text-slate-700">ID</TableHead>
-              <TableHead className="text-slate-700">Tên</TableHead>
-              <TableHead className="text-slate-700">Tiêu đề</TableHead>
-              <TableHead className="text-slate-700">Trạng thái</TableHead>
-              <TableHead className="text-slate-700">Người duyệt</TableHead>
-              <TableHead className="text-right text-slate-700">
-                Thao tác
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell
-                  colSpan={6}
-                  className="text-center py-8 text-slate-500"
-                >
-                  Đang tải...
-                </TableCell>
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-slate-50 hover:bg-slate-100/50">
+                <TableHead className="text-slate-700">Người đăng ký</TableHead>
+                <TableHead className="text-slate-700">Chuyên môn</TableHead>
+                <TableHead className="text-slate-700">Kinh nghiệm</TableHead>
+                <TableHead className="text-slate-700">Trạng thái</TableHead>
+                <TableHead className="text-slate-700">Ngày đăng ký</TableHead>
+                <TableHead className="text-slate-700">Người duyệt</TableHead>
+                <TableHead className="text-right text-slate-700">
+                  Thao tác
+                </TableHead>
               </TableRow>
-            ) : data.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={6}
-                  className="text-center py-8 text-slate-500"
-                >
-                  Không có đăng ký nào
-                </TableCell>
-              </TableRow>
-            ) : (
-              data
-                .slice(
-                  (pagination.page - 1) * pagination.limit,
-                  pagination.page * pagination.limit,
-                )
-                .map((item) => (
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={7}
+                    className="text-center py-8 text-slate-500"
+                  >
+                    <div className="flex items-center justify-center gap-2">
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      Đang tải...
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : filteredData.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={7}
+                    className="text-center py-8 text-slate-500"
+                  >
+                    {searchTerm || statusFilter !== "ALL"
+                      ? "Không tìm thấy đơn đăng ký phù hợp"
+                      : "Chưa có đơn đăng ký nào"}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredData.map((item) => (
                   <TableRow key={item.id} className="hover:bg-slate-50">
-                    <TableCell className="font-medium text-slate-900">
-                      {item.id}
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-10 w-10">
+                          <AvatarFallback className="bg-orange-100 text-orange-600">
+                            {item.user.name?.charAt(0) || "?"}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="font-medium text-slate-900">
+                            {item.user.name}
+                          </p>
+                          <p className="text-sm text-slate-500">
+                            {item.user.email}
+                          </p>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        {item.headline && (
+                          <p className="font-medium text-slate-900 text-sm">
+                            {item.headline}
+                          </p>
+                        )}
+                        {item.specialization && (
+                          <p className="text-sm text-slate-500">
+                            {item.specialization}
+                          </p>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="text-slate-700">
-                      {item.user.name}
+                      {item.experience_years !== undefined
+                        ? `${item.experience_years} năm`
+                        : "-"}
                     </TableCell>
+                    <TableCell>{getStatusBadge(item.status)}</TableCell>
                     <TableCell className="text-slate-700">
-                      {item.headline ?? "-"}
-                    </TableCell>
-                    <TableCell className="text-slate-700">
-                      {item.status}
+                      <div className="flex items-center gap-1 text-sm">
+                        <Calendar className="h-3 w-3" />
+                        {new Date(item.submittedAt).toLocaleDateString("vi-VN")}
+                      </div>
                     </TableCell>
                     <TableCell className="text-slate-700">
                       {item.reviewer?.name ?? "-"}
@@ -150,77 +360,16 @@ export default function InstructorListPage() {
                     </TableCell>
                   </TableRow>
                 ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
-      {/* Pagination */}
-      {!loading && data.length > 0 && (
-        <div className="mt-6 flex flex-col items-center">
-          <Pagination className="mb-2">
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious
-                  onClick={() => handlePageChange(pagination.page - 1)}
-                  className={`${
-                    pagination.page <= 1
-                      ? "pointer-events-none opacity-50"
-                      : "cursor-pointer hover:bg-slate-100"
-                  } border-slate-200`}
-                />
-              </PaginationItem>
-
-              {Array.from(
-                { length: Math.max(1, pagination.totalPages) },
-                (_, i) => i + 1,
-              )
-                .filter(
-                  (page) =>
-                    page === 1 ||
-                    page === pagination.totalPages ||
-                    Math.abs(page - pagination.page) <= 1,
-                )
-                .map((page, index, array) => {
-                  const prevPage = array[index - 1];
-                  const showEllipsisBefore = prevPage && prevPage !== page - 1;
-
-                  return (
-                    <span key={page}>
-                      {showEllipsisBefore && (
-                        <PaginationItem>
-                          <PaginationEllipsis className="text-slate-400" />
-                        </PaginationItem>
-                      )}
-                      <PaginationItem>
-                        <PaginationLink
-                          isActive={page === pagination.page}
-                          onClick={() => handlePageChange(page)}
-                          className={`cursor-pointer ${
-                            page === pagination.page
-                              ? "bg-orange-500 text-white hover:bg-orange-600"
-                              : "hover:bg-slate-100 border-slate-200"
-                          }`}
-                        >
-                          {page}
-                        </PaginationLink>
-                      </PaginationItem>
-                    </span>
-                  );
-                })}
-
-              <PaginationItem>
-                <PaginationNext
-                  onClick={() => handlePageChange(pagination.page + 1)}
-                  className={`${
-                    pagination.page >= pagination.totalPages
-                      ? "pointer-events-none opacity-50"
-                      : "cursor-pointer hover:bg-slate-100"
-                  } border-slate-200`}
-                />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
+      {/* Results info */}
+      {!loading && filteredData.length > 0 && (
+        <div className="text-sm text-slate-500 text-center">
+          Hiển thị {filteredData.length} trong tổng số {data.length} đơn đăng ký
         </div>
       )}
     </div>
