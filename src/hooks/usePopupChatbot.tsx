@@ -17,6 +17,13 @@ interface UsePopupChatbotOptions {
   balloonText?: string;
   showBalloon?: boolean;
   welcomeMessage?: string;
+  // New context-aware options
+  userName?: string;
+  courseName?: string;
+  lessonName?: string;
+  lessonOrder?: number;
+  totalLessons?: number;
+  chapterName?: string;
 }
 
 /**
@@ -52,6 +59,12 @@ export function usePopupChatbot(options: UsePopupChatbotOptions = {}) {
           balloonText={options.balloonText}
           showBalloon={options.showBalloon}
           welcomeMessage={options.welcomeMessage}
+          userName={options.userName}
+          courseName={options.courseName}
+          lessonName={options.lessonName}
+          lessonOrder={options.lessonOrder}
+          totalLessons={options.totalLessons}
+          chapterName={options.chapterName}
         />
       );
     };
@@ -69,6 +82,12 @@ export function usePopupChatbot(options: UsePopupChatbotOptions = {}) {
     options.balloonText,
     options.showBalloon,
     options.welcomeMessage,
+    options.userName,
+    options.courseName,
+    options.lessonName,
+    options.lessonOrder,
+    options.totalLessons,
+    options.chapterName,
   ]);
 
   return MemoizedChatbot;

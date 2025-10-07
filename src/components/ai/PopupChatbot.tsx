@@ -1,13 +1,30 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
-import { Bot, Maximize2, Minimize2, Send, Smile, User, X } from "lucide-react";
+import {
+  Bot,
+  Download,
+  Maximize2,
+  Minimize2,
+  RotateCcw,
+  Send,
+  Smile,
+  Trash2,
+  User,
+  X,
+} from "lucide-react";
 
 import useUserStore from "@/stores/useUserStore";
 
+import {
+  analyzeConversation,
+  generateSmartSuggestions,
+} from "@/utils/conversationAnalyzer";
+
+import { ConversationStats } from "@/components/ai/ConversationStats";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,6 +55,13 @@ interface PopupChatbotProps {
   balloonText?: string;
   showBalloon?: boolean;
   welcomeMessage?: string;
+  // New context-aware props
+  userName?: string;
+  courseName?: string;
+  lessonName?: string;
+  lessonOrder?: number;
+  totalLessons?: number;
+  chapterName?: string;
 }
 
 // Suggested questions mặc định
@@ -151,6 +175,12 @@ export function PopupChatbot({
   balloonText = "Eduforge AI",
   showBalloon = true,
   welcomeMessage = "Xin chào! Tôi là trợ lý AI của Eduforge. Bạn có thể hỏi tôi bất cứ điều gì.",
+  userName,
+  courseName,
+  lessonName,
+  lessonOrder,
+  totalLessons,
+  chapterName,
 }: PopupChatbotProps) {
   const [isOpen, setIsOpen] = useState(initialOpen);
   const [isFirstOpen, setIsFirstOpen] = useState(false);
@@ -159,15 +189,152 @@ export function PopupChatbot({
   const user = useUserStore((state) => state.user);
   const userId = user?.id || "user";
 
-  // Prepare initial messages with system prompt and reference text
+  // Create context-aware system prompt and welcome message
+  const contextualSystemPrompt = useMemo(() => {
+    let prompt = `Bạn là trợ lý AI học tập thông minh của CogniStream. Hãy tuân thủ các nguyên tắc sau:
+
+🎯 PERSONALITY & TONE:
+- Thân thiện, kiên nhẫn và khuyến khích
+- Giọng điệu như một mentor giàu kinh nghiệm
+- Tránh lặp lại câu trả lời, luôn đa dạng cách diễn đạt
+- Nhận biết được context và không trả lời máy móc
+
+💬 CONVERSATION AWARENESS:
+- Luôn đọc và hiểu toàn bộ lịch sử conversation
+- Đừng lặp lại thông tin đã nói trước đó
+- Khi user nói "cảm ơn", hãy phản hồi ngắn gọn và hỏi thêm
+- Nhận biết được khi user hài lòng vs khi cần hỗ trợ thêm
+- Tránh giải thích lại những gì đã rõ ràng
+
+🎓 EDUCATIONAL APPROACH:
+- Ưu tiên hiểu sâu hơn là ghi nhớ
+- Đưa ra ví dụ thực tế và có thể áp dụng
+- Khuyến khích tư duy phản biện
+- Điều chỉnh độ phức tạp theo phản hồi của user
+
+📚 CONTENT STRATEGY:
+- Khi user hỏi lại thông tin cũ, hãy mở rộng hoặc đưa góc nhìn mới
+- Luôn kết nối với kiến thức đã học trước đó
+- Đề xuất bước tiếp theo trong quá trình học
+- Tạo momentum học tập tích cực`;
+
+    // Add user context
+    if (userName) {
+      prompt = prompt.replace(/bạn/g, userName);
+      prompt += `\n\n👤 USER CONTEXT:\nLuôn gọi người dùng bằng tên "${userName}" thay vì "bạn". Tạo connection cá nhân và nhớ preferences của ${userName} qua các cuộc hội thoại.`;
+    }
+
+    // Add lesson context
+    if (courseName || lessonName) {
+      prompt += `\n\n📖 LEARNING CONTEXT:`;
+      if (courseName) {
+        prompt += `\n- Khóa học: ${courseName}`;
+      }
+      if (chapterName) {
+        prompt += `\n- Chương: ${chapterName}`;
+      }
+      if (lessonName && lessonOrder && totalLessons) {
+        prompt += `\n- Bài học: ${lessonName} (Bài ${lessonOrder}/${totalLessons})`;
+        prompt += `\n- Tiến độ: ${Math.round((lessonOrder / totalLessons) * 100)}% khóa học`;
+      } else if (lessonName) {
+        prompt += `\n- Bài học: ${lessonName}`;
+      }
+
+      prompt += `\n\n🎯 CONTEXT USAGE:\n- Khi được hỏi về "khóa này", "bài này", "chương này", hiểu đúng context trên\n- Liên kết kiến thức với các bài trước/sau khi có thể\n- Đánh giá mức độ khó của bài trong tổng thể khóa học`;
+    }
+
+    // Add conversation intelligence
+    prompt += `\n\n🧠 CONVERSATION INTELLIGENCE:
+- Phân tích conversation history để hiểu learning journey của user
+- Nhận biết pattern: user thích học theo cách nào, gặp khó khăn gì
+- Tránh repeat thông tin, thay vào đó build upon previous answers
+- Khi user nói "cảm ơn", response ngắn gọn + offer next step
+- Response cho social cues như "thanks", "ok", "hiểu rồi" một cách tự nhiên`;
+
+    return prompt;
+  }, [
+    systemPrompt,
+    userName,
+    courseName,
+    lessonName,
+    lessonOrder,
+    totalLessons,
+    chapterName,
+  ]);
+
+  const contextualWelcomeMessage = useMemo(() => {
+    if (userName) {
+      let message = `Xin chào ${userName}! 👋 Mình là AI Assistant của CogniStream.`;
+
+      if (lessonName && courseName) {
+        message += ` Mình thấy ${userName} đang học bài "${lessonName}" trong khóa "${courseName}".`;
+      } else if (courseName) {
+        message += ` ${userName} đang tham gia khóa học "${courseName}" đúng không?`;
+      }
+
+      message += `\n\nMình sẽ nhớ cuộc trò chuyện của chúng ta để hỗ trợ ${userName} tốt hơn! ${userName} có thể hỏi bất cứ điều gì - từ giải thích khái niệm đến ví dụ thực tế nhé! 🚀`;
+      return message;
+    }
+    return welcomeMessage;
+  }, [welcomeMessage, userName, courseName, lessonName]);
+
+  // Create context-aware suggested questions with conversation analysis
+  const contextualSuggestedQuestions = useMemo(() => {
+    if (suggestedQuestions && suggestedQuestions.length > 0) {
+      return suggestedQuestions;
+    }
+
+    // Smart questions based on context and conversation history
+    const hasConversation =
+      messages.filter((m) => m.role !== "system").length > 0;
+
+    if (hasConversation) {
+      // Analyze conversation to provide smart suggestions
+      const analysis = analyzeConversation(messages);
+      const smartSuggestions = generateSmartSuggestions(analysis, {
+        courseName,
+        lessonName,
+      });
+
+      if (smartSuggestions.length > 0) {
+        return smartSuggestions;
+      }
+
+      // Fallback advanced questions for ongoing conversations
+      return [
+        "Cho tôi ví dụ thực tế về điều này",
+        "Làm sao để áp dụng vào công việc?",
+        "Có cách nào học nhớ lâu hơn không?",
+        "So sánh với những gì đã học trước",
+        "Tạo bài tập thực hành cho tôi",
+      ];
+    }
+
+    // Initial questions for new conversations
+    const defaultQuestions = [
+      lessonName
+        ? `Bài "${lessonName}" nói về gì chính?`
+        : "Bài học này về chủ đề gì?",
+      courseName
+        ? `Tại sao cần học khóa "${courseName}"?`
+        : "Tại sao cần học khóa này?",
+      "Những khái niệm nào cần nắm vững?",
+      "Kiến thức này ứng dụng như thế nào?",
+      "Tôi cần chuẩn bị gì để học tốt?",
+    ];
+
+    return defaultQuestions;
+  }, [suggestedQuestions, courseName, lessonName, messages]);
+
+  // Prepare initial messages with enhanced system prompt and reference text
   const initialMessages: { id: string; role: string; content: string }[] = [];
 
-  // Add system prompt
-  if (systemPrompt) {
+  // Add enhanced system prompt
+  if (contextualSystemPrompt) {
     initialMessages.push({
       id: "system-1",
       role: "system",
-      content: systemPrompt,
+      content: contextualSystemPrompt,
     });
   }
 
@@ -180,7 +347,19 @@ export function PopupChatbot({
     });
   }
 
-  // Use a custom implementation instead of useChat
+  // Generate unique conversation ID based on lesson/course context
+  const conversationId = useMemo(() => {
+    // Create a unique ID based on context to maintain separate conversations per lesson
+    const contextParts = [
+      userId,
+      courseName?.replace(/\s+/g, "-"),
+      lessonName?.replace(/\s+/g, "-"),
+      lessonOrder?.toString(),
+    ].filter(Boolean);
+    return `chat-${contextParts.join("-")}`;
+  }, [userId, courseName, lessonName, lessonOrder]);
+
+  // Use a custom implementation instead of useChat with localStorage persistence
   const [messages, setMessages] = useState<
     {
       role: string;
@@ -188,17 +367,65 @@ export function PopupChatbot({
       id?: string;
       userId?: string;
       userImage?: string;
+      timestamp?: number;
     }[]
   >([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
+  // Load conversation history from localStorage on mount
+  useEffect(() => {
+    if (typeof window !== "undefined" && conversationId) {
+      try {
+        const savedMessages = localStorage.getItem(conversationId);
+        if (savedMessages) {
+          const parsed = JSON.parse(savedMessages);
+          // Only load messages that are less than 24 hours old
+          const twentyFourHoursAgo = Date.now() - 24 * 60 * 60 * 1000;
+          const recentMessages = parsed.filter(
+            (msg: any) => !msg.timestamp || msg.timestamp > twentyFourHoursAgo,
+          );
+
+          if (recentMessages.length > 0) {
+            setMessages(recentMessages);
+            console.log(
+              `💾 Loaded ${recentMessages.length} messages from conversation history`,
+            );
+          }
+        }
+      } catch (error) {
+        console.error("Error loading conversation history:", error);
+      }
+    }
+  }, [conversationId]);
+
+  // Save conversation history to localStorage whenever messages change
+  useEffect(() => {
+    if (
+      typeof window !== "undefined" &&
+      conversationId &&
+      messages.length > 0
+    ) {
+      try {
+        // Keep only the last 50 messages to prevent localStorage bloat
+        const messagesToSave = messages.slice(-50).map((msg) => ({
+          ...msg,
+          timestamp: msg.timestamp || Date.now(),
+        }));
+
+        localStorage.setItem(conversationId, JSON.stringify(messagesToSave));
+        console.log(
+          `💾 Saved ${messagesToSave.length} messages to conversation history`,
+        );
+      } catch (error) {
+        console.error("Error saving conversation history:", error);
+      }
+    }
+  }, [messages, conversationId]);
+
   // Chọn mảng suggested questions phù hợp
-  const SUGGESTED_QUESTIONS =
-    suggestedQuestions && suggestedQuestions.length > 0
-      ? suggestedQuestions
-      : DEFAULT_SUGGESTED_QUESTIONS;
+  const SUGGESTED_QUESTIONS = contextualSuggestedQuestions;
 
   // Handle input change
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -219,7 +446,7 @@ export function PopupChatbot({
     }
   };
 
-  // Handle form submission
+  // Handle form submission with enhanced conversation analysis
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
@@ -232,7 +459,32 @@ export function PopupChatbot({
       id: Date.now().toString(),
       userId: userId,
       userImage: user?.image,
+      timestamp: Date.now(),
     };
+
+    // Analyze conversation to understand user better
+    const currentMessages = [...messages, userMessage];
+    const conversationAnalysis = analyzeConversation(currentMessages);
+
+    // Generate enhanced system prompt based on analysis
+    let enhancedSystemPrompt = contextualSystemPrompt;
+
+    if (conversationAnalysis.lastIntent === "thanks") {
+      enhancedSystemPrompt += `\n\n🎯 CURRENT SITUATION: User vừa cảm ơn. Hãy response ngắn gọn, tự nhiên và offer next step hoặc hỏi xem cần hỗ trợ gì thêm. ĐỪNG lặp lại thông tin đã nói.`;
+    } else if (conversationAnalysis.lastIntent === "confusion") {
+      enhancedSystemPrompt += `\n\n🎯 CURRENT SITUATION: User đang confused. Hãy giải thích bằng cách khác đơn giản hơn, sử dụng ví dụ cụ thể và chia nhỏ thành steps.`;
+    } else if (conversationAnalysis.lastIntent === "request_example") {
+      enhancedSystemPrompt += `\n\n🎯 CURRENT SITUATION: User cần ví dụ. Hãy đưa ra ví dụ thực tế, cụ thể và có thể áp dụng ngay.`;
+    }
+
+    if (conversationAnalysis.userLearningStyle !== "unknown") {
+      enhancedSystemPrompt += `\n\n📊 USER LEARNING STYLE: ${conversationAnalysis.userLearningStyle}. Hãy adapt teaching approach cho phù hợp.`;
+    }
+
+    if (conversationAnalysis.learningChallenges.length > 0) {
+      enhancedSystemPrompt += `\n\n⚠️ LEARNING CHALLENGES: User đang gặp khó khăn với: ${conversationAnalysis.learningChallenges.join(", ")}. Hãy address những điểm này.`;
+    }
+
     setMessages((prev) => [...prev, userMessage]);
 
     // Clear input
@@ -242,8 +494,30 @@ export function PopupChatbot({
     setIsLoading(true);
 
     try {
-      // Prepare all messages including system messages
-      const allMessages = [...initialMessages, ...messages, userMessage];
+      // Prepare enhanced system messages
+      const enhancedInitialMessages = [
+        {
+          id: "system-1",
+          role: "system",
+          content: enhancedSystemPrompt,
+        },
+        ...(referenceText
+          ? [
+              {
+                id: "system-2",
+                role: "system",
+                content: `Tham khảo thông tin sau để trả lời:\n${referenceText}`,
+              },
+            ]
+          : []),
+      ];
+
+      // Prepare all messages including enhanced system messages
+      const allMessages = [
+        ...enhancedInitialMessages,
+        ...messages,
+        userMessage,
+      ];
 
       // Call the API
       const response = await fetch("/api/chat", {
@@ -268,7 +542,12 @@ export function PopupChatbot({
       // Add assistant message to the list
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: data.content, id: Date.now().toString() },
+        {
+          role: "assistant",
+          content: data.content,
+          id: Date.now().toString(),
+          timestamp: Date.now(),
+        },
       ]);
     } catch (err) {
       console.error("Error calling chat API:", err);
@@ -295,9 +574,7 @@ export function PopupChatbot({
   // Handle suggested question click
   const handleSuggestedQuestionClick = (question: string) => {
     // Set the input value to the question
-    handleInputChange({
-      target: { value: question },
-    } as React.ChangeEvent<HTMLTextAreaElement>);
+    setInput(question);
 
     // Submit the form automatically after a short delay
     setTimeout(() => {
@@ -308,6 +585,41 @@ export function PopupChatbot({
         );
       }
     }, 100);
+  };
+
+  // Clear conversation history
+  const clearConversation = () => {
+    setMessages([]);
+    if (typeof window !== "undefined" && conversationId) {
+      localStorage.removeItem(conversationId);
+      console.log("🗑️ Cleared conversation history");
+    }
+  };
+
+  // Export conversation history
+  const exportConversation = () => {
+    if (messages.length === 0) return;
+
+    const conversationText = messages
+      .filter((msg) => msg.role !== "system")
+      .map((msg) => {
+        const timestamp = msg.timestamp
+          ? new Date(msg.timestamp).toLocaleString("vi-VN")
+          : "";
+        const role = msg.role === "user" ? userName || "User" : "AI Assistant";
+        return `[${timestamp}] ${role}: ${msg.content}`;
+      })
+      .join("\n\n");
+
+    const blob = new Blob([conversationText], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `conversation-${conversationId}-${new Date().toISOString().split("T")[0]}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   // Filter out system messages for display
@@ -396,14 +708,55 @@ export function PopupChatbot({
                           <Bot size={16} />
                         </AvatarFallback>
                       </Avatar>
+                      {messages.length > 0 && (
+                        <motion.div
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          className="absolute -top-1 -right-1 bg-primary text-white text-xs rounded-full w-5 h-5 flex items-center justify-center"
+                        >
+                          {messages.filter((m) => m.role !== "system").length}
+                        </motion.div>
+                      )}
                     </div>
                     <div>
                       <CardTitle className="text-base font-medium">
                         {title}
                       </CardTitle>
+                      {messages.length > 0 && (
+                        <p className="text-xs text-gray-500">
+                          {messages.filter((m) => m.role !== "system").length}{" "}
+                          tin nhắn
+                        </p>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
+                    {/* Export conversation button */}
+                    {messages.length > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800"
+                        onClick={exportConversation}
+                        title="Xuất cuộc hội thoại"
+                      >
+                        <Download size={14} />
+                      </Button>
+                    )}
+
+                    {/* Clear conversation button */}
+                    {messages.length > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 text-red-600 hover:text-red-700"
+                        onClick={clearConversation}
+                        title="Xóa cuộc hội thoại"
+                      >
+                        <Trash2 size={14} />
+                      </Button>
+                    )}
+
                     <Button
                       variant="ghost"
                       size="icon"
@@ -431,6 +784,18 @@ export function PopupChatbot({
 
               <CardContent className="overflow-y-auto flex-grow p-4 bg-gray-100/60 dark:bg-slate-950">
                 <div className="space-y-4">
+                  {/* Conversation Statistics */}
+                  <ConversationStats
+                    messages={messages}
+                    conversationId={conversationId}
+                    userName={userName}
+                    courseName={courseName}
+                    lessonName={lessonName}
+                    lessonOrder={lessonOrder}
+                    totalLessons={totalLessons}
+                    chapterName={chapterName}
+                  />
+
                   {displayMessages.length === 0 ? (
                     <div className="space-y-4">
                       <div className="flex items-start gap-3">
@@ -441,7 +806,9 @@ export function PopupChatbot({
                           transition={{ duration: 0.3 }}
                           className="bg-white dark:bg-slate-900 p-3 rounded-xl text-sm max-w-[85%] shadow-sm"
                         >
-                          <MarkdownRenderer content={welcomeMessage} />
+                          <MarkdownRenderer
+                            content={contextualWelcomeMessage}
+                          />
                         </motion.div>
                       </div>
 

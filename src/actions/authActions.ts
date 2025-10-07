@@ -8,6 +8,36 @@ import { authApi } from "@/lib/api/authApi";
 
 // actions/login.ts
 
+// Refresh user profile
+export async function refreshUserProfile() {
+  try {
+    const session = await auth();
+
+    if (!session?.accessToken) {
+      return {
+        error: true,
+        message: "Không tìm thấy access token",
+      };
+    }
+
+    const profileData = await authApi.getProfile(session.accessToken);
+
+    return {
+      success: true,
+      data: profileData.data,
+      message: "Refresh profile thành công",
+    };
+  } catch (error: any) {
+    console.error("Error refreshing profile:", error);
+    return {
+      error: true,
+      message: error.message || "Lỗi khi refresh profile",
+    };
+  }
+}
+
+// actions/login.ts
+
 // actions/login.ts
 
 // actions/login.ts
