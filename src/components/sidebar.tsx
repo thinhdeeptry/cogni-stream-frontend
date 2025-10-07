@@ -12,6 +12,7 @@ import {
   GraduationCap,
   Home,
   LayoutDashboard,
+  UserCheck,
   Users,
 } from "lucide-react";
 
@@ -83,6 +84,13 @@ const getMenuItems = (userRole: string) => {
         icon: Users,
         color: "text-gray-600",
         bgColor: "bg-indigo-50",
+      },
+      {
+        title: "Xét duyệt GV",
+        url: "/registrations",
+        icon: UserCheck,
+        color: "text-gray-600",
+        bgColor: "bg-emerald-50",
       },
       {
         title: "Báo cáo",

@@ -639,9 +639,20 @@ export default function LessonDetail() {
     position: "bottom-right",
     referenceText,
     title: "Trợ lý học tập CogniStream AI",
-    welcomeMessage:
-      "Xin chào! Tôi là trợ lý học tập CogniStream AI. Bạn có thể hỏi tôi bất cứ điều gì liên quan đến bài học này.",
+    welcomeMessage: "", // Will be auto-generated based on context
     showBalloon: false,
+    // Context-aware props
+    userName: user?.name || user?.email?.split("@")[0] || "bạn",
+    courseName: course?.title,
+    lessonName: lesson?.title,
+    lessonOrder: lesson?.order,
+    totalLessons: course?.chapters?.reduce(
+      (total, chapter) => total + (chapter.lessons?.length || 0),
+      0,
+    ),
+    chapterName: course?.chapters?.find((chapter) =>
+      chapter.lessons?.some((l) => l.id === params.lessonId),
+    )?.title,
     systemPrompt: `Bạn là trợ lý AI học tập cá nhân của CogniStream, được tối ưu hóa để hỗ trợ quá trình học tập. Hãy tuân thủ các nguyên tắc sau:
 
 1. NỘI DUNG VÀ GIỌNG ĐIỆU
@@ -1738,8 +1749,8 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
                                   <Check className="w-3 h-3 text-white" />
                                 </div>
                               ) : lesson.id === params.lessonId ? (
-                                <div className="w-5 h-5 bg-orange-500 rounded-full flex items-center justify-center">
-                                  <Play className="w-3 h-3 text-white" />
+                                <div className="w-5 h-5 bg-gray-400 rounded-full flex items-center justify-center">
+                                  <Clock className="w-3 h-3 text-white" />
                                 </div>
                               ) : (
                                 <div className="w-5 h-5 bg-gray-300 rounded-full"></div>
