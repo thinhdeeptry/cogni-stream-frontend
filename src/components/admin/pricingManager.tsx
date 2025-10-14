@@ -28,6 +28,10 @@ import {
 } from "lucide-react";
 
 import {
+  getCourseCommissionInfo,
+  updateCommissionOnPriceChange,
+} from "@/actions/commissionActions";
+import {
   activateApprovedPrice,
   approveCoursePrice,
   createCoursePrice,
@@ -116,6 +120,10 @@ export function AdminPricingManager({
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingPolicies, setIsLoadingPolicies] = useState(false); // New loading state
   const [isUpdating, setIsUpdating] = useState(false);
+
+  // Commission states
+  const [commissionInfo, setCommissionInfo] = useState<any>(null);
+  const [isLoadingCommission, setIsLoadingCommission] = useState(false);
   const [newPrice, setNewPrice] = useState("");
   const [pricingType, setPricingType] = useState<PricingType>(
     PricingType.BASE_PRICE,
@@ -157,6 +165,7 @@ export function AdminPricingManager({
     if (isOpen) {
       fetchCurrentPricing();
       fetchAllPricings();
+      fetchCommissionInfo();
     }
   }, [isOpen, courseId]);
 
@@ -191,6 +200,21 @@ export function AdminPricingManager({
       });
     } finally {
       setIsLoadingPolicies(false); // Clear loading
+    }
+  };
+
+  // 🆕 Fetch commission info
+  const fetchCommissionInfo = async () => {
+    try {
+      setIsLoadingCommission(true);
+      const commission = await getCourseCommissionInfo(courseId);
+      setCommissionInfo(commission);
+    } catch (error) {
+      console.error("Error fetching commission info:", error);
+      // Don't show error toast for commission as it's not critical
+      setCommissionInfo(null);
+    } finally {
+      setIsLoadingCommission(false);
     }
   };
 
@@ -293,17 +317,28 @@ export function AdminPricingManager({
       // pricingId ở đây thực chất là PricingDetail ID
       await updatePricingPrice(pricingId, Number(editPrice));
 
-      toast({
-        title: "Thành công",
-        description: "Cập nhật giá thành công",
-      });
+      // Update commission info when price changes
+      const commissionUpdate = await updateCommissionOnPriceChange(
+        courseId,
+        Number(editPrice),
+      );
 
       await fetchAllPricings();
       await fetchCurrentPricing();
+      await fetchCommissionInfo(); // Refresh commission info
 
       if (onPricingUpdated) {
         onPricingUpdated();
       }
+
+      // Show success message with commission info
+      toast({
+        title: "Thành công",
+        description: commissionUpdate.success
+          ? `Cập nhật giá thành công! ${commissionUpdate.message}`
+          : "Cập nhật giá thành công",
+        variant: "default",
+      });
 
       // Reset edit state
       setEditingPriceId(null);
@@ -592,6 +627,12 @@ export function AdminPricingManager({
     try {
       setIsUpdating(true);
 
+      //  Update commission info when new price is created
+      const commissionUpdate = await updateCommissionOnPriceChange(
+        courseId,
+        Number(newPrice),
+      );
+
       if (pricingType === PricingType.BASE_PRICE) {
         // Tạo giá cơ bản cho khóa học
         await setBasePriceForCourse(courseId, Number(newPrice));
@@ -616,14 +657,23 @@ export function AdminPricingManager({
           description: `Đã tạo chương trình khuyến mãi "${promotionName}" và gửi yêu cầu duyệt`,
         });
       }
-
       // Refresh data
       await fetchCurrentPricing();
       await fetchAllPricings();
+      await fetchCommissionInfo(); // Refresh commission info
 
       if (onPricingUpdated) {
         onPricingUpdated();
       }
+
+      // Show success message with commission info
+      toast({
+        title: "Thành công",
+        description: commissionUpdate.success
+          ? `Thêm chính sách giá thành công! ${commissionUpdate.message}`
+          : "Thêm chính sách giá thành công",
+        variant: "default",
+      });
 
       setShowAddForm(false);
       resetForm();
@@ -697,42 +747,119 @@ export function AdminPricingManager({
 
         <div className="space-y-6">
           {/* Current Pricing Display */}
-          <div className="bg-slate-50 p-4 rounded-lg">
-            <h4 className="font-medium text-slate-900 mb-3">Giá hiện tại</h4>
-            {isLoading ? (
-              <div className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span className="text-sm text-slate-500">Đang tải...</span>
-              </div>
-            ) : currentPricing ? (
-              <div className="space-y-2">
-                <p className="text-2xl font-bold text-slate-700">
-                  {currentPricing.currentPrice === null ||
-                  currentPricing.currentPrice === 0
-                    ? "Miễn phí"
-                    : `${Number(currentPricing.currentPrice).toLocaleString()} VND`}
-                </p>
-                {currentPricing.hasPromotion && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded">
-                      🎉 Khuyến mãi
-                    </span>
-                    {currentPricing.promotionName && (
-                      <span className="text-sm text-slate-600">
-                        {currentPricing.promotionName}
-                      </span>
-                    )}
-                  </div>
-                )}
-                {currentPricing.promotionEndDate && (
-                  <p className="text-xs text-slate-500">
-                    Hết hạn: {formatDate(currentPricing.promotionEndDate)}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-slate-50 p-4 rounded-lg">
+              <h4 className="font-medium text-slate-900 mb-3">Giá hiện tại</h4>
+              {isLoading ? (
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="text-sm text-slate-500">Đang tải...</span>
+                </div>
+              ) : currentPricing ? (
+                <div className="space-y-2">
+                  <p className="text-2xl font-bold text-slate-700">
+                    {currentPricing.currentPrice === null ||
+                    currentPricing.currentPrice === 0
+                      ? "Miễn phí"
+                      : `${Number(currentPricing.currentPrice).toLocaleString()} VND`}
                   </p>
+                  {currentPricing.hasPromotion && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded">
+                        🎉 Khuyến mãi
+                      </span>
+                      {currentPricing.promotionName && (
+                        <span className="text-sm text-slate-600">
+                          {currentPricing.promotionName}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {currentPricing.promotionEndDate && (
+                    <p className="text-xs text-slate-500">
+                      Hết hạn: {formatDate(currentPricing.promotionEndDate)}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <p className="text-slate-500">Chưa có thông tin giá</p>
+              )}
+            </div>
+
+            {/* Commission Info Display */}
+            <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+              <h4 className="font-medium text-green-900 mb-3 flex items-center gap-2">
+                Thông tin Commission
+                {isLoadingCommission && (
+                  <Loader2 className="h-4 w-4 animate-spin text-green-600" />
                 )}
-              </div>
-            ) : (
-              <p className="text-slate-500">Chưa có thông tin giá</p>
-            )}
+              </h4>
+              {isLoadingCommission ? (
+                <div className="space-y-2">
+                  <div className="h-4 w-32 bg-green-200 animate-pulse rounded"></div>
+                  <div className="h-4 w-24 bg-green-200 animate-pulse rounded"></div>
+                </div>
+              ) : commissionInfo?.hasCommission ? (
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-green-700">Giảng viên:</span>
+                    <span className="font-semibold text-green-800">
+                      {commissionInfo.commission.instructorRate}%
+                      {currentPricing?.currentPrice &&
+                        currentPricing.currentPrice > 0 && (
+                          <span className="text-xs ml-2 text-green-600">
+                            (
+                            {(
+                              (currentPricing.currentPrice *
+                                commissionInfo.commission.instructorRate) /
+                              100
+                            ).toLocaleString()}{" "}
+                            VND)
+                          </span>
+                        )}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-green-700">Nền tảng:</span>
+                    <span className="font-semibold text-green-800">
+                      {commissionInfo.commission.platformRate}%
+                      {currentPricing?.currentPrice &&
+                        currentPricing.currentPrice > 0 && (
+                          <span className="text-xs ml-2 text-green-600">
+                            (
+                            {(
+                              (currentPricing.currentPrice *
+                                commissionInfo.commission.platformRate) /
+                              100
+                            ).toLocaleString()}{" "}
+                            VND)
+                          </span>
+                        )}
+                    </span>
+                  </div>
+                  <div className="mt-2 pt-2 border-t border-green-200">
+                    <span className="text-xs text-green-600">
+                      Loại:{" "}
+                      {commissionInfo.commission.type === "course-specific"
+                        ? " Riêng cho khóa học này"
+                        : commissionInfo.commission.type === "category-specific"
+                          ? " Theo danh mục"
+                          : " Commission chung"}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-sm text-orange-700">
+                    Chưa có commission được áp dụng
+                  </p>
+                  <p className="text-xs text-orange-600">
+                    Vui lòng liên hệ admin để thiết lập commission cho khóa học
+                    này
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Summary Statistics */}

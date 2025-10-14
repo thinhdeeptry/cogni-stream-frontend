@@ -9,6 +9,7 @@ import { Category, CourseLevel, CourseType } from "@/types/course/types";
 import { motion } from "framer-motion";
 import { ChevronLeft, Plus, Trash, Upload } from "lucide-react";
 
+import { getActiveCommissionForProduct } from "@/actions/commissionActions";
 import {
   createCourse,
   getAllCategories,
@@ -45,6 +46,7 @@ interface CourseFormData {
   learningOutcomes: string[];
   requirements: string[];
   targetAudience: string;
+  commissionId?: string; // ID của commission được áp dụng
 }
 
 export default function CreateCoursePage() {
@@ -69,7 +71,12 @@ export default function CreateCoursePage() {
     learningOutcomes: [""],
     requirements: [""],
     targetAudience: "",
+    commissionId: undefined, // ID của commission được áp dụng
   });
+
+  // State để hiển thị commission sẽ được áp dụng
+  const [previewCommission, setPreviewCommission] = useState<any>(null);
+  const [loadingCommission, setLoadingCommission] = useState(false);
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -112,6 +119,11 @@ export default function CreateCoursePage() {
 
   const handleSelectChange = (name: string, value: string) => {
     setCourseData((prev) => ({ ...prev, [name]: value }));
+
+    // 🆕 Khi thay đổi category, preview commission sẽ được áp dụng
+    if (name === "categoryId" && value) {
+      previewCommissionForCategory(value);
+    }
   };
 
   const handleCheckboxChange = (name: string, checked: boolean) => {
@@ -199,6 +211,148 @@ export default function CreateCoursePage() {
     });
   };
 
+  // 🆕 Function để preview commission cho category
+  const previewCommissionForCategory = async (categoryId: string) => {
+    if (!categoryId) {
+      setPreviewCommission(null);
+      // 🆕 Xóa commissionId khỏi courseData khi không có category
+      setCourseData((prev) => ({ ...prev, commissionId: undefined }));
+      return;
+    }
+
+    setLoadingCommission(true);
+    try {
+      // Tìm commission cho category này
+      const { getCommissionDetailsByCategory, getCommissionDetails } =
+        await import("@/actions/commissionActions");
+
+      // Ưu tiên 1: Commission cho category này
+      const categoryCommissions =
+        await getCommissionDetailsByCategory(categoryId);
+      const activeCommissions = categoryCommissions.filter((c) => c.isActive);
+
+      if (activeCommissions.length > 0) {
+        const bestCommission = activeCommissions.sort(
+          (a, b) => b.priority - a.priority,
+        )[0];
+        setPreviewCommission({
+          ...bestCommission,
+          type: "category-specific",
+          message: `Commission cho danh mục này: ${bestCommission.instructorRate}% cho giảng viên, ${bestCommission.platformRate}% cho nền tảng`,
+        });
+        // 🆕 Lưu commissionId vào courseData
+        setCourseData((prev) => ({ ...prev, commissionId: bestCommission.id }));
+        return;
+      }
+
+      // Ưu tiên 2: Commission chung
+      const generalCommissions = await getCommissionDetails({
+        isActive: true,
+        limit: 100,
+      });
+
+      const generalActiveCommissions = generalCommissions.data.filter(
+        (c) => !c.courseId && !c.categoryId && c.isActive,
+      );
+
+      if (generalActiveCommissions.length > 0) {
+        const bestCommission = generalActiveCommissions.sort(
+          (a, b) => b.priority - a.priority,
+        )[0];
+        setPreviewCommission({
+          ...bestCommission,
+          type: "general",
+          message: `Commission chung của hệ thống: ${bestCommission.instructorRate}% cho giảng viên, ${bestCommission.platformRate}% cho nền tảng`,
+        });
+        // 🆕 Lưu commissionId vào courseData
+        setCourseData((prev) => ({ ...prev, commissionId: bestCommission.id }));
+        return;
+      }
+
+      // Không tìm thấy commission nào
+      setPreviewCommission({
+        type: "none",
+        message:
+          "Không tìm thấy commission phù hợp. Vui lòng liên hệ admin để thiết lập.",
+      });
+      // 🆕 Xóa commissionId khỏi courseData
+      setCourseData((prev) => ({ ...prev, commissionId: undefined }));
+    } catch (error) {
+      console.error("Error previewing commission:", error);
+      setPreviewCommission({
+        type: "error",
+        message: "Lỗi khi tải thông tin commission",
+      });
+      // 🆕 Xóa commissionId khỏi courseData khi có lỗi
+      setCourseData((prev) => ({ ...prev, commissionId: undefined }));
+    } finally {
+      setLoadingCommission(false);
+    }
+  };
+
+  // Helper function để tự động tìm commission phù hợp
+  const findBestCommission = async (courseId: string, categoryId: string) => {
+    try {
+      // Ưu tiên 1: Tìm commission riêng cho course này (nếu có)
+      let commission = await getActiveCommissionForProduct("COURSE", courseId);
+
+      if (commission) {
+        console.log("Found course-specific commission:", commission);
+        return commission;
+      }
+
+      // Ưu tiên 2: Tìm commission cho category
+      if (categoryId) {
+        // Cần tạo function getActiveCommissionForCategory trong commissionActions
+        // Tạm thời sử dụng getCommissionDetailsByCategory
+        const { getCommissionDetailsByCategory } = await import(
+          "@/actions/commissionActions"
+        );
+        const categoryCommissions =
+          await getCommissionDetailsByCategory(categoryId);
+
+        // Lọc chỉ lấy những commission active
+        const activeCommissions = categoryCommissions.filter((c) => c.isActive);
+
+        if (activeCommissions.length > 0) {
+          // Sắp xếp theo priority (cao nhất trước)
+          const bestCommission = activeCommissions.sort(
+            (a, b) => b.priority - a.priority,
+          )[0];
+          console.log("Found category-specific commission:", bestCommission);
+          return bestCommission;
+        }
+      }
+
+      // Ưu tiên 3: Tìm commission chung (không có courseId và categoryId)
+      const { getCommissionDetails } = await import(
+        "@/actions/commissionActions"
+      );
+      const generalCommissions = await getCommissionDetails({
+        isActive: true,
+        limit: 100, // Lấy nhiều để tìm commission chung
+      });
+
+      const generalActiveCommissions = generalCommissions.data.filter(
+        (c) => !c.courseId && !c.categoryId && c.isActive,
+      );
+
+      if (generalActiveCommissions.length > 0) {
+        const bestCommission = generalActiveCommissions.sort(
+          (a, b) => b.priority - a.priority,
+        )[0];
+        console.log("Found general commission:", bestCommission);
+        return bestCommission;
+      }
+
+      console.log("No active commission found");
+      return null;
+    } catch (error) {
+      console.error("Error finding commission:", error);
+      return null;
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (
@@ -228,22 +382,43 @@ export default function CreateCoursePage() {
         ...courseDataToSubmit,
         thumbnailUrl: courseDataToSubmit.thumbnailUrl || undefined,
         price: courseData.price,
+        commissionId: courseData.commissionId, // 🆕 Gửi commissionId nếu có
       });
 
       if (result.success) {
-        // TODO: Set pricing using pricing API if price > 0
-        // if (courseData.price > 0) {
-        //   await createPricing({
-        //     courseId: result.data.id,
-        //     name: "Base Price",
-        //     price: courseData.price,
-        //     type: "BASE_PRICE"
-        //   });
-        // }
+        // 🆕 Kiểm tra commission đã được áp dụng từ backend
+        let appliedCommissionMessage = "";
+
+        try {
+          // Gọi API để lấy thông tin commission đã được áp dụng
+          const { getCourseCommissionInfo } = await import(
+            "@/actions/commissionActions"
+          );
+          const commissionInfo = await getCourseCommissionInfo(result.data.id);
+
+          if (commissionInfo.hasCommission && commissionInfo.commission) {
+            const comm = commissionInfo.commission;
+            appliedCommissionMessage = `Commission đã được áp dụng tự động: ${comm.instructorRate}% cho giảng viên, ${comm.platformRate}% cho nền tảng (${
+              comm.type === "course-specific"
+                ? "riêng cho khóa học"
+                : comm.type === "category-specific"
+                  ? "theo danh mục"
+                  : "chung hệ thống"
+            })`;
+          } else {
+            appliedCommissionMessage =
+              "Chưa có commission phù hợp được áp dụng. Vui lòng liên hệ admin để thiết lập.";
+          }
+        } catch (error) {
+          console.error("Error checking applied commission:", error);
+          appliedCommissionMessage =
+            "Commission sẽ được hệ thống tự động áp dụng.";
+        }
 
         toast({
           title: "Thành công",
-          description: "Tạo khóa học thành công",
+          description: `Tạo khóa học thành công! ${appliedCommissionMessage}`,
+          variant: "default",
         });
 
         // Nếu là LIVE course, chuyển đến trang tạo Class
@@ -505,6 +680,105 @@ export default function CreateCoursePage() {
                     </div>
                   </div>
                 )}
+
+                {/* 🆕 Commission Preview */}
+                {(courseData.categoryId || previewCommission) && (
+                  <div className="bg-gradient-to-r from-green-50 to-blue-50 p-4 rounded-lg border border-green-200">
+                    <h4 className="text-sm font-medium text-green-800 mb-2 flex items-center gap-2">
+                      💰 Commission sẽ được áp dụng
+                      {loadingCommission && (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-500"></div>
+                      )}
+                    </h4>
+
+                    {loadingCommission ? (
+                      <p className="text-xs text-green-600">
+                        Đang tải thông tin commission...
+                      </p>
+                    ) : previewCommission ? (
+                      <div className="space-y-2">
+                        <p className="text-sm text-green-700">
+                          {previewCommission.message}
+                        </p>
+
+                        {previewCommission.type !== "none" &&
+                          previewCommission.type !== "error" && (
+                            <div className="grid grid-cols-2 gap-3 mt-3">
+                              <div className="bg-white/70 p-2 rounded border">
+                                <div className="text-xs text-green-600 font-medium">
+                                  Giảng viên nhận
+                                </div>
+                                <div className="text-sm font-semibold text-green-800">
+                                  {previewCommission.instructorRate}%
+                                  {courseData.price > 0 && (
+                                    <span className="text-xs text-green-600 ml-1">
+                                      (≈
+                                      {Math.round(
+                                        (courseData.price *
+                                          previewCommission.instructorRate) /
+                                          100,
+                                      ).toLocaleString()}{" "}
+                                      VND)
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="bg-white/70 p-2 rounded border">
+                                <div className="text-xs text-blue-600 font-medium">
+                                  Nền tảng nhận
+                                </div>
+                                <div className="text-sm font-semibold text-blue-800">
+                                  {previewCommission.platformRate}%
+                                  {courseData.price > 0 && (
+                                    <span className="text-xs text-blue-600 ml-1">
+                                      (≈
+                                      {Math.round(
+                                        (courseData.price *
+                                          previewCommission.platformRate) /
+                                          100,
+                                      ).toLocaleString()}{" "}
+                                      VND)
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                        <div className="flex items-center gap-1 mt-2">
+                          <div
+                            className={`w-2 h-2 rounded-full ${
+                              previewCommission.type === "category-specific"
+                                ? "bg-green-500"
+                                : previewCommission.type === "general"
+                                  ? "bg-blue-500"
+                                  : previewCommission.type === "none"
+                                    ? "bg-yellow-500"
+                                    : "bg-red-500"
+                            }`}
+                          ></div>
+                          <span className="text-xs text-gray-600">
+                            {previewCommission.type === "category-specific"
+                              ? "Commission riêng cho danh mục"
+                              : previewCommission.type === "general"
+                                ? "Commission chung hệ thống"
+                                : previewCommission.type === "none"
+                                  ? "Chưa có commission phù hợp"
+                                  : "Lỗi tải commission"}
+                          </span>
+                        </div>
+                      </div>
+                    ) : courseData.categoryId ? (
+                      <p className="text-xs text-green-600">
+                        Chọn danh mục để xem commission sẽ được áp dụng
+                      </p>
+                    ) : (
+                      <p className="text-xs text-gray-500">
+                        Vui lòng chọn danh mục trước
+                      </p>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -556,6 +830,33 @@ export default function CreateCoursePage() {
                     khuyến mãi và quản lý giá nâng cao trong phần quản lý giá
                     của khóa học.
                   </p>
+                </div>
+
+                <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                  <h4 className="text-sm font-medium text-green-800 mb-2">
+                    🎯 Tự động áp dụng Commission
+                  </h4>
+                  <p className="text-sm text-green-700">
+                    Hệ thống sẽ tự động tìm và áp dụng commission phù hợp nhất
+                    khi tạo khóa học:
+                  </p>
+                  <ul className="text-xs text-green-600 mt-2 list-disc pl-4 space-y-1">
+                    <li>
+                      <strong>Ưu tiên 1:</strong> Commission riêng cho khóa học
+                      (nếu có)
+                    </li>
+                    <li>
+                      <strong>Ưu tiên 2:</strong> Commission theo danh mục đã
+                      chọn
+                    </li>
+                    <li>
+                      <strong>Ưu tiên 3:</strong> Commission chung của hệ thống
+                    </li>
+                    <li>
+                      Tự động chọn commission có độ ưu tiên cao nhất và đang
+                      hoạt động
+                    </li>
+                  </ul>
                 </div>
               </CardContent>
             </Card>

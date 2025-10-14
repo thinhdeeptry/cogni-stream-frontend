@@ -10,6 +10,7 @@ import {
   BookOpen,
   Calendar,
   CheckSquare,
+  DollarSign,
   GraduationCap,
   Home,
   LayoutDashboard,
@@ -72,6 +73,17 @@ const getMenuItems = (userRole: string) => {
       bgColor: "bg-purple-50",
     });
   }
+
+  if (userRole === "INSTRUCTOR" || userRole === "ADMIN") {
+    baseItems.push({
+      title: "Doanh thu",
+      url: "/instructor/revenue",
+      icon: DollarSign,
+      color: "text-green-600",
+      bgColor: "bg-green-50",
+    });
+  }
+
   if (userRole === "ADMIN") {
     baseItems.push(
       {
@@ -80,6 +92,13 @@ const getMenuItems = (userRole: string) => {
         icon: CheckSquare,
         color: "text-emerald-600",
         bgColor: "bg-emerald-50",
+      },
+      {
+        title: "Phí nền tảng",
+        url: "/admin/commission",
+        icon: DollarSign,
+        color: "text-orange-600",
+        bgColor: "bg-orange-50",
       },
       // {
       //   title: "QL Bài viết",

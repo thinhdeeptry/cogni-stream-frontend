@@ -15,6 +15,9 @@ export {
   ApprovalEmptyState,
 } from "./ApprovalComponents";
 
+// Pricing Management Components
+export { AdminPricingManager } from "./AdminPricingManager";
+
 // Re-export types
 export type {
   StatsCardProps,
