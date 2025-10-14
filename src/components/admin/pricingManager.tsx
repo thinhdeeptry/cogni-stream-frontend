@@ -786,10 +786,10 @@ export function AdminPricingManager({
               )}
             </div>
 
-            {/* 🆕 Commission Info Display */}
+            {/* Commission Info Display */}
             <div className="bg-green-50 p-4 rounded-lg border border-green-200">
               <h4 className="font-medium text-green-900 mb-3 flex items-center gap-2">
-                💰 Thông tin Commission
+                Thông tin Commission
                 {isLoadingCommission && (
                   <Loader2 className="h-4 w-4 animate-spin text-green-600" />
                 )}
@@ -841,17 +841,17 @@ export function AdminPricingManager({
                     <span className="text-xs text-green-600">
                       Loại:{" "}
                       {commissionInfo.commission.type === "course-specific"
-                        ? "🎯 Riêng cho khóa học này"
+                        ? " Riêng cho khóa học này"
                         : commissionInfo.commission.type === "category-specific"
-                          ? "📂 Theo danh mục"
-                          : "🌐 Commission chung"}
+                          ? " Theo danh mục"
+                          : " Commission chung"}
                     </span>
                   </div>
                 </div>
               ) : (
                 <div className="space-y-2">
                   <p className="text-sm text-orange-700">
-                    ⚠️ Chưa có commission được áp dụng
+                    Chưa có commission được áp dụng
                   </p>
                   <p className="text-xs text-orange-600">
                     Vui lòng liên hệ admin để thiết lập commission cho khóa học

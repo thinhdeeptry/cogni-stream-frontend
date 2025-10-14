@@ -207,6 +207,7 @@ export const createCourse = async (courseData: {
   targetAudience?: string;
   thumbnailUrl?: string;
   instructorId: string;
+  commissionId?: string; // Thêm commissionId
 }) => {
   try {
     // Đổi tên price thành basePrice để phù hợp với BE

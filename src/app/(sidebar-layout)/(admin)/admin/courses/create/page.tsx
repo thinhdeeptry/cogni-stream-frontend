@@ -46,6 +46,7 @@ interface CourseFormData {
   learningOutcomes: string[];
   requirements: string[];
   targetAudience: string;
+  commissionId?: string; // ID của commission được áp dụng
 }
 
 export default function CreateCoursePage() {
@@ -70,9 +71,10 @@ export default function CreateCoursePage() {
     learningOutcomes: [""],
     requirements: [""],
     targetAudience: "",
+    commissionId: undefined, // ID của commission được áp dụng
   });
 
-  // 🆕 State để hiển thị commission sẽ được áp dụng
+  // State để hiển thị commission sẽ được áp dụng
   const [previewCommission, setPreviewCommission] = useState<any>(null);
   const [loadingCommission, setLoadingCommission] = useState(false);
   useEffect(() => {
@@ -213,6 +215,8 @@ export default function CreateCoursePage() {
   const previewCommissionForCategory = async (categoryId: string) => {
     if (!categoryId) {
       setPreviewCommission(null);
+      // 🆕 Xóa commissionId khỏi courseData khi không có category
+      setCourseData((prev) => ({ ...prev, commissionId: undefined }));
       return;
     }
 
@@ -236,6 +240,8 @@ export default function CreateCoursePage() {
           type: "category-specific",
           message: `Commission cho danh mục này: ${bestCommission.instructorRate}% cho giảng viên, ${bestCommission.platformRate}% cho nền tảng`,
         });
+        // 🆕 Lưu commissionId vào courseData
+        setCourseData((prev) => ({ ...prev, commissionId: bestCommission.id }));
         return;
       }
 
@@ -258,6 +264,8 @@ export default function CreateCoursePage() {
           type: "general",
           message: `Commission chung của hệ thống: ${bestCommission.instructorRate}% cho giảng viên, ${bestCommission.platformRate}% cho nền tảng`,
         });
+        // 🆕 Lưu commissionId vào courseData
+        setCourseData((prev) => ({ ...prev, commissionId: bestCommission.id }));
         return;
       }
 
@@ -267,12 +275,16 @@ export default function CreateCoursePage() {
         message:
           "Không tìm thấy commission phù hợp. Vui lòng liên hệ admin để thiết lập.",
       });
+      // 🆕 Xóa commissionId khỏi courseData
+      setCourseData((prev) => ({ ...prev, commissionId: undefined }));
     } catch (error) {
       console.error("Error previewing commission:", error);
       setPreviewCommission({
         type: "error",
         message: "Lỗi khi tải thông tin commission",
       });
+      // 🆕 Xóa commissionId khỏi courseData khi có lỗi
+      setCourseData((prev) => ({ ...prev, commissionId: undefined }));
     } finally {
       setLoadingCommission(false);
     }
@@ -370,6 +382,7 @@ export default function CreateCoursePage() {
         ...courseDataToSubmit,
         thumbnailUrl: courseDataToSubmit.thumbnailUrl || undefined,
         price: courseData.price,
+        commissionId: courseData.commissionId, // 🆕 Gửi commissionId nếu có
       });
 
       if (result.success) {
