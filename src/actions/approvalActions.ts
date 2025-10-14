@@ -269,6 +269,7 @@ export interface ApprovalStats {
     totalPendingCourses: number;
     totalPendingClasses: number;
     totalPendingLessons: number;
+    totalPendingPrices: number;
     lastUpdated: string;
   };
   courses: {
@@ -322,23 +323,42 @@ export interface ApprovalStats {
       };
     } | null;
   };
+  prices: {
+    pendingApproval: number;
+    approved: number;
+    rejected: number;
+    active: number;
+    total: number;
+    oldestPending: {
+      id: string;
+      title: string;
+      submittedAt: string | null;
+      daysPending: number;
+      instructor: {
+        name: string;
+        email: string;
+      };
+    } | null;
+  };
   trends: {
     averageApprovalTime: {
       courses: number | null;
       classes: number | null;
       lessons: number | null;
+      prices: number | null;
     };
     dailySubmissions: {
       date: string;
       courses: number;
       classes: number;
       lessons: number;
+      prices: number;
       total: number;
     }[];
   };
   insights: {
     mostUrgent: {
-      type: "course" | "class" | "lesson";
+      type: "course" | "class" | "lesson" | "price";
       id: string;
       title: string;
       daysPending: number;
@@ -362,12 +382,17 @@ export async function getApprovalStats(): Promise<ApprovalStats> {
 export interface RecentActivitiesResponse {
   activities: {
     id: string;
-    type: "course" | "class" | "lesson";
+    type: "course" | "class" | "lesson" | "price";
     title: string;
     description: string;
     action: "submitted" | "approved" | "rejected";
     timestamp: string;
-    status: "PENDING_APPROVAL" | "APPROVED" | "REJECTED" | "PUBLISHED";
+    status:
+      | "PENDING_APPROVAL"
+      | "APPROVED"
+      | "REJECTED"
+      | "PUBLISHED"
+      | "ACTIVE";
     instructor: {
       id: string;
       name: string;
@@ -406,6 +431,117 @@ export async function getRecentApprovalActivities(
   limit: number = 10,
 ): Promise<RecentActivitiesResponse> {
   return apiRequest(`/approvals/recent-activities?limit=${limit}`);
+}
+
+// ==========================================
+// PRICE APPROVAL ACTIONS
+// ==========================================
+
+export interface PendingPricesParams {
+  page?: number;
+  limit?: number;
+  sortBy?: "oldest" | "newest" | "instructor";
+}
+
+export interface PendingPricesResponse {
+  data: {
+    id: string;
+    price: number;
+    status: "PENDING_APPROVAL" | "APPROVED" | "REJECTED" | "ACTIVE";
+    submittedAt: string;
+    reviewedAt?: string;
+    rejectionReason?: string;
+    course: {
+      id: string;
+      title: string;
+      category?: string;
+    };
+    instructor: {
+      id: string;
+      name: string;
+      email: string;
+      image?: string;
+    };
+    reviewer?: {
+      id: string;
+      name: string;
+      email: string;
+    };
+  }[];
+  meta: {
+    totalCount: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+  };
+}
+
+/**
+ * Get list of prices pending approval
+ */
+export async function getPendingPrices(
+  params: PendingPricesParams = {},
+): Promise<PendingPricesResponse> {
+  const searchParams = new URLSearchParams();
+
+  if (params.page) searchParams.set("page", params.page.toString());
+  if (params.limit) searchParams.set("limit", params.limit.toString());
+  if (params.sortBy) searchParams.set("sortBy", params.sortBy);
+
+  return apiRequest(`/courses/prices/pending/list?${searchParams}`);
+}
+
+/**
+ * Approve a course price
+ */
+export async function approveCoursePrice(priceDetailId: string): Promise<any> {
+  return apiRequest(`/courses/prices/${priceDetailId}/approve`, {
+    method: "POST",
+  });
+}
+
+/**
+ * Reject a course price with reason
+ */
+export async function rejectCoursePrice(
+  priceDetailId: string,
+  data: { rejectionReason: string },
+): Promise<any> {
+  return apiRequest(`/courses/prices/${priceDetailId}/reject`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * Get price details for review
+ */
+export async function getPriceForReview(priceDetailId: string): Promise<any> {
+  return apiRequest(`/courses/prices/${priceDetailId}/review-details`);
+}
+
+/**
+ * Submit price for approval (instructor action)
+ */
+export async function submitPriceForApproval(
+  priceDetailId: string,
+): Promise<any> {
+  return apiRequest(`/courses/prices/${priceDetailId}/submit-for-approval`, {
+    method: "POST",
+  });
+}
+
+/**
+ * Activate approved price (instructor action)
+ */
+export async function activateApprovedPrice(
+  priceDetailId: string,
+): Promise<any> {
+  return apiRequest(`/courses/prices/${priceDetailId}/activate`, {
+    method: "POST",
+  });
 }
 
 // ==========================================

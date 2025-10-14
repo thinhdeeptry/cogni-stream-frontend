@@ -114,6 +114,7 @@ export interface ApprovalStats {
     totalPendingCourses: number;
     totalPendingClasses: number;
     totalPendingLessons: number;
+    totalPendingPrices: number;
     lastUpdated: string;
   };
   courses: {
@@ -167,23 +168,42 @@ export interface ApprovalStats {
       };
     } | null;
   };
+  prices: {
+    pendingApproval: number;
+    approved: number;
+    rejected: number;
+    active: number;
+    total: number;
+    oldestPending: {
+      id: string;
+      title: string;
+      submittedAt: string | null;
+      daysPending: number;
+      instructor: {
+        name: string;
+        email: string;
+      };
+    } | null;
+  };
   trends: {
     averageApprovalTime: {
       courses: number | null;
       classes: number | null;
       lessons: number | null;
+      prices: number | null;
     };
     dailySubmissions: {
       date: string;
       courses: number;
       classes: number;
       lessons: number;
+      prices: number;
       total: number;
     }[];
   };
   insights: {
     mostUrgent: {
-      type: "course" | "class" | "lesson";
+      type: "course" | "class" | "lesson" | "price";
       id: string;
       title: string;
       daysPending: number;
@@ -199,12 +219,12 @@ export interface ApprovalStats {
 
 export interface RecentActivity {
   id: string;
-  type: "course" | "class" | "lesson";
+  type: "course" | "class" | "lesson" | "price";
   title: string;
   description: string;
   action: "submitted" | "approved" | "rejected";
   timestamp: string;
-  status: "PENDING_APPROVAL" | "APPROVED" | "REJECTED" | "PUBLISHED";
+  status: "PENDING_APPROVAL" | "APPROVED" | "REJECTED" | "PUBLISHED" | "ACTIVE";
   instructor: {
     id: string;
     name: string;

@@ -5,7 +5,14 @@ import { use } from "react";
 import { useEffect, useState } from "react";
 
 import { toast } from "@/hooks/use-toast";
-import { Class, Course, CoursePrice, CourseType } from "@/types/course/types";
+import {
+  Class,
+  ClassStatusActive,
+  Course,
+  CoursePrice,
+  CourseStatus,
+  CourseType,
+} from "@/types/course/types";
 import { BookOpen, ChevronLeft, Edit, Loader2, Plus } from "lucide-react";
 
 import { getClassesByCourse } from "@/actions/classActions";
@@ -13,7 +20,7 @@ import { getCourseById } from "@/actions/courseAction";
 import { getCourseCurrentPrice } from "@/actions/pricingActions";
 
 import { CourseContent } from "@/components/CourseContent";
-import { AdminPricingManager } from "@/components/admin/AdminPricingManager";
+import { AdminPricingManager } from "@/components/admin/pricingManager";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -144,12 +151,30 @@ export default function CourseDetailPage({
               </h1>
               <div className="flex items-center gap-2 mt-2 cursor-pointer">
                 <Badge
-                  variant={course.isPublished ? "default" : "secondary"}
+                  variant={
+                    course.status === CourseStatus.PUBLISHED
+                      ? "default"
+                      : course.status === CourseStatus.APPROVED
+                        ? "secondary"
+                        : course.status === CourseStatus.REJECTED
+                          ? "destructive"
+                          : "outline"
+                  }
                   className={
-                    course.isPublished ? "bg-green-500" : "bg-orange-500"
+                    course.status === CourseStatus.PUBLISHED
+                      ? "bg-green-500"
+                      : course.status === CourseStatus.APPROVED
+                        ? "bg-blue-500"
+                        : course.status === CourseStatus.REJECTED
+                          ? "bg-red-500"
+                          : "bg-orange-500"
                   }
                 >
-                  {course.isPublished ? "Đã xuất bản" : "Bản nháp"}
+                  {course.status === CourseStatus.PUBLISHED && "Đã xuất bản"}
+                  {course.status === CourseStatus.APPROVED && "Đã duyệt"}
+                  {course.status === CourseStatus.PENDING_APPROVAL &&
+                    "Chờ duyệt"}
+                  {course.status === CourseStatus.REJECTED && "Bị từ chối"}
                 </Badge>
                 <Badge
                   variant="outline"
@@ -408,21 +433,24 @@ export default function CourseDetailPage({
                               </span>
                               <Badge
                                 variant={
-                                  classItem.status === "PUBLISHED"
+                                  classItem.statusActive ===
+                                  ClassStatusActive.PUBLISHED
                                     ? "default"
-                                    : classItem.status === "ONGOING"
+                                    : classItem.statusActive ===
+                                        ClassStatusActive.APPROVED
                                       ? "secondary"
                                       : "outline"
                                 }
                               >
-                                {classItem.status === "DRAFT" && "Bản nháp"}
-                                {classItem.status === "PUBLISHED" &&
-                                  "Đã xuất bản"}
-                                {classItem.status === "ONGOING" &&
-                                  "Đang diễn ra"}
-                                {classItem.status === "COMPLETED" &&
-                                  "Hoàn thành"}
-                                {classItem.status === "CANCELLED" && "Đã hủy"}
+                                {classItem.statusActive ===
+                                  ClassStatusActive.PENDING_APPROVAL &&
+                                  "Chờ duyệt"}
+                                {classItem.statusActive ===
+                                  ClassStatusActive.APPROVED && "Đã duyệt"}
+                                {classItem.statusActive ===
+                                  ClassStatusActive.PUBLISHED && "Đã xuất bản"}
+                                {classItem.statusActive ===
+                                  ClassStatusActive.REJECTED && "Bị từ chối"}
                               </Badge>
                             </div>
                           </div>

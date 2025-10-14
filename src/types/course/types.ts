@@ -34,6 +34,13 @@ export enum PricingStatus {
   SCHEDULED = "SCHEDULED",
   EXPIRED = "EXPIRED",
 }
+
+export enum PriceApprovalStatus {
+  PENDING_APPROVAL = "PENDING_APPROVAL", // Chờ admin duyệt giá
+  APPROVED = "APPROVED", // Admin đã duyệt giá
+  REJECTED = "REJECTED", // Admin từ chối giá
+  ACTIVE = "ACTIVE", // Giá đã được áp dụng
+}
 /// 🆕 ENUM MỚI ĐỂ QUẢN LÝ VÒNG ĐỜI CỦA KHÓA HỌC
 export enum CourseStatus {
   PENDING_APPROVAL = "PENDING_APPROVAL", /// Đã gửi chờ admin duyệt
@@ -190,6 +197,13 @@ export interface PricingDetail {
   headerId: string;
   courseId?: string;
   categoryId?: string;
+  reviewedById?: string;
+  approvalStatus: PriceApprovalStatus;
+  rejectionReason?: string;
+  submittedAt?: Date;
+  reviewedAt?: Date;
+  approvedAt?: Date;
+  activatedAt?: Date;
   createdAt: Date;
   header?: PricingHeader;
   course?: Course;
@@ -216,24 +230,67 @@ export interface CourseWithUser {
   pricing?: CoursePrice;
 }
 
-// Interface cho pricing policy chi tiết
+// Interface cho pricing policy chi tiết (Updated structure)
 export interface PricingPolicy {
   id: string;
+  headerId: string;
   price: number;
   type: "BASE_PRICE" | "PROMOTION";
   name: string;
   description?: string;
-  status: PricingStatus;
-  startDate?: string;
-  endDate?: string;
+  headerStatus: PricingStatus; // Status của PricingHeader
+  approvalStatus: PriceApprovalStatus; // Status của approval workflow
+  approval: {
+    submittedAt?: string;
+    reviewedAt?: string;
+    approvedAt?: string;
+    activatedAt?: string;
+    rejectionReason?: string;
+    reviewer?: {
+      id: string;
+      name: string;
+      email: string;
+    };
+    createdBy?: {
+      id: string;
+      name: string;
+      email: string;
+    };
+  };
+  schedule: {
+    startDate?: string;
+    endDate?: string;
+    isActive: boolean;
+  };
   createdAt: string;
+  updatedAt: string;
 }
 
-// Interface cho response của course pricing policies
+// Interface cho response của course pricing policies (Updated)
 export interface CoursePricingPolicies {
   courseId: string;
   courseTitle: string;
   prices: PricingPolicy[];
+  summary: {
+    total: number;
+    byApprovalStatus: {
+      pending: number;
+      approved: number;
+      rejected: number;
+      active: number;
+    };
+    byHeaderStatus: {
+      active: number;
+      inactive: number;
+      scheduled: number;
+      expired: number;
+    };
+    byType: {
+      basePrice: number;
+      promotion: number;
+    };
+    currentlyActive: number;
+  };
 }
 
 export interface ClassSession {

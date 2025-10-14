@@ -9,6 +9,7 @@ import {
   Calendar,
   CheckCircle,
   Clock,
+  DollarSign,
   FileText,
   GraduationCap,
   TrendingUp,
@@ -32,6 +33,7 @@ interface PendingStats {
   courses: number;
   classes: number;
   lessons: number;
+  prices: number;
   total: number;
 }
 
@@ -40,7 +42,7 @@ interface StatsCardProps {
   title: string;
   count: number;
   icon: React.ReactNode;
-  color: "yellow" | "blue" | "green" | "orange";
+  color: "yellow" | "blue" | "green" | "orange" | "purple";
   href?: string;
   description?: string;
 }
@@ -58,6 +60,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
     blue: "border-blue-200 bg-blue-50 text-blue-700",
     green: "border-green-200 bg-green-50 text-green-700",
     orange: "border-orange-200 bg-orange-50 text-orange-700",
+    purple: "border-purple-200 bg-purple-50 text-purple-700",
   };
 
   const CardWrapper = href
@@ -102,6 +105,8 @@ const RecentActivityCard: React.FC<{ activities: RecentActivity[] }> = ({
         return <GraduationCap className="h-4 w-4" />;
       case "lesson":
         return <FileText className="h-4 w-4" />;
+      case "price":
+        return <DollarSign className="h-4 w-4" />;
       default:
         return <Clock className="h-4 w-4" />;
     }
@@ -310,6 +315,7 @@ export default function ApprovalsDashboard() {
     courses: stats?.summary.totalPendingCourses || 0,
     classes: stats?.summary.totalPendingClasses || 0,
     lessons: stats?.summary.totalPendingLessons || 0,
+    prices: stats?.summary.totalPendingPrices || 0,
     total: stats?.summary.totalPendingItems || 0,
   };
 
@@ -345,22 +351,18 @@ export default function ApprovalsDashboard() {
               {new Date(stats.summary.lastUpdated).toLocaleString("vi-VN")}
             </div>
           )}
-          <Button variant="outline" className="flex items-center gap-2">
-            <Calendar className="h-4 w-4" />
-            Lịch sử duyệt
-          </Button>
         </div>
       </div>
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
         <StatsCard
           title="Khóa học chờ duyệt"
           count={pendingStats.courses}
           icon={<BookOpen className="h-5 w-5" />}
           color="yellow"
           href="/admin/approvals/courses"
-          description="Khóa học mới từ giảng viên"
+          description="Khóa học chờ duyệt"
         />
 
         <StatsCard
@@ -379,6 +381,15 @@ export default function ApprovalsDashboard() {
           color="green"
           href="/admin/approvals/lessons"
           description="Bài học video và tài liệu"
+        />
+
+        <StatsCard
+          title="Giá chờ duyệt"
+          count={pendingStats.prices}
+          icon={<DollarSign className="h-5 w-5" />}
+          color="purple"
+          href="/admin/approvals/prices"
+          description="Giá khóa học chờ duyệt"
         />
 
         <StatsCard
@@ -470,281 +481,165 @@ export default function ApprovalsDashboard() {
 
       {/* Trends & Recent Activities */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Daily Submissions Trend */}
-        {stats?.trends && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-blue-600" />
-                Xu hướng nộp bài (7 ngày)
-              </CardTitle>
-              <CardDescription>
-                Số lượng nội dung được nộp mỗi ngày
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {stats.trends.dailySubmissions.map((day) => (
-                  <div
-                    key={day.date}
-                    className="flex items-center justify-between text-sm"
-                  >
-                    <span className="text-slate-600">
-                      {new Date(day.date).toLocaleDateString("vi-VN", {
-                        month: "short",
-                        day: "numeric",
-                      })}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <div className="flex gap-1">
-                        {day.courses > 0 && (
-                          <Badge
-                            variant="outline"
-                            className="text-xs bg-yellow-50 text-yellow-700"
-                          >
-                            {day.courses}K
-                          </Badge>
-                        )}
-                        {day.classes > 0 && (
-                          <Badge
-                            variant="outline"
-                            className="text-xs bg-blue-50 text-blue-700"
-                          >
-                            {day.classes}L
-                          </Badge>
-                        )}
-                        {day.lessons > 0 && (
-                          <Badge
-                            variant="outline"
-                            className="text-xs bg-green-50 text-green-700"
-                          >
-                            {day.lessons}B
-                          </Badge>
-                        )}
-                      </div>
-                      <span className="font-medium w-8 text-right">
-                        {day.total}
+        {/* Left Column: Daily Submissions Trend + System Insights */}
+        <div className="space-y-6">
+          {/* Daily Submissions Trend */}
+          {stats?.trends && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5 text-blue-600" />
+                  Xu hướng nộp bài trong 7 ngày qua
+                </CardTitle>
+                <CardDescription>
+                  Số lượng nội dung được nộp mỗi ngày
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {stats.trends.dailySubmissions.map((day) => (
+                    <div
+                      key={day.date}
+                      className="flex items-center justify-between text-sm"
+                    >
+                      <span className="text-slate-600">
+                        {new Date(day.date).toLocaleDateString("vi-VN", {
+                          month: "short",
+                          day: "numeric",
+                        })}
                       </span>
+                      <div className="flex items-center gap-2">
+                        <div className="flex gap-1">
+                          {day.courses > 0 && (
+                            <Badge
+                              variant="outline"
+                              className="text-xs bg-yellow-50 text-yellow-700"
+                            >
+                              {day.courses}K
+                            </Badge>
+                          )}
+                          {day.classes > 0 && (
+                            <Badge
+                              variant="outline"
+                              className="text-xs bg-blue-50 text-blue-700"
+                            >
+                              {day.classes}L
+                            </Badge>
+                          )}
+                          {day.lessons > 0 && (
+                            <Badge
+                              variant="outline"
+                              className="text-xs bg-green-50 text-green-700"
+                            >
+                              {day.lessons}B
+                            </Badge>
+                          )}
+                          {day.prices > 0 && (
+                            <Badge
+                              variant="outline"
+                              className="text-xs bg-purple-50 text-purple-700"
+                            >
+                              {day.prices}P
+                            </Badge>
+                          )}
+                        </div>
+                        <span className="font-medium w-8 text-right">
+                          {day.total}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                  {stats.trends.dailySubmissions.every(
+                    (day) => day.total === 0,
+                  ) && (
+                    <div className="text-center py-4 text-slate-500">
+                      <p className="text-sm">
+                        Không có submissions trong 7 ngày qua
+                      </p>
+                    </div>
+                  )}
+                </div>
+                <div className="mt-4 pt-3 border-t">
+                  <div className="flex justify-between text-xs text-slate-500">
+                    <span>K: Khóa học, L: Lớp học, B: Bài học, P: Giá</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* System Insights & Recommendations */}
+          {stats?.insights && (
+            <Card
+              className={
+                pendingStats.total > 0
+                  ? "bg-orange-50 border-orange-200"
+                  : "bg-green-50 border-green-200"
+              }
+            >
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Clock
+                    className={`h-5 w-5 ${pendingStats.total > 0 ? "text-orange-600" : "text-green-600"}`}
+                  />
+                  {pendingStats.total > 0
+                    ? "Mục ưu tiên cao"
+                    : "Trạng thái xét duyệt"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {pendingStats.total > 0 ? (
+                  <div className="space-y-3">
+                    {stats.courses.oldestPending && (
+                      <div className="p-3 bg-white rounded-lg border border-orange-200">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h4 className="font-medium text-sm text-orange-900">
+                              {stats.courses.oldestPending.title}
+                            </h4>
+                            <p className="text-xs text-orange-700 mt-1">
+                              Bởi {stats.courses.oldestPending.instructor.name}{" "}
+                              • Chờ {stats.courses.oldestPending.daysPending}{" "}
+                              ngày
+                            </p>
+                          </div>
+                          <Badge className="bg-red-100 text-red-800 text-xs">
+                            Cấp bách
+                          </Badge>
+                        </div>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <Button className="bg-orange-500 hover:bg-orange-600 text-white flex-1">
+                        Xử lý ngay
+                      </Button>
                     </div>
                   </div>
-                ))}
-                {stats.trends.dailySubmissions.every(
-                  (day) => day.total === 0,
-                ) && (
-                  <div className="text-center py-4 text-slate-500">
-                    <p className="text-sm">
-                      Không có submissions trong 7 ngày qua
+                ) : (
+                  <div className="text-center py-3">
+                    <div className="p-2 bg-green-100 rounded-full w-12 h-12 mx-auto mb-3 flex items-center justify-center">
+                      <CheckCircle className="h-6 w-6 text-green-600" />
+                    </div>
+                    <h4 className="font-medium text-green-900">
+                      Tất cả đã xử lý xong!
+                    </h4>
+                    <p className="text-sm text-green-700 mt-1">
+                      Không có nội dung nào chờ xét duyệt
                     </p>
                   </div>
                 )}
-              </div>
-              <div className="mt-4 pt-3 border-t">
-                <div className="flex justify-between text-xs text-slate-500">
-                  <span>K: Khóa học, L: Lớp học, B: Bài học</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+              </CardContent>
+            </Card>
+          )}
+        </div>
 
-        {/* Recent Activities */}
+        {/* Right Column: Recent Activities */}
         <RecentActivityCard activities={recentActivities} />
       </div>
 
-      {/* System Insights & Recommendations */}
-      {stats?.insights && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Workload Distribution */}
-          <Card
-            className={`${
-              stats.insights.workloadDistribution.light
-                ? "bg-green-50 border-green-200"
-                : stats.insights.workloadDistribution.moderate
-                  ? "bg-yellow-50 border-yellow-200"
-                  : "bg-red-50 border-red-200"
-            }`}
-          >
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <TrendingUp
-                  className={`h-5 w-5 ${
-                    stats.insights.workloadDistribution.light
-                      ? "text-green-600"
-                      : stats.insights.workloadDistribution.moderate
-                        ? "text-yellow-600"
-                        : "text-red-600"
-                  }`}
-                />
-                Tình trạng khối lượng công việc
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Tổng cần xử lý:</span>
-                  <Badge
-                    className={`${
-                      stats.insights.workloadDistribution.light
-                        ? "bg-green-100 text-green-800"
-                        : stats.insights.workloadDistribution.moderate
-                          ? "bg-yellow-100 text-yellow-800"
-                          : "bg-red-100 text-red-800"
-                    }`}
-                  >
-                    {pendingStats.total} mục
-                  </Badge>
-                </div>
-                <p className="text-sm text-slate-600">
-                  {stats.insights.workloadDistribution.recommendation}
-                </p>
-                <div className="pt-2">
-                  <div className="flex gap-2 text-xs">
-                    <span
-                      className={`px-2 py-1 rounded ${
-                        stats.insights.workloadDistribution.light
-                          ? "bg-green-100 text-green-700"
-                          : "bg-gray-100 text-gray-500"
-                      }`}
-                    >
-                      Nhẹ (
-                      {stats.insights.workloadDistribution.light ? "✓" : "○"})
-                    </span>
-                    <span
-                      className={`px-2 py-1 rounded ${
-                        stats.insights.workloadDistribution.moderate
-                          ? "bg-yellow-100 text-yellow-700"
-                          : "bg-gray-100 text-gray-500"
-                      }`}
-                    >
-                      Vừa (
-                      {stats.insights.workloadDistribution.moderate ? "✓" : "○"}
-                      )
-                    </span>
-                    <span
-                      className={`px-2 py-1 rounded ${
-                        stats.insights.workloadDistribution.heavy
-                          ? "bg-red-100 text-red-700"
-                          : "bg-gray-100 text-gray-500"
-                      }`}
-                    >
-                      Nặng (
-                      {stats.insights.workloadDistribution.heavy ? "✓" : "○"})
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Most Urgent Item */}
-          <Card
-            className={
-              pendingStats.total > 0
-                ? "bg-orange-50 border-orange-200"
-                : "bg-green-50 border-green-200"
-            }
-          >
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Clock
-                  className={`h-5 w-5 ${pendingStats.total > 0 ? "text-orange-600" : "text-green-600"}`}
-                />
-                {pendingStats.total > 0
-                  ? "Mục ưu tiên cao"
-                  : "Trạng thái xét duyệt"}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {pendingStats.total > 0 ? (
-                <div className="space-y-3">
-                  {stats.courses.oldestPending && (
-                    <div className="p-3 bg-white rounded-lg border border-orange-200">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h4 className="font-medium text-sm text-orange-900">
-                            {stats.courses.oldestPending.title}
-                          </h4>
-                          <p className="text-xs text-orange-700 mt-1">
-                            Bởi {stats.courses.oldestPending.instructor.name} •
-                            Chờ {stats.courses.oldestPending.daysPending} ngày
-                          </p>
-                        </div>
-                        <Badge className="bg-red-100 text-red-800 text-xs">
-                          Cấp bách
-                        </Badge>
-                      </div>
-                    </div>
-                  )}
-                  <div className="flex items-center gap-2">
-                    <Button className="bg-orange-500 hover:bg-orange-600 text-white flex-1">
-                      Xử lý ngay
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-3">
-                  <div className="p-2 bg-green-100 rounded-full w-12 h-12 mx-auto mb-3 flex items-center justify-center">
-                    <CheckCircle className="h-6 w-6 text-green-600" />
-                  </div>
-                  <h4 className="font-medium text-green-900">
-                    Tất cả đã xử lý xong!
-                  </h4>
-                  <p className="text-sm text-green-700 mt-1">
-                    Không có nội dung nào chờ xét duyệt
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Average Approval Times */}
-      {stats?.trends.averageApprovalTime && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Clock className="h-5 w-5 text-indigo-600" />
-              Thời gian duyệt trung bình
-            </CardTitle>
-            <CardDescription>
-              Thời gian từ khi nộp đến khi được duyệt/từ chối
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-yellow-600">
-                  {stats.trends.averageApprovalTime.courses
-                    ? `${stats.trends.averageApprovalTime.courses}h`
-                    : "N/A"}
-                </div>
-                <div className="text-sm text-slate-600">Khóa học</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-blue-600">
-                  {stats.trends.averageApprovalTime.classes
-                    ? `${stats.trends.averageApprovalTime.classes}h`
-                    : "N/A"}
-                </div>
-                <div className="text-sm text-slate-600">Lớp học</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">
-                  {stats.trends.averageApprovalTime.lessons
-                    ? `${stats.trends.averageApprovalTime.lessons}h`
-                    : "N/A"}
-                </div>
-                <div className="text-sm text-slate-600">Bài học</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Detailed Statistics */}
       {stats && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {/* Course Statistics */}
           <Card>
             <CardHeader>
@@ -866,6 +761,48 @@ export default function ApprovalsDashboard() {
                 <div className="flex justify-between text-sm pt-2 border-t">
                   <span className="text-slate-800 font-medium">Tổng cộng:</span>
                   <span className="font-bold">{stats.lessons.total}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Price Statistics */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <DollarSign className="h-5 w-5 text-purple-600" />
+                Thống kê giá
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-600">Chờ duyệt:</span>
+                  <span className="font-medium text-yellow-600">
+                    {stats.prices.pendingApproval}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-600">Đã duyệt:</span>
+                  <span className="font-medium text-green-600">
+                    {stats.prices.approved}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-600">Đang áp dụng:</span>
+                  <span className="font-medium text-blue-600">
+                    {stats.prices.active}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-600">Bị từ chối:</span>
+                  <span className="font-medium text-red-600">
+                    {stats.prices.rejected}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm pt-2 border-t">
+                  <span className="text-slate-800 font-medium">Tổng cộng:</span>
+                  <span className="font-bold">{stats.prices.total}</span>
                 </div>
               </div>
             </CardContent>
