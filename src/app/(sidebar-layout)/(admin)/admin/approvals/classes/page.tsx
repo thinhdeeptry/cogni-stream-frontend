@@ -5,6 +5,7 @@ import React, { useEffect, useState } from "react";
 
 import { toast } from "@/hooks/use-toast";
 import { Class, ClassStatus, ClassStatusActive } from "@/types/course/types";
+import { set } from "date-fns";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -18,6 +19,8 @@ import {
   Users,
   X,
 } from "lucide-react";
+
+import { approveClass, getPendingClasses } from "@/actions/approvalActions";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -60,19 +63,23 @@ import { Textarea } from "@/components/ui/textarea";
 // Extended Class interface for pending approval
 type PendingClass = Omit<Class, "course" | "instructor"> & {
   submittedAt?: string;
+  currentStudents?: number;
   course?: {
     id: string;
     title: string;
     thumbnailUrl?: string;
-  };
-  instructor?: {
-    userId: string;
-    user: {
-      id: string;
-      name: string;
-      email: string;
-      image?: string;
+    instructor?: {
+      user: {
+        id: string;
+        name: string;
+        email: string;
+        image?: string;
+      };
     };
+  };
+  _count?: {
+    enrollments: number;
+    sessions: number;
   };
 };
 
@@ -184,7 +191,8 @@ const ClassRejectModal: React.FC<ClassRejectModalProps> = ({
                 <strong>Khóa học:</strong> {classItem?.course?.title}
               </p>
               <p>
-                <strong>Giảng viên:</strong> {classItem?.instructor?.user.name}
+                <strong>Giảng viên:</strong>{" "}
+                {classItem?.course?.instructor?.user.name}
               </p>
               <p>
                 <strong>Số học viên tối đa:</strong> {classItem?.maxStudents}
@@ -410,17 +418,17 @@ const ClassDetailModal: React.FC<ClassDetailModalProps> = ({
               <h4 className="font-medium mb-3">Giảng viên</h4>
               <div className="flex items-center gap-3 mb-3">
                 <Avatar>
-                  <AvatarImage src={classItem.instructor?.user.image} />
+                  <AvatarImage src={classItem.course?.instructor?.user.image} />
                   <AvatarFallback>
-                    {classItem.instructor?.user.name?.charAt(0)}
+                    {classItem.course?.instructor?.user.name?.charAt(0)}
                   </AvatarFallback>
                 </Avatar>
                 <div>
                   <p className="font-medium">
-                    {classItem.instructor?.user.name}
+                    {classItem.course?.instructor?.user.name}
                   </p>
                   <p className="text-sm text-slate-500">
-                    {classItem.instructor?.user.email}
+                    {classItem.course?.instructor?.user.email}
                   </p>
                 </div>
               </div>
@@ -528,96 +536,99 @@ export default function ApprovalClassesPage() {
       setIsLoading(true);
 
       // Mock data for demo - replace with actual API
-      const mockClasses: PendingClass[] = [
-        {
-          id: "1",
-          courseId: "course-1",
-          course: {
-            id: "course-1",
-            title: "React Advanced: Hooks và Context API",
-          },
-          name: "Lớp React K11 - Buổi tối",
-          description:
-            "Lớp học trực tuyến buổi tối dành cho những người đi làm",
-          maxStudents: 25,
-          currentStudents: 8,
-          startDate: "2025-02-01",
-          endDate: "2025-04-30",
-          isPublished: false,
-          status: "UPCOMING" as ClassStatus,
-          statusActive: "PENDING_APPROVAL" as ClassStatusActive,
-          submittedAt: "2025-01-20T14:30:00Z",
-          instructor: {
-            userId: "instructor-1",
-            user: {
-              id: "instructor-1",
-              name: "Nguyễn Văn An",
-              email: "an.nguyen@example.com",
-              image:
-                "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100",
-            },
-          },
-          schedules: [
-            {
-              name: "Lịch học chính",
-              days: ["monday", "wednesday", "friday"],
-              startDate: "2025-02-01",
-              endDate: "2025-04-30",
-              startTime: "19:00",
-              endTime: "21:00",
-            },
-          ],
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        },
-        {
-          id: "2",
-          courseId: "course-2",
-          course: {
-            id: "course-2",
-            title: "Node.js Backend Fundamentals",
-          },
-          name: "Lớp Node.js K05 - Cuối tuần",
-          description: "Lớp học cuối tuần phù hợp với học sinh, sinh viên",
-          maxStudents: 20,
-          currentStudents: 12,
-          startDate: "2025-02-15",
-          endDate: "2025-05-15",
-          isPublished: false,
-          status: "UPCOMING" as ClassStatus,
-          statusActive: "PENDING_APPROVAL" as ClassStatusActive,
-          submittedAt: "2025-01-19T09:15:00Z",
-          instructor: {
-            userId: "instructor-2",
-            user: {
-              id: "instructor-2",
-              name: "Trần Thị Bình",
-              email: "binh.tran@example.com",
-              image:
-                "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=100",
-            },
-          },
-          schedules: [
-            {
-              name: "Lịch cuối tuần",
-              days: ["saturday", "sunday"],
-              startDate: "2025-02-15",
-              endDate: "2025-05-15",
-              startTime: "09:00",
-              endTime: "12:00",
-            },
-          ],
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        },
-      ];
-
-      setClasses(mockClasses);
+      // const mockClasses: PendingClass[] = [
+      //   {
+      //     id: "1",
+      //     courseId: "course-1",
+      //     course: {
+      //       id: "course-1",
+      //       title: "React Advanced: Hooks và Context API",
+      //     },
+      //     name: "Lớp React K11 - Buổi tối",
+      //     description:
+      //       "Lớp học trực tuyến buổi tối dành cho những người đi làm",
+      //     maxStudents: 25,
+      //     currentStudents: 8,
+      //     startDate: "2025-02-01",
+      //     endDate: "2025-04-30",
+      //     isPublished: false,
+      //     status: "UPCOMING" as ClassStatus,
+      //     statusActive: "PENDING_APPROVAL" as ClassStatusActive,
+      //     submittedAt: "2025-01-20T14:30:00Z",
+      //     instructor: {
+      //       userId: "instructor-1",
+      //       user: {
+      //         id: "instructor-1",
+      //         name: "Nguyễn Văn An",
+      //         email: "an.nguyen@example.com",
+      //         image:
+      //           "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100",
+      //       },
+      //     },
+      //     schedules: [
+      //       {
+      //         name: "Lịch học chính",
+      //         days: ["monday", "wednesday", "friday"],
+      //         startDate: "2025-02-01",
+      //         endDate: "2025-04-30",
+      //         startTime: "19:00",
+      //         endTime: "21:00",
+      //       },
+      //     ],
+      //     createdAt: new Date(),
+      //     updatedAt: new Date(),
+      //   },
+      //   {
+      //     id: "2",
+      //     courseId: "course-2",
+      //     course: {
+      //       id: "course-2",
+      //       title: "Node.js Backend Fundamentals",
+      //     },
+      //     name: "Lớp Node.js K05 - Cuối tuần",
+      //     description: "Lớp học cuối tuần phù hợp với học sinh, sinh viên",
+      //     maxStudents: 20,
+      //     currentStudents: 12,
+      //     startDate: "2025-02-15",
+      //     endDate: "2025-05-15",
+      //     isPublished: false,
+      //     status: "UPCOMING" as ClassStatus,
+      //     statusActive: "PENDING_APPROVAL" as ClassStatusActive,
+      //     submittedAt: "2025-01-19T09:15:00Z",
+      //     instructor: {
+      //       userId: "instructor-2",
+      //       user: {
+      //         id: "instructor-2",
+      //         name: "Trần Thị Bình",
+      //         email: "binh.tran@example.com",
+      //         image:
+      //           "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=100",
+      //       },
+      //     },
+      //     schedules: [
+      //       {
+      //         name: "Lịch cuối tuần",
+      //         days: ["saturday", "sunday"],
+      //         startDate: "2025-02-15",
+      //         endDate: "2025-05-15",
+      //         startTime: "09:00",
+      //         endTime: "12:00",
+      //       },
+      //     ],
+      //     createdAt: new Date(),
+      //     updatedAt: new Date(),
+      //   },
+      // ];
+      const response = await getPendingClasses({
+        page,
+        limit,
+      });
+      setClasses(response.data);
       setPagination({
         page: page,
         limit: limit,
-        total: mockClasses.length,
-        totalPages: Math.ceil(mockClasses.length / limit),
+        total: response.meta.totalCount,
+        totalPages: Math.ceil(response.meta.totalPages),
       });
     } catch (error) {
       console.error("Error fetching pending classes:", error);
@@ -636,10 +647,17 @@ export default function ApprovalClassesPage() {
       setProcessingIds((prev) => new Set(prev).add(classId));
 
       // Mock API call - replace with actual implementation
-      // await approveClass(classId);
-
+      const response = await approveClass(classId);
+      if (!response.ok) {
+        toast({
+          title: "Lỗi",
+          description: "Không thể duyệt lớp học",
+          variant: "destructive",
+        });
+        throw new Error("Failed to approve class");
+      }
+      // Remove approved class from the list
       setClasses((prev) => prev.filter((cls) => cls.id !== classId));
-
       toast({
         title: "Thành công",
         description: "Đã duyệt lớp học để xuất bản",
@@ -820,17 +838,19 @@ export default function ApprovalClassesPage() {
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <Avatar className="h-7 w-7">
-                        <AvatarImage src={classItem.instructor?.user.image} />
+                        <AvatarImage
+                          src={classItem.course?.instructor?.user.image}
+                        />
                         <AvatarFallback className="text-xs">
-                          {classItem.instructor?.user.name?.charAt(0)}
+                          {classItem.course?.instructor?.user.name?.charAt(0)}
                         </AvatarFallback>
                       </Avatar>
                       <div>
                         <p className="text-sm font-medium">
-                          {classItem.instructor?.user.name}
+                          {classItem.course?.instructor?.user.name}
                         </p>
                         <p className="text-xs text-slate-500">
-                          {classItem.instructor?.user.email}
+                          {classItem.course?.instructor?.user.email}
                         </p>
                       </div>
                     </div>

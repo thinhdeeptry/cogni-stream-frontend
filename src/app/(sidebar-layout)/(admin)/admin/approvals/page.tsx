@@ -152,6 +152,7 @@ const RecentActivityCard: React.FC<{ activities: RecentActivity[] }> = ({
   };
 
   const truncateText = (text: string, maxLength: number = 60) => {
+    if (!text) return "";
     if (text.length <= maxLength) return text;
     return text.substring(0, maxLength) + "...";
   };
@@ -569,7 +570,7 @@ export default function ApprovalsDashboard() {
           )}
 
           {/* System Insights & Recommendations */}
-          {stats?.insights && (
+          {/* {stats?.insights && (
             <Card
               className={
                 pendingStats.total > 0
@@ -630,7 +631,7 @@ export default function ApprovalsDashboard() {
                 )}
               </CardContent>
             </Card>
-          )}
+          )} */}
         </div>
 
         {/* Right Column: Recent Activities */}

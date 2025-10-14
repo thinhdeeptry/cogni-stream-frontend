@@ -157,7 +157,6 @@ export async function getPendingClasses(
 
   if (params.page) searchParams.set("page", params.page.toString());
   if (params.limit) searchParams.set("limit", params.limit.toString());
-  if (params.sortBy) searchParams.set("sortBy", params.sortBy);
 
   return apiRequest(`/classes/pending/list?${searchParams}`);
 }
@@ -167,7 +166,7 @@ export async function getPendingClasses(
  */
 export async function approveClass(classId: string): Promise<any> {
   return apiRequest(`/classes/${classId}/approve`, {
-    method: "POST",
+    method: "PATCH",
   });
 }
 
