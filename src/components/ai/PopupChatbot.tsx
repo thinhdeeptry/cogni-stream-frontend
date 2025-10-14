@@ -163,18 +163,18 @@ const LoadingDots = () => {
 };
 
 export function PopupChatbot({
-  systemPrompt = "Bạn là trợ lý AI hữu ích của Eduforge. Hãy trả lời câu hỏi một cách ngắn gọn và chính xác.",
+  systemPrompt = "Bạn là trợ lý AI hữu ích của cognistream. Hãy trả lời câu hỏi một cách ngắn gọn và chính xác.",
   referenceText = "",
-  title = "Trợ lý AI Eduforge",
+  title = "Trợ lý AI cognistream",
   placeholder = "Hỏi điều gì đó...",
   buttonClassName,
   cardClassName,
   initialOpen = false,
   position = "bottom-right",
   suggestedQuestions,
-  balloonText = "Eduforge AI",
+  balloonText = "cognistream AI",
   showBalloon = true,
-  welcomeMessage = "Xin chào! Tôi là trợ lý AI của Eduforge. Bạn có thể hỏi tôi bất cứ điều gì.",
+  welcomeMessage = "Xin chào! Tôi là trợ lý AI của cognistream. Bạn có thể hỏi tôi bất cứ điều gì.",
   userName,
   courseName,
   lessonName,

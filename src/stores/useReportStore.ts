@@ -75,7 +75,7 @@ interface ReportState {
 }
 
 const API_URL =
-  process.env.NEXT_PUBLIC_REPORT_API_URL || "https://report.eduforge.io.vn";
+  process.env.NEXT_PUBLIC_REPORT_API_URL || "https://report.cognistream.io.vn";
 
 const useReportStore = create<ReportState>((set, get) => ({
   reports: [],

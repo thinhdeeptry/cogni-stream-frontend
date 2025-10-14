@@ -19,14 +19,14 @@ export const HomeJsonLd = ({ courses = [] }: HomeJsonLdProps) => {
     const organizationJsonLd = {
       "@context": "https://schema.org",
       "@type": "Organization",
-      name: "Eduforge",
-      url: "https://eduforge.io.vn",
-      logo: "https://eduforge.io.vn/images/logo.png",
+      name: "cognistream",
+      url: "https://cognistream.io.vn",
+      logo: "https://cognistream.io.vn/images/logo.png",
       sameAs: [
-        "https://facebook.com/eduforge",
-        "https://twitter.com/eduforge",
-        "https://instagram.com/eduforge",
-        "https://linkedin.com/company/eduforge",
+        "https://facebook.com/cognistream",
+        "https://twitter.com/cognistream",
+        "https://instagram.com/cognistream",
+        "https://linkedin.com/company/cognistream",
       ],
       contactPoint: {
         "@type": "ContactPoint",
@@ -40,13 +40,13 @@ export const HomeJsonLd = ({ courses = [] }: HomeJsonLdProps) => {
     const websiteJsonLd = {
       "@context": "https://schema.org",
       "@type": "WebSite",
-      url: "https://eduforge.io.vn",
-      name: "Eduforge - Nền tảng học trực tuyến hàng đầu Việt Nam",
+      url: "https://cognistream.io.vn",
+      name: "cognistream - Nền tảng học trực tuyến hàng đầu Việt Nam",
       description:
-        "Eduforge là nền tảng học trực tuyến với hàng nghìn khóa học chất lượng cao về lập trình, thiết kế, marketing và nhiều lĩnh vực khác.",
+        "cognistream là nền tảng học trực tuyến với hàng nghìn khóa học chất lượng cao về lập trình, thiết kế, marketing và nhiều lĩnh vực khác.",
       potentialAction: {
         "@type": "SearchAction",
-        target: "https://eduforge.com/search?q={search_term_string}",
+        target: "https://cognistream.com/search?q={search_term_string}",
         "query-input": "required name=search_term_string",
       },
     };
@@ -67,11 +67,11 @@ export const HomeJsonLd = ({ courses = [] }: HomeJsonLdProps) => {
                 url: course.url,
                 image:
                   course.image ||
-                  "https://eduforge.io.vn/images/default-course.jpg",
+                  "https://cognistream.io.vn/images/default-course.jpg",
                 provider: {
                   "@type": "Organization",
-                  name: "Eduforge",
-                  sameAs: "https://eduforge.io.vn",
+                  name: "cognistream",
+                  sameAs: "https://cognistream.io.vn",
                 },
               },
             })),

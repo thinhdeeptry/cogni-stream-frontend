@@ -97,7 +97,7 @@ export default function RegisterForm() {
         />
         <CardHeader className="text-center pt-8 pb-2">
           <h2 className="text-2xl font-bold text-gray-800">
-            Edu Forge – Mở cửa tri thức{"\n"}ghi danh ngay!
+            Cogni Stream – Mở cửa tri thức{"\n"}ghi danh ngay!
           </h2>
         </CardHeader>
         <CardContent className="pt-6 pb-8">

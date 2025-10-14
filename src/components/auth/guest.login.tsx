@@ -104,7 +104,7 @@ export default function LoginForm() {
           borderWidth={2}
         />
         <CardHeader className="text-center pt-8 pb-2">
-          <h2 className="text-3xl font-bold text-orange-400">Edu Forge</h2>
+          <h2 className="text-3xl font-bold text-orange-400">Cogni Stream</h2>
           <p className="text-lg text-gray-500">
             {" "}
             Nơi tri thức bùng nổ, tương lai rộng mở!

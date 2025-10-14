@@ -2,7 +2,7 @@ import { ImageResponse } from "next/og";
 
 export const runtime = "edge";
 
-export const alt = "Eduforge - Nền tảng học trực tuyến hàng đầu Việt Nam";
+export const alt = "cognistream - Nền tảng học trực tuyến hàng đầu Việt Nam";
 export const size = {
   width: 1200,
   height: 630,
@@ -42,7 +42,7 @@ export default async function Image() {
               textShadow: "0 2px 4px rgba(0,0,0,0.1)",
             }}
           >
-            EDUFORGE
+            cognistream
           </div>
         </div>
         <div
@@ -65,7 +65,7 @@ export default async function Image() {
             lineHeight: 1.4,
           }}
         >
-          Khám phá hàng nghìn khóa học chất lượng cao với Eduforge
+          Khám phá hàng nghìn khóa học chất lượng cao với cognistream
         </div>
       </div>
     ),

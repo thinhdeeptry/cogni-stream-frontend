@@ -53,7 +53,7 @@ export async function POST(req: Request) {
           JSON.stringify({
             role: "assistant",
             content:
-              "Xin chào! Tôi là trợ lý AI của Eduforge. Bạn có thể hỏi tôi bất cứ điều gì.",
+              "Xin chào! Tôi là trợ lý AI của cognistream. Bạn có thể hỏi tôi bất cứ điều gì.",
           }),
           {
             headers: {
