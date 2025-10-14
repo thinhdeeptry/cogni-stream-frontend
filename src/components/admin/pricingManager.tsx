@@ -6,6 +6,7 @@ import { toast } from "@/hooks/use-toast";
 import {
   CoursePrice,
   CoursePricingPolicies,
+  PriceApprovalStatus,
   PricingPolicy,
   PricingStatus,
   PricingType,
@@ -18,7 +19,10 @@ import {
   DollarSign,
   Edit,
   Loader2,
+  Play,
   Plus,
+  ThumbsDown,
+  ThumbsUp,
   Trash2,
   XCircle,
 } from "lucide-react";
@@ -28,13 +32,29 @@ import {
   updateCommissionOnPriceChange,
 } from "@/actions/commissionActions";
 import {
+  activateApprovedPrice,
+  approveCoursePrice,
+  createCoursePrice,
   createPricing,
+  createPromotionForCourse,
+  // Legacy support
+  deletePricingDetail,
   deletePricingPolicy,
+  // Legacy support
   getCourseCurrentPrice,
   getCoursePricingPolicies,
+  getPriceHistory,
+  getPricingHeaders,
+  rejectCoursePrice,
+  setBasePriceForCourse,
+  // Legacy support
+  submitPriceForApproval,
+  updatePricingHeaderStatus,
   updatePricingPrice,
   updatePricingStatus,
 } from "@/actions/pricingActions";
+
+import useUserStore from "@/stores/useUserStore";
 
 import {
   AlertDialog,
@@ -75,6 +95,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 
 interface AdminPricingManagerProps {
   courseId: string;
@@ -87,6 +108,9 @@ export function AdminPricingManager({
   courseName,
   onPricingUpdated,
 }: AdminPricingManagerProps) {
+  const { user } = useUserStore();
+  const isAdmin = user?.role === "ADMIN";
+
   const [isOpen, setIsOpen] = useState(false);
   const [currentPricing, setCurrentPricing] = useState<CoursePrice | null>(
     null,
@@ -114,6 +138,27 @@ export function AdminPricingManager({
   // Edit price states
   const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
   const [editPrice, setEditPrice] = useState("");
+
+  // Price approval states
+  const [approvingPriceId, setApprovingPriceId] = useState<string | null>(null);
+  const [rejectingPriceId, setRejectingPriceId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+  const [showRejectDialog, setShowRejectDialog] = useState(false);
+  const [submittingPriceId, setSubmittingPriceId] = useState<string | null>(
+    null,
+  );
+  const [activatingPriceId, setActivatingPriceId] = useState<string | null>(
+    null,
+  );
+
+  // Admin approval/rejection states
+  const [adminApprovingId, setAdminApprovingId] = useState<string | null>(null);
+  const [adminRejectingId, setAdminRejectingId] = useState<string | null>(null);
+  const [adminRejectReason, setAdminRejectReason] = useState("");
+  const [showAdminRejectDialog, setShowAdminRejectDialog] = useState(false);
+  const [currentRejectingId, setCurrentRejectingId] = useState<string | null>(
+    null,
+  );
 
   // Fetch current pricing and all policies when dialog opens
   useEffect(() => {
@@ -183,7 +228,7 @@ export function AdminPricingManager({
     if (newStatus === PricingStatus.ACTIVE) {
       const activePricings = coursePricingData.prices.filter(
         (p) =>
-          p.status === PricingStatus.ACTIVE &&
+          p.headerStatus === PricingStatus.ACTIVE &&
           p.type === PricingType.PROMOTION &&
           p.id !== pricingId,
       );
@@ -201,7 +246,9 @@ export function AdminPricingManager({
 
     try {
       setIsUpdating(true);
-      await updatePricingStatus(courseId, pricingId, newStatus);
+      // pricingId ở đây có thể là Header ID hoặc Detail ID
+      // Cần xác định đúng context để call function phù hợp
+      await updatePricingHeaderStatus(pricingId, newStatus);
 
       toast({
         title: "Thành công",
@@ -229,11 +276,12 @@ export function AdminPricingManager({
   const handleDelete = async (pricingId: string) => {
     try {
       setDeletingId(pricingId);
-      await deletePricingPolicy(pricingId, courseId);
+      // pricingId ở đây thực chất là PricingDetail ID
+      await deletePricingDetail(pricingId);
 
       toast({
         title: "Thành công",
-        description: "Xóa pricing policy thành công",
+        description: "Xóa nhãn giá thành công",
       });
 
       await fetchAllPricings();
@@ -266,7 +314,8 @@ export function AdminPricingManager({
 
     try {
       setIsUpdating(true);
-      await updatePricingPrice(courseId, pricingId, Number(editPrice));
+      // pricingId ở đây thực chất là PricingDetail ID
+      await updatePricingPrice(pricingId, Number(editPrice));
 
       // 🆕 Update commission info when price changes
       const commissionUpdate = await updateCommissionOnPriceChange(
@@ -316,6 +365,159 @@ export function AdminPricingManager({
     setEditPrice("");
   };
 
+  const handleSubmitForApproval = async (pricingId: string) => {
+    try {
+      setSubmittingPriceId(pricingId);
+      await submitPriceForApproval(pricingId);
+
+      toast({
+        title: "Thành công",
+        description: "Đã gửi yêu cầu duyệt giá",
+      });
+
+      await fetchAllPricings();
+      await fetchCurrentPricing();
+
+      if (onPricingUpdated) {
+        onPricingUpdated();
+      }
+    } catch (error: any) {
+      console.error("Error submitting for approval:", error);
+      toast({
+        title: "Lỗi",
+        description: error.message || "Không thể gửi yêu cầu duyệt giá",
+        variant: "destructive",
+      });
+    } finally {
+      setSubmittingPriceId(null);
+    }
+  };
+
+  const handleActivatePrice = async (pricingId: string) => {
+    try {
+      setActivatingPriceId(pricingId);
+      await activateApprovedPrice(pricingId);
+
+      toast({
+        title: "Thành công",
+        description: "Đã kích hoạt giá khóa học",
+      });
+
+      await fetchAllPricings();
+      await fetchCurrentPricing();
+
+      if (onPricingUpdated) {
+        onPricingUpdated();
+      }
+    } catch (error: any) {
+      console.error("Error activating price:", error);
+      toast({
+        title: "Lỗi",
+        description: error.message || "Không thể kích hoạt giá",
+        variant: "destructive",
+      });
+    } finally {
+      setActivatingPriceId(null);
+    }
+  };
+
+  // Admin approval/rejection handlers
+  const handleAdminApprovePrice = async (pricingId: string) => {
+    if (!isAdmin) {
+      toast({
+        title: "Lỗi",
+        description: "Bạn không có quyền duyệt giá",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setAdminApprovingId(pricingId);
+      await approveCoursePrice(pricingId);
+
+      toast({
+        title: "Thành công",
+        description: "Đã duyệt giá thành công",
+      });
+
+      await fetchAllPricings();
+      await fetchCurrentPricing();
+
+      if (onPricingUpdated) {
+        onPricingUpdated();
+      }
+    } catch (error: any) {
+      console.error("Error approving price:", error);
+      toast({
+        title: "Lỗi",
+        description: error.message || "Không thể duyệt giá",
+        variant: "destructive",
+      });
+    } finally {
+      setAdminApprovingId(null);
+    }
+  };
+
+  const handleAdminRejectPrice = async () => {
+    if (!isAdmin || !currentRejectingId) {
+      toast({
+        title: "Lỗi",
+        description: "Bạn không có quyền từ chối giá",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!adminRejectReason.trim()) {
+      toast({
+        title: "Lỗi",
+        description: "Vui lòng nhập lý do từ chối",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setAdminRejectingId(currentRejectingId);
+      await rejectCoursePrice(currentRejectingId, {
+        rejectionReason: adminRejectReason,
+      });
+
+      toast({
+        title: "Thành công",
+        description: "Đã từ chối giá thành công",
+      });
+
+      await fetchAllPricings();
+      await fetchCurrentPricing();
+
+      if (onPricingUpdated) {
+        onPricingUpdated();
+      }
+
+      // Reset reject dialog state
+      setShowAdminRejectDialog(false);
+      setCurrentRejectingId(null);
+      setAdminRejectReason("");
+    } catch (error: any) {
+      console.error("Error rejecting price:", error);
+      toast({
+        title: "Lỗi",
+        description: error.message || "Không thể từ chối giá",
+        variant: "destructive",
+      });
+    } finally {
+      setAdminRejectingId(null);
+    }
+  };
+
+  const showAdminRejectConfirmation = (pricingId: string) => {
+    setCurrentRejectingId(pricingId);
+    setShowAdminRejectDialog(true);
+    setAdminRejectReason("");
+  };
+
   const getStatusIcon = (status: PricingStatus) => {
     switch (status) {
       case PricingStatus.ACTIVE:
@@ -357,6 +559,43 @@ export function AdminPricingManager({
     );
   };
 
+  const getApprovalStatusBadge = (approvalStatus?: string) => {
+    if (!approvalStatus) return null;
+
+    switch (approvalStatus) {
+      case PriceApprovalStatus.PENDING_APPROVAL:
+        return (
+          <Badge className="bg-yellow-100 text-yellow-800 flex items-center gap-1">
+            <Clock className="h-3 w-3" />
+            Chờ duyệt
+          </Badge>
+        );
+      case PriceApprovalStatus.APPROVED:
+        return (
+          <Badge className="bg-blue-100 text-blue-800 flex items-center gap-1">
+            <CheckCircle className="h-3 w-3" />
+            Đã duyệt
+          </Badge>
+        );
+      case PriceApprovalStatus.REJECTED:
+        return (
+          <Badge className="bg-red-100 text-red-800 flex items-center gap-1">
+            <XCircle className="h-3 w-3" />
+            Bị từ chối
+          </Badge>
+        );
+      // case PriceApprovalStatus.ACTIVE:
+      //   return (
+      //     <Badge className="bg-green-100 text-green-800 flex items-center gap-1">
+      //       <CheckCircle className="h-3 w-3" />
+      //       Đang áp dụng
+      //     </Badge>
+      //   );
+      default:
+        return null;
+    }
+  };
+
   const formatDate = (dateString?: string) => {
     if (!dateString) return "N/A";
     return new Date(dateString).toLocaleDateString("vi-VN", {
@@ -387,23 +626,37 @@ export function AdminPricingManager({
 
     try {
       setIsUpdating(true);
-      await createPricing({
-        courseId,
-        name:
-          pricingType === PricingType.PROMOTION ? promotionName : `Giá cơ bản`,
-        price: Number(newPrice),
-        description: description || undefined,
-        type: pricingType,
-        startDate: startDate || undefined,
-        endDate: endDate || undefined,
-      });
 
-      // 🆕 Update commission info when new price is created
+      //  Update commission info when new price is created
       const commissionUpdate = await updateCommissionOnPriceChange(
         courseId,
         Number(newPrice),
       );
 
+      if (pricingType === PricingType.BASE_PRICE) {
+        // Tạo giá cơ bản cho khóa học
+        await setBasePriceForCourse(courseId, Number(newPrice));
+
+        toast({
+          title: "Thành công",
+          description: "Đã tạo giá cơ bản và gửi yêu cầu duyệt",
+        });
+      } else {
+        // Tạo chương trình khuyến mãi
+        await createPromotionForCourse({
+          courseId,
+          name: promotionName,
+          description: description || undefined,
+          price: Number(newPrice),
+          startDate: startDate || undefined,
+          endDate: endDate || undefined,
+        });
+
+        toast({
+          title: "Thành công",
+          description: `Đã tạo chương trình khuyến mãi "${promotionName}" và gửi yêu cầu duyệt`,
+        });
+      }
       // Refresh data
       await fetchCurrentPricing();
       await fetchAllPricings();
@@ -452,35 +705,19 @@ export function AdminPricingManager({
     setIsOpen(open);
     if (!open) {
       setShowAddForm(false);
+      setShowAdminRejectDialog(false);
+      setCurrentRejectingId(null);
+      setAdminRejectReason("");
       resetForm();
     }
   };
 
-  // Tính toán summary statistics
+  // Lấy summary statistics từ API response
   const getSummaryStats = () => {
     if (!coursePricingData) return null;
 
-    const prices = coursePricingData.prices;
-    const basePrices = prices.filter((p) => p.type === "BASE_PRICE");
-    const promotions = prices.filter((p) => p.type === "PROMOTION");
-    const activePromotions = promotions.filter(
-      (p) => p.status === PricingStatus.ACTIVE,
-    );
-    const scheduledPromotions = promotions.filter(
-      (p) => p.status === PricingStatus.SCHEDULED,
-    );
-    const expiredPromotions = promotions.filter(
-      (p) => p.status === PricingStatus.EXPIRED,
-    );
-
-    return {
-      totalPolicies: prices.length,
-      basePrices: basePrices.length,
-      promotions: promotions.length,
-      activePromotions: activePromotions.length,
-      scheduledPromotions: scheduledPromotions.length,
-      expiredPromotions: expiredPromotions.length,
-    };
+    // Sử dụng summary từ API response
+    return coursePricingData.summary;
   };
 
   const summaryStats = getSummaryStats();
@@ -497,7 +734,7 @@ export function AdminPricingManager({
           Quản lý giá
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[1200px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             Quản lý giá - {coursePricingData?.courseTitle || courseName}
@@ -642,42 +879,101 @@ export function AdminPricingManager({
             <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
               <div className="bg-blue-50 p-3 rounded-lg text-center">
                 <p className="text-2xl font-bold text-blue-600">
-                  {summaryStats.totalPolicies}
+                  {summaryStats.total}
                 </p>
                 <p className="text-xs text-blue-500">Tổng chính sách</p>
               </div>
               <div className="bg-green-50 p-3 rounded-lg text-center">
                 <p className="text-2xl font-bold text-green-600">
-                  {summaryStats.basePrices}
+                  {summaryStats.byType.basePrice}
                 </p>
                 <p className="text-xs text-green-500">Giá cơ bản</p>
               </div>
               <div className="bg-purple-50 p-3 rounded-lg text-center">
                 <p className="text-2xl font-bold text-purple-600">
-                  {summaryStats.promotions}
+                  {summaryStats.byType.promotion}
                 </p>
                 <p className="text-xs text-purple-500">Khuyến mãi</p>
               </div>
               <div className="bg-orange-50 p-3 rounded-lg text-center">
                 <p className="text-2xl font-bold text-orange-600">
-                  {summaryStats.activePromotions}
+                  {summaryStats.byHeaderStatus.active}
                 </p>
                 <p className="text-xs text-orange-500">Đang hoạt động</p>
               </div>
               <div className="bg-cyan-50 p-3 rounded-lg text-center">
                 <p className="text-2xl font-bold text-cyan-600">
-                  {summaryStats.scheduledPromotions}
+                  {summaryStats.byHeaderStatus.scheduled}
                 </p>
                 <p className="text-xs text-cyan-500">Đã lên lịch</p>
               </div>
               <div className="bg-red-50 p-3 rounded-lg text-center">
                 <p className="text-2xl font-bold text-red-600">
-                  {summaryStats.expiredPromotions}
+                  {summaryStats.byHeaderStatus.expired}
                 </p>
                 <p className="text-xs text-red-500">Đã hết hạn</p>
               </div>
             </div>
           ) : null}
+
+          {/* Approval Status Summary */}
+          {summaryStats && (
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h5 className="text-sm font-medium text-slate-700">
+                  Trạng thái duyệt
+                </h5>
+                {isAdmin && summaryStats.byApprovalStatus.pending > 0 && (
+                  <div className="flex items-center gap-1 text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded-full border border-amber-200">
+                    <AlertCircle className="h-3 w-3" />
+                    <span className="font-medium">
+                      {summaryStats.byApprovalStatus.pending} giá cần duyệt
+                    </span>
+                  </div>
+                )}
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                <div
+                  className={`bg-yellow-50 p-3 rounded-lg text-center ${
+                    isAdmin && summaryStats.byApprovalStatus.pending > 0
+                      ? "ring-2 ring-yellow-200 ring-offset-1"
+                      : ""
+                  }`}
+                >
+                  <p className="text-xl font-bold text-yellow-600">
+                    {summaryStats.byApprovalStatus.pending}
+                  </p>
+                  <p className="text-xs text-yellow-500">
+                    Chờ duyệt{isAdmin ? " (Admin)" : ""}
+                  </p>
+                </div>
+                <div className="bg-blue-50 p-3 rounded-lg text-center">
+                  <p className="text-xl font-bold text-blue-600">
+                    {summaryStats.byApprovalStatus.approved}
+                  </p>
+                  <p className="text-xs text-blue-500">Đã duyệt</p>
+                </div>
+                <div className="bg-red-50 p-3 rounded-lg text-center">
+                  <p className="text-xl font-bold text-red-600">
+                    {summaryStats.byApprovalStatus.rejected}
+                  </p>
+                  <p className="text-xs text-red-500">Bị từ chối</p>
+                </div>
+                {/* <div className="bg-green-50 p-3 rounded-lg text-center">
+                  <p className="text-xl font-bold text-green-600">
+                    {summaryStats.byApprovalStatus.active}
+                  </p>
+                  <p className="text-xs text-green-500">Đang áp dụng</p>
+                </div> */}
+                <div className="bg-indigo-50 p-3 rounded-lg text-center">
+                  <p className="text-xl font-bold text-indigo-600">
+                    {summaryStats.currentlyActive}
+                  </p>
+                  <p className="text-xs text-indigo-500">Hiệu lực hiện tại</p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* All Pricing Policies Table */}
           <div className="space-y-4">
@@ -707,8 +1003,10 @@ export function AdminPricingManager({
                     <TableHead>Loại</TableHead>
                     <TableHead>Giá</TableHead>
                     <TableHead>Trạng thái</TableHead>
+                    <TableHead>Trạng thái duyệt</TableHead>
                     <TableHead>Ngày bắt đầu</TableHead>
                     <TableHead>Ngày kết thúc</TableHead>
+                    {/* <TableHead>Người duyệt</TableHead> */}
                     <TableHead className="text-right">Thao tác</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -733,11 +1031,20 @@ export function AdminPricingManager({
                           <div className="h-6 w-24 bg-gray-200 animate-pulse rounded"></div>
                         </TableCell>
                         <TableCell>
+                          <div className="h-6 w-20 bg-gray-200 animate-pulse rounded"></div>
+                        </TableCell>
+                        <TableCell>
                           <div className="h-4 w-16 bg-gray-200 animate-pulse rounded"></div>
                         </TableCell>
                         <TableCell>
                           <div className="h-4 w-16 bg-gray-200 animate-pulse rounded"></div>
                         </TableCell>
+                        {/* <TableCell>
+                          <div className="space-y-1">
+                            <div className="h-4 w-20 bg-gray-200 animate-pulse rounded"></div>
+                            <div className="h-3 w-16 bg-gray-200 animate-pulse rounded"></div>
+                          </div>
+                        </TableCell> */}
                         <TableCell className="text-right">
                           <div className="flex items-center gap-2 justify-end">
                             <div className="h-8 w-24 bg-gray-200 animate-pulse rounded"></div>
@@ -750,7 +1057,7 @@ export function AdminPricingManager({
                     coursePricingData.prices.length === 0 ? (
                     <TableRow>
                       <TableCell
-                        colSpan={7}
+                        colSpan={8}
                         className="text-center py-8 text-slate-500"
                       >
                         Chưa có chính sách giá nào
@@ -826,43 +1133,147 @@ export function AdminPricingManager({
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            {getStatusIcon(pricing.status)}
-                            {getStatusBadge(pricing.status)}
+                            {getStatusIcon(pricing.headerStatus)}
+                            {getStatusBadge(pricing.headerStatus)}
                           </div>
                         </TableCell>
-                        <TableCell>{formatDate(pricing.startDate)}</TableCell>
-                        <TableCell>{formatDate(pricing.endDate)}</TableCell>
+                        <TableCell>
+                          {getApprovalStatusBadge(pricing.approvalStatus)}
+                        </TableCell>
+                        <TableCell>
+                          {formatDate(pricing.schedule.startDate)}
+                        </TableCell>
+                        <TableCell>
+                          {formatDate(pricing.schedule.endDate)}
+                        </TableCell>
+                        {/* <TableCell>
+                          {pricing.approval.reviewer ? (
+                            <div className="text-sm">
+                              <div className="font-medium">{pricing.approval.reviewer.name}</div>
+                              <div className="text-slate-500">
+                                {pricing.approval.reviewedAt && formatDate(pricing.approval.reviewedAt)}
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-slate-400">Chưa duyệt</span>
+                          )}
+                        </TableCell> */}
                         <TableCell className="text-right">
                           <div className="flex items-center gap-2 justify-end">
-                            <Select
-                              value={pricing.status}
-                              onValueChange={(value) =>
-                                handleStatusUpdate(
-                                  pricing.id,
-                                  value as PricingStatus,
-                                )
-                              }
-                              disabled={isUpdating || isLoadingPolicies}
-                            >
-                              <SelectTrigger className="w-32 h-8">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value={PricingStatus.ACTIVE}>
-                                  Active
-                                </SelectItem>
-                                <SelectItem value={PricingStatus.INACTIVE}>
-                                  Inactive
-                                </SelectItem>
-                                <SelectItem value={PricingStatus.SCHEDULED}>
-                                  Scheduled
-                                </SelectItem>
-                                <SelectItem value={PricingStatus.EXPIRED}>
-                                  Expired
-                                </SelectItem>
-                              </SelectContent>
-                            </Select>
+                            {/* Workflow Action Buttons Based on Approval Status */}
+                            {pricing.approvalStatus ===
+                              PriceApprovalStatus.PENDING_APPROVAL &&
+                            isAdmin ? (
+                              // Admin can approve/reject pending prices
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() =>
+                                    handleAdminApprovePrice(pricing.id)
+                                  }
+                                  disabled={
+                                    adminApprovingId === pricing.id ||
+                                    isUpdating ||
+                                    isLoadingPolicies
+                                  }
+                                  className="text-green-600 hover:text-green-700 border-green-200 hover:bg-green-50"
+                                  title="Duyệt giá"
+                                >
+                                  {adminApprovingId === pricing.id ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <ThumbsUp className="h-4 w-4" />
+                                  )}
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() =>
+                                    showAdminRejectConfirmation(pricing.id)
+                                  }
+                                  disabled={
+                                    adminRejectingId === pricing.id ||
+                                    isUpdating ||
+                                    isLoadingPolicies
+                                  }
+                                  className="text-red-600 hover:text-red-700 border-red-200 hover:bg-red-50"
+                                  title="Từ chối giá"
+                                >
+                                  {adminRejectingId === pricing.id ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <ThumbsDown className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              </>
+                            ) : // pricing.approvalStatus ===
+                            //   PriceApprovalStatus.APPROVED ? (
+                            // Anyone can activate approved prices
+                            // <Button
+                            //   variant="outline"
+                            //   size="sm"
+                            //   onClick={() => handleActivatePrice(pricing.id)}
+                            //   disabled={
+                            //     activatingPriceId === pricing.id ||
+                            //     isUpdating ||
+                            //     isLoadingPolicies
+                            //   }
+                            //   className="text-blue-600 hover:text-blue-700 border-blue-200 hover:bg-blue-50"
+                            //   title="Kích hoạt giá đã duyệt"
+                            // >
+                            //   {activatingPriceId === pricing.id ? (
+                            //     <Loader2 className="h-4 w-4 animate-spin" />
+                            //   ) : (
+                            //     <>
+                            //       <Play className="h-4 w-4 mr-1" />
+                            //       Kích hoạt
+                            //     </>
+                            //   )}
+                            // </Button>
+                            // ) :
+                            null}
 
+                            {pricing.type === PricingType.PROMOTION ? (
+                              <Select
+                                value={pricing.headerStatus}
+                                onValueChange={(value) =>
+                                  handleStatusUpdate(
+                                    pricing.id,
+                                    value as PricingStatus,
+                                  )
+                                }
+                                disabled={isUpdating || isLoadingPolicies}
+                              >
+                                <SelectTrigger className="w-32 h-8">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value={PricingStatus.ACTIVE}>
+                                    Active
+                                  </SelectItem>
+                                  <SelectItem value={PricingStatus.INACTIVE}>
+                                    Inactive
+                                  </SelectItem>
+                                  <SelectItem value={PricingStatus.SCHEDULED}>
+                                    Scheduled
+                                  </SelectItem>
+                                  <SelectItem value={PricingStatus.EXPIRED}>
+                                    Expired
+                                  </SelectItem>
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              // Hiển thị placeholder cho BASE_PRICE để giữ alignment
+                              <div className="w-10 h-8 flex items-center justify-center">
+                                <span
+                                  className="text-xs text-gray-400 font-medium"
+                                  title="Giá cơ bản không thể xóa"
+                                >
+                                  N/A
+                                </span>
+                              </div>
+                            )}
                             {/* Chỉ hiển thị nút xóa cho PROMOTION, không cho BASE_PRICE */}
                             {pricing.type === PricingType.PROMOTION ? (
                               <AlertDialog>
@@ -932,6 +1343,19 @@ export function AdminPricingManager({
               <h4 className="font-medium text-slate-900 mb-4">
                 Thêm chính sách giá mới
               </h4>
+
+              {/* Workflow Explanation */}
+              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <Clock className="h-4 w-4 text-blue-500 mt-0.5" />
+                  <div className="text-sm text-blue-700">
+                    <strong>Quy trình xét duyệt:</strong> Sau khi tạo, giá sẽ ở
+                    trạng thái <span className="font-medium">"Chờ duyệt"</span>{" "}
+                    và cần admin xem xét trước khi có thể kích hoạt.
+                  </div>
+                </div>
+              </div>
+
               <div className="space-y-4">
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="price" className="text-right">
@@ -1063,6 +1487,59 @@ export function AdminPricingManager({
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      {/* Admin Rejection Dialog */}
+      <Dialog
+        open={showAdminRejectDialog}
+        onOpenChange={setShowAdminRejectDialog}
+      >
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Từ chối duyệt giá</DialogTitle>
+            <DialogDescription>
+              Vui lòng nhập lý do từ chối để gửi phản hồi cho người tạo giá.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="adminRejectReason">Lý do từ chối *</Label>
+              <Textarea
+                id="adminRejectReason"
+                placeholder="VD: Giá không phù hợp với thị trường, cần điều chỉnh giảm 20%..."
+                value={adminRejectReason}
+                onChange={(e) => setAdminRejectReason(e.target.value)}
+                className="min-h-[100px]"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowAdminRejectDialog(false);
+                setCurrentRejectingId(null);
+                setAdminRejectReason("");
+              }}
+            >
+              Hủy
+            </Button>
+            <Button
+              onClick={handleAdminRejectPrice}
+              disabled={adminRejectingId !== null || !adminRejectReason.trim()}
+              className="bg-red-500 hover:bg-red-600"
+            >
+              {adminRejectingId ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Đang từ chối...
+                </>
+              ) : (
+                "Từ chối"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }

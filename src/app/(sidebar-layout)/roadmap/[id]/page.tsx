@@ -160,7 +160,7 @@ export default function RoadmapDetail() {
       image:
         courses.find((c) => c.tags?.includes("FE") || c.tags?.includes("React"))
           ?.thumbnailUrl ||
-        "https://supabasekong-a084okggcg0skwoooockog08.eduforge.io.vn/storage/v1/object/public/courses/course-thumbnails/680342fe32367c789ca11c81/frontend-path.png",
+        "https://supabasekong-a084okggcg0skwoooockog08.cognistream.io.vn/storage/v1/object/public/courses/course-thumbnails/680342fe32367c789ca11c81/frontend-path.png",
     },
     backend: {
       title: "Lộ trình Back-end Developer",
@@ -168,7 +168,7 @@ export default function RoadmapDetail() {
         "Phát triển kỹ năng lập trình phía máy chủ với các ngôn ngữ và framework hiện đại như Java Spring Boot, Node.js và các công nghệ liên quan.",
       image:
         courses.find((c) => c.tags?.includes("BE"))?.thumbnailUrl ||
-        "https://supabasekong-a084okggcg0skwoooockog08.eduforge.io.vn/storage/v1/object/public/courses/course-thumbnails/680342fe32367c789ca11c81/43658b78-7873-42b3-a0d6-906368748d33.png",
+        "https://supabasekong-a084okggcg0skwoooockog08.cognistream.io.vn/storage/v1/object/public/courses/course-thumbnails/680342fe32367c789ca11c81/43658b78-7873-42b3-a0d6-906368748d33.png",
     },
     devops: {
       title: "Lộ trình DevOps & Cloud",
@@ -178,7 +178,7 @@ export default function RoadmapDetail() {
         courses.find(
           (c) => c.tags?.includes("docker") || c.tags?.includes("Linux"),
         )?.thumbnailUrl ||
-        "https://supabasekong-a084okggcg0skwoooockog08.eduforge.io.vn/storage/v1/object/public/courses/course-thumbnails/680342fe32367c789ca11c81/devops-path.png",
+        "https://supabasekong-a084okggcg0skwoooockog08.cognistream.io.vn/storage/v1/object/public/courses/course-thumbnails/680342fe32367c789ca11c81/devops-path.png",
     },
     languages: {
       title: "Lộ trình học Ngoại ngữ",
@@ -186,7 +186,7 @@ export default function RoadmapDetail() {
         "Nâng cao khả năng ngoại ngữ với các khóa học TOEIC, IELTS và các chứng chỉ quốc tế khác.",
       image:
         courses.find((c) => c.tags?.includes("Language"))?.thumbnailUrl ||
-        "https://supabasekong-a084okggcg0skwoooockog08.eduforge.io.vn/storage/v1/object/public/courses/course-thumbnails/680342fe32367c789ca11c81/3aa205ea-270f-4352-8268-15e01614bf95.jpg",
+        "https://supabasekong-a084okggcg0skwoooockog08.cognistream.io.vn/storage/v1/object/public/courses/course-thumbnails/680342fe32367c789ca11c81/3aa205ea-270f-4352-8268-15e01614bf95.jpg",
     },
     datascience: {
       title: "Lộ trình Data Science & AI",
@@ -199,7 +199,7 @@ export default function RoadmapDetail() {
             c.tags?.includes("ML") ||
             c.tags?.includes("analyze"),
         )?.thumbnailUrl ||
-        "https://supabasekong-a084okggcg0skwoooockog08.eduforge.io.vn/storage/v1/object/public/courses/course-thumbnails/680342fe32367c789ca11c81/data-science-path.png",
+        "https://supabasekong-a084okggcg0skwoooockog08.cognistream.io.vn/storage/v1/object/public/courses/course-thumbnails/680342fe32367c789ca11c81/data-science-path.png",
     },
     personal: {
       title: "Lộ trình Phát triển cá nhân",
@@ -207,7 +207,7 @@ export default function RoadmapDetail() {
         "Rèn luyện kỹ năng mềm, tư duy và phát triển bản thân với các khóa học tâm lý học hành vi.",
       image:
         courses.find((c) => c.tags?.includes("Behavior"))?.thumbnailUrl ||
-        "https://supabasekong-a084okggcg0skwoooockog08.eduforge.io.vn/storage/v1/object/public/courses/course-thumbnails/680342fe32367c789ca11c81/2314b91c-7239-488d-9299-5b0c9ddbc0f9.jpeg",
+        "https://supabasekong-a084okggcg0skwoooockog08.cognistream.io.vn/storage/v1/object/public/courses/course-thumbnails/680342fe32367c789ca11c81/2314b91c-7239-488d-9299-5b0c9ddbc0f9.jpeg",
     },
     education: {
       title: "Lộ trình Kiến thức phổ thông",
@@ -217,7 +217,7 @@ export default function RoadmapDetail() {
         courses.find(
           (c) => c.tags?.includes("math") || c.tags?.includes("basic"),
         )?.thumbnailUrl ||
-        "https://supabasekong-a084okggcg0skwoooockog08.eduforge.io.vn/storage/v1/object/public/courses/course-thumbnails/680342fe32367c789ca11c81/fc3aeacb-9100-4c02-9156-063921a05a99.jpeg",
+        "https://supabasekong-a084okggcg0skwoooockog08.cognistream.io.vn/storage/v1/object/public/courses/course-thumbnails/680342fe32367c789ca11c81/fc3aeacb-9100-4c02-9156-063921a05a99.jpeg",
     },
     programming: {
       title: "Lộ trình Lập trình cơ bản",
@@ -227,7 +227,7 @@ export default function RoadmapDetail() {
         courses.find(
           (c) => c.tags?.includes("Lập trình") || c.tags?.includes("C++"),
         )?.thumbnailUrl ||
-        "https://supabasekong-a084okggcg0skwoooockog08.eduforge.io.vn/storage/v1/object/public/courses/course-thumbnails/680342fe32367c789ca11c81/programming-basics.png",
+        "https://supabasekong-a084okggcg0skwoooockog08.cognistream.io.vn/storage/v1/object/public/courses/course-thumbnails/680342fe32367c789ca11c81/programming-basics.png",
     },
   };
 

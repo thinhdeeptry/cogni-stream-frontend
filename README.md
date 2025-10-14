@@ -1,10 +1,10 @@
-# EduForge - Nền Tảng Học Tập Trực Tuyến Thông Minh
+# cognistream - Nền Tảng Học Tập Trực Tuyến Thông Minh
 
 ## Giới Thiệu
 
-EduForge là một nền tảng học tập trực tuyến tiên tiến, được thiết kế và phát triển như một dự án môn học Kiến trúc và Thiết kế Phần mềm năm 2025. Với mục tiêu mang lại trải nghiệm học tập hiện đại, cá nhân hóa và hiệu quả, EduForge tích hợp các công nghệ tiên tiến và kiến trúc microservices để cung cấp một hệ sinh thái học tập trực tuyến toàn diện, thân thiện với người dùng và thông minh.
+cognistream là một nền tảng học tập trực tuyến tiên tiến, được thiết kế và phát triển như một dự án môn học Kiến trúc và Thiết kế Phần mềm năm 2025. Với mục tiêu mang lại trải nghiệm học tập hiện đại, cá nhân hóa và hiệu quả, cognistream tích hợp các công nghệ tiên tiến và kiến trúc microservices để cung cấp một hệ sinh thái học tập trực tuyến toàn diện, thân thiện với người dùng và thông minh.
 
-Dự án không chỉ tập trung vào việc cung cấp nội dung học tập chất lượng cao mà còn chú trọng đến trải nghiệm người dùng, tương tác cộng đồng, và tích hợp trí tuệ nhân tạo (AI) để hỗ trợ học viên đạt được kết quả học tập tối ưu. EduForge hướng tới việc trở thành một nền tảng học tập trực tuyến toàn diện, phù hợp cho cả học viên, giảng viên và quản trị viên.
+Dự án không chỉ tập trung vào việc cung cấp nội dung học tập chất lượng cao mà còn chú trọng đến trải nghiệm người dùng, tương tác cộng đồng, và tích hợp trí tuệ nhân tạo (AI) để hỗ trợ học viên đạt được kết quả học tập tối ưu. cognistream hướng tới việc trở thành một nền tảng học tập trực tuyến toàn diện, phù hợp cho cả học viên, giảng viên và quản trị viên.
 
 ## Thành Viên Nhóm
 
@@ -16,13 +16,13 @@ Dự án được thực hiện bởi nhóm sinh viên tài năng từ môn họ
 - **Vũ Hải Nam**
 - **Nguyễn Đức Thịnh**
 
-#### Nhóm Phát Triển EduForge
+#### Nhóm Phát Triển cognistream
 
-![Nhóm phát triển EduForge](previewImg/group.jpg "Nhóm phát triển EduForge")
+![Nhóm phát triển cognistream](previewImg/group.jpg "Nhóm phát triển cognistream")
 
 ## Mục Tiêu Dự Án
 
-EduForge được thiết kế để giải quyết các vấn đề phổ biến trong học tập trực tuyến, bao gồm:
+cognistream được thiết kế để giải quyết các vấn đề phổ biến trong học tập trực tuyến, bao gồm:
 
 - **Trải nghiệm người dùng**: Giao diện thân thiện, dễ sử dụng và trực quan.
 - **Cá nhân hóa học tập**: Tích hợp AI để hỗ trợ học tập hiệu quả hơn, tối ưu cho cá nhân.
@@ -32,7 +32,7 @@ EduForge được thiết kế để giải quyết các vấn đề phổ biế
 
 ## Kiến Trúc Hệ Thống
 
-EduForge được xây dựng dựa trên kiến trúc microservices, sử dụng **Next.js 14** làm nền tảng chính cho frontend và tích hợp nhiều dịch vụ backend độc lập để đảm bảo tính mô-đun và khả năng mở rộng. Các thành phần chính của hệ thống bao gồm:
+cognistream được xây dựng dựa trên kiến trúc microservices, sử dụng **Next.js 14** làm nền tảng chính cho frontend và tích hợp nhiều dịch vụ backend độc lập để đảm bảo tính mô-đun và khả năng mở rộng. Các thành phần chính của hệ thống bao gồm:
 
 ### Frontend
 
@@ -59,7 +59,7 @@ EduForge được xây dựng dựa trên kiến trúc microservices, sử dụn
 
 ## Tính Năng Chính
 
-EduForge cung cấp một loạt các tính năng mạnh mẽ để hỗ trợ quá trình học tập và quản lý khóa học:
+cognistream cung cấp một loạt các tính năng mạnh mẽ để hỗ trợ quá trình học tập và quản lý khóa học:
 
 ### 1. Quản Lý Khóa Học
 
@@ -68,9 +68,9 @@ EduForge cung cấp một loạt các tính năng mạnh mẽ để hỗ trợ q
 - **Chi tiết khóa học**: Hỗ trợ nội dung đa phương tiện (video và văn bản).
 - **Quản lý bài học**: Cung cấp công cụ để tổ chức bài học một cách khoa học.
 
-#### Trang Chủ EduForge
+#### Trang Chủ cognistream
 
-![Trang chủ EduForge](previewImg/home.jpg "Trang chủ EduForge")
+![Trang chủ cognistream](previewImg/home.jpg "Trang chủ cognistream")
 
 #### Giao Diện Bài Học
 
@@ -230,7 +230,7 @@ npm run dev
 ### Môi Trường
 
 - **Development**: http://localhost:3000
-- **Production**: http://eduforge.io.vn (hiện đã đóng)
+- **Production**: http://cognistream.io.vn (hiện đã đóng)
 
 ### Lưu Ý
 
@@ -239,7 +239,7 @@ npm run dev
 
 ## Công Nghệ Sử Dụng
 
-EduForge sử dụng một bộ công nghệ hiện đại để đảm bảo hiệu suất và khả năng mở rộng:
+cognistream sử dụng một bộ công nghệ hiện đại để đảm bảo hiệu suất và khả năng mở rộng:
 
 - **Next.js 14**: Framework React cho giao diện và hiệu suất cao.
 - **TypeScript**: Đảm bảo mã nguồn đáng tin cậy và dễ bảo trì.
@@ -254,7 +254,7 @@ EduForge sử dụng một bộ công nghệ hiện đại để đảm bảo hi
 
 ## Giấy Phép
 
-Dự án EduForge được phát triển cho mục đích học tập và nghiên cứu trong khuôn khổ môn học Kiến trúc và Thiết kế Phần mềm năm 2025. Mã nguồn và tài liệu chỉ được sử dụng cho các mục đích phi thương mại và học thuật.
+Dự án cognistream được phát triển cho mục đích học tập và nghiên cứu trong khuôn khổ môn học Kiến trúc và Thiết kế Phần mềm năm 2025. Mã nguồn và tài liệu chỉ được sử dụng cho các mục đích phi thương mại và học thuật.
 
 ## Liên Hệ
 

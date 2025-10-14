@@ -64,15 +64,17 @@ const getMenuItems = (userRole: string) => {
     },
   ];
 
+  if (userRole !== "STUDENT") {
+    baseItems.push({
+      title: "Quản lý",
+      url: "/admin/courses",
+      icon: LayoutDashboard,
+      color: "text-gray-600",
+      bgColor: "bg-purple-50",
+    });
+  }
   if (userRole === "ADMIN") {
     baseItems.push(
-      {
-        title: "Quản lý",
-        url: "/admin/courses",
-        icon: LayoutDashboard,
-        color: "text-gray-600",
-        bgColor: "bg-purple-50",
-      },
       {
         title: "Nội dung",
         url: "/admin/approvals",

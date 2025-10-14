@@ -7,6 +7,6 @@ export default function robots(): MetadataRoute.Robots {
       allow: "/",
       disallow: ["/admin/", "/payment/*", "/unauthorized/*"],
     },
-    sitemap: "https://eduforge.io.vn/sitemap.xml",
+    sitemap: "https://cognistream.io.vn/sitemap.xml",
   };
 }

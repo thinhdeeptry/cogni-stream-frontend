@@ -5,7 +5,7 @@ import axios from "axios";
 
 const assessmentApi = await AxiosFactory.getApiInstance("assessment");
 // let assessmentApi = axios.create({
-//   baseURL: "http://eduforge.io.vn:3005/api/v1",
+//   baseURL: "http://cognistream.io.vn:3005/api/v1",
 //   timeout: 30000,
 //   headers: {
 //     "Content-Type": "application/json",

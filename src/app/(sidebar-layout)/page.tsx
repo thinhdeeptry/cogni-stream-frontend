@@ -142,7 +142,7 @@ function HomeContent() {
   const jsonLdCourses = filteredCourses.map((course) => ({
     title: course.title,
     description: course.description || "",
-    url: `https://eduforge.io.vn/courses/${course.id}`,
+    url: `https://cognistream.io.vn/courses/${course.id}`,
     image: course.thumbnailUrl || "",
     // price: course.price || 0,
     category: course.categoryId || "",

@@ -2,7 +2,7 @@
 
 import axios from "axios";
 
-const API_URL = "http://eduforge.io.vn:8081/api/v1";
+const API_URL = "http://cognistream.io.vn:8081/api/v1";
 
 export interface Series {
   id: string;

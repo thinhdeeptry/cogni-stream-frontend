@@ -20,15 +20,15 @@ import { Textarea } from "@/components/ui/textarea";
 export function AIReferenceExample() {
   const [input, setInput] = useState("");
   const [reference, setReference] = useState(
-    "Eduforge là một nền tảng học trực tuyến được phát triển bởi đội ngũ giáo viên và kỹ sư phần mềm tại Việt Nam. " +
+    "cognistream là một nền tảng học trực tuyến được phát triển bởi đội ngũ giáo viên và kỹ sư phần mềm tại Việt Nam. " +
       "Nền tảng này cung cấp các khóa học về lập trình, khoa học máy tính, và các kỹ năng kỹ thuật số cho học sinh từ cấp tiểu học đến đại học. " +
-      "Eduforge được thành lập vào năm 2023 và hiện đang phục vụ hơn 10,000 học viên trên toàn quốc. " +
+      "cognistream được thành lập vào năm 2023 và hiện đang phục vụ hơn 10,000 học viên trên toàn quốc. " +
       "Các khóa học nổi bật bao gồm: Lập trình Python cho trẻ em, Phát triển ứng dụng web với React, và Khoa học dữ liệu cơ bản.",
   );
 
   const { processInput, isLoading, lastOutput, error } = useAI({
     systemPrompt:
-      "Bạn là trợ lý AI của Eduforge. Hãy trả lời câu hỏi dựa trên thông tin tham khảo được cung cấp.",
+      "Bạn là trợ lý AI của cognistream. Hãy trả lời câu hỏi dựa trên thông tin tham khảo được cung cấp.",
     referenceText: reference,
   });
 
@@ -80,7 +80,7 @@ export function AIReferenceExample() {
           <Textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Hỏi về Eduforge..."
+            placeholder="Hỏi về cognistream..."
             className="flex-1 resize-none"
             disabled={isLoading}
           />

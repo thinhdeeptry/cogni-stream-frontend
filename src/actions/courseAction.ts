@@ -595,7 +595,7 @@ export const uploadImage = async (
     }
 
     const response = await fetch(
-      "https://storage.eduforge.io.vn/api/v1/storage/upload",
+      "https://storage.cognistream.io.vn/api/v1/storage/upload",
       {
         method: "POST",
         body: formData,

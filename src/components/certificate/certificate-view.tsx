@@ -248,7 +248,7 @@ export default function CertificateView({
                         crossOrigin="anonymous"
                       />
                       <p className="text-sm text-gray-600 font-playfair">
-                        Edu Forge
+                        Cogni Stream
                       </p>
                     </div>
                   </div>

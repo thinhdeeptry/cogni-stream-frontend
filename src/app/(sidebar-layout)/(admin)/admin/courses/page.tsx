@@ -31,7 +31,7 @@ import {
 } from "@/actions/courseAction";
 import { getCourseCurrentPrice } from "@/actions/pricingActions";
 
-import { AdminPricingManager } from "@/components/admin/AdminPricingManager";
+import { AdminPricingManager } from "@/components/admin/pricingManager";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -565,7 +565,7 @@ export default function AdminCoursesPage() {
             </DialogContent>
           </Dialog>
 
-          <div className="flex gap-2">
+          {/* <div className="flex gap-2">
             <Link href="/assessment/questions">
               <Button variant="outline" className="flex items-center gap-2">
                 <BookOpen className="h-4 w-4" />
@@ -578,7 +578,7 @@ export default function AdminCoursesPage() {
                 Quản lý bài kiểm tra
               </Button>
             </Link>
-          </div>
+          </div> */}
           <Dialog
             open={isCategoryDialogOpen}
             onOpenChange={setIsCategoryDialogOpen}
@@ -780,12 +780,26 @@ export default function AdminCoursesPage() {
                   <TableCell>
                     <span
                       className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        course.isPublished
+                        course.status === "PUBLISHED"
                           ? "bg-green-100 text-green-800"
-                          : "bg-orange-100 text-orange-800"
+                          : course.status === "APPROVED"
+                            ? "bg-blue-100 text-blue-800"
+                            : course.status === "PENDING_APPROVAL"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : course.status === "REJECTED"
+                                ? "bg-red-100 text-red-800"
+                                : "bg-gray-100 text-gray-800"
                       }`}
                     >
-                      {course.isPublished ? "Đã xuất bản" : "Bản nháp"}
+                      {course.status === "PUBLISHED"
+                        ? "Đã xuất bản"
+                        : course.status === "APPROVED"
+                          ? "Đã duyệt"
+                          : course.status === "PENDING_APPROVAL"
+                            ? "Chờ duyệt"
+                            : course.status === "REJECTED"
+                              ? "Bị từ chối"
+                              : "Bản nháp"}
                     </span>
                   </TableCell>
                   <TableCell className="text-right">

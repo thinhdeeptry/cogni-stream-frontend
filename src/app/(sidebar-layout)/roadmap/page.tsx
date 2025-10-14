@@ -68,7 +68,7 @@ export default function StudyRoadMap() {
       image:
         courses.find((c) => c.tags?.includes("FE") || c.tags?.includes("React"))
           ?.thumbnailUrl ||
-        "https://supabasekong-a084okggcg0skwoooockog08.eduforge.io.vn/storage/v1/object/public/courses/course-thumbnails/680342fe32367c789ca11c81/frontend-path.png",
+        "https://supabasekong-a084okggcg0skwoooockog08.cognistream.io.vn/storage/v1/object/public/courses/course-thumbnails/680342fe32367c789ca11c81/frontend-path.png",
       icons: courses
         .filter(
           (c) =>
@@ -90,7 +90,7 @@ export default function StudyRoadMap() {
         "Phát triển kỹ năng lập trình phía máy chủ với các ngôn ngữ và framework hiện đại như Java Spring Boot, Node.js và các công nghệ liên quan.",
       image:
         courses.find((c) => c.tags?.includes("BE"))?.thumbnailUrl ||
-        "https://supabasekong-a084okggcg0skwoooockog08.eduforge.io.vn/storage/v1/object/public/courses/course-thumbnails/680342fe32367c789ca11c81/43658b78-7873-42b3-a0d6-906368748d33.png",
+        "https://supabasekong-a084okggcg0skwoooockog08.cognistream.io.vn/storage/v1/object/public/courses/course-thumbnails/680342fe32367c789ca11c81/43658b78-7873-42b3-a0d6-906368748d33.png",
       icons: courses
         .filter(
           (c) =>
@@ -110,7 +110,7 @@ export default function StudyRoadMap() {
         courses.find(
           (c) => c.tags?.includes("docker") || c.tags?.includes("Linux"),
         )?.thumbnailUrl ||
-        "https://supabasekong-a084okggcg0skwoooockog08.eduforge.io.vn/storage/v1/object/public/courses/course-thumbnails/680342fe32367c789ca11c81/devops-path.png",
+        "https://supabasekong-a084okggcg0skwoooockog08.cognistream.io.vn/storage/v1/object/public/courses/course-thumbnails/680342fe32367c789ca11c81/devops-path.png",
       icons: courses
         .filter(
           (c) =>
@@ -129,7 +129,7 @@ export default function StudyRoadMap() {
         "Nâng cao khả năng ngoại ngữ với các khóa học TOEIC, IELTS và các chứng chỉ quốc tế khác.",
       image:
         courses.find((c) => c.tags?.includes("Language"))?.thumbnailUrl ||
-        "https://supabasekong-a084okggcg0skwoooockog08.eduforge.io.vn/storage/v1/object/public/courses/course-thumbnails/680342fe32367c789ca11c81/3aa205ea-270f-4352-8268-15e01614bf95.jpg",
+        "https://supabasekong-a084okggcg0skwoooockog08.cognistream.io.vn/storage/v1/object/public/courses/course-thumbnails/680342fe32367c789ca11c81/3aa205ea-270f-4352-8268-15e01614bf95.jpg",
       icons: courses
         .filter((c) => c.tags?.includes("Language"))
         .slice(0, 7)
@@ -147,7 +147,7 @@ export default function StudyRoadMap() {
             c.tags?.includes("ML") ||
             c.tags?.includes("analyze"),
         )?.thumbnailUrl ||
-        "https://supabasekong-a084okggcg0skwoooockog08.eduforge.io.vn/storage/v1/object/public/courses/course-thumbnails/680342fe32367c789ca11c81/data-science-path.png",
+        "https://supabasekong-a084okggcg0skwoooockog08.cognistream.io.vn/storage/v1/object/public/courses/course-thumbnails/680342fe32367c789ca11c81/data-science-path.png",
       icons: courses
         .filter(
           (c) =>
@@ -166,7 +166,7 @@ export default function StudyRoadMap() {
         "Rèn luyện kỹ năng mềm, tư duy và phát triển bản thân với các khóa học tâm lý học hành vi.",
       image:
         courses.find((c) => c.tags?.includes("Behavior"))?.thumbnailUrl ||
-        "https://supabasekong-a084okggcg0skwoooockog08.eduforge.io.vn/storage/v1/object/public/courses/course-thumbnails/680342fe32367c789ca11c81/2314b91c-7239-488d-9299-5b0c9ddbc0f9.jpeg",
+        "https://supabasekong-a084okggcg0skwoooockog08.cognistream.io.vn/storage/v1/object/public/courses/course-thumbnails/680342fe32367c789ca11c81/2314b91c-7239-488d-9299-5b0c9ddbc0f9.jpeg",
       icons: courses
         .filter(
           (c) =>
@@ -186,7 +186,7 @@ export default function StudyRoadMap() {
         courses.find(
           (c) => c.tags?.includes("math") || c.tags?.includes("basic"),
         )?.thumbnailUrl ||
-        "https://supabasekong-a084okggcg0skwoooockog08.eduforge.io.vn/storage/v1/object/public/courses/course-thumbnails/680342fe32367c789ca11c81/fc3aeacb-9100-4c02-9156-063921a05a99.jpeg",
+        "https://supabasekong-a084okggcg0skwoooockog08.cognistream.io.vn/storage/v1/object/public/courses/course-thumbnails/680342fe32367c789ca11c81/fc3aeacb-9100-4c02-9156-063921a05a99.jpeg",
       icons: courses
         .filter(
           (c) =>
@@ -208,7 +208,7 @@ export default function StudyRoadMap() {
         courses.find(
           (c) => c.tags?.includes("Lập trình") || c.tags?.includes("C++"),
         )?.thumbnailUrl ||
-        "https://supabasekong-a084okggcg0skwoooockog08.eduforge.io.vn/storage/v1/object/public/courses/course-thumbnails/680342fe32367c789ca11c81/programming-basics.png",
+        "https://supabasekong-a084okggcg0skwoooockog08.cognistream.io.vn/storage/v1/object/public/courses/course-thumbnails/680342fe32367c789ca11c81/programming-basics.png",
       icons: courses
         .filter(
           (c) =>
@@ -339,7 +339,7 @@ export default function StudyRoadMap() {
         <div className="flex flex-col md:flex-row gap-8 items-center">
           <div className="md:w-1/2">
             <h2 className="text-xl font-bold mb-4">
-              Tham gia cộng đồng học viên EduForge trên Facebook
+              Tham gia cộng đồng học viên cognistream trên Facebook
             </h2>
             <p className="text-gray-600 text-sm mb-5">
               Hàng nghìn người khác đang học lập trình, cùng tham gia hỏi đáp,

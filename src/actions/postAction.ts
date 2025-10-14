@@ -4,8 +4,8 @@ import axios from "axios";
 
 import useUserStore from "@/stores/useUserStore";
 
-const API_URL = "http://eduforge.io.vn:8081/api/v1";
-const USER_INFO_URL = "http://eduforge.io.vn:3001/dashboard/internal/user";
+const API_URL = "http://cognistream.io.vn:8081/api/v1";
+const USER_INFO_URL = "http://cognistream.io.vn:3001/dashboard/internal/user";
 const COURSE_SERVICE_API_KEY = "sk_course_service_12345";
 
 const postApi = await AxiosFactory.getApiInstance("post");
