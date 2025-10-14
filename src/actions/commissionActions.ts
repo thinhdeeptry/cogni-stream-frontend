@@ -339,3 +339,141 @@ export const getActiveCommissionForProduct = async (
     throw error;
   }
 };
+
+// 🆕 Cập nhật commission khi giá course thay đổi
+export const updateCommissionOnPriceChange = async (
+  courseId: string,
+  newPrice: number,
+): Promise<{
+  success: boolean;
+  commission?: CommissionDetail;
+  message: string;
+}> => {
+  try {
+    // Lấy commission hiện tại cho course
+    const currentCommission = await getActiveCommissionForProduct(
+      "COURSE",
+      courseId,
+    );
+
+    if (!currentCommission) {
+      return {
+        success: false,
+        message: "Không tìm thấy commission cho khóa học này",
+      };
+    }
+
+    // Tính toán số tiền chia cho instructor và platform
+    const instructorAmount =
+      (newPrice * currentCommission.instructorRate) / 100;
+    const platformAmount = (newPrice * currentCommission.platformRate) / 100;
+
+    return {
+      success: true,
+      commission: currentCommission,
+      message: `Commission được cập nhật: Giảng viên nhận ${instructorAmount.toLocaleString()} VND (${currentCommission.instructorRate}%), Nền tảng nhận ${platformAmount.toLocaleString()} VND (${currentCommission.platformRate}%)`,
+    };
+  } catch (error) {
+    console.error("Error updating commission on price change:", error);
+    return {
+      success: false,
+      message: "Lỗi khi cập nhật commission",
+    };
+  }
+};
+
+// 🆕 Lấy thông tin commission đã áp dụng cho course
+export const getCourseCommissionInfo = async (courseId: string) => {
+  try {
+    const commission = await getActiveCommissionForProduct("COURSE", courseId);
+
+    if (!commission) {
+      return {
+        courseId,
+        commission: null,
+        hasCommission: false,
+      };
+    }
+
+    return {
+      courseId,
+      commission: {
+        id: commission.id,
+        instructorRate: commission.instructorRate,
+        platformRate: commission.platformRate,
+        priority: commission.priority,
+        isActive: commission.isActive,
+        type: commission.courseId
+          ? "course-specific"
+          : commission.categoryId
+            ? "category-specific"
+            : "general",
+        header: commission.header,
+        createdAt: commission.createdAt,
+      },
+      hasCommission: true,
+    };
+  } catch (error) {
+    console.error("Error fetching course commission info:", error);
+    throw error;
+  }
+};
+
+// 🆕 Tính toán phân chia commission dựa trên giá
+export const calculateCommissionBreakdown = (
+  price: number,
+  commission: CommissionDetail,
+) => {
+  if (!commission || price <= 0) {
+    return {
+      totalPrice: price,
+      instructorAmount: 0,
+      platformAmount: 0,
+      instructorRate: 0,
+      platformRate: 0,
+    };
+  }
+
+  const instructorAmount = (price * commission.instructorRate) / 100;
+  const platformAmount = (price * commission.platformRate) / 100;
+
+  return {
+    totalPrice: price,
+    instructorAmount: Math.round(instructorAmount),
+    platformAmount: Math.round(platformAmount),
+    instructorRate: commission.instructorRate,
+    platformRate: commission.platformRate,
+  };
+};
+
+// 🆕 Format thông tin commission cho hiển thị
+export const formatCommissionInfo = (
+  commission: CommissionDetail | null,
+  price?: number,
+) => {
+  if (!commission) {
+    return {
+      hasCommission: false,
+      message: "Chưa có commission được áp dụng",
+      breakdown: null,
+    };
+  }
+
+  const breakdown = price
+    ? calculateCommissionBreakdown(price, commission)
+    : null;
+
+  const typeText = commission.courseId
+    ? "riêng cho khóa học"
+    : commission.categoryId
+      ? "theo danh mục"
+      : "chung hệ thống";
+
+  return {
+    hasCommission: true,
+    commission,
+    breakdown,
+    message: `Commission ${typeText}: ${commission.instructorRate}% cho giảng viên, ${commission.platformRate}% cho nền tảng`,
+    typeText,
+  };
+};

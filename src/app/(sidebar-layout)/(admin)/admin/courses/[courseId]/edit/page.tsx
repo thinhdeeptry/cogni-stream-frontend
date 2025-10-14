@@ -15,6 +15,7 @@ import {
 import { motion } from "framer-motion";
 import { ChevronLeft, Plus, Trash, Upload } from "lucide-react";
 
+import { getActiveCommissionForProduct } from "@/actions/commissionActions";
 import {
   getAllCategories,
   getCourseById,
@@ -51,6 +52,9 @@ export default function EditCoursePage({
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(true);
   const [courseData, setCourseData] = useState<Course | null>(null);
+  const [originalCategoryId, setOriginalCategoryId] = useState<string | null>(
+    null,
+  );
 
   const { user } = useUserStore();
   useEffect(() => {
@@ -64,6 +68,7 @@ export default function EditCoursePage({
         setCourseData(course);
         setSelectedImage(course.thumbnailUrl || null);
         setCategories(categoriesData);
+        setOriginalCategoryId(course.categoryId || null);
       } catch (error) {
         toast({
           title: "Lỗi",
@@ -170,6 +175,64 @@ export default function EditCoursePage({
     });
   };
 
+  // Helper function để tự động tìm commission phù hợp (tương tự như create page)
+  const findBestCommission = async (courseId: string, categoryId: string) => {
+    try {
+      // Ưu tiên 1: Tìm commission riêng cho course này (nếu có)
+      let commission = await getActiveCommissionForProduct("COURSE", courseId);
+
+      if (commission) {
+        console.log("Found course-specific commission:", commission);
+        return commission;
+      }
+
+      // Ưu tiên 2: Tìm commission cho category
+      if (categoryId) {
+        const { getCommissionDetailsByCategory } = await import(
+          "@/actions/commissionActions"
+        );
+        const categoryCommissions =
+          await getCommissionDetailsByCategory(categoryId);
+
+        const activeCommissions = categoryCommissions.filter((c) => c.isActive);
+
+        if (activeCommissions.length > 0) {
+          const bestCommission = activeCommissions.sort(
+            (a, b) => b.priority - a.priority,
+          )[0];
+          console.log("Found category-specific commission:", bestCommission);
+          return bestCommission;
+        }
+      }
+
+      // Ưu tiên 3: Tìm commission chung
+      const { getCommissionDetails } = await import(
+        "@/actions/commissionActions"
+      );
+      const generalCommissions = await getCommissionDetails({
+        isActive: true,
+        limit: 100,
+      });
+
+      const generalActiveCommissions = generalCommissions.data.filter(
+        (c) => !c.courseId && !c.categoryId && c.isActive,
+      );
+
+      if (generalActiveCommissions.length > 0) {
+        const bestCommission = generalActiveCommissions.sort(
+          (a, b) => b.priority - a.priority,
+        )[0];
+        console.log("Found general commission:", bestCommission);
+        return bestCommission;
+      }
+
+      return null;
+    } catch (error) {
+      console.error("Error finding commission:", error);
+      return null;
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     console.log("+Data test: ", courseData);
@@ -206,9 +269,36 @@ export default function EditCoursePage({
       });
 
       if (result.success) {
+        // 🆕 AUTO-APPLY COMMISSION: Chỉ check commission nếu category thay đổi
+        let commissionMessage = "Cập nhật khóa học thành công";
+
+        if (originalCategoryId !== courseData.categoryId) {
+          try {
+            const bestCommission = await findBestCommission(
+              resolvedParams.courseId,
+              courseData.categoryId,
+            );
+
+            if (bestCommission) {
+              commissionMessage += `! Đã tự động cập nhật commission: ${bestCommission.instructorRate}% cho giảng viên, ${bestCommission.platformRate}% cho nền tảng`;
+              console.log(
+                "Auto-updated commission due to category change:",
+                bestCommission,
+              );
+            } else {
+              commissionMessage +=
+                "! Không tìm thấy commission phù hợp cho danh mục mới, vui lòng thiết lập commission sau.";
+            }
+          } catch (commissionError) {
+            console.error("Commission auto-apply error:", commissionError);
+            commissionMessage +=
+              "! Lỗi khi tự động cập nhật commission, vui lòng thiết lập commission sau.";
+          }
+        }
+
         toast({
           title: "Thành công",
-          description: "Cập nhật khóa học thành công",
+          description: commissionMessage,
         });
         router.push("/admin/courses");
       } else {
@@ -471,6 +561,21 @@ export default function EditCoursePage({
                     Để quản lý giá khóa học, vui lòng sử dụng tính năng "Quản lý
                     giá" trong trang chi tiết khóa học.
                   </p>
+                </div>
+
+                <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                  <h4 className="text-sm font-medium text-yellow-800 mb-2">
+                    🔄 Tự động cập nhật Commission
+                  </h4>
+                  <p className="text-sm text-yellow-700">
+                    Khi thay đổi danh mục khóa học, hệ thống sẽ tự động tìm và
+                    áp dụng commission phù hợp nhất cho danh mục mới.
+                  </p>
+                  <ul className="text-xs text-yellow-600 mt-2 list-disc pl-4 space-y-1">
+                    <li>Commission riêng cho khóa học (độ ưu tiên cao nhất)</li>
+                    <li>Commission theo danh mục mới</li>
+                    <li>Commission chung của hệ thống</li>
+                  </ul>
                 </div>
               </CardContent>
             </Card>

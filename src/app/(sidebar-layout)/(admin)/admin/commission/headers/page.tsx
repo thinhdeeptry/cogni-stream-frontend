@@ -143,20 +143,20 @@ const HeaderModal: React.FC<HeaderModalProps> = ({
           <DialogTitle className="flex items-center gap-2">
             <Layers className="h-5 w-5" />
             {mode === "create"
-              ? "Tạo Commission Header Mới"
+              ? "Tạo Cấu Hình Hoa Hồng Mới"
               : `Chỉnh sửa: ${header?.name}`}
           </DialogTitle>
           <DialogDescription>
             {mode === "create"
               ? "Tạo cấu hình hoa hồng mới cho hệ thống"
-              : "Cập nhật thông tin commission header"}
+              : "Cập nhật thông tin cấu hình hoa hồng"}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           {/* Basic Info */}
           <div className="space-y-2">
-            <Label htmlFor="name">Tên Commission Header *</Label>
+            <Label htmlFor="name">Tên Cấu Hình Hoa Hồng *</Label>
             <Input
               id="name"
               placeholder="VD: Hoa hồng cơ bản Q4 2025"
@@ -216,8 +216,8 @@ const HeaderModal: React.FC<HeaderModalProps> = ({
           {/* Note */}
           <div className="p-3 bg-blue-50 border border-blue-200 rounded text-sm">
             <p className="text-blue-700">
-              <strong>Lưu ý:</strong> Header mới sẽ được tạo ở trạng thái
-              "INACTIVE". Bạn có thể kích hoạt sau khi tạo và thêm các details
+              <strong>Lưu ý:</strong> Cấu hình mới sẽ được tạo ở trạng thái
+              "INACTIVE". Bạn có thể kích hoạt sau khi tạo và thêm các chi tiết
               cần thiết.
             </p>
           </div>
@@ -235,7 +235,7 @@ const HeaderModal: React.FC<HeaderModalProps> = ({
             {isSubmitting
               ? "Đang xử lý..."
               : mode === "create"
-                ? "Tạo Header"
+                ? "Tạo Cấu Hình"
                 : "Cập nhật"}
           </Button>
         </DialogFooter>
@@ -595,10 +595,10 @@ export default function CommissionHeadersPage() {
           </Link>
           <div>
             <h1 className="text-2xl font-bold text-slate-900">
-              📋 Commission Headers
+              📋 Cấu Hình Hoa Hồng
             </h1>
             <p className="text-slate-500 text-sm">
-              {headersCount} cấu hình hoa hồng • Quản lý các header chính
+              {headersCount} cấu hình hoa hồng • Quản lý các cấu hình chính
             </p>
           </div>
         </div>
@@ -608,7 +608,7 @@ export default function CommissionHeadersPage() {
           onClick={() => setIsCreateModalOpen(true)}
         >
           <Plus className="h-4 w-4 mr-2" />
-          Tạo Header Mới
+          Tạo Cấu Hình Mới
         </Button>
       </div>
 

@@ -204,20 +204,20 @@ const DetailModal: React.FC<DetailModalProps> = ({
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
             {mode === "create"
-              ? "Tạo Commission Detail Mới"
-              : `Chỉnh sửa Commission Detail`}
+              ? "Tạo Chi Tiết Hoa Hồng Mới"
+              : `Chỉnh sửa Chi Tiết Hoa Hồng`}
           </DialogTitle>
           <DialogDescription>
             {mode === "create"
               ? "Tạo chi tiết hoa hồng cụ thể cho khóa học, danh mục hoặc toàn hệ thống"
-              : "Cập nhật thông tin commission detail"}
+              : "Cập nhật thông tin chi tiết hoa hồng"}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           {/* Header Selection */}
           <div className="space-y-2">
-            <Label htmlFor="headerId">Commission Header *</Label>
+            <Label htmlFor="headerId">Cấu Hình Hoa Hồng *</Label>
             <Select
               value={formData.headerId}
               onValueChange={(value) =>
@@ -225,7 +225,7 @@ const DetailModal: React.FC<DetailModalProps> = ({
               }
             >
               <SelectTrigger>
-                <SelectValue placeholder="Chọn commission header..." />
+                <SelectValue placeholder="Chọn cấu hình hoa hồng..." />
               </SelectTrigger>
               <SelectContent>
                 {headers.map((header) => (
@@ -424,7 +424,7 @@ const DetailModal: React.FC<DetailModalProps> = ({
             {isSubmitting
               ? "Đang xử lý..."
               : mode === "create"
-                ? "Tạo Detail"
+                ? "Tạo Chi Tiết"
                 : "Cập nhật"}
           </Button>
         </DialogFooter>
@@ -447,7 +447,7 @@ const DetailDetailModal: React.FC<{
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
-            Chi tiết Commission Detail
+            Chi Tiết Hoa Hồng
           </DialogTitle>
         </DialogHeader>
 
@@ -619,10 +619,10 @@ const DeleteConfirmModal: React.FC<{
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-red-600">
             <Trash2 className="h-5 w-5" />
-            Xóa Commission Detail
+            Xóa Chi Tiết Hoa Hồng
           </DialogTitle>
           <DialogDescription>
-            Bạn có chắc chắn muốn xóa commission detail này?
+            Bạn có chắc chắn muốn xóa chi tiết hoa hồng này?
           </DialogDescription>
         </DialogHeader>
 
@@ -632,7 +632,7 @@ const DeleteConfirmModal: React.FC<{
               <h4 className="font-medium text-red-900">
                 {detail.course?.title ||
                   detail.category?.name ||
-                  "Commission tổng quát"}
+                  "Hoa hồng tổng quát"}
               </h4>
               <p className="text-sm text-red-700">
                 Platform: {detail.platformRate}% | Giảng viên:{" "}
@@ -657,7 +657,7 @@ const DeleteConfirmModal: React.FC<{
             disabled={isDeleting}
             className="bg-red-500 hover:bg-red-600 text-white"
           >
-            {isDeleting ? "Đang xóa..." : "Xóa Detail"}
+            {isDeleting ? "Đang xóa..." : "Xóa Chi Tiết"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -827,7 +827,7 @@ export default function CommissionDetailsPage() {
           </Link>
           <div>
             <h1 className="text-2xl font-bold text-slate-900">
-              📄 Commission Details
+              📄 Chi Tiết Hoa Hồng
             </h1>
             <p className="text-slate-500 text-sm">
               {detailsCount} chi tiết hoa hồng
@@ -841,7 +841,7 @@ export default function CommissionDetailsPage() {
           onClick={() => setIsCreateModalOpen(true)}
         >
           <Plus className="h-4 w-4 mr-2" />
-          Tạo Detail Mới
+          Tạo Chi Tiết Mới
         </Button>
       </div>
 
