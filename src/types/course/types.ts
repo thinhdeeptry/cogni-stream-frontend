@@ -39,7 +39,6 @@ export enum PriceApprovalStatus {
   PENDING_APPROVAL = "PENDING_APPROVAL", // Chờ admin duyệt giá
   APPROVED = "APPROVED", // Admin đã duyệt giá
   REJECTED = "REJECTED", // Admin từ chối giá
-  ACTIVE = "ACTIVE", // Giá đã được áp dụng
 }
 /// 🆕 ENUM MỚI ĐỂ QUẢN LÝ VÒNG ĐỜI CỦA KHÓA HỌC
 export enum CourseStatus {

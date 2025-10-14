@@ -565,7 +565,7 @@ export default function AdminCoursesPage() {
             </DialogContent>
           </Dialog>
 
-          <div className="flex gap-2">
+          {/* <div className="flex gap-2">
             <Link href="/assessment/questions">
               <Button variant="outline" className="flex items-center gap-2">
                 <BookOpen className="h-4 w-4" />
@@ -578,7 +578,7 @@ export default function AdminCoursesPage() {
                 Quản lý bài kiểm tra
               </Button>
             </Link>
-          </div>
+          </div> */}
           <Dialog
             open={isCategoryDialogOpen}
             onOpenChange={setIsCategoryDialogOpen}

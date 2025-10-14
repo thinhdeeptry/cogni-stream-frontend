@@ -549,13 +549,13 @@ export function AdminPricingManager({
             Bị từ chối
           </Badge>
         );
-      case PriceApprovalStatus.ACTIVE:
-        return (
-          <Badge className="bg-green-100 text-green-800 flex items-center gap-1">
-            <CheckCircle className="h-3 w-3" />
-            Đang áp dụng
-          </Badge>
-        );
+      // case PriceApprovalStatus.ACTIVE:
+      //   return (
+      //     <Badge className="bg-green-100 text-green-800 flex items-center gap-1">
+      //       <CheckCircle className="h-3 w-3" />
+      //       Đang áp dụng
+      //     </Badge>
+      //   );
       default:
         return null;
     }
@@ -832,12 +832,12 @@ export function AdminPricingManager({
                   </p>
                   <p className="text-xs text-red-500">Bị từ chối</p>
                 </div>
-                <div className="bg-green-50 p-3 rounded-lg text-center">
+                {/* <div className="bg-green-50 p-3 rounded-lg text-center">
                   <p className="text-xl font-bold text-green-600">
                     {summaryStats.byApprovalStatus.active}
                   </p>
                   <p className="text-xs text-green-500">Đang áp dụng</p>
-                </div>
+                </div> */}
                 <div className="bg-indigo-50 p-3 rounded-lg text-center">
                   <p className="text-xl font-bold text-indigo-600">
                     {summaryStats.currentlyActive}
@@ -1080,31 +1080,32 @@ export function AdminPricingManager({
                                   )}
                                 </Button>
                               </>
-                            ) : pricing.approvalStatus ===
-                              PriceApprovalStatus.APPROVED ? (
-                              // Anyone can activate approved prices
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleActivatePrice(pricing.id)}
-                                disabled={
-                                  activatingPriceId === pricing.id ||
-                                  isUpdating ||
-                                  isLoadingPolicies
-                                }
-                                className="text-blue-600 hover:text-blue-700 border-blue-200 hover:bg-blue-50"
-                                title="Kích hoạt giá đã duyệt"
-                              >
-                                {activatingPriceId === pricing.id ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <>
-                                    <Play className="h-4 w-4 mr-1" />
-                                    Kích hoạt
-                                  </>
-                                )}
-                              </Button>
-                            ) : null}
+                            ) : // pricing.approvalStatus ===
+                            //   PriceApprovalStatus.APPROVED ? (
+                            // Anyone can activate approved prices
+                            // <Button
+                            //   variant="outline"
+                            //   size="sm"
+                            //   onClick={() => handleActivatePrice(pricing.id)}
+                            //   disabled={
+                            //     activatingPriceId === pricing.id ||
+                            //     isUpdating ||
+                            //     isLoadingPolicies
+                            //   }
+                            //   className="text-blue-600 hover:text-blue-700 border-blue-200 hover:bg-blue-50"
+                            //   title="Kích hoạt giá đã duyệt"
+                            // >
+                            //   {activatingPriceId === pricing.id ? (
+                            //     <Loader2 className="h-4 w-4 animate-spin" />
+                            //   ) : (
+                            //     <>
+                            //       <Play className="h-4 w-4 mr-1" />
+                            //       Kích hoạt
+                            //     </>
+                            //   )}
+                            // </Button>
+                            // ) :
+                            null}
 
                             {pricing.type === PricingType.PROMOTION ? (
                               <Select

@@ -44,8 +44,8 @@ export const getMultipleCoursesPrice = async (
 // Lấy danh sách chính sách giá (PricingHeaders)
 export const getPricingHeaders = async (): Promise<PricingHeader[]> => {
   try {
-    const { data } = await pricingApi.get("/pricing/headers");
-    return data;
+    const { data } = await pricingApi.get("/courses/pricing/headers");
+    return data.data || data;
   } catch (error) {
     console.error("Error fetching pricing headers:", error);
     throw error;
@@ -57,7 +57,9 @@ export const getPricingHeaderById = async (
   headerId: string,
 ): Promise<PricingHeader> => {
   try {
-    const { data } = await pricingApi.get(`/pricing/headers/${headerId}`);
+    const { data } = await pricingApi.get(
+      `/courses/pricing/headers/${headerId}`,
+    );
     return data;
   } catch (error) {
     console.error("Error fetching pricing header:", error);
@@ -71,7 +73,7 @@ export const getPricingDetailsByHeader = async (
 ): Promise<PricingDetail[]> => {
   try {
     const { data } = await pricingApi.get(
-      `/pricing/headers/${headerId}/details`,
+      `/courses/pricing/headers/${headerId}/details`,
     );
     return data;
   } catch (error) {
@@ -87,7 +89,7 @@ export const getPricingDetailByCourse = async (
 ): Promise<PricingDetail | null> => {
   try {
     const { data } = await pricingApi.get(
-      `/pricing/headers/${headerId}/details/${courseId}`,
+      `/courses/pricing/headers/${headerId}/details/${courseId}`,
     );
     return data;
   } catch (error) {
@@ -106,7 +108,10 @@ export const createPricingHeader = async (headerData: {
   endDate?: string;
 }): Promise<PricingHeader> => {
   try {
-    const { data } = await pricingApi.post("/pricing/headers", headerData);
+    const { data } = await pricingApi.post(
+      "/courses/pricing/headers",
+      headerData,
+    );
     return data;
   } catch (error) {
     console.error("Error creating pricing header:", error);
@@ -122,7 +127,10 @@ export const createPricingDetail = async (detailData: {
   categoryId?: string;
 }): Promise<PricingDetail> => {
   try {
-    const { data } = await pricingApi.post("/pricing/details", detailData);
+    const { data } = await pricingApi.post(
+      "/courses/pricing/details",
+      detailData,
+    );
     return data;
   } catch (error) {
     console.error("Error creating pricing detail:", error);
@@ -272,7 +280,7 @@ export const updatePricingPrice = async (
 ): Promise<PricingDetail> => {
   try {
     const { data } = await pricingApi.patch(
-      `/pricing/details/${pricingDetailId}/price`,
+      `/courses/pricing/details/${pricingDetailId}/price`,
       { price },
     );
     return data;
