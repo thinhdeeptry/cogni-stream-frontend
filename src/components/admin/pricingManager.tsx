@@ -121,7 +121,7 @@ export function AdminPricingManager({
   const [isLoadingPolicies, setIsLoadingPolicies] = useState(false); // New loading state
   const [isUpdating, setIsUpdating] = useState(false);
 
-  // 🆕 Commission states
+  // Commission states
   const [commissionInfo, setCommissionInfo] = useState<any>(null);
   const [isLoadingCommission, setIsLoadingCommission] = useState(false);
   const [newPrice, setNewPrice] = useState("");
@@ -317,7 +317,7 @@ export function AdminPricingManager({
       // pricingId ở đây thực chất là PricingDetail ID
       await updatePricingPrice(pricingId, Number(editPrice));
 
-      // 🆕 Update commission info when price changes
+      // Update commission info when price changes
       const commissionUpdate = await updateCommissionOnPriceChange(
         courseId,
         Number(editPrice),
