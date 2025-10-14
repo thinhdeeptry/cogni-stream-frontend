@@ -85,9 +85,9 @@ export default function QuizSidebar({
       case "answered-flagged":
         return "border-l-orange-500 bg-orange-50";
       case "flagged":
-        return "border-l-orange-500 bg-orange-50";
+        return "border-l-orange-500 bg-orange-500";
       default:
-        return "border-l-gray-300";
+        return "border-l-gray-500 bg-gray-500";
     }
   };
 
@@ -228,7 +228,14 @@ export default function QuizSidebar({
 
                             <div className="flex-1 min-w-0">
                               <div
-                                className="text-xs truncate"
+                                className={cn(
+                                  "text-xs truncate",
+                                  status === "answered" ||
+                                    status === "answered-flagged" ||
+                                    status === "flagged"
+                                    ? "text-black"
+                                    : "",
+                                )}
                                 dangerouslySetInnerHTML={{
                                   __html:
                                     question.text

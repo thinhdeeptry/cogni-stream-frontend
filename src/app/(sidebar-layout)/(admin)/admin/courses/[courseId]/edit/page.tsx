@@ -196,7 +196,7 @@ export default function EditCoursePage({
         description: courseData.description || "",
         categoryId: courseData.categoryId,
         level: courseData.level || "BEGINNER",
-        isPublished: courseData.isPublished,
+        isPublished: courseData.status === "PUBLISHED",
         isHasCertificate: courseData.isHasCertificate,
         tags: courseData.tags,
         learningOutcomes: courseData.learningOutcomes,
@@ -435,7 +435,7 @@ export default function EditCoursePage({
                 <div className="flex items-center space-x-2 pt-2">
                   <Checkbox
                     id="isPublished"
-                    checked={courseData.isPublished}
+                    checked={courseData.status === "PUBLISHED"}
                     onCheckedChange={(checked) =>
                       handleCheckboxChange("isPublished", checked as boolean)
                     }

@@ -426,7 +426,12 @@ export async function completeUnlockRequirement(
 }> {
   try {
     const { data } = await quizApi.post(
-      `/quizzes/unlock-requirement/${requirementId}/classId/${classId}/lessonId/${lessonId}/complete`,
+      `/quizzes/unlock-requirement/complete`,
+      {
+        requirementId,
+        classId,
+        lessonId,
+      },
     );
     return {
       success: true,

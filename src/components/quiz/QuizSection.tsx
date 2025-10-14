@@ -1065,7 +1065,7 @@ export default function QuizSection({
               <div className="text-2xl font-bold text-purple-600">
                 {status.passPercent}%
               </div>
-              <div className="text-sm text-purple-700">Điểm cần đạt</div>
+              <div className="text-sm text-purple-700">Điều kiện đạt</div>
             </div>
 
             {status.lastScore !== null && status.lastScore > 0 && (

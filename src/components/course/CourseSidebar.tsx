@@ -192,9 +192,12 @@ export const CourseSidebar: React.FC<CourseSidebarProps> = ({
                 </span>
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold text-blue-600">
-                    {completedItems.length}/{allItems.length} bài
+                    {!completedItems
+                      ? 0
+                      : `${completedItems.length}/${allItems.length}`}{" "}
+                    bài
                   </span>
-                  {completedItems.length > 0 && (
+                  {completedItems?.length > 0 && (
                     <div className="flex items-center gap-1">
                       <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                       <span className="text-xs text-green-600 font-medium">
@@ -229,7 +232,7 @@ export const CourseSidebar: React.FC<CourseSidebarProps> = ({
                   className="bg-gradient-to-r from-blue-500 to-blue-600 h-full rounded-full"
                   initial={{ width: 0 }}
                   animate={{
-                    width: `${allItems.length > 0 ? (completedItems.length / allItems.length) * 100 : 0}%`,
+                    width: `${allItems.length > 0 ? (!completedItems ? 0 : (completedItems.length / allItems.length) * 100) : 0}%`,
                   }}
                   transition={{ duration: 0.8, ease: "easeOut" }}
                 />
