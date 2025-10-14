@@ -7,7 +7,6 @@ export async function middleware(request: any) {
 
   // Check if the path is in the admin section
   const isAdminRoute = request.nextUrl.pathname.startsWith("/admin");
-
   // If trying to access admin routes but not logged in or not an admin
   if (isAdminRoute) {
     if (!session) {
@@ -15,7 +14,7 @@ export async function middleware(request: any) {
       return NextResponse.redirect(new URL("/auth/login", request.url));
     }
 
-    if (session.user.role !== "ADMIN") {
+    if (session.user.role !== "ADMIN" || session.user.role !== "INSTRUCTOR") {
       // Logged in but not an admin, redirect to home or unauthorized page
       return NextResponse.redirect(new URL("/unauthorized", request.url));
     }
