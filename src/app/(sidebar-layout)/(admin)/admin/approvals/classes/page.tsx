@@ -648,7 +648,7 @@ export default function ApprovalClassesPage() {
 
       // Mock API call - replace with actual implementation
       const response = await approveClass(classId);
-      if (!response.ok) {
+      if (!response || response.error || response.success === false) {
         toast({
           title: "Lỗi",
           description: "Không thể duyệt lớp học",

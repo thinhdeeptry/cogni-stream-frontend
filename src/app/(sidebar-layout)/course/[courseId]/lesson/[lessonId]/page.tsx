@@ -1429,11 +1429,11 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
                       <Play className="w-5 h-5 mr-2 text-green-500 inline-block" />
                       Bài kiểm tra
                     </h2>
-                    <QuizSection
+                    {/* <QuizSection
                       lessonId={params.lessonId as string}
                       lessonTitle={lesson.title}
                       isEnrolled={isEnrolled}
-                    />
+                    /> */}
                   </CardContent>
                 </Card>
               </motion.div>

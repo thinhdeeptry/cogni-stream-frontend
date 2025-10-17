@@ -239,7 +239,7 @@ export const CourseSidebar: React.FC<CourseSidebarProps> = ({
               </div>
               <div className="flex justify-between items-center mt-1">
                 <span className="text-xs text-gray-500">
-                  {completedItems.length > 0
+                  {completedItems && completedItems.length > 0
                     ? `${Math.round((completedItems.length / allItems.length) * 100)}% hoàn thành`
                     : "Chưa bắt đầu"}
                 </span>

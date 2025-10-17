@@ -262,6 +262,17 @@ export function PopupChatbot({
     chapterName,
   ]);
 
+  const [messages, setMessages] = useState<
+    {
+      role: string;
+      content: string;
+      id?: string;
+      userId?: string;
+      userImage?: string;
+      timestamp?: number;
+    }[]
+  >([]);
+
   const contextualWelcomeMessage = useMemo(() => {
     if (userName) {
       let message = `Xin chào ${userName}! 👋 Mình là AI Assistant của CogniStream.`;
@@ -360,16 +371,7 @@ export function PopupChatbot({
   }, [userId, courseName, lessonName, lessonOrder]);
 
   // Use a custom implementation instead of useChat with localStorage persistence
-  const [messages, setMessages] = useState<
-    {
-      role: string;
-      content: string;
-      id?: string;
-      userId?: string;
-      userImage?: string;
-      timestamp?: number;
-    }[]
-  >([]);
+
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
