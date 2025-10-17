@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 
 import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 import { toast } from "sonner";
@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { createEnrollment } from "@/actions/enrollmentActions";
 import { getPaymentById, handleVnpayReturn } from "@/actions/paymentActions";
 
-export default function PaymentSuccessPage() {
+function PaymentSuccessContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [status, setStatus] = useState<"loading" | "success" | "failed">(
@@ -184,5 +184,13 @@ export default function PaymentSuccessPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function PaymentSuccessPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <PaymentSuccessContent />
+    </Suspense>
   );
 }

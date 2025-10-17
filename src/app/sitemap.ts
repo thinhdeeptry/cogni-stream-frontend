@@ -4,19 +4,19 @@ export default function sitemap(): MetadataRoute.Sitemap {
   // Các URL tĩnh cơ bản của trang web
   const baseUrls = [
     {
-      url: "https://cognistream.io.vn",
+      url: "https://cognistream.id.vn",
       lastModified: new Date(),
       changeFrequency: "daily",
       priority: 1,
     },
     {
-      url: "https://cognistream.io.vn/courses",
+      url: "https://cognistream.id.vn/courses",
       lastModified: new Date(),
       changeFrequency: "daily",
       priority: 0.8,
     },
     {
-      url: "https://cognistream.io.vn/discussion",
+      url: "https://cognistream.id.vn/discussion",
       lastModified: new Date(),
       changeFrequency: "daily",
       priority: 0.7,

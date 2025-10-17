@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 
 import { toast } from "@/hooks/use-toast";
 import {
@@ -51,7 +51,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-export default function ProfilePage() {
+function ProfilePageContent() {
   const { user, clearUser, setUser, hydrated, setHydrated } = useUserStore();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -499,5 +499,13 @@ export default function ProfilePage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ProfilePage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ProfilePageContent />
+    </Suspense>
   );
 }

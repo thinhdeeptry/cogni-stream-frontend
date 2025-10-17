@@ -16,7 +16,7 @@ export {
 } from "./ApprovalComponents";
 
 // Pricing Management Components
-export { AdminPricingManager } from "./AdminPricingManager";
+export { AdminPricingManager } from "./pricingManager";
 
 // Re-export types
 export type {
