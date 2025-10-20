@@ -523,63 +523,6 @@ export default function InstructorRevenuePage() {
           )}
         </CardContent>
       </Card>
-
-      {/* Instructions */}
-      {/* <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Thông tin về doanh thu</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <h4 className="font-semibold text-slate-900 mb-3">
-                Cách tính hoa hồng
-              </h4>
-              <ul className="space-y-2 text-sm text-slate-600">
-                <li className="flex items-start gap-2">
-                  <span className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 flex-shrink-0"></span>
-                  Hoa hồng được tính dựa trên chính sách của nền tảng
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 flex-shrink-0"></span>
-                  Tỷ lệ hoa hồng có thể khác nhau theo khóa học/lớp học
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 flex-shrink-0"></span>
-                  Hoa hồng được tính sau khi trừ các chi phí xử lý
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 flex-shrink-0"></span>
-                  Chỉ giao dịch thành công mới được tính hoa hồng
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-semibold text-slate-900 mb-3">
-                Thanh toán hoa hồng
-              </h4>
-              <ul className="space-y-2 text-sm text-slate-600">
-                <li className="flex items-start gap-2">
-                  <span className="w-1.5 h-1.5 bg-green-500 rounded-full mt-2 flex-shrink-0"></span>
-                  Hoa hồng được thanh toán định kỳ hằng tháng
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="w-1.5 h-1.5 bg-green-500 rounded-full mt-2 flex-shrink-0"></span>
-                  Thời gian thanh toán: ngày 15 hằng tháng
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="w-1.5 h-1.5 bg-green-500 rounded-full mt-2 flex-shrink-0"></span>
-                  Bạn sẽ nhận email thông báo khi được thanh toán
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="w-1.5 h-1.5 bg-green-500 rounded-full mt-2 flex-shrink-0"></span>
-                  Liên hệ admin nếu có thắc mắc về thanh toán
-                </li>
-              </ul>
-            </div>
-          </div>
-        </CardContent>
-      </Card> */}
     </div>
   );
 }

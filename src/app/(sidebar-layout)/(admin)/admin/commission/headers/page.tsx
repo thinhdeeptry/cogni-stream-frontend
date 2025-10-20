@@ -367,7 +367,7 @@ const HeaderDetailModal: React.FC<{
           <Button variant="outline" onClick={onClose}>
             Đóng
           </Button>
-          <Link href={`/admin/commission/details?headerId=${header.id}`}>
+          <Link href={`/admin/commission/headers/${header.id}`}>
             <Button className="bg-blue-500 hover:bg-blue-600 text-white">
               Xem Details
             </Button>
@@ -458,7 +458,9 @@ export default function CommissionHeadersPage() {
   } = useCommissionStore();
 
   const [sortBy, setSortBy] = useState("newest");
-  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [filterStatus, setFilterStatus] = useState<
+    "all" | "ACTIVE" | "INACTIVE" | "SCHEDULED" | "EXPIRED"
+  >("all");
 
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -474,7 +476,10 @@ export default function CommissionHeadersPage() {
   useEffect(() => {
     const params = {
       search: searchQuery || undefined,
-      status: filterStatus !== "all" ? filterStatus : undefined,
+      status:
+        filterStatus !== "all"
+          ? (filterStatus as "ACTIVE" | "INACTIVE" | "SCHEDULED" | "EXPIRED")
+          : undefined,
     };
     fetchHeaders(params);
   }, [fetchHeaders, searchQuery, filterStatus]);
@@ -621,7 +626,12 @@ export default function CommissionHeadersPage() {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <Select value={filterStatus} onValueChange={setFilterStatus}>
+        <Select
+          value={filterStatus}
+          onValueChange={(value) =>
+            setFilterStatus(value as typeof filterStatus)
+          }
+        >
           <SelectTrigger className="w-48">
             <SelectValue />
           </SelectTrigger>
@@ -718,9 +728,7 @@ export default function CommissionHeadersPage() {
                         {header._count?.details || 0} details
                       </Badge>
                       {(header._count?.details || 0) > 0 && (
-                        <Link
-                          href={`/admin/commission/details?headerId=${header.id}`}
-                        >
+                        <Link href={`/admin/commission/headers/${header.id}`}>
                           <Button
                             variant="ghost"
                             size="sm"

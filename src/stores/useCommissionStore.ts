@@ -126,7 +126,7 @@ interface CommissionStore {
   // Actions for Headers
   fetchHeaders: (params?: {
     search?: string;
-    status?: string;
+    status?: "ACTIVE" | "INACTIVE" | "SCHEDULED" | "EXPIRED";
     page?: number;
     limit?: number;
   }) => Promise<void>;
@@ -438,8 +438,20 @@ export const useCommissionStore = create<CommissionStore>((set, get) => ({
   fetchStats: async () => {
     set({ isLoadingStats: true });
     try {
-      // TODO: Implement commission stats API in backend
-      // For now, calculate basic stats from headers data
+      // Ensure we have fresh data for stats calculation
+      const currentState = get();
+
+      // If headers are not loaded yet, fetch them first
+      if (currentState.headers.length === 0 && !currentState.isLoadingHeaders) {
+        await get().fetchHeaders();
+      }
+
+      // If details are not loaded yet, fetch them first
+      if (currentState.details.length === 0 && !currentState.isLoadingDetails) {
+        await get().fetchDetails();
+      }
+
+      // Get fresh data after potential fetches
       const headers = get().headers;
       const details = get().details;
 
