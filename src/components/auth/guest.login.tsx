@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
@@ -35,7 +35,7 @@ const formSchema = z.object({
   }),
 });
 
-export default function LoginForm() {
+function LoginFormContent() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -232,5 +232,13 @@ export default function LoginForm() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function LoginForm() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <LoginFormContent />
+    </Suspense>
   );
 }

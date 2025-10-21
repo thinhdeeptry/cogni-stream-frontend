@@ -727,7 +727,7 @@ export default function CourseDetail() {
             variants={itemVariant}
           >
             <h2 className="text-2xl font-semibold mb-4 text-gray-800 flex items-center gap-2">
-              <Target className="h-6 w-6 text-orange-500" />
+              {/* <Target className="h-6 w-6 text-orange-500" /> */}
               Bạn sẽ học được gì?
             </h2>
             <motion.ul

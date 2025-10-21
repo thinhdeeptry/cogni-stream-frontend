@@ -216,7 +216,7 @@ export const useCommissionStore = create<CommissionStore>((set, get) => ({
       const { getCommissionHeaders } = await import(
         "@/actions/commissionActions"
       );
-      const result = await getCommissionHeaders(params);
+      const result = await getCommissionHeaders(params as any);
 
       set({
         headers: result.data || [],

@@ -295,32 +295,6 @@ export function PopupChatbot({
       return suggestedQuestions;
     }
 
-    // Smart questions based on context and conversation history
-    const hasConversation =
-      messages.filter((m) => m.role !== "system").length > 0;
-
-    if (hasConversation) {
-      // Analyze conversation to provide smart suggestions
-      const analysis = analyzeConversation(messages);
-      const smartSuggestions = generateSmartSuggestions(analysis, {
-        courseName,
-        lessonName,
-      });
-
-      if (smartSuggestions.length > 0) {
-        return smartSuggestions;
-      }
-
-      // Fallback advanced questions for ongoing conversations
-      return [
-        "Cho tôi ví dụ thực tế về điều này",
-        "Làm sao để áp dụng vào công việc?",
-        "Có cách nào học nhớ lâu hơn không?",
-        "So sánh với những gì đã học trước",
-        "Tạo bài tập thực hành cho tôi",
-      ];
-    }
-
     // Initial questions for new conversations
     const defaultQuestions = [
       lessonName
@@ -335,7 +309,7 @@ export function PopupChatbot({
     ];
 
     return defaultQuestions;
-  }, [suggestedQuestions, courseName, lessonName, messages]);
+  }, [suggestedQuestions, courseName, lessonName]);
 
   // Prepare initial messages with enhanced system prompt and reference text
   const initialMessages: { id: string; role: string; content: string }[] = [];
@@ -426,8 +400,47 @@ export function PopupChatbot({
     }
   }, [messages, conversationId]);
 
+  // Enhanced suggested questions with conversation analysis
+  const enhancedSuggestedQuestions = useMemo(() => {
+    // If we have basic questions, start with those
+    if (
+      contextualSuggestedQuestions &&
+      contextualSuggestedQuestions.length > 0
+    ) {
+      // Check if we have ongoing conversation for smart suggestions
+      const hasConversation =
+        messages.filter((m) => m.role !== "system").length > 0;
+
+      if (hasConversation) {
+        // Analyze conversation to provide smart suggestions
+        const analysis = analyzeConversation(messages);
+        const smartSuggestions = generateSmartSuggestions(analysis, {
+          courseName,
+          lessonName,
+        });
+
+        if (smartSuggestions.length > 0) {
+          return smartSuggestions;
+        }
+
+        // Fallback advanced questions for ongoing conversations
+        return [
+          "Cho tôi ví dụ thực tế về điều này",
+          "Làm sao để áp dụng vào công việc?",
+          "Có cách nào học nhớ lâu hơn không?",
+          "So sánh với những gì đã học trước",
+          "Tạo bài tập thực hành cho tôi",
+        ];
+      }
+
+      return contextualSuggestedQuestions;
+    }
+
+    return contextualSuggestedQuestions;
+  }, [contextualSuggestedQuestions, messages, courseName, lessonName]);
+
   // Chọn mảng suggested questions phù hợp
-  const SUGGESTED_QUESTIONS = contextualSuggestedQuestions;
+  const SUGGESTED_QUESTIONS = enhancedSuggestedQuestions;
 
   // Handle input change
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {

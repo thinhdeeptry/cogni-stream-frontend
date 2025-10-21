@@ -176,6 +176,13 @@ export default function InstructorApplicationPage() {
         userId: user.id,
         qualifications: finalQualifications,
         portfolio_links: finalPortfolioLinks,
+        agree_terms: true, // Add missing field
+        user: {
+          // Add missing user object
+          id: user.id,
+          name: user.name || "",
+          email: user.email || "",
+        },
       };
 
       const result = await createInstructorRegistration(applicationData);

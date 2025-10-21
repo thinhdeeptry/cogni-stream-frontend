@@ -56,8 +56,8 @@ export default function InstructorRegistrationsPage() {
     try {
       setLoading(true);
       const registrations = await getAllInstructorRegistrations();
-      setData(registrations);
-      setFilteredData(registrations);
+      setData(registrations.data); // Fix: use .data property
+      setFilteredData(registrations.data);
     } catch (err) {
       console.error("Fetch error", err);
     } finally {
