@@ -251,52 +251,53 @@ export default function InstructorRegistrationDetailPage() {
         </CardContent>
       </Card>
 
-      {/* Thông tin chuyên môn */}
+      {/* Thông tin hồ sơ */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Award className="h-5 w-5 text-orange-500" />
-            Thông tin chuyên môn
+            Hồ sơ và tài liệu
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          {data.headline && (
+          {data.curriculum_vitae_link && (
             <div>
               <Label className="text-sm font-medium text-slate-700">
-                Tiêu đề chuyên môn
+                Lý lịch khoa học (CV)
               </Label>
-              <p className="mt-1 text-slate-900">{data.headline}</p>
-            </div>
-          )}
-
-          {data.specialization && (
-            <div>
-              <Label className="text-sm font-medium text-slate-700">
-                Lĩnh vực chuyên môn
-              </Label>
-              <p className="mt-1 text-slate-900">{data.specialization}</p>
-            </div>
-          )}
-
-          {data.experience_years !== undefined && (
-            <div>
-              <Label className="text-sm font-medium text-slate-700">
-                Số năm kinh nghiệm
-              </Label>
-              <p className="mt-1 text-slate-900">{data.experience_years} năm</p>
-            </div>
-          )}
-
-          {data.bio && (
-            <div>
-              <Label className="text-sm font-medium text-slate-700">
-                Giới thiệu bản thân
-              </Label>
-              <div className="mt-1 p-4 bg-slate-50 rounded-lg">
-                <p className="text-slate-900 whitespace-pre-wrap">{data.bio}</p>
+              <div className="mt-2">
+                <a
+                  href={data.curriculum_vitae_link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+                >
+                  <FileText className="h-4 w-4 text-blue-600" />
+                  <span className="text-blue-700 font-medium">Xem CV</span>
+                  <ExternalLink className="h-4 w-4 text-blue-600" />
+                </a>
               </div>
             </div>
           )}
+
+          <div>
+            <Label className="text-sm font-medium text-slate-700">
+              Điều khoản sử dụng
+            </Label>
+            <div className="mt-2 flex items-center gap-2">
+              {data.agree_terms ? (
+                <>
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <span className="text-green-700">Đã đồng ý điều khoản</span>
+                </>
+              ) : (
+                <>
+                  <XCircle className="h-4 w-4 text-red-600" />
+                  <span className="text-red-700">Chưa đồng ý điều khoản</span>
+                </>
+              )}
+            </div>
+          </div>
         </CardContent>
       </Card>
 

@@ -5,13 +5,7 @@ import { useState } from "react";
 
 import { useToast } from "@/hooks/use-toast";
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  ArrowLeft,
-  Briefcase,
-  FileText,
-  Link as LinkIcon,
-  User,
-} from "lucide-react";
+import { ArrowLeft, Briefcase, FileText, Link as LinkIcon } from "lucide-react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 
@@ -34,16 +28,9 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 
 const instructorApplicationSchema = z.object({
-  headline: z.string().min(10, "Tiêu đề phải có ít nhất 10 ký tự"),
-  bio: z.string().min(50, "Giới thiệu bản thân phải có ít nhất 50 ký tự"),
-  specialization: z.string().min(5, "Chuyên môn phải có ít nhất 5 ký tự"),
-  experience_years: z
-    .number()
-    .min(0, "Số năm kinh nghiệm không được âm")
-    .optional(),
+  curriculum_vitae_link: z.string().optional(),
   qualifications: z.array(z.string()).optional(),
   portfolio_links: z.array(z.string()).optional(),
 });
@@ -57,8 +44,10 @@ export default function InstructorApplicationPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // File upload states
+  const [cvFiles, setCvFiles] = useState<File[]>([]);
   const [qualificationFiles, setQualificationFiles] = useState<File[]>([]);
   const [portfolioFiles, setPortfolioFiles] = useState<File[]>([]);
+  const [uploadedCvLinks, setUploadedCvLinks] = useState<string[]>([]);
   const [uploadedQualificationLinks, setUploadedQualificationLinks] = useState<
     string[]
   >([]);
@@ -67,16 +56,14 @@ export default function InstructorApplicationPage() {
   >([]);
 
   // Manual link states (for users who want to add links directly)
+  const [cvLink, setCvLink] = useState<string>("");
   const [qualifications, setQualifications] = useState<string[]>([""]);
   const [portfolioLinks, setPortfolioLinks] = useState<string[]>([""]);
 
   const form = useForm<InstructorApplicationValues>({
     resolver: zodResolver(instructorApplicationSchema),
     defaultValues: {
-      headline: "",
-      bio: "",
-      specialization: "",
-      experience_years: 0,
+      curriculum_vitae_link: "",
       qualifications: [],
       portfolio_links: [],
     },
@@ -124,8 +111,42 @@ export default function InstructorApplicationPage() {
 
     try {
       // Step 1: Upload files to Google Drive nếu có
+      let finalCvLink = "";
       let finalQualifications: string[] = [];
       let finalPortfolioLinks: string[] = [];
+
+      // Upload CV files
+      if (cvFiles.length > 0) {
+        const cvResult = await uploadInstructorRegistrationFiles(
+          cvFiles,
+          "qualifications", // Backend sẽ xử lý CV như qualifications
+          user.id,
+        );
+
+        if (
+          cvResult.success &&
+          cvResult.data.files &&
+          cvResult.data.files.length > 0
+        ) {
+          finalCvLink = cvResult.data.files[0].webViewLink || "";
+        }
+      }
+
+      // Nếu không upload file CV thì dùng link manual
+      if (!finalCvLink && cvLink.trim()) {
+        finalCvLink = cvLink.trim();
+      }
+
+      // Validate CV is required
+      if (!finalCvLink) {
+        toast({
+          title: "Lỗi",
+          description: "Vui lòng upload file CV hoặc nhập link CV",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
 
       // Upload qualification files
       if (qualificationFiles.length > 0) {
@@ -173,6 +194,7 @@ export default function InstructorApplicationPage() {
       // Step 2: Create instructor registration with all links
       const applicationData = {
         ...data,
+        curriculum_vitae_link: finalCvLink,
         userId: user.id,
         qualifications: finalQualifications,
         portfolio_links: finalPortfolioLinks,
@@ -231,87 +253,100 @@ export default function InstructorApplicationPage() {
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-          {/* Thông tin cơ bản */}
+          {/* CV Upload */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <User className="h-5 w-5 text-orange-500" />
-                Thông tin cơ bản
+                <FileText className="h-5 w-5 text-orange-500" />
+                Curriculum Vitae (CV)
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              <FormField
-                control={form.control}
-                name="headline"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tiêu đề chuyên môn *</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="VD: Chuyên gia lập trình Frontend với 5+ năm kinh nghiệm"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {/* CV Template Download */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0">
+                    <FileText className="h-6 w-6 text-blue-600" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-medium text-blue-900 mb-2">
+                      Template CV cho giảng viên
+                    </h4>
+                    <p className="text-sm text-blue-700 mb-3">
+                      Sử dụng template CV chuyên nghiệp để tạo ấn tượng tốt với
+                      ban quản trị. Vui lòng điền đầy đủ thông tin và upload CV
+                      trực tiếp hoặc cung cấp link chia sẻ.
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="border-blue-300 text-blue-700 hover:bg-blue-100"
+                      onClick={() =>
+                        window.open(
+                          "https://docs.google.com/document/d/1vxnCaWpt-KtoGa-faJzuiPkwFrcV373G/edit?usp=drive_link&ouid=101377623666389424053&rtpof=true&sd=true",
+                          "_blank",
+                        )
+                      }
+                    >
+                      <LinkIcon className="h-4 w-4 mr-2" />
+                      Tải xuống template CV
+                    </Button>
+                  </div>
+                </div>
+              </div>
 
-              <FormField
-                control={form.control}
-                name="bio"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Giới thiệu bản thân *</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Mô tả về bản thân, kinh nghiệm làm việc, thành tích nổi bật..."
-                        className="min-h-[120px]"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {/* File Upload Section */}
+              <div>
+                <h4 className="font-medium mb-4">Tùy chọn 1: Upload file CV</h4>
+                <FileUpload
+                  type="cv"
+                  title="Upload CV của bạn"
+                  description="Upload file PDF, Word hoặc hình ảnh CV của bạn"
+                  maxFiles={1}
+                  onFilesChange={setCvFiles}
+                  onUploadedLinksChange={setUploadedCvLinks}
+                />
+              </div>
 
-              <FormField
-                control={form.control}
-                name="specialization"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Lĩnh vực chuyên môn *</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="VD: Lập trình Web, Data Science, Digital Marketing..."
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {/* Divider */}
+              <div className="flex items-center">
+                <div className="flex-1 border-t border-slate-200"></div>
+                <span className="px-3 text-sm text-slate-500 bg-white">
+                  HOẶC
+                </span>
+                <div className="flex-1 border-t border-slate-200"></div>
+              </div>
 
-              <FormField
-                control={form.control}
-                name="experience_years"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Số năm kinh nghiệm</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        placeholder="0"
-                        {...field}
-                        onChange={(e) =>
-                          field.onChange(parseInt(e.target.value) || 0)
-                        }
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {/* Manual Link Section */}
+              <div>
+                <h4 className="font-medium mb-4">Tùy chọn 2: Thêm link CV</h4>
+                <p className="text-sm text-slate-600 mb-4">
+                  Thêm link đến CV của bạn (Google Drive, Dropbox, ...)
+                </p>
+                <Input
+                  placeholder="https://drive.google.com/file/d/your-cv-link/view"
+                  value={cvLink}
+                  onChange={(e) => setCvLink(e.target.value)}
+                />
+                <p className="text-sm text-slate-600 mt-2">
+                  Đảm bảo link có thể truy cập công khai.
+                </p>
+              </div>
+
+              {/* Note */}
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                <div className="flex items-start gap-2">
+                  <div className="mt-0.5">
+                    <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                  </div>
+                  <div className="text-sm text-orange-800">
+                    <strong>Lưu ý:</strong> Bạn chỉ cần chọn một trong hai tùy
+                    chọn trên. Nếu upload file, hệ thống sẽ tự động tải lên
+                    Drive và tạo link cho bạn.
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
 

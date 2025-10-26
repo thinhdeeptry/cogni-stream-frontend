@@ -62,6 +62,7 @@ import useUserStore from "@/stores/useUserStore";
 
 import AttendanceChecker from "@/components/attendance/AttendanceChecker";
 import AttendanceManager from "@/components/attendance/AttendanceManager";
+import ChatToggle from "@/components/class-chat/ChatToggle";
 import CourseSidebar from "@/components/course/CourseSidebar";
 import QuizSection from "@/components/quiz/QuizSection";
 import { Badge } from "@/components/ui/badge";
@@ -1782,6 +1783,14 @@ export default function ClassLearningPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Class Chat */}
+      {isEnrolled && (
+        <ChatToggle
+          classId={params.classId as string}
+          className={classInfo?.name}
+        />
+      )}
     </motion.div>
   );
 }

@@ -28,7 +28,7 @@ interface UploadedFile {
 }
 
 interface FileUploadProps {
-  type: "qualifications" | "portfolio";
+  type: "qualifications" | "portfolio" | "cv";
   maxFiles?: number;
   onFilesChange: (files: File[]) => void;
   onUploadedLinksChange: (links: string[]) => void;
