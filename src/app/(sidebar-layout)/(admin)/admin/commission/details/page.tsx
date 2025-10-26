@@ -87,6 +87,7 @@ interface DetailModalProps {
   mode: "create" | "edit";
   onSubmit: (data: DetailFormData) => void;
   headers: CommissionHeader[];
+  currentHeaderId?: string;
 }
 
 const DetailModal: React.FC<DetailModalProps> = ({
@@ -96,6 +97,7 @@ const DetailModal: React.FC<DetailModalProps> = ({
   mode,
   onSubmit,
   headers,
+  currentHeaderId,
 }) => {
   const [formData, setFormData] = useState<DetailFormData>({
     headerId: "",
@@ -131,8 +133,14 @@ const DetailModal: React.FC<DetailModalProps> = ({
         setApplicationType("general");
       }
     } else {
+      // For create mode, use the current header ID from URL or first active header
+      const defaultHeaderId =
+        currentHeaderId && currentHeaderId !== "all"
+          ? currentHeaderId
+          : headers.find((h) => h.status === "ACTIVE")?.id || "";
+
       setFormData({
-        headerId: "",
+        headerId: defaultHeaderId,
         courseId: undefined,
         categoryId: undefined,
         platformRate: 30,
@@ -141,18 +149,9 @@ const DetailModal: React.FC<DetailModalProps> = ({
       });
       setApplicationType("general");
     }
-  }, [mode, detail, isOpen]);
+  }, [mode, detail, isOpen, currentHeaderId, headers]);
 
   const handleSubmit = async () => {
-    if (!formData.headerId) {
-      toast({
-        title: "Cần chọn Header",
-        description: "Vui lòng chọn commission header",
-        variant: "destructive",
-      });
-      return;
-    }
-
     if (formData.platformRate + formData.instructorRate !== 100) {
       toast({
         title: "Tỷ lệ không hợp lệ",
@@ -209,46 +208,26 @@ const DetailModal: React.FC<DetailModalProps> = ({
           </DialogTitle>
           <DialogDescription>
             {mode === "create"
-              ? "Tạo chi tiết hoa hồng cụ thể cho khóa học, danh mục hoặc toàn hệ thống"
+              ? "Tạo chi tiết hoa hồng cụ thể cho khóa học, danh mục hoặc toàn hệ thống trong cấu hình hiện tại"
               : "Cập nhật thông tin chi tiết hoa hồng"}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Header Selection */}
-          <div className="space-y-2">
-            <Label htmlFor="headerId">Cấu Hình Hoa Hồng *</Label>
-            <Select
-              value={formData.headerId}
-              onValueChange={(value) =>
-                setFormData((prev) => ({ ...prev, headerId: value }))
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Chọn cấu hình hoa hồng..." />
-              </SelectTrigger>
-              <SelectContent>
-                {headers.map((header) => (
-                  <SelectItem key={header.id} value={header.id}>
-                    <div className="flex items-center gap-2">
-                      <span>{header.name}</span>
-                      <Badge
-                        className={
-                          header.status === "ACTIVE"
-                            ? "bg-green-100 text-green-800"
-                            : "bg-yellow-100 text-yellow-800"
-                        }
-                      >
-                        {header.status}
-                      </Badge>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Current Header Display
+          {mode === "create" && formData.headerId && (
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded">
+              <Label className="text-sm font-medium text-blue-900">
+                Cấu hình hoa hồng hiện tại:
+              </Label>
+              <div className="mt-1">
+                <span className="text-blue-800 font-medium">
+                  {headers.find(h => h.id === formData.headerId)?.name}
+                </span>
+              </div>
+            </div>
+          )} */}
 
-          {/* Application Type */}
           <div className="space-y-2">
             <Label>Phạm vi áp dụng *</Label>
             <Select
@@ -402,9 +381,9 @@ const DetailModal: React.FC<DetailModalProps> = ({
           {/* Note */}
           <div className="p-3 bg-blue-50 border border-blue-200 rounded text-sm">
             <p className="text-blue-700">
-              <strong>Lưu ý:</strong> Detail mới sẽ được tạo ở trạng thái
-              "active". Hệ thống sẽ tự động chọn detail phù hợp nhất khi tính
-              hoa hồng.
+              <strong>Lưu ý:</strong> Chi tiết hoa hồng mới sẽ được tạo ở trạng
+              thái "active" và thuộc về cấu hình hoa hồng hiện tại. Hệ thống sẽ
+              tự động chọn chi tiết phù hợp nhất khi tính hoa hồng.
             </p>
           </div>
         </div>
@@ -1083,6 +1062,7 @@ export default function CommissionDetailsPage() {
         mode="create"
         onSubmit={handleCreateDetail}
         headers={headers.filter((h) => h.status === "ACTIVE")}
+        currentHeaderId={filterHeaderId}
       />
 
       <DetailModal
@@ -1092,6 +1072,7 @@ export default function CommissionDetailsPage() {
         mode="edit"
         onSubmit={handleUpdateDetail}
         headers={headers}
+        currentHeaderId={filterHeaderId}
       />
 
       <DetailDetailModal
