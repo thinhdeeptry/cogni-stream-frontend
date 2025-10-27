@@ -290,7 +290,7 @@ export default function InstructorRegistrationsPage() {
                     onChange={(e) =>
                       handleFilterChange("search", e.target.value)
                     }
-                    placeholder="Tên, email, chuyên môn..."
+                    placeholder="Tên, email..."
                   />
                 </div>
               </div>
@@ -393,7 +393,7 @@ export default function InstructorRegistrationsPage() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <Input
-                  placeholder="Tìm kiếm theo tên, email, tiêu đề..."
+                  placeholder="Tìm kiếm theo tên, email..."
                   value={searchTerm}
                   onChange={(e) => {
                     setSearchTerm(e.target.value);
@@ -441,8 +441,8 @@ export default function InstructorRegistrationsPage() {
             <TableHeader>
               <TableRow className="bg-slate-50 hover:bg-slate-100/50">
                 <TableHead className="text-slate-700">Người đăng ký</TableHead>
-                <TableHead className="text-slate-700">Chuyên môn</TableHead>
-                <TableHead className="text-slate-700">Kinh nghiệm</TableHead>
+                <TableHead className="text-slate-700">Hồ sơ</TableHead>
+                <TableHead className="text-slate-700">Portfolio</TableHead>
                 <TableHead className="text-slate-700">Trạng thái</TableHead>
                 <TableHead className="text-slate-700">Ngày đăng ký</TableHead>
                 <TableHead className="text-slate-700">Người duyệt</TableHead>
@@ -497,22 +497,35 @@ export default function InstructorRegistrationsPage() {
                     </TableCell>
                     <TableCell>
                       <div>
-                        {item.headline && (
-                          <p className="font-medium text-slate-900 text-sm">
-                            {item.headline}
-                          </p>
+                        {item.curriculum_vitae_link ? (
+                          <div className="flex items-center gap-1">
+                            <span className="inline-block w-2 h-2 bg-green-500 rounded-full"></span>
+                            <p className="text-sm text-slate-700">Có CV</p>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1">
+                            <span className="inline-block w-2 h-2 bg-gray-300 rounded-full"></span>
+                            <p className="text-sm text-slate-500">Chưa có CV</p>
+                          </div>
                         )}
-                        {item.specialization && (
-                          <p className="text-sm text-slate-500">
-                            {item.specialization}
+                        {item.qualifications.length > 0 && (
+                          <p className="text-xs text-slate-500 mt-1">
+                            {item.qualifications.length} chứng chỉ
                           </p>
                         )}
                       </div>
                     </TableCell>
                     <TableCell className="text-slate-700">
-                      {item.experience_years !== undefined
-                        ? `${item.experience_years} năm`
-                        : "-"}
+                      {item.portfolio_links.length > 0 ? (
+                        <div className="flex items-center gap-1">
+                          <span className="inline-block w-2 h-2 bg-blue-500 rounded-full"></span>
+                          <span className="text-sm">
+                            {item.portfolio_links.length} link
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-slate-500">Chưa có</span>
+                      )}
                     </TableCell>
                     <TableCell>{getStatusBadge(item.status)}</TableCell>
                     <TableCell className="text-slate-700">
@@ -529,7 +542,9 @@ export default function InstructorRegistrationsPage() {
                         variant="outline"
                         size="icon"
                         className="hover:bg-slate-100 border-slate-200"
-                        onClick={() => router.push(`/registrations/${item.id}`)}
+                        onClick={() =>
+                          router.push(`/admin/registrations/${item.id}`)
+                        }
                       >
                         <Eye className="h-4 w-4" />
                       </Button>

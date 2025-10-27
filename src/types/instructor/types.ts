@@ -9,17 +9,15 @@ export enum RegistrationStatus {
 export interface InstructorRegistration {
   id: string;
   status: RegistrationStatus;
-  headline?: string;
-  bio?: string;
-  specialization?: string;
   rejectionReason?: string;
   submittedAt: string; // ISO date string
   reviewedAt?: string; // ISO date string
 
-  qualifications: string[]; // URLs or file paths
-  experience_years?: number;
-  portfolio_links: string[]; // URLs
-  agree_terms: boolean;
+  // 🆕 Các field mới theo schema đã cập nhật
+  curriculum_vitae_link?: string; // Link đến lý lịch khoa học (CV template)
+  qualifications: string[]; // Mảng file chứng chỉ (dạng URL hoặc path)
+  portfolio_links: string[]; // Mảng link portfolio (Github, LinkedIn,...)
+  agree_terms: boolean; // Đồng ý điều khoản
 
   // Quan hệ
   user: {

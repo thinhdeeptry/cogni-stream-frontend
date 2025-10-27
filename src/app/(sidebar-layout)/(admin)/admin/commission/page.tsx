@@ -5,19 +5,15 @@ import React, { useEffect, useState } from "react";
 
 import { toast } from "@/hooks/use-toast";
 import {
-  ArrowLeft,
   Calendar,
   CheckCircle,
-  DollarSign,
   Edit,
   Eye,
   Layers,
   Pause,
   Play,
   Plus,
-  Settings,
   Trash2,
-  X,
 } from "lucide-react";
 
 import {
@@ -284,8 +280,7 @@ const HeaderDetailModal: React.FC<{
                   </Badge>
                 </p>
                 <p>
-                  <strong>Số details:</strong>{" "}
-                  {header.details?.length || header._count?.details || 0}
+                  <strong>Số details:</strong> {header._count?.details || 0}
                 </p>
               </div>
             </div>
@@ -368,7 +363,7 @@ const HeaderDetailModal: React.FC<{
           <Button variant="outline" onClick={onClose}>
             Đóng
           </Button>
-          <Link href={`/admin/commission/headers/${header.id}`}>
+          <Link href={`/admin/commission/details?headerId=${header.id}`}>
             <Button className="bg-blue-500 hover:bg-blue-600 text-white">
               Xem Details
             </Button>
@@ -443,7 +438,7 @@ const DeleteConfirmModal: React.FC<{
 };
 
 // Main component
-export default function CommissionHeadersPage() {
+export default function CommissionPage() {
   const {
     headers,
     headersCount,
@@ -459,9 +454,7 @@ export default function CommissionHeadersPage() {
   } = useCommissionStore();
 
   const [sortBy, setSortBy] = useState("newest");
-  const [filterStatus, setFilterStatus] = useState<
-    "all" | "ACTIVE" | "INACTIVE" | "SCHEDULED" | "EXPIRED"
-  >("all");
+  const [filterStatus, setFilterStatus] = useState<string>("all");
 
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -475,31 +468,11 @@ export default function CommissionHeadersPage() {
 
   // Initialize data
   useEffect(() => {
-    const initializeData = async () => {
-      try {
-        const params = {
-          search: searchQuery || undefined,
-          status:
-            filterStatus !== "all"
-              ? (filterStatus as
-                  | "ACTIVE"
-                  | "INACTIVE"
-                  | "SCHEDULED"
-                  | "EXPIRED")
-              : undefined,
-        };
-        await fetchHeaders(params);
-      } catch (error) {
-        console.error("Error initializing commission headers:", error);
-        toast({
-          title: "Lỗi",
-          description: "Không thể tải dữ liệu hoa hồng",
-          variant: "destructive",
-        });
-      }
+    const params = {
+      search: searchQuery || undefined,
+      status: filterStatus !== "all" ? filterStatus : undefined,
     };
-
-    initializeData();
+    fetchHeaders(params);
   }, [fetchHeaders, searchQuery, filterStatus]);
 
   // Header handlers
@@ -610,15 +583,13 @@ export default function CommissionHeadersPage() {
     <div className="w-full space-y-6 p-6 bg-slate-50">
       {/* Header */}
       <div className="flex justify-between items-center">
-        <div className="flex items-center gap-3">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">
-              📋 Cấu Hình Hoa Hồng
-            </h1>
-            <p className="text-slate-500 text-sm">
-              {headersCount} cấu hình hoa hồng • Quản lý các cấu hình chính
-            </p>
-          </div>
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">
+            📋 Quản Lý Hoa Hồng
+          </h1>
+          <p className="text-slate-500 text-sm">
+            {headersCount} cấu hình hoa hồng • Quản lý các cấu hình chính
+          </p>
         </div>
 
         <Button
@@ -639,12 +610,7 @@ export default function CommissionHeadersPage() {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <Select
-          value={filterStatus}
-          onValueChange={(value) =>
-            setFilterStatus(value as typeof filterStatus)
-          }
-        >
+        <Select value={filterStatus} onValueChange={setFilterStatus}>
           <SelectTrigger className="w-48">
             <SelectValue />
           </SelectTrigger>
@@ -738,12 +704,12 @@ export default function CommissionHeadersPage() {
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <Badge variant="outline">
-                        {header.details?.length || header._count?.details || 0}{" "}
-                        details
+                        {header._count?.details || 0} details
                       </Badge>
-                      {(header.details?.length || header._count?.details || 0) >
-                        0 && (
-                        <Link href={`/admin/commission/headers/${header.id}`}>
+                      {(header._count?.details || 0) > 0 && (
+                        <Link
+                          href={`/admin/commission/details?headerId=${header.id}`}
+                        >
                           <Button
                             variant="ghost"
                             size="sm"

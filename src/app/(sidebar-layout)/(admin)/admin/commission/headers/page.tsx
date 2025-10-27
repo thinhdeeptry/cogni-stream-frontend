@@ -600,7 +600,7 @@ export default function CommissionHeadersPage() {
           </Link>
           <div>
             <h1 className="text-2xl font-bold text-slate-900">
-              📋 Cấu Hình Hoa Hồng
+              📋 Chi Tiết Cấu Hình Hoa Hồng
             </h1>
             <p className="text-slate-500 text-sm">
               {headersCount} cấu hình hoa hồng • Quản lý các cấu hình chính
