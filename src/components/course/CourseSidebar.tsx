@@ -257,7 +257,7 @@ export const CourseSidebar: React.FC<CourseSidebarProps> = ({
             </div>
 
             {/* Recent Progress Summary */}
-            {completedItems.length > 0 && (
+            {completedItems && completedItems.length > 0 && (
               <div className="mb-4 p-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-100">
                 <div className="flex items-center gap-2 mb-2">
                   <CheckCircle className="h-4 w-4 text-green-600" />
