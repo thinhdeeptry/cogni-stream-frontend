@@ -9,6 +9,7 @@ import { BookOpen, Calendar, CheckCircle, Clock, Video, X } from "lucide-react";
 
 import { GroupedSyllabusItem } from "@/actions/syllabusActions";
 
+import ChatSidebarIcon from "@/components/class-chat/ChatSidebarIcon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -255,6 +256,17 @@ export const CourseSidebar: React.FC<CourseSidebarProps> = ({
                 )}
               </div>
             </div>
+
+            {/* Chat Icon */}
+            {classInfo?.id && (
+              <div className="mb-4">
+                <ChatSidebarIcon
+                  classId={classInfo.id}
+                  className={classInfo.name}
+                  unreadCount={0} // TODO: Implement unread count logic
+                />
+              </div>
+            )}
 
             {/* Recent Progress Summary */}
             {completedItems && completedItems.length > 0 && (
