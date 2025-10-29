@@ -60,8 +60,8 @@ import {
 import { useProgressStore } from "@/stores/useProgressStore";
 import useUserStore from "@/stores/useUserStore";
 
+import { AttendanceManager } from "@/components/attendance";
 import AttendanceChecker from "@/components/attendance/AttendanceChecker";
-import AttendanceManager from "@/components/attendance/AttendanceManager";
 import CourseSidebar from "@/components/course/CourseSidebar";
 import QuizSection from "@/components/quiz/QuizSection";
 import { Badge } from "@/components/ui/badge";
@@ -1594,36 +1594,17 @@ export default function ClassLearningPage() {
                         )}
 
                         {/* Attendance System - Chỉ hiển thị cho LIVE_SESSION */}
-                        {user?.role === "INSTRUCTOR" ? (
-                          // Giao diện cho giảng viên
-                          <div className="mt-6">
-                            <AttendanceManager
-                              syllabusItemId={currentItem.id}
-                              instructorId={user.id}
-                              isLiveSession={true}
-                              sessionTopic={
-                                currentItem.classSession?.topic ||
-                                "Buổi học live"
-                              }
-                            />
-                          </div>
-                        ) : enrollmentId ? (
-                          // Giao diện cho học viên
-                          <div className="mt-6">
-                            <AttendanceChecker
-                              syllabusItemId={currentItem.id}
-                              enrollmentId={enrollmentId}
-                              isLiveSession={true}
-                              sessionTopic={
-                                currentItem.classSession?.topic ||
-                                "Buổi học live"
-                              }
-                              attendanceEnabled={
-                                currentItem.attendanceEnabled || false
-                              }
-                            />
-                          </div>
-                        ) : null}
+                        <div className="mt-6">
+                          <AttendanceManager
+                            syllabusItemId={currentItem.id}
+                            instructorId={course?.instructorId || ""}
+                            isLiveSession={
+                              currentItem.itemType ===
+                              SyllabusItemType.LIVE_SESSION
+                            }
+                            sessionTopic={currentItem.classSession?.topic || ""}
+                          />
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
