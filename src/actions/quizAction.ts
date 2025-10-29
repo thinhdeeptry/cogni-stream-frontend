@@ -96,7 +96,7 @@ export interface QuizSubmission {
 
 export interface QuizResult {
   score: number;
-  isPassed: boolean;
+  passed: boolean;
   attemptNumber: number;
   timeSpent: number; // in minutes
   canRetry: boolean;

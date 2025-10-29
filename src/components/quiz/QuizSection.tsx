@@ -1,10 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { cn } from "@/lib/utils";
 import type { Question } from "@/types/assessment/quiz-types";
+import confetti from "canvas-confetti";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertCircle,
@@ -60,7 +61,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import type { ConfettiRef } from "@/components/ui/confetti";
 import { Progress } from "@/components/ui/progress";
+
+import { Confetti } from "../ui/confetti";
 
 interface QuizSectionProps {
   lessonId: string;
@@ -71,6 +75,7 @@ interface QuizSectionProps {
   courseId?: string; // For navigation
   onQuizCompleted?: (success: boolean) => void; // Callback when quiz is completed successfully
   onNavigateToLesson?: (lessonId: string) => void; // Callback to navigate to required lesson
+  onNavigateToNextIncomplete?: () => void; // Callback to navigate to next incomplete syllabus item (class page provides)
 }
 
 export default function QuizSection({
@@ -82,6 +87,7 @@ export default function QuizSection({
   courseId,
   onQuizCompleted,
   onNavigateToLesson,
+  onNavigateToNextIncomplete,
 }: QuizSectionProps) {
   const router = useRouter();
   const [status, setStatus] = useState<QuizStatus | null>(null);
@@ -98,6 +104,8 @@ export default function QuizSection({
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState<QuizResult | null>(null);
+  // Confetti ref
+  const confettiRef = useRef<ConfettiRef>(null);
 
   const [allQuestions, setAllQuestions] = useState<Question[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -316,12 +324,14 @@ export default function QuizSection({
       const result = await submitQuizAttempt(currentAttempt.id, submission);
 
       if (result.success && result.data) {
+        toast.success("Nộp bài quiz thành công!");
+        console.log("Quiz submission result:", result.data);
         setResult(result.data);
         setCurrentAttempt(null);
         setTimeRemaining(null);
         await fetchQuizData();
 
-        if (result.data.isPassed) {
+        if (result.data.passed) {
           toast.success(
             `Chúc mừng! Bạn đã đạt ${result.data.score}% và vượt qua quiz!`,
           );
@@ -350,6 +360,61 @@ export default function QuizSection({
       setIsSubmitting(false);
     }
   };
+
+  // Trigger confetti once when the quiz result is a pass
+  useEffect(() => {
+    if (result && result.passed) {
+      // Try to use the project's Confetti component programmatic API if available
+      try {
+        confettiRef.current?.fire?.({
+          particleCount: 120,
+          spread: 60,
+          origin: { y: 0.6 },
+        });
+      } catch (error) {
+        console.error("Confetti fire error:", error);
+      }
+
+      // Additionally trigger a fireworks-style confetti using canvas-confetti
+      // (based on the snippet the user provided). This produces bursts from
+      // both sides for a few seconds to emulate fireworks.
+      try {
+        const duration = 5 * 1000;
+        const animationEnd = Date.now() + duration;
+        const defaults = {
+          startVelocity: 30,
+          spread: 360,
+          ticks: 60,
+          zIndex: 9999,
+        };
+
+        const randomInRange = (min: number, max: number) =>
+          Math.random() * (max - min) + min;
+
+        const interval = window.setInterval(() => {
+          const timeLeft = animationEnd - Date.now();
+
+          if (timeLeft <= 0) {
+            return clearInterval(interval);
+          }
+
+          const particleCount = 50 * (timeLeft / duration);
+          confetti({
+            ...defaults,
+            particleCount: Math.round(particleCount),
+            origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 },
+          });
+          confetti({
+            ...defaults,
+            particleCount: Math.round(particleCount),
+            origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 },
+          });
+        }, 250);
+      } catch (error) {
+        console.error("Fireworks confetti error:", error);
+      }
+    }
+  }, [result]);
 
   const formatTime = (seconds: number): string => {
     const hours = Math.floor(seconds / 3600);
@@ -937,12 +1002,19 @@ export default function QuizSection({
         animate={{ opacity: 1, scale: 1 }}
         className="space-y-6"
       >
+        {/* Confetti - manual trigger via ref (prevents auto-fire on mount) */}
+        <Confetti
+          ref={confettiRef}
+          manualstart
+          options={{}}
+          className="absolute top-0 left-0 z-0 size-full"
+        />
         <Card
-          className={`border-2 ${result.isPassed ? "border-green-200 bg-green-50" : "border-orange-200 bg-orange-50"}`}
+          className={`border-2 ${result.passed ? "border-green-200 bg-green-50" : "border-orange-200 bg-orange-50"}`}
         >
           <CardContent className="p-6">
             <div className="text-center space-y-4">
-              {result.isPassed ? (
+              {result.passed ? (
                 <CheckCircle className="h-16 w-16 text-green-500 mx-auto" />
               ) : (
                 <XCircle className="h-16 w-16 text-orange-500 mx-auto" />
@@ -950,7 +1022,7 @@ export default function QuizSection({
 
               <div>
                 <h3 className="text-2xl font-bold mb-2">
-                  {result.isPassed
+                  {result.passed
                     ? "Chúc mừng! Bạn đã đạt!"
                     : "Chưa đạt yêu cầu"}
                 </h3>
@@ -963,14 +1035,32 @@ export default function QuizSection({
               </div>
 
               <div className="flex gap-3 justify-center">
-                {result.isPassed ? (
+                {result.passed ? (
                   // Nút "Tiếp tục học" khi đã đạt
                   <Button
                     onClick={() => {
-                      const backPath = classId
-                        ? `/course/${courseId}/class/${classId}`
-                        : `/course/${courseId}`;
-                      router.push(backPath);
+                      // Prefer navigating to the next incomplete syllabus item if parent provided a handler
+                      if (onNavigateToNextIncomplete) {
+                        try {
+                          console.log("Navigating to next incomplete item");
+                          onNavigateToNextIncomplete();
+                          return;
+                        } catch (err) {
+                          console.error(
+                            "onNavigateToNextIncomplete error:",
+                            err,
+                          );
+                        }
+                      } else {
+                        console.log(
+                          "No onNavigateToNextIncomplete handler provided",
+                        );
+                      }
+                      // Fallback: navigate to course/class overview
+                      // const backPath = classId
+                      //   ? `/course/${courseId}/class/${classId}`
+                      //   : `/course/${courseId}`;
+                      // router.push(backPath);
                     }}
                     className="bg-green-600 hover:bg-green-700 flex items-center gap-2"
                   >
@@ -1006,7 +1096,7 @@ export default function QuizSection({
                 </Button>
               </div>
 
-              {!result.isPassed && (
+              {/* {!result.passed && (
                 <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
                   <p className="text-sm text-red-700 text-center">
                     {result.nextAllowedAt
@@ -1014,7 +1104,7 @@ export default function QuizSection({
                       : "Bạn đã hết lượt thử cho quiz này"}
                   </p>
                 </div>
-              )}
+              )} */}
             </div>
           </CardContent>
         </Card>
@@ -1236,15 +1326,15 @@ export default function QuizSection({
                     <motion.div
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className=" bg-white/60 border border-blue-200 rounded-lg "
+                      className=" bg-white/60 border border-blue-200 rounded-lg pb-4"
                     >
                       <div className="space-y-4">
                         <div className="text-center">
                           <div className="flex items-center justify-center gap-2 text-blue-700 mb-2">
                             <BookOpen className="h-6 w-6" />
                             <h3 className="text-lg font-semibold">
-                              📚 Bạn cần hoàn thành các bài học sau để có thể
-                              làm lại quiz
+                              Bạn cần hoàn thành các bài học sau để có thể làm
+                              lại quiz
                             </h3>
                           </div>
                           <p className="text-blue-600 text-sm">
