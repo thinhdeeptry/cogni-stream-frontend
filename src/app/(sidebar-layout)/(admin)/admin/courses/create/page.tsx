@@ -13,6 +13,7 @@ import { getActiveCommissionForProduct } from "@/actions/commissionActions";
 import {
   createCourse,
   getAllCategories,
+  uploadFileToDrive,
   uploadImage,
 } from "@/actions/courseAction";
 
@@ -47,6 +48,7 @@ interface CourseFormData {
   requirements: string[];
   targetAudience: string;
   commissionId?: string; // ID của commission được áp dụng
+  driveFileUrl?: string; // URL file trên Google Drive
 }
 
 export default function CreateCoursePage() {
@@ -138,32 +140,30 @@ export default function CreateCoursePage() {
         const imageUrl = URL.createObjectURL(file);
         setSelectedImage(imageUrl);
 
-        // Upload file lên server
-        const result = await uploadImage(
-          file,
-          "courses",
-          `course-thumbnails/${user?.id}`,
-        );
+        // Upload file lên Google Drive
+        const result = await uploadFileToDrive(file);
 
         if (result.success) {
-          // Cập nhật URL thật từ server
-          setSelectedImage(result.url);
+          // Cập nhật URL từ Drive
+          setSelectedImage(result.driveUrl);
+          // Lưu URL Drive vào courseData
+          setCourseData((prev) => ({ ...prev, driveFileUrl: result.driveUrl }));
           toast({
             title: "Thành công",
-            description: "Đã tải lên hình ảnh",
+            description: "Đã tải lên Google Drive",
           });
         } else {
           toast({
             title: "Lỗi",
-            description: result.message,
+            description: result.message || "Không thể tải lên Google Drive",
             variant: "destructive",
           });
         }
       } catch (error) {
-        console.error("Error uploading image:", error);
+        console.error("Error uploading to Drive:", error);
         toast({
           title: "Lỗi",
-          description: "Không thể tải lên hình ảnh",
+          description: "Không thể tải lên Google Drive",
           variant: "destructive",
         });
       }
@@ -374,7 +374,7 @@ export default function CreateCoursePage() {
       const courseDataToSubmit = {
         ...courseData,
         instructorId: user?.id || "",
-        thumbnailUrl: selectedImage, // Sử dụng URL hình ảnh đã upload
+        thumbnailUrl: courseData.driveFileUrl || selectedImage, // Ưu tiên URL Drive, fallback về selectedImage
       };
 
       // Create course with price included
@@ -1090,6 +1090,7 @@ export default function CreateCoursePage() {
                     <li>Kích thước tối thiểu 1280x720 pixels</li>
                     <li>Tránh sử dụng quá nhiều chữ trong hình ảnh</li>
                     <li>Hình ảnh phải liên quan đến nội dung khóa học</li>
+                    <li>File sẽ được lưu trên Google Drive</li>
                   </ul>
                 </div>
               </CardContent>

@@ -621,6 +621,39 @@ export const uploadImage = async (
   }
 };
 
+// Upload file lên Google Drive
+export const uploadFileToDrive = async (
+  file: File,
+  parentFolderId?: string,
+) => {
+  try {
+    const formData = new FormData();
+    formData.append("file", file);
+    if (parentFolderId) {
+      formData.append("parentId", parentFolderId);
+    }
+
+    const response = await courseApi.post("/google/drive/upload", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+
+    return {
+      success: true,
+      data: response.data,
+      driveUrl: response.data.webViewLink,
+      fileId: response.data.id,
+    };
+  } catch (error) {
+    console.error("Error uploading file to Drive:", error);
+    return {
+      success: false,
+      message: "Không thể tải file lên Google Drive",
+    };
+  }
+};
+
 export const createCategory = async (categoryData: {
   name: string;
   description?: string;

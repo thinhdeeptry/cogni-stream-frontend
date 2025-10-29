@@ -994,16 +994,10 @@ export default function CourseDetail() {
 
                         if (isFree) {
                           return (
-                            // <p className="text-green-600 text-2xl font-semibold">
-                            //   Miễn phí
-                            // </p>
                             <div className="space-y-2">
                               <div className="flex items-center gap-2">
                                 <p className="text-green-600 text-2xl font-semibold">
-                                  {Number(
-                                    pricing?.currentPrice || 0,
-                                  ).toLocaleString()}{" "}
-                                  VND
+                                  Miễn phí
                                 </p>
                               </div>
                             </div>

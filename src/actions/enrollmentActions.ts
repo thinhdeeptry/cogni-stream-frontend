@@ -304,6 +304,20 @@ export async function getEnrollmentByCourse(courseId: string) {
   }
 }
 
+export async function getEnrollmentsByUser(userId: string) {
+  try {
+    const api = await AxiosFactory.getApiInstance("enrollment");
+    const res = await api.get(`/enrollments/user/${userId}`);
+    return { success: true, data: res.data };
+  } catch (error: any) {
+    return {
+      success: false,
+      message:
+        error?.response?.data?.message || "Error fetching user enrollments",
+    };
+  }
+}
+
 export async function getEnrollmentByCourseAndType(
   courseId: string,
   type: "STREAM" | "ONLINE",

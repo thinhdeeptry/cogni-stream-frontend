@@ -1,11 +1,20 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import React, { useCallback, useMemo } from "react";
 
 import { toast } from "@/hooks/use-toast";
 import { Course, SyllabusItem, SyllabusItemType } from "@/types/course/types";
 import { motion } from "framer-motion";
-import { BookOpen, Calendar, CheckCircle, Clock, Video, X } from "lucide-react";
+import {
+  BookOpen,
+  Calendar,
+  CheckCircle,
+  Clock,
+  MessageCircle,
+  Video,
+  X,
+} from "lucide-react";
 
 import { GroupedSyllabusItem } from "@/actions/syllabusActions";
 
@@ -68,6 +77,7 @@ export const CourseSidebar: React.FC<CourseSidebarProps> = ({
   getNextAvailableItem,
   onItemSelect,
 }) => {
+  const router = useRouter();
   // Memoized helper functions to prevent re-creation on every render
   const isItemCompletedById = useCallback(
     (itemId: string): boolean => {
@@ -162,24 +172,43 @@ export const CourseSidebar: React.FC<CourseSidebarProps> = ({
       style={{ height: "calc(100vh - 73px)", top: "73px" }}
     >
       <div className="h-full flex flex-col">
-        {/* Compact Header - Just Close Button */}
-        <div className="flex-shrink-0 p-3 border-b border-gray-200 flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-orange-100 rounded-lg">
-              <BookOpen className="h-4 w-4 text-orange-600" />
+        {/* Compact Header - With Chat Icon */}
+        <div className="flex-shrink-0 p-3 border-b border-gray-200">
+          <div className="flex justify-between items-center mb-3">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-orange-100 rounded-lg">
+                <BookOpen className="h-4 w-4 text-orange-600" />
+              </div>
+              <h3 className="text-sm font-bold text-gray-900">
+                Lộ trình học tập
+              </h3>
             </div>
-            <h3 className="text-sm font-bold text-gray-900">
-              Lộ trình học tập
-            </h3>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClose}
+              className="hover:bg-gray-100"
+            >
+              <X className="h-4 w-4" />
+            </Button>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onClose}
-            className="hover:bg-gray-100"
-          >
-            <X className="h-4 w-4" />
-          </Button>
+
+          {/* Chat Section */}
+          {classInfo?.id && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                // Navigate to main chat page
+                router.push(`/chat`);
+              }}
+              className="w-full justify-start gap-2 h-10 border-blue-200 hover:border-blue-300 hover:bg-blue-50 text-blue-700"
+            >
+              <MessageCircle className="h-4 w-4 text-blue-600" />
+              <span className="flex-1 text-left font-medium">Chat</span>
+              {/* TODO: Add unread count badge here */}
+            </Button>
+          )}
         </div>
 
         {/* Syllabus Content */}

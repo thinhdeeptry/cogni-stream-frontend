@@ -14,6 +14,7 @@ import {
   GraduationCap,
   Home,
   LayoutDashboard,
+  MessageCircle,
   UserCheck,
   Users,
 } from "lucide-react";
@@ -54,6 +55,13 @@ const getMenuItems = (userRole: string) => {
       //   icon: BookOpen,
       //   color: "text-amber-500",
       //   bgColor: "bg-amber-50",
+    },
+    {
+      title: "Chat",
+      url: "/chat",
+      icon: MessageCircle,
+      color: "text-blue-600",
+      bgColor: "bg-blue-50",
     },
     {
       title: "Lịch của tôi",
@@ -151,7 +159,9 @@ export function AppSidebar() {
                     ? pathname === "/"
                     : item.url.startsWith("/admin")
                       ? pathname.startsWith(item.url)
-                      : pathname === item.url;
+                      : item.url === "/chat"
+                        ? pathname.startsWith("/chat")
+                        : pathname === item.url;
 
                 return (
                   <SidebarMenuItem key={`${item.title}-${item.url}`}>
