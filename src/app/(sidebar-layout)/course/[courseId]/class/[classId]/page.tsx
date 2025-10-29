@@ -1345,6 +1345,30 @@ export default function ClassLearningPage() {
                                     }
                                   }}
                                   onNavigateToLesson={handleNavigateToLesson}
+                                  onNavigateToNextIncomplete={() => {
+                                    const next = getNextAvailableItem();
+                                    console.log("Next available item: ", next);
+                                    if (!next) {
+                                      toast({
+                                        title: "Không tìm thấy mục tiếp theo",
+                                        description:
+                                          "Bạn đã hoàn thành tất cả các mục trong lộ trình.",
+                                      });
+                                      return;
+                                    }
+
+                                    // If the next item is a lesson, navigate via handleNavigateToLesson
+                                    if (
+                                      next.itemType ===
+                                        SyllabusItemType.LESSON &&
+                                      next.lesson?.id
+                                    ) {
+                                      handleNavigateToLesson(next.lesson.id);
+                                    } else {
+                                      // Otherwise set current item directly
+                                      setCurrentItem(next);
+                                    }
+                                  }}
                                 />
                               ) : (
                                 <div className="flex items-center justify-center p-8">
