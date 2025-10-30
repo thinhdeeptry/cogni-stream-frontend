@@ -30,7 +30,7 @@ import {
   getChatRoomInfo,
   getMessages,
   sendMessage as sendChatMessage,
-  sendFileMessage,
+  sendImageMessage,
 } from "@/actions/classChatActions";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -173,24 +173,25 @@ const ClassChat: React.FC<ClassChatProps> = ({ classId, isOpen, onClose }) => {
     try {
       setSending(true);
 
-      let messageType: "IMAGE" | "VIDEO" | "FILE" = "FILE";
+      // Only handle images for now, since the backend only supports sendImageMessage
       if (file.type.startsWith("image/")) {
-        messageType = "IMAGE";
-      } else if (file.type.startsWith("video/")) {
-        messageType = "VIDEO";
+        const message = await sendImageMessage(
+          classId,
+          file,
+          undefined,
+          replyTo?.id,
+        );
+
+        setMessages((prev) => [...prev, message]);
+        setReplyTo(null);
+        scrollToBottom();
+      } else {
+        toast({
+          title: "Lỗi",
+          description: "Hiện tại chỉ hỗ trợ upload file ảnh",
+          variant: "destructive",
+        });
       }
-
-      const message = await sendFileMessage(
-        classId,
-        file,
-        messageType,
-        undefined,
-        replyTo?.id,
-      );
-
-      setMessages((prev) => [...prev, message]);
-      setReplyTo(null);
-      scrollToBottom();
     } catch (error: any) {
       toast({
         title: "Lỗi",
@@ -376,19 +377,6 @@ const ClassChat: React.FC<ClassChatProps> = ({ classId, isOpen, onClose }) => {
                     alt={message.fileName}
                     className="max-w-full h-auto rounded cursor-pointer"
                     onClick={() => window.open(message.fileUrl, "_blank")}
-                  />
-                </div>
-              )}
-
-              {message.messageType === "VIDEO" && (
-                <div>
-                  {message.content && (
-                    <div className="mb-2 break-words">{message.content}</div>
-                  )}
-                  <video
-                    src={message.fileUrl}
-                    controls
-                    className="max-w-full h-auto rounded"
                   />
                 </div>
               )}
@@ -698,7 +686,7 @@ const ClassChat: React.FC<ClassChatProps> = ({ classId, isOpen, onClose }) => {
             ref={fileInputRef}
             type="file"
             hidden
-            accept="image/*,video/*,*/*"
+            accept="image/*"
             onChange={(e) => {
               const file = e.target.files?.[0];
               if (file) {
