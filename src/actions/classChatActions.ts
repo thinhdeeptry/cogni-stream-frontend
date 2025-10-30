@@ -1,7 +1,7 @@
 // src/actions/classChatActions.ts
 import { AxiosFactory } from "@/lib/axios";
 
-const classChatApi = await AxiosFactory.getApiInstance("class-chat");
+const classChatApi = await AxiosFactory.getApiInstance("courses");
 
 // Types
 export interface ChatMessage {
