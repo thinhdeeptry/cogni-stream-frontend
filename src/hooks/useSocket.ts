@@ -20,7 +20,7 @@ export const useSocket = (options: UseSocketOptions = {}) => {
 
     // Create socket connection
     const newSocket = io(
-      `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}${namespace}`,
+      `${process.env.NEXT_PUBLIC_API_URL || "https://be.cognistream.id.vn"}${namespace}`,
       {
         auth: {
           token: session.accessToken,
