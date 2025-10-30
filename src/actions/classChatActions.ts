@@ -65,7 +65,7 @@ export interface PaginatedMessages {
   };
 }
 
-// Get chat room info
+// Get chat room info - Still needed for initial data
 export const getChatRoomInfo = async (
   classId: string,
 ): Promise<ChatRoomInfo> => {
@@ -80,7 +80,7 @@ export const getChatRoomInfo = async (
   }
 };
 
-// Get messages
+// Get messages - Still needed for loading message history
 export const getMessages = async (
   classId: string,
   page: number = 1,
@@ -111,101 +111,7 @@ export const getMessages = async (
   }
 };
 
-// Send text message
-export const sendMessage = async (
-  classId: string,
-  content: string,
-  replyToId?: string,
-): Promise<ChatMessage> => {
-  try {
-    const response = await classChatApi.post(`/${classId}/messages`, {
-      content,
-      messageType: "TEXT",
-      replyToId,
-    });
-    return response.data;
-  } catch (error: any) {
-    console.error("Error sending message:", error);
-    throw new Error(error.response?.data?.message || "Không thể gửi tin nhắn");
-  }
-};
-
-// Send image message
-export const sendImageMessage = async (
-  classId: string,
-  file: File,
-  content?: string,
-  replyToId?: string,
-): Promise<ChatMessage> => {
-  try {
-    // Validate image file
-    const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/gif"];
-    if (!allowedTypes.includes(file.type)) {
-      throw new Error("Chỉ chấp nhận file ảnh: JPG, PNG, GIF");
-    }
-
-    // Validate file size (max 3MB)
-    const maxSize = 3 * 1024 * 1024; // 3MB
-    if (file.size > maxSize) {
-      throw new Error("Kích thước ảnh không được vượt quá 3MB");
-    }
-
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("messageType", "IMAGE");
-
-    if (content) {
-      formData.append("content", content);
-    }
-
-    if (replyToId) {
-      formData.append("replyToId", replyToId);
-    }
-
-    const response = await classChatApi.post(
-      `/${classId}/messages/file`,
-      formData,
-      {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      },
-    );
-
-    return response.data;
-  } catch (error: any) {
-    console.error("Error sending file message:", error);
-    throw new Error(error.response?.data?.message || "Không thể gửi file");
-  }
-};
-
-// Edit message
-export const editMessage = async (
-  messageId: string,
-  content: string,
-): Promise<ChatMessage> => {
-  try {
-    const response = await classChatApi.patch(`/messages/${messageId}`, {
-      content,
-    });
-    return response.data;
-  } catch (error: any) {
-    console.error("Error editing message:", error);
-    throw new Error(error.response?.data?.message || "Không thể sửa tin nhắn");
-  }
-};
-
-// Delete message
-export const deleteMessage = async (messageId: string): Promise<void> => {
-  try {
-    await classChatApi.delete(`/messages/${messageId}`);
-  } catch (error: any) {
-    console.error("Error deleting message:", error);
-    throw new Error(error.response?.data?.message || "Không thể xóa tin nhắn");
-  }
-};
-
-// Create chat room (admin/instructor only)
+// Create chat room (admin/instructor only) - Still needed for setup
 export const createChatRoom = async (
   classId: string,
   className: string,
@@ -223,7 +129,7 @@ export const createChatRoom = async (
   }
 };
 
-// Add member to chat room
+// Add member to chat room - Still needed for management
 export const addMemberToChatRoom = async (
   classId: string,
   userId: string,
@@ -239,3 +145,11 @@ export const addMemberToChatRoom = async (
     );
   }
 };
+
+/*
+NOTE: Realtime actions đã được thay thế bởi Socket.IO events:
+- sendMessage() ➜ socket.emit('send-message', {...})
+- sendImageMessage() ➜ socket.emit('send-message', {messageType: 'IMAGE', imageData: '...'})
+- editMessage() ➜ socket.emit('edit-message', {...})
+- deleteMessage() ➜ socket.emit('delete-message', {...})
+*/
