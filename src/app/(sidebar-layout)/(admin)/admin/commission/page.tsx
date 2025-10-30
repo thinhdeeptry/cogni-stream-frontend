@@ -470,7 +470,10 @@ export default function CommissionPage() {
   useEffect(() => {
     const params = {
       search: searchQuery || undefined,
-      status: filterStatus !== "all" ? filterStatus : undefined,
+      status:
+        filterStatus !== "all"
+          ? (filterStatus as "ACTIVE" | "INACTIVE" | "SCHEDULED" | "EXPIRED")
+          : undefined,
     };
     fetchHeaders(params);
   }, [fetchHeaders, searchQuery, filterStatus]);

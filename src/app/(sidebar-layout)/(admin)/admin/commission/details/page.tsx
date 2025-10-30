@@ -158,7 +158,7 @@ const DetailModal: React.FC<DetailModalProps> = ({
   }, [mode, detail, isOpen, currentHeaderId, headers]);
 
   const handleSubmit = async () => {
-    if (formData.platformRate + formData.instructorRate !== 100) {
+    if (formData.platformRate + instructorRate !== 100) {
       toast({
         title: "Tỷ lệ không hợp lệ",
         description: "Tỷ lệ platform phải từ 1% đến 99%",
