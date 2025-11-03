@@ -6,6 +6,9 @@ COPY package*.json ./
 RUN npm ci --legacy-peer-deps
 
 COPY . .
+# Thiết lập biến môi trường cho FE khi build
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 RUN npm run build
 
 # ==== Stage 2: Run ====
@@ -28,7 +31,7 @@ USER nextjs
 
 EXPOSE 3000
 
-ENV PORT 3000
-ENV HOSTNAME "0.0.0.0"
+ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
 
 CMD ["node", "server.js"]

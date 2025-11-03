@@ -56,9 +56,10 @@ const paths: Record<ServiceName, string> = {
 class AxiosFactory {
   private static instance: AxiosInstance | null = null;
   private static readonly API_URL =
-    process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"; // URL của backend monolith
+    process.env.NEXT_PUBLIC_API_URL || "https://be.cognistream.id.vn"; // URL của backend monolith
 
   private static createInstance(): AxiosInstance {
+    console.log("api: ", this.API_URL);
     const instance = axios.create({
       baseURL: this.API_URL,
       timeout: 30000,

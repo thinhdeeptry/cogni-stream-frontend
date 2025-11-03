@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 
-import { Course } from "@/types/course/types";
+import { Class, Course, CourseType } from "@/types/course/types";
 
 import { getAllCourses } from "@/actions/courseAction";
 import {
@@ -16,6 +16,7 @@ import {
 import Loading from "@/components/Loading";
 import CourseItem from "@/components/courseItem";
 import { HomeJsonLd } from "@/components/jsonld/home-jsonld";
+import LiveCourseItem from "@/components/liveCourseItem";
 import {
   Carousel,
   CarouselApi,
@@ -24,6 +25,7 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "@/components/ui/carousel";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const bannerImages = [
   "https://res.cloudinary.com/dxxsudprj/image/upload/v1740664494/Screenshot_2025-02-27_at_20.53.58_wgkc7i.png",
@@ -32,6 +34,12 @@ const bannerImages = [
   "https://res.cloudinary.com/dxxsudprj/image/upload/v1740664494/Screenshot_2025-02-27_at_20.54.08_f0jal5.png",
   "https://res.cloudinary.com/dxxsudprj/image/upload/v1740664063/Screenshot_2025-02-27_at_20.39.05_wvgzaw.png",
 ];
+
+// Interface for Live Course Item data
+interface LiveCourseItemData {
+  course: Course;
+  classData: Class;
+}
 
 function HomeContent() {
   const searchParams = useSearchParams();
@@ -42,10 +50,17 @@ function HomeContent() {
   const [count, setCount] = useState(0);
   const [allCourses, setAllCourses] = useState<Course[]>([]);
   const [filteredCourses, setFilteredCourses] = useState<Course[]>([]);
+  const [selfPacedCourses, setSelfPacedCourses] = useState<Course[]>([]);
+  const [liveCourseItems, setLiveCourseItems] = useState<LiveCourseItemData[]>(
+    [],
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [enrollmentStats, setEnrollmentStats] =
     useState<EnrollmentStats | null>(null);
+  const [activeTab, setActiveTab] = useState<"self-paced" | "live">(
+    "self-paced",
+  );
 
   useEffect(() => {
     const fetchCourses = async () => {
@@ -65,6 +80,38 @@ function HomeContent() {
 
         setAllCourses(publishedCourses);
         setFilteredCourses(publishedCourses);
+
+        // Separate courses by type
+        const selfPaced = publishedCourses.filter(
+          (course) => course.courseType === CourseType.SELF_PACED,
+        );
+
+        const liveCourses = publishedCourses.filter(
+          (course) => course.courseType === CourseType.LIVE,
+        );
+
+        // Create live course items (expand each course by its classes)
+        const liveItems: LiveCourseItemData[] = [];
+        liveCourses.forEach((course) => {
+          if (course.classes && course.classes.length > 0) {
+            // Filter only published classes
+            const publishedClasses = course.classes.filter(
+              (classItem) => classItem.isPublished,
+            );
+            publishedClasses.forEach((classItem) => {
+              liveItems.push({
+                course,
+                classData: classItem,
+              });
+            });
+          }
+        });
+
+        setSelfPacedCourses(selfPaced);
+        setLiveCourseItems(liveItems);
+
+        console.log("Self-paced courses:", selfPaced.length);
+        console.log("Live course items:", liveItems.length);
 
         // Lấy thông tin enrollment
         // const statsResponse = await getEnrollmentStats();
@@ -133,32 +180,15 @@ function HomeContent() {
     }
   };
 
-  // Split filtered courses into free and paid - cần được cập nhật dựa trên pricing API
-  // Tạm thời hiển thị tất cả courses, sẽ cần gọi API pricing để phân loại
-  const limitedCourses = filteredCourses.slice(0, 8);
-  const moreCourses = filteredCourses.slice(8, 16);
-
   // Chuẩn bị dữ liệu cho JSON-LD
   const jsonLdCourses = filteredCourses.map((course) => ({
     title: course.title,
     description: course.description || "",
-    url: `https://cognistream.io.vn/courses/${course.id}`,
+    url: `https://cognistream.id.vn/courses/${course.id}`,
     image: course.thumbnailUrl || "",
     // price: course.price || 0,
     category: course.categoryId || "",
   }));
-
-  // Helper function to get enrollment count for a course
-  const getEnrollmentCount = (courseId: string): number => {
-    if (!enrollmentStats) return 0;
-
-    // Tìm trong enrollmentsByCourse
-    const courseEnrollment = enrollmentStats.enrollmentsByCourse.find(
-      (item) => item.courseId === courseId,
-    );
-
-    return courseEnrollment?.enrollments || 0;
-  };
 
   if (isLoading) {
     return (
@@ -230,25 +260,22 @@ function HomeContent() {
         </div>
       )}
 
-      {/* Popular Courses Section - Only show if not searching */}
+      {/* Course Tabs Section - Only show if not searching */}
       {!searchQuery &&
-        // &&
-        //   enrollmentStats?.popularCourses &&
-        //   enrollmentStats.popularCourses.length > 0 &&
-        allCourses != null && (
+        (selfPacedCourses.length > 0 || liveCourseItems.length > 0) && (
           <div className="w-full space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-end">
               <div>
                 <h2 className="text-2xl sm:text-3xl font-semibold text-gray-800 group hover:cursor-default">
-                  Khóa học phổ biến nhất
+                  Khóa học nổi bật
                   <div className="h-1 w-1/4 mt-1 group-hover:w-full bg-blue-500 transition-all duration-300"></div>
                 </h2>
                 <p className="text-gray-600 mt-2">
-                  Những khóa học được nhiều người học nhất
+                  Các khóa học chất lượng cao được nhiều người học lựa chọn
                 </p>
               </div>
               <Link
-                href="/courses?sort=popular"
+                href="/courses"
                 className="mt-2 md:mt-0 text-blue-500 hover:text-blue-600 font-semibold flex items-center"
               >
                 Xem tất cả
@@ -269,25 +296,105 @@ function HomeContent() {
               </Link>
             </div>
 
-            <div className="w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 py-2 pb-4">
-              {allCourses.slice(0, 4).map((course) => (
-                <div
-                  key={course.id}
-                  className="transform hover:-translate-y-1 transition-transform duration-300"
+            <Tabs defaultValue="self-paced" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger
+                  value="self-paced"
+                  className="flex items-center gap-2"
                 >
-                  <CourseItem
-                    id={course.id}
-                    title={course.title}
-                    thumbnailUrl={course.thumbnailUrl}
-                    totalLessons={course.totalLessons}
-                    enrollmentCount={course.totalStudents}
-                    categories={[course.categoryId || ""]}
-                    instructor={course.instructor}
-                    avgRating={course.avgRating}
-                  />
-                </div>
-              ))}
-            </div>
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253z"
+                    />
+                  </svg>
+                  Tự học ({selfPacedCourses.length})
+                </TabsTrigger>
+                <TabsTrigger value="live" className="flex items-center gap-2">
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                    />
+                  </svg>
+                  Live ({liveCourseItems.length})
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="self-paced" className="mt-6">
+                {selfPacedCourses.length > 0 ? (
+                  <div className="w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 py-2 pb-4">
+                    {selfPacedCourses.slice(0, 8).map((course) => (
+                      <div
+                        key={course.id}
+                        className="transform hover:-translate-y-1 transition-transform duration-300"
+                      >
+                        <CourseItem
+                          id={course.id}
+                          title={course.title}
+                          thumbnailUrl={course.thumbnailUrl}
+                          totalLessons={course.totalLessons}
+                          enrollmentCount={course.totalStudents}
+                          categories={[course.categoryId || ""]}
+                          instructor={course.instructor}
+                          avgRating={course.avgRating}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="py-12 text-center">
+                    <p className="text-xl text-gray-500">
+                      Chưa có khóa học tự học nào
+                    </p>
+                    <p className="mt-2 text-gray-600">
+                      Các khóa học tự học sẽ sớm được cập nhật
+                    </p>
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="live" className="mt-6">
+                {liveCourseItems.length > 0 ? (
+                  <div className="w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 py-2 pb-4">
+                    {liveCourseItems.slice(0, 8).map((item, index) => (
+                      <div
+                        key={`${item.course.id}-${item.classData.id}`}
+                        className="transform hover:-translate-y-1 transition-transform duration-300"
+                      >
+                        <LiveCourseItem
+                          course={item.course}
+                          classData={item.classData}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="py-12 text-center">
+                    <p className="text-xl text-gray-500">
+                      Chưa có lớp học Live nào
+                    </p>
+                    <p className="mt-2 text-gray-600">
+                      Các lớp học trực tuyến sẽ sớm được cập nhật
+                    </p>
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
           </div>
         )}
 
@@ -333,65 +440,8 @@ function HomeContent() {
         </div>
       )}
 
-      {/* Courses Section - Tạm thời hiển thị tất cả khóa học, sẽ phân loại theo pricing sau */}
-      {!searchQuery && limitedCourses.length > 0 && (
-        <div className="w-full space-y-6">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-end">
-            <div>
-              <h2 className="text-2xl sm:text-3xl font-semibold text-gray-800 group hover:cursor-default">
-                Khóa học nổi bật
-                <div className="h-1 w-1/4 mt-1 group-hover:w-full bg-blue-500 transition-all duration-300"></div>
-              </h2>
-              <p className="text-gray-600 mt-2">
-                Các khóa học chất lượng cao được nhiều người học lựa chọn
-              </p>
-            </div>
-            <Link
-              href="/courses"
-              className="mt-2 md:mt-0 text-orange-500 hover:text-orange-600 font-semibold flex items-center"
-            >
-              Xem tất cả
-              <svg
-                className="w-4 h-4 ml-1"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M9 5l7 7-7 7"
-                ></path>
-              </svg>
-            </Link>
-          </div>
-
-          <div className="w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 py-2 pb-4">
-            {limitedCourses.map((course) => (
-              <div
-                key={course.id}
-                className="transform hover:-translate-y-1 transition-transform duration-300"
-              >
-                <CourseItem
-                  id={course.id}
-                  title={course.title}
-                  thumbnailUrl={course.thumbnailUrl}
-                  totalLessons={course.totalLessons}
-                  enrollmentCount={course.totalStudents}
-                  categories={[course.categoryId || ""]}
-                  instructor={course.instructor}
-                  avgRating={course.avgRating}
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* More Courses Section */}
-      {!searchQuery && moreCourses.length > 0 && (
+      {/* More Courses Section - Show remaining courses if there are more */}
+      {!searchQuery && allCourses.length > 8 && (
         <div className="w-full space-y-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-end">
             <div>
@@ -426,7 +476,7 @@ function HomeContent() {
           </div>
 
           <div className="w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 py-2 pb-4">
-            {moreCourses.map((course) => (
+            {allCourses.slice(8, 16).map((course) => (
               <div
                 key={course.id}
                 className="transform hover:-translate-y-1 transition-transform duration-300"

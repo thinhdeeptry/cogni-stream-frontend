@@ -2,6 +2,22 @@
 const nextConfig = {
   output: "standalone",
 
+  // Runtime configuration - allows environment variables to be read at runtime
+  publicRuntimeConfig: {
+    NEXT_PUBLIC_API_URL:
+      process.env.NEXT_PUBLIC_API_URL || "https://be.cognistream.id.vn",
+    NEXT_PUBLIC_GA_TRACKING_ID: process.env.NEXT_PUBLIC_GA_TRACKING_ID,
+    NEXT_PUBLIC_TINYMCE_API_KEY: process.env.NEXT_PUBLIC_TINYMCE_API_KEY,
+    NEXT_PUBLIC_GEMINI_API_KEY: process.env.NEXT_PUBLIC_GEMINI_API_KEY,
+  },
+
+  serverRuntimeConfig: {
+    NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
+    GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
+    GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
+    NEXTAUTH_URL: process.env.NEXTAUTH_URL,
+  },
+
   // Images optimization
   images: {
     formats: ["image/webp", "image/avif"],
@@ -25,6 +41,10 @@ const nextConfig = {
       {
         protocol: "https",
         hostname: "storage.cognistream.io.vn",
+      },
+      {
+        protocol: "https",
+        hostname: "randomuser.me",
       },
     ],
     // Disable image optimization in production to avoid 400 errors
