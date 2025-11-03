@@ -188,10 +188,9 @@ const DetailModal: React.FC<DetailModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl mx-4 max-h-[95vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
             {mode === "create"
               ? "Tạo Chi Tiết Hoa Hồng Mới"
               : `Chỉnh sửa Chi Tiết Hoa Hồng`}
@@ -432,7 +431,7 @@ const DetailDetailModal: React.FC<{
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl mx-4 max-h-[95vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
@@ -604,7 +603,7 @@ const DeleteConfirmModal: React.FC<{
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent>
+      <DialogContent className="mx-4 max-h-[95vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-red-600">
             <Trash2 className="h-5 w-5" />
@@ -931,7 +930,7 @@ export default function CommissionDetailsPage() {
           </Link>
           <div>
             <h1 className="text-2xl font-bold text-slate-900">
-              📄 Chi Tiết Hoa Hồng
+              Chi Tiết Hoa Hồng
             </h1>
             <p className="text-slate-500 text-sm">
               {detailsCount} chi tiết hoa hồng

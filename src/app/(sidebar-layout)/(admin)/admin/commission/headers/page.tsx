@@ -138,7 +138,7 @@ const HeaderModal: React.FC<HeaderModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl mx-4 max-h-[95vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Layers className="h-5 w-5" />
@@ -254,7 +254,7 @@ const HeaderDetailModal: React.FC<{
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl mx-4 max-h-[95vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Layers className="h-5 w-5" />
@@ -401,7 +401,7 @@ const DeleteConfirmModal: React.FC<{
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent>
+      <DialogContent className="mx-4 max-h-[95vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-red-600">
             <Trash2 className="h-5 w-5" />
@@ -589,32 +589,35 @@ export default function CommissionHeadersPage() {
   }
 
   return (
-    <div className="w-full space-y-6 p-6 bg-slate-50">
+    <div className="w-full space-y-4 sm:space-y-6 p-4 sm:p-6 bg-slate-50">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="space-y-4">
         <div className="flex items-center gap-3">
           <Link href="/admin/commission">
-            <Button variant="outline" size="icon">
+            <Button variant="outline" size="icon" className="shrink-0">
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">
-              📋 Chi Tiết Cấu Hình Hoa Hồng
+          <div className="min-w-0 flex-1">
+            <h1 className="text-lg sm:text-2xl font-bold text-slate-900 truncate">
+              Chi Tiết Cấu Hình Hoa Hồng
             </h1>
-            <p className="text-slate-500 text-sm">
+            <p className="text-xs sm:text-sm text-slate-500">
               {headersCount} cấu hình hoa hồng • Quản lý các cấu hình chính
             </p>
           </div>
         </div>
 
-        <Button
-          className="bg-blue-500 hover:bg-blue-600 text-white"
-          onClick={() => setIsCreateModalOpen(true)}
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Tạo Cấu Hình Mới
-        </Button>
+        {/* Button on separate row for mobile */}
+        <div className="flex justify-end">
+          <Button
+            className="bg-blue-500 hover:bg-blue-600 text-white w-full sm:w-auto"
+            onClick={() => setIsCreateModalOpen(true)}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Tạo Cấu Hình Mới
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -664,7 +667,7 @@ export default function CommissionHeadersPage() {
                 >
                   {searchQuery || filterStatus !== "all"
                     ? "Không tìm thấy header nào phù hợp"
-                    : "🎯 Chưa có commission header nào"}
+                    : "Chưa có commission header nào"}
                 </TableCell>
               </TableRow>
             ) : (
@@ -708,7 +711,6 @@ export default function CommissionHeadersPage() {
                   <TableCell>
                     <div className="text-sm">
                       <div className="flex items-center gap-2 text-slate-600">
-                        <Calendar className="h-4 w-4" />
                         <span>{getTimeAgo(header.updatedAt.toString())}</span>
                       </div>
                       {header.startDate && (

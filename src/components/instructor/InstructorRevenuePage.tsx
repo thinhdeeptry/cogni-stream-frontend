@@ -170,15 +170,30 @@ export default function InstructorRevenuePage() {
 
   if (isLoading) {
     return (
-      <div className="max-w-7xl mx-auto p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">
-              Doanh thu của tôi
-            </h1>
-            <p className="text-slate-600">
-              Theo dõi doanh thu và hoa hồng từ các khóa học
-            </p>
+      <div className="max-w-7xl mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
+        <div className="space-y-4 lg:space-y-0">
+          {/* Mobile Layout */}
+          <div className="lg:hidden space-y-4">
+            <div>
+              <h1 className="text-xl font-bold text-slate-900">
+                Doanh thu của tôi
+              </h1>
+              <p className="text-sm text-slate-600">
+                Theo dõi doanh thu và hoa hồng từ các khóa học
+              </p>
+            </div>
+          </div>
+
+          {/* Desktop Layout */}
+          <div className="hidden lg:flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900">
+                Doanh thu của tôi
+              </h1>
+              <p className="text-slate-600">
+                Theo dõi doanh thu và hoa hồng từ các khóa học
+              </p>
+            </div>
           </div>
         </div>
 
@@ -215,33 +230,68 @@ export default function InstructorRevenuePage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto p-6 space-y-6">
+    <div className="max-w-7xl mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">
-            Doanh thu của tôi
-          </h1>
-          <p className="text-slate-600">
-            Theo dõi doanh thu và hoa hồng từ các khóa học
-          </p>
+      <div className="space-y-4 lg:space-y-0">
+        {/* Mobile Layout */}
+        <div className="lg:hidden space-y-4">
+          <div>
+            <h1 className="text-xl font-bold text-slate-900">
+              Doanh thu của tôi
+            </h1>
+            <p className="text-sm text-slate-600">
+              Theo dõi doanh thu và hoa hồng từ các khóa học
+            </p>
+          </div>
+          <div className="flex flex-col gap-3">
+            <Button
+              variant="outline"
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="flex items-center justify-center gap-2 w-full"
+            >
+              {/* <RefreshCw
+                className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
+              /> */}
+              Làm mới
+            </Button>
+            <Button
+              variant="outline"
+              className="flex items-center justify-center gap-2 w-full"
+            >
+              {/* <Download className="h-4 w-4" /> */}
+              Xuất báo cáo
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            className="flex items-center gap-2"
-          >
-            {/* <RefreshCw
-              className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
-            /> */}
-            Làm mới
-          </Button>
-          <Button variant="outline" className="flex items-center gap-2">
-            {/* <Download className="h-4 w-4" /> */}
-            Xuất báo cáo
-          </Button>
+
+        {/* Desktop Layout */}
+        <div className="hidden lg:flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">
+              Doanh thu của tôi
+            </h1>
+            <p className="text-slate-600">
+              Theo dõi doanh thu và hoa hồng từ các khóa học
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="flex items-center gap-2"
+            >
+              {/* <RefreshCw
+                className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
+              /> */}
+              Làm mới
+            </Button>
+            <Button variant="outline" className="flex items-center gap-2">
+              {/* <Download className="h-4 w-4" /> */}
+              Xuất báo cáo
+            </Button>
+          </div>
         </div>
       </div>
 

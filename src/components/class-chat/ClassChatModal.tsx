@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 
 import { toast } from "@/hooks/use-toast";
+import { useSocket } from "@/hooks/useSocket";
 import {
   Edit2,
   FileText,
@@ -23,12 +24,8 @@ import { useSession } from "next-auth/react";
 import {
   ChatMessage,
   ChatRoomInfo,
-  deleteMessage,
-  editMessage,
   getChatRoomInfo,
   getMessages,
-  sendMessage as sendChatMessage,
-  sendImageMessage,
 } from "@/actions/classChatActions";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -67,6 +64,7 @@ const ClassChatModal: React.FC<ClassChatModalProps> = ({
   onClose,
 }) => {
   const { data: session } = useSession();
+  const { socket, isConnected } = useSocket();
   const [chatRoom, setChatRoom] = useState<ChatRoomInfo | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState("");
@@ -82,10 +80,96 @@ const ClassChatModal: React.FC<ClassChatModalProps> = ({
     null,
   );
   const [editContent, setEditContent] = useState("");
+  const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Socket connection and room management
+  useEffect(() => {
+    if (!socket || !isConnected || !isOpen || !classId) return;
+
+    // Join the class chat room
+    socket.emit("join-class", { classId });
+
+    // Socket event listeners
+    const handleNewMessage = (message: ChatMessage) => {
+      setMessages((prev) => [...prev, message]);
+      scrollToBottom();
+    };
+
+    const handleMessageEdited = (updatedMessage: ChatMessage) => {
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === updatedMessage.id ? updatedMessage : msg,
+        ),
+      );
+    };
+
+    const handleMessageDeleted = ({ messageId }: { messageId: string }) => {
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === messageId
+            ? { ...msg, isDeleted: true, content: "Tin nhắn đã bị xóa" }
+            : msg,
+        ),
+      );
+    };
+
+    const handleUserTyping = ({
+      userId,
+      isTyping,
+    }: {
+      userId: string;
+      isTyping: boolean;
+    }) => {
+      if (userId === session?.user?.id) return; // Ignore own typing
+
+      setTypingUsers((prev) => {
+        const newSet = new Set(prev);
+        if (isTyping) {
+          newSet.add(userId);
+        } else {
+          newSet.delete(userId);
+        }
+        return newSet;
+      });
+    };
+
+    const handleSocketError = (error: { message: string }) => {
+      toast({
+        title: "Lỗi kết nối",
+        description: error.message,
+        variant: "destructive",
+      });
+    };
+
+    // Register event listeners
+    socket.on("new-message", handleNewMessage);
+    socket.on("message-edited", handleMessageEdited);
+    socket.on("message-deleted", handleMessageDeleted);
+    socket.on("user-typing", handleUserTyping);
+    socket.on("error", handleSocketError);
+
+    // Cleanup function
+    return () => {
+      socket.off("new-message", handleNewMessage);
+      socket.off("message-edited", handleMessageEdited);
+      socket.off("message-deleted", handleMessageDeleted);
+      socket.off("user-typing", handleUserTyping);
+      socket.off("error", handleSocketError);
+
+      // Leave the room when component unmounts or classId changes
+      socket.emit("leave-class", { classId });
+
+      // Clear typing timeout
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, [socket, isConnected, isOpen, classId, session?.user?.id]);
 
   // Load initial data
   useEffect(() => {
@@ -148,15 +232,24 @@ const ClassChatModal: React.FC<ClassChatModalProps> = ({
   };
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || sending) return;
+    if (!newMessage.trim() || sending || !socket) return;
 
     try {
       setSending(true);
-      const message = await sendChatMessage(classId, newMessage, replyTo?.id);
 
-      setMessages((prev) => [...prev, message]);
+      // Send message via socket
+      socket.emit("send-message", {
+        classId,
+        content: newMessage,
+        messageType: "TEXT",
+        replyToId: replyTo?.id,
+      });
+
       setNewMessage("");
       setReplyTo(null);
+
+      // Stop typing indicator
+      socket.emit("typing-stop", { classId });
     } catch (error: any) {
       toast({
         title: "Lỗi",
@@ -169,13 +262,23 @@ const ClassChatModal: React.FC<ClassChatModalProps> = ({
   };
 
   const handleFileUpload = async (file: File) => {
-    if (!file || sending) return;
+    if (!file || sending || !socket) return;
 
-    // Check file size (5MB limit)
-    if (file.size > 5 * 1024 * 1024) {
+    // Check file size (3MB limit for images)
+    if (file.size > 3 * 1024 * 1024) {
       toast({
         title: "Lỗi",
-        description: "File không được vượt quá 5MB",
+        description: "Hình ảnh không được vượt quá 3MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Only support images
+    if (!file.type.startsWith("image/")) {
+      toast({
+        title: "Lỗi",
+        description: "Chỉ hỗ trợ upload hình ảnh (JPG, PNG, GIF)",
         variant: "destructive",
       });
       return;
@@ -184,69 +287,71 @@ const ClassChatModal: React.FC<ClassChatModalProps> = ({
     try {
       setSending(true);
 
-      // For now, only support images - can be extended later
-      if (file.type.startsWith("image/")) {
-        const message = await sendImageMessage(
-          classId,
-          file,
-          undefined, // content
-          replyTo?.id,
-        );
+      // Convert file to base64
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        const base64Data = e.target?.result as string;
 
-        setMessages((prev) => [...prev, message]);
+        // Send image message via socket
+        socket.emit("send-message", {
+          classId,
+          content: "", // Optional caption
+          messageType: "IMAGE",
+          imageData: base64Data,
+          replyToId: replyTo?.id,
+        });
+
         setReplyTo(null);
-      } else {
+        setSending(false);
+      };
+
+      reader.onerror = function () {
         toast({
           title: "Lỗi",
-          description: "Hiện tại chỉ hỗ trợ file ảnh",
+          description: "Không thể đọc file hình ảnh",
           variant: "destructive",
         });
-      }
+        setSending(false);
+      };
+
+      reader.readAsDataURL(file);
     } catch (error: any) {
       toast({
         title: "Lỗi",
-        description: error.message || "Không thể gửi file",
+        description: error.message || "Không thể gửi hình ảnh",
         variant: "destructive",
       });
-    } finally {
       setSending(false);
     }
   };
 
   const handleEditMessage = async () => {
-    if (!editingMessage || !editContent.trim()) return;
+    if (!editingMessage || !editContent.trim() || !socket) return;
 
     try {
-      const updatedMessage = await editMessage(editingMessage.id, editContent);
-
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === updatedMessage.id ? updatedMessage : msg,
-        ),
-      );
+      // Send edit request via socket
+      socket.emit("edit-message", {
+        messageId: editingMessage.id,
+        content: editContent,
+      });
 
       setEditingMessage(null);
       setEditContent("");
     } catch (error: any) {
       toast({
         title: "Lỗi",
-        description: error.message || "Không thể chỉnh sửa tin nhắn",
+        description: error.message || "Không thể sửa tin nhắn",
         variant: "destructive",
       });
     }
   };
 
   const handleDeleteMessage = async (messageId: string) => {
-    try {
-      await deleteMessage(messageId);
+    if (!socket) return;
 
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === messageId
-            ? { ...msg, isDeleted: true, content: "Tin nhắn đã bị xóa" }
-            : msg,
-        ),
-      );
+    try {
+      // Send delete request via socket
+      socket.emit("delete-message", { messageId });
     } catch (error: any) {
       toast({
         title: "Lỗi",
@@ -254,6 +359,23 @@ const ClassChatModal: React.FC<ClassChatModalProps> = ({
         variant: "destructive",
       });
     }
+  };
+
+  const handleTyping = () => {
+    if (!socket) return;
+
+    // Send typing start
+    socket.emit("typing-start", { classId });
+
+    // Clear existing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
+    // Set timeout to stop typing after 3 seconds
+    typingTimeoutRef.current = setTimeout(() => {
+      socket.emit("typing-stop", { classId });
+    }, 3000);
   };
 
   const scrollToBottom = () => {
@@ -488,12 +610,26 @@ const ClassChatModal: React.FC<ClassChatModalProps> = ({
                 <MessageCircle className="w-5 h-5 text-blue-600" />
               </div>
               <div>
-                <CardTitle className="text-lg">
+                <CardTitle className="text-lg flex items-center gap-2">
                   {chatRoom?.name || `Chat ${className}`}
+                  {isConnected ? (
+                    <span
+                      className="w-2 h-2 bg-green-500 rounded-full"
+                      title="Đã kết nối"
+                    ></span>
+                  ) : (
+                    <span
+                      className="w-2 h-2 bg-red-500 rounded-full"
+                      title="Mất kết nối"
+                    ></span>
+                  )}
                 </CardTitle>
                 <div className="text-sm text-gray-500">
                   {chatRoom?.totalMembers || 0} thành viên •{" "}
                   {chatRoom?.totalMessages || 0} tin nhắn
+                  {!isConnected && (
+                    <span className="text-red-500 ml-2">• Mất kết nối</span>
+                  )}
                 </div>
               </div>
             </div>
@@ -607,6 +743,28 @@ const ClassChatModal: React.FC<ClassChatModalProps> = ({
                 {/* Messages */}
                 <div className="space-y-2">{messages.map(renderMessage)}</div>
 
+                {/* Typing indicator */}
+                {typingUsers.size > 0 && (
+                  <div className="flex items-center space-x-2 mb-4 px-4">
+                    <div className="flex space-x-1">
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                      <div
+                        className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                        style={{ animationDelay: "0.1s" }}
+                      ></div>
+                      <div
+                        className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                        style={{ animationDelay: "0.2s" }}
+                      ></div>
+                    </div>
+                    <span className="text-sm text-gray-500">
+                      {typingUsers.size === 1
+                        ? "Ai đó đang nhập..."
+                        : `${typingUsers.size} người đang nhập...`}
+                    </span>
+                  </div>
+                )}
+
                 <div ref={messagesEndRef} />
               </ScrollArea>
 
@@ -644,7 +802,7 @@ const ClassChatModal: React.FC<ClassChatModalProps> = ({
                     variant="outline"
                     size="sm"
                     onClick={() => fileInputRef.current?.click()}
-                    disabled={sending}
+                    disabled={sending || !isConnected}
                     className="shrink-0"
                   >
                     <Paperclip className="w-4 h-4" />
@@ -654,15 +812,20 @@ const ClassChatModal: React.FC<ClassChatModalProps> = ({
                   <div className="flex-1">
                     <Textarea
                       value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
-                      placeholder="Nhập tin nhắn..."
+                      onChange={(e) => {
+                        setNewMessage(e.target.value);
+                        handleTyping();
+                      }}
+                      placeholder={
+                        isConnected ? "Nhập tin nhắn..." : "Đang kết nối..."
+                      }
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && !e.shiftKey) {
                           e.preventDefault();
                           handleSendMessage();
                         }
                       }}
-                      disabled={sending}
+                      disabled={sending || !isConnected}
                       className="min-h-[40px] max-h-[120px] resize-none"
                       rows={1}
                     />
@@ -671,7 +834,7 @@ const ClassChatModal: React.FC<ClassChatModalProps> = ({
                   {/* Send button */}
                   <Button
                     onClick={handleSendMessage}
-                    disabled={!newMessage.trim() || sending}
+                    disabled={!newMessage.trim() || sending || !isConnected}
                     className="shrink-0"
                   >
                     {sending ? (
@@ -681,6 +844,11 @@ const ClassChatModal: React.FC<ClassChatModalProps> = ({
                     )}
                   </Button>
                 </div>
+                {!isConnected && (
+                  <p className="text-xs text-red-500 mt-1">
+                    Mất kết nối - đang thử kết nối lại...
+                  </p>
+                )}
               </div>
             </>
           )}

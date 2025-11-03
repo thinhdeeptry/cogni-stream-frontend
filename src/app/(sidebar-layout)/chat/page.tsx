@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
 
+import { useSocket } from "@/hooks/useSocket";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -18,7 +19,6 @@ import {
   type ChatMessage,
   getChatRoomInfo,
   getMessages,
-  sendMessage,
 } from "@/actions/classChatActions";
 import { getEnrollmentsByUser } from "@/actions/enrollmentActions";
 
@@ -60,6 +60,49 @@ export default function ChatMainPage() {
   const router = useRouter();
   const { data: session } = useSession();
   const { user } = useUserStore();
+  const { socket, isConnected } = useSocket();
+
+  // Socket event handlers
+  useEffect(() => {
+    if (!socket || !isConnected || !selectedClass) return;
+
+    // Join the selected class chat room
+    socket.emit("join-class", { classId: selectedClass.id });
+
+    // Listen for new messages
+    const handleNewMessage = (message: ChatMessage) => {
+      setMessages((prev) => [...prev, message]);
+    };
+
+    const handleMessageEdited = (updatedMessage: ChatMessage) => {
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === updatedMessage.id ? updatedMessage : msg,
+        ),
+      );
+    };
+
+    const handleMessageDeleted = ({ messageId }: { messageId: string }) => {
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === messageId
+            ? { ...msg, isDeleted: true, content: "Tin nhắn đã bị xóa" }
+            : msg,
+        ),
+      );
+    };
+
+    socket.on("new-message", handleNewMessage);
+    socket.on("message-edited", handleMessageEdited);
+    socket.on("message-deleted", handleMessageDeleted);
+
+    return () => {
+      socket.off("new-message", handleNewMessage);
+      socket.off("message-edited", handleMessageEdited);
+      socket.off("message-deleted", handleMessageDeleted);
+      socket.emit("leave-class", { classId: selectedClass.id });
+    };
+  }, [socket, isConnected, selectedClass]);
 
   // Fetch user's enrolled classes
   useEffect(() => {
@@ -142,12 +185,18 @@ export default function ChatMainPage() {
 
   // Send message
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !selectedClass || sending) return;
+    if (!newMessage.trim() || !selectedClass || sending || !socket) return;
 
     try {
       setSending(true);
-      const message = await sendMessage(selectedClass.id, newMessage);
-      setMessages((prev) => [...prev, message]);
+
+      // Send message via socket
+      socket.emit("send-message", {
+        classId: selectedClass.id,
+        content: newMessage,
+        messageType: "TEXT",
+      });
+
       setNewMessage("");
     } catch (error) {
       console.error("Error sending message:", error);
@@ -331,11 +380,27 @@ export default function ChatMainPage() {
                     {selectedClass.name.charAt(0)}
                   </AvatarFallback>
                 </Avatar>
-                <div>
-                  <h2 className="font-semibold">{selectedClass.name}</h2>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <h2 className="font-semibold">{selectedClass.name}</h2>
+                    {isConnected ? (
+                      <span
+                        className="w-2 h-2 bg-green-500 rounded-full"
+                        title="Đã kết nối"
+                      ></span>
+                    ) : (
+                      <span
+                        className="w-2 h-2 bg-red-500 rounded-full"
+                        title="Mất kết nối"
+                      ></span>
+                    )}
+                  </div>
                   <p className="text-sm text-gray-600">
                     {selectedClass.courseName} • {selectedClass.totalMembers}{" "}
                     thành viên
+                    {!isConnected && (
+                      <span className="text-red-500 ml-2">• Mất kết nối</span>
+                    )}
                   </p>
                 </div>
               </div>
@@ -419,7 +484,9 @@ export default function ChatMainPage() {
             <div className="p-4 border-t bg-white">
               <div className="flex items-center space-x-2">
                 <Input
-                  placeholder="Nhập tin nhắn..."
+                  placeholder={
+                    isConnected ? "Nhập tin nhắn..." : "Đang kết nối..."
+                  }
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
                   onKeyDown={(e) => {
@@ -428,17 +495,22 @@ export default function ChatMainPage() {
                       handleSendMessage();
                     }
                   }}
-                  disabled={sending}
+                  disabled={sending || !isConnected}
                   className="flex-1"
                 />
                 <Button
                   onClick={handleSendMessage}
-                  disabled={!newMessage.trim() || sending}
+                  disabled={!newMessage.trim() || sending || !isConnected}
                   size="sm"
                 >
                   <Send className="h-4 w-4" />
                 </Button>
               </div>
+              {!isConnected && (
+                <p className="text-xs text-red-500 mt-1">
+                  Mất kết nối - đang thử kết nối lại...
+                </p>
+              )}
             </div>
           </>
         ) : (

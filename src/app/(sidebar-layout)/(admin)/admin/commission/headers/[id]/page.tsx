@@ -177,15 +177,15 @@ const DetailModal: React.FC<DetailModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[95vh] overflow-y-auto mx-4">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
+          <DialogTitle className="flex items-center gap-2 text-sm sm:text-base">
+            <FileText className="h-4 w-4 sm:h-5 sm:w-5" />
             {mode === "create"
               ? "Tạo Chi Tiết Hoa Hồng Mới"
               : `Chỉnh sửa Chi Tiết Hoa Hồng`}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs sm:text-sm">
             {mode === "create"
               ? "Tạo chi tiết hoa hồng cụ thể cho khóa học, danh mục hoặc toàn hệ thống"
               : "Cập nhật thông tin chi tiết hoa hồng"}
@@ -208,21 +208,14 @@ const DetailModal: React.FC<DetailModalProps> = ({
               <SelectContent>
                 <SelectItem value="general">
                   <div className="flex items-center gap-2">
-                    <Target className="h-4 w-4" />
                     Tổng quát (Toàn hệ thống)
                   </div>
                 </SelectItem>
                 <SelectItem value="course">
-                  <div className="flex items-center gap-2">
-                    <BookOpen className="h-4 w-4" />
-                    Khóa học cụ thể
-                  </div>
+                  <div className="flex items-center gap-2">Khóa học cụ thể</div>
                 </SelectItem>
                 <SelectItem value="category">
-                  <div className="flex items-center gap-2">
-                    <Layers className="h-4 w-4" />
-                    Danh mục cụ thể
-                  </div>
+                  <div className="flex items-center gap-2">Danh mục cụ thể</div>
                 </SelectItem>
               </SelectContent>
             </Select>
@@ -314,17 +307,17 @@ const DetailModal: React.FC<DetailModalProps> = ({
           </div>
 
           {/* Rate Preview */}
-          <div className="p-4 bg-slate-50 rounded-lg">
+          <div className="p-3 sm:p-4 bg-slate-50 rounded-lg">
             <div className="text-sm font-medium mb-2">Xem trước phân chia:</div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-2 sm:gap-4">
               <div className="p-2 bg-blue-100 rounded text-center">
-                <div className="text-blue-800 font-bold">
+                <div className="text-blue-800 font-bold text-sm sm:text-base">
                   {formData.platformRate}%
                 </div>
                 <div className="text-blue-600 text-xs">Nền tảng</div>
               </div>
               <div className="p-2 bg-green-100 rounded text-center">
-                <div className="text-green-800 font-bold">
+                <div className="text-green-800 font-bold text-sm sm:text-base">
                   {instructorRate}%
                 </div>
                 <div className="text-green-600 text-xs">Giảng viên</div>
@@ -373,8 +366,13 @@ const DetailModal: React.FC<DetailModalProps> = ({
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
+        <DialogFooter className="flex-col-reverse sm:flex-row gap-2 sm:gap-0">
+          <Button
+            variant="outline"
+            onClick={onClose}
+            disabled={isSubmitting}
+            className="w-full sm:w-auto"
+          >
             Hủy
           </Button>
           <Button
@@ -384,7 +382,7 @@ const DetailModal: React.FC<DetailModalProps> = ({
               formData.platformRate <= 0 ||
               formData.platformRate >= 100
             }
-            className="bg-green-500 hover:bg-green-600 text-white"
+            className="bg-green-500 hover:bg-green-600 text-white w-full sm:w-auto"
           >
             {isSubmitting
               ? "Đang xử lý..."
@@ -408,19 +406,21 @@ const DetailDetailModal: React.FC<{
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[95vh] overflow-y-auto mx-4">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
+          <DialogTitle className="flex items-center gap-2 text-sm sm:text-base">
+            <FileText className="h-4 w-4 sm:h-5 sm:w-5" />
             Chi Tiết Hoa Hồng
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <h4 className="font-semibold mb-2">Thông tin cơ bản</h4>
-              <div className="space-y-1 text-sm">
+              <h4 className="font-semibold mb-2 text-sm sm:text-base">
+                Thông tin cơ bản
+              </h4>
+              <div className="space-y-1 text-xs sm:text-sm">
                 <div>
                   <strong>Phạm vi:</strong>
                   {detail.course ? (
@@ -458,7 +458,9 @@ const DetailDetailModal: React.FC<{
               </div>
             </div>
             <div>
-              <h4 className="font-semibold mb-2">Tỷ lệ hoa hồng</h4>
+              <h4 className="font-semibold mb-2 text-sm sm:text-base">
+                Tỷ lệ hoa hồng
+              </h4>
               <div className="space-y-2">
                 <div className="flex items-center justify-between p-2 bg-blue-50 rounded">
                   <span className="text-sm text-blue-700">Platform</span>
@@ -484,20 +486,24 @@ const DetailDetailModal: React.FC<{
 
           {/* Visual Rate Breakdown */}
           <div>
-            <h4 className="font-semibold mb-2">Phân chia hoa hồng</h4>
+            <h4 className="font-semibold mb-2 text-sm sm:text-base">
+              Phân chia hoa hồng
+            </h4>
             <div className="space-y-2">
-              <div className="flex h-8 rounded overflow-hidden border">
+              <div className="flex h-6 sm:h-8 rounded overflow-hidden border">
                 <div
-                  className="bg-blue-500 flex items-center justify-center text-white text-sm font-medium"
+                  className="bg-blue-500 flex items-center justify-center text-white text-xs sm:text-sm font-medium"
                   style={{ width: `${detail.platformRate}%` }}
                 >
-                  Platform {detail.platformRate}%
+                  <span className="hidden sm:inline">Platform</span>{" "}
+                  {detail.platformRate}%
                 </div>
                 <div
-                  className="bg-green-500 flex items-center justify-center text-white text-sm font-medium"
+                  className="bg-green-500 flex items-center justify-center text-white text-xs sm:text-sm font-medium"
                   style={{ width: `${detail.instructorRate}%` }}
                 >
-                  Giảng viên {detail.instructorRate}%
+                  <span className="hidden sm:inline">Giảng viên</span>{" "}
+                  {detail.instructorRate}%
                 </div>
               </div>
               <div className="text-xs text-slate-500 text-center">
@@ -507,8 +513,12 @@ const DetailDetailModal: React.FC<{
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
+        <DialogFooter className="flex-col-reverse sm:flex-row gap-2 sm:gap-0">
+          <Button
+            variant="outline"
+            onClick={onClose}
+            className="w-full sm:w-auto"
+          >
             Đóng
           </Button>
         </DialogFooter>
@@ -540,13 +550,13 @@ const DeleteConfirmModal: React.FC<{
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent>
+      <DialogContent className="mx-4 max-h-[95vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-red-600">
-            <Trash2 className="h-5 w-5" />
+          <DialogTitle className="flex items-center gap-2 text-red-600 text-sm sm:text-base">
+            <Trash2 className="h-4 w-4 sm:h-5 sm:w-5" />
             Xóa Chi Tiết Hoa Hồng
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs sm:text-sm">
             Bạn có chắc chắn muốn xóa chi tiết hoa hồng này?
           </DialogDescription>
         </DialogHeader>
@@ -570,14 +580,19 @@ const DeleteConfirmModal: React.FC<{
           </div>
         )}
 
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={isDeleting}>
+        <DialogFooter className="flex-col-reverse sm:flex-row gap-2 sm:gap-0">
+          <Button
+            variant="outline"
+            onClick={onClose}
+            disabled={isDeleting}
+            className="w-full sm:w-auto"
+          >
             Hủy
           </Button>
           <Button
             onClick={handleDelete}
             disabled={isDeleting}
-            className="bg-red-500 hover:bg-red-600 text-white"
+            className="bg-red-500 hover:bg-red-600 text-white w-full sm:w-auto"
           >
             {isDeleting ? "Đang xóa..." : "Xóa Chi Tiết"}
           </Button>
@@ -721,10 +736,12 @@ export default function HeaderDetailsPage() {
 
   if (isLoadingDetails || isLoadingHeaders) {
     return (
-      <div className="flex justify-center items-center min-h-[400px]">
+      <div className="flex justify-center items-center min-h-[400px] p-4">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto"></div>
-          <p className="mt-4 text-slate-500">Đang tải chi tiết...</p>
+          <div className="animate-spin rounded-full h-8 w-8 sm:h-12 sm:w-12 border-b-2 border-orange-500 mx-auto"></div>
+          <p className="mt-4 text-slate-500 text-sm sm:text-base">
+            Đang tải chi tiết...
+          </p>
         </div>
       </div>
     );
@@ -732,16 +749,16 @@ export default function HeaderDetailsPage() {
 
   if (!currentHeader) {
     return (
-      <div className="flex justify-center items-center min-h-[400px]">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold text-slate-900 mb-2">
+      <div className="flex justify-center items-center min-h-[400px] p-4">
+        <div className="text-center max-w-md mx-auto">
+          <h2 className="text-lg sm:text-xl font-semibold text-slate-900 mb-2">
             Không tìm thấy Header
           </h2>
-          <p className="text-slate-500 mb-4">
+          <p className="text-sm sm:text-base text-slate-500 mb-4">
             Header với ID "{headerId}" không tồn tại.
           </p>
           <Link href="/admin/commission/headers">
-            <Button className="bg-blue-500 hover:bg-blue-600 text-white">
+            <Button className="bg-blue-500 hover:bg-blue-600 text-white w-full sm:w-auto">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Quay lại danh sách Headers
             </Button>
@@ -752,20 +769,20 @@ export default function HeaderDetailsPage() {
   }
 
   return (
-    <div className="w-full space-y-6 p-6 bg-slate-50">
+    <div className="w-full space-y-4 sm:space-y-6 p-4 sm:p-6 bg-slate-50">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div className="flex items-center gap-3">
           <Link href="/admin/commission/headers">
-            <Button variant="outline" size="icon">
+            <Button variant="outline" size="icon" className="shrink-0">
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">
-              📄 Chi Tiết: {currentHeader.name}
+          <div className="min-w-0 flex-1">
+            <h1 className="text-lg sm:text-2xl font-bold text-slate-900 truncate">
+              Chi Tiết: {currentHeader.name}
             </h1>
-            <div className="flex items-center gap-3 text-sm text-slate-500">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 text-xs sm:text-sm text-slate-500">
               <span>{detailsCount} chi tiết hoa hồng</span>
               <Badge
                 className={
@@ -783,35 +800,38 @@ export default function HeaderDetailsPage() {
         </div>
 
         <Button
-          className="bg-green-500 hover:bg-green-600 text-white"
+          className="bg-green-500 hover:bg-green-600 text-white w-full sm:w-auto"
           onClick={() => setIsCreateModalOpen(true)}
           disabled={currentHeader.status !== "ACTIVE"}
         >
           <Plus className="h-4 w-4 mr-2" />
-          Tạo Chi Tiết Mới
+          <span className="hidden sm:inline">Tạo Chi Tiết Mới</span>
+          <span className="sm:hidden">Tạo Mới</span>
         </Button>
       </div>
 
       {/* Header Info Card */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Layers className="h-5 w-5 text-blue-600" />
+          <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
+            {/* <Layers className="h-5 w-5 text-blue-600" /> */}
             Thông tin Cấu hình
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div>
               {currentHeader.description && (
                 <div className="mb-3">
-                  <h4 className="font-medium text-slate-700 mb-1">Mô tả:</h4>
-                  <p className="text-sm text-slate-600">
+                  <h4 className="font-medium text-slate-700 mb-1 text-sm">
+                    Mô tả:
+                  </h4>
+                  <p className="text-xs sm:text-sm text-slate-600">
                     {currentHeader.description}
                   </p>
                 </div>
               )}
-              <div className="space-y-1 text-sm">
+              <div className="space-y-1 text-xs sm:text-sm">
                 <p>
                   <strong>Tạo:</strong>{" "}
                   {new Date(currentHeader.createdAt).toLocaleDateString(
@@ -827,7 +847,7 @@ export default function HeaderDetailsPage() {
               </div>
             </div>
             <div>
-              <div className="space-y-1 text-sm">
+              <div className="space-y-1 text-xs sm:text-sm">
                 {currentHeader.startDate && (
                   <p>
                     <strong>Bắt đầu:</strong>{" "}
@@ -856,182 +876,341 @@ export default function HeaderDetailsPage() {
       {/* Details Table */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-green-600" />
+          <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
             Danh sách Chi Tiết Hoa Hồng
           </CardTitle>
-          <CardDescription>
+          <CardDescription className="text-xs sm:text-sm">
             Các chi tiết hoa hồng được áp dụng cho cấu hình này
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="rounded-lg border border-slate-200 bg-white">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-slate-50">
-                  <TableHead>Phạm vi áp dụng</TableHead>
-                  <TableHead>Tỷ lệ hoa hồng</TableHead>
-                  <TableHead>Độ ưu tiên</TableHead>
-                  <TableHead>Trạng thái</TableHead>
-                  <TableHead>Cập nhật</TableHead>
-                  <TableHead className="text-right">Thao tác</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {detailsCount === 0 ? (
-                  <TableRow>
-                    <TableCell
-                      colSpan={6}
-                      className="text-center py-8 text-slate-500"
-                    >
-                      🎯 Chưa có chi tiết hoa hồng nào cho cấu hình này
-                    </TableCell>
+          {/* Desktop Table View */}
+          <div className="hidden lg:block">
+            <div className="rounded-lg border border-slate-200 bg-white">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-slate-50">
+                    <TableHead>Phạm vi áp dụng</TableHead>
+                    <TableHead>Tỷ lệ hoa hồng</TableHead>
+                    <TableHead>Độ ưu tiên</TableHead>
+                    <TableHead>Trạng thái</TableHead>
+                    <TableHead>Cập nhật</TableHead>
+                    <TableHead className="text-right">Thao tác</TableHead>
                   </TableRow>
-                ) : (
-                  details.map((detail: CommissionDetail) => (
-                    <TableRow key={detail.id} className="hover:bg-slate-50">
-                      <TableCell>
-                        <div className="space-y-1">
-                          {detail.course ? (
-                            <Badge className="bg-blue-100 text-blue-800">
-                              <BookOpen className="h-3 w-3 mr-1" />
-                              {detail.course.title}
-                            </Badge>
-                          ) : detail.category ? (
-                            <Badge className="bg-purple-100 text-purple-800">
-                              <Layers className="h-3 w-3 mr-1" />
-                              {detail.category.name}
-                            </Badge>
-                          ) : (
-                            <Badge className="bg-gray-100 text-gray-800">
-                              <Target className="h-3 w-3 mr-1" />
-                              Tổng quát
-                            </Badge>
-                          )}
-                        </div>
-                      </TableCell>
-
-                      <TableCell>
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2 text-xs">
-                            <span className="text-blue-600">
-                              Platform: {detail.platformRate}%
-                            </span>
-                            <span className="text-slate-400">|</span>
-                            <span className="text-green-600">
-                              GV: {detail.instructorRate}%
-                            </span>
-                          </div>
-                          <div className="flex h-1.5 rounded overflow-hidden border w-24">
-                            <div
-                              className="bg-blue-500"
-                              style={{ width: `${detail.platformRate}%` }}
-                            ></div>
-                            <div
-                              className="bg-green-500"
-                              style={{ width: `${detail.instructorRate}%` }}
-                            ></div>
-                          </div>
-                        </div>
-                      </TableCell>
-
-                      <TableCell>
-                        <Badge variant="outline">Mức {detail.priority}</Badge>
-                      </TableCell>
-
-                      <TableCell>
-                        <Badge
-                          className={
-                            detail.isActive
-                              ? "bg-green-100 text-green-800"
-                              : "bg-yellow-100 text-yellow-800"
-                          }
-                        >
-                          {detail.isActive ? (
-                            <>
-                              <CheckCircle className="h-3 w-3 mr-1" />
-                              Áp dụng
-                            </>
-                          ) : (
-                            <>
-                              <X className="h-3 w-3 mr-1" />
-                              Tạm dừng
-                            </>
-                          )}
-                        </Badge>
-                      </TableCell>
-
-                      <TableCell>
-                        <div className="text-sm text-slate-600">
-                          {getTimeAgo(detail.updatedAt.toString())}
-                        </div>
-                      </TableCell>
-
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedDetail(detail);
-                              setIsDetailModalOpen(true);
-                            }}
-                            className="text-blue-600 hover:bg-blue-50"
-                          >
-                            <Eye className="h-3 w-3" />
-                          </Button>
-
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedDetail(detail);
-                              setIsEditModalOpen(true);
-                            }}
-                            className="text-orange-600 hover:bg-orange-50"
-                          >
-                            <Edit className="h-3 w-3" />
-                          </Button>
-
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleToggleActive(detail)}
-                            disabled={isProcessing(detail.id)}
-                            className={
-                              detail.isActive
-                                ? "text-yellow-600 hover:bg-yellow-50"
-                                : "text-green-600 hover:bg-green-50"
-                            }
-                          >
-                            {isProcessing(detail.id) ? (
-                              <div className="animate-spin rounded-full h-3 w-3 border-b border-current"></div>
-                            ) : detail.isActive ? (
-                              <X className="h-3 w-3" />
-                            ) : (
-                              <CheckCircle className="h-3 w-3" />
-                            )}
-                          </Button>
-
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedDetail(detail);
-                              setIsDeleteModalOpen(true);
-                            }}
-                            className="text-red-600 hover:bg-red-50"
-                            disabled={isProcessing(detail.id)}
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
+                </TableHeader>
+                <TableBody>
+                  {detailsCount === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={6}
+                        className="text-center py-8 text-slate-500"
+                      >
+                        Chưa có chi tiết hoa hồng nào cho cấu hình này
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  ) : (
+                    details.map((detail: CommissionDetail) => (
+                      <TableRow key={detail.id} className="hover:bg-slate-50">
+                        <TableCell>
+                          <div className="space-y-1">
+                            {detail.course ? (
+                              <Badge className="bg-blue-100 text-blue-800">
+                                <BookOpen className="h-3 w-3 mr-1" />
+                                {detail.course.title}
+                              </Badge>
+                            ) : detail.category ? (
+                              <Badge className="bg-purple-100 text-purple-800">
+                                <Layers className="h-3 w-3 mr-1" />
+                                {detail.category.name}
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-gray-100 text-gray-800">
+                                <Target className="h-3 w-3 mr-1" />
+                                Tổng quát
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+
+                        <TableCell>
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2 text-xs">
+                              <span className="text-blue-600">
+                                Platform: {detail.platformRate}%
+                              </span>
+                              <span className="text-slate-400">|</span>
+                              <span className="text-green-600">
+                                GV: {detail.instructorRate}%
+                              </span>
+                            </div>
+                            <div className="flex h-1.5 rounded overflow-hidden border w-24">
+                              <div
+                                className="bg-blue-500"
+                                style={{ width: `${detail.platformRate}%` }}
+                              ></div>
+                              <div
+                                className="bg-green-500"
+                                style={{ width: `${detail.instructorRate}%` }}
+                              ></div>
+                            </div>
+                          </div>
+                        </TableCell>
+
+                        <TableCell>
+                          <Badge variant="outline">Mức {detail.priority}</Badge>
+                        </TableCell>
+
+                        <TableCell>
+                          <Badge
+                            className={
+                              detail.isActive
+                                ? "bg-green-100 text-green-800"
+                                : "bg-yellow-100 text-yellow-800"
+                            }
+                          >
+                            {detail.isActive ? (
+                              <>
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                Áp dụng
+                              </>
+                            ) : (
+                              <>
+                                <X className="h-3 w-3 mr-1" />
+                                Tạm dừng
+                              </>
+                            )}
+                          </Badge>
+                        </TableCell>
+
+                        <TableCell>
+                          <div className="text-sm text-slate-600">
+                            {getTimeAgo(detail.updatedAt.toString())}
+                          </div>
+                        </TableCell>
+
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedDetail(detail);
+                                setIsDetailModalOpen(true);
+                              }}
+                              className="text-blue-600 hover:bg-blue-50"
+                            >
+                              <Eye className="h-3 w-3" />
+                            </Button>
+
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedDetail(detail);
+                                setIsEditModalOpen(true);
+                              }}
+                              className="text-orange-600 hover:bg-orange-50"
+                            >
+                              <Edit className="h-3 w-3" />
+                            </Button>
+
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleToggleActive(detail)}
+                              disabled={isProcessing(detail.id)}
+                              className={
+                                detail.isActive
+                                  ? "text-yellow-600 hover:bg-yellow-50"
+                                  : "text-green-600 hover:bg-green-50"
+                              }
+                            >
+                              {isProcessing(detail.id) ? (
+                                <div className="animate-spin rounded-full h-3 w-3 border-b border-current"></div>
+                              ) : detail.isActive ? (
+                                <X className="h-3 w-3" />
+                              ) : (
+                                <CheckCircle className="h-3 w-3" />
+                              )}
+                            </Button>
+
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedDetail(detail);
+                                setIsDeleteModalOpen(true);
+                              }}
+                              className="text-red-600 hover:bg-red-50"
+                              disabled={isProcessing(detail.id)}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+
+          {/* Mobile/Tablet Card View */}
+          <div className="lg:hidden">
+            {detailsCount === 0 ? (
+              <div className="text-center py-8 text-slate-500 bg-white rounded-lg border">
+                <div className="text-xs sm:text-sm">
+                  Chưa có chi tiết hoa hồng nào cho cấu hình này
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {details.map((detail: CommissionDetail) => (
+                  <div
+                    key={detail.id}
+                    className="bg-white rounded-lg border border-slate-200 p-4 space-y-3"
+                  >
+                    {/* Phạm vi áp dụng */}
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1">
+                        {detail.course ? (
+                          <Badge className="bg-blue-100 text-blue-800 text-xs">
+                            <BookOpen className="h-3 w-3 mr-1" />
+                            {detail.course.title}
+                          </Badge>
+                        ) : detail.category ? (
+                          <Badge className="bg-purple-100 text-purple-800 text-xs">
+                            <Layers className="h-3 w-3 mr-1" />
+                            {detail.category.name}
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-gray-100 text-gray-800 text-xs">
+                            <Target className="h-3 w-3 mr-1" />
+                            Tổng quát
+                          </Badge>
+                        )}
+                      </div>
+                      <Badge
+                        className={
+                          detail.isActive
+                            ? "bg-green-100 text-green-800"
+                            : "bg-yellow-100 text-yellow-800"
+                        }
+                      >
+                        {detail.isActive ? (
+                          <>
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            <span className="text-xs">Áp dụng</span>
+                          </>
+                        ) : (
+                          <>
+                            <X className="h-3 w-3 mr-1" />
+                            <span className="text-xs">Tạm dừng</span>
+                          </>
+                        )}
+                      </Badge>
+                    </div>
+
+                    {/* Tỷ lệ hoa hồng */}
+                    <div className="space-y-2">
+                      <div className="text-xs font-medium text-slate-600">
+                        Tỷ lệ hoa hồng:
+                      </div>
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="text-blue-600">
+                          Platform: {detail.platformRate}%
+                        </span>
+                        <span className="text-slate-400">|</span>
+                        <span className="text-green-600">
+                          GV: {detail.instructorRate}%
+                        </span>
+                      </div>
+                      <div className="flex h-2 rounded overflow-hidden border">
+                        <div
+                          className="bg-blue-500"
+                          style={{ width: `${detail.platformRate}%` }}
+                        ></div>
+                        <div
+                          className="bg-green-500"
+                          style={{ width: `${detail.instructorRate}%` }}
+                        ></div>
+                      </div>
+                    </div>
+
+                    {/* Độ ưu tiên và thời gian cập nhật */}
+                    <div className="flex items-center justify-between text-xs text-slate-500">
+                      <div className="flex items-center gap-3">
+                        <span>
+                          <strong>Độ ưu tiên:</strong> Mức {detail.priority}
+                        </span>
+                      </div>
+                      <span>{getTimeAgo(detail.updatedAt.toString())}</span>
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="flex justify-end gap-2 pt-2 border-t">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedDetail(detail);
+                          setIsDetailModalOpen(true);
+                        }}
+                        className="text-blue-600 hover:bg-blue-50 px-2"
+                      >
+                        <Eye className="h-3 w-3" />
+                      </Button>
+
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedDetail(detail);
+                          setIsEditModalOpen(true);
+                        }}
+                        className="text-orange-600 hover:bg-orange-50 px-2"
+                      >
+                        <Edit className="h-3 w-3" />
+                      </Button>
+
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleToggleActive(detail)}
+                        disabled={isProcessing(detail.id)}
+                        className={
+                          detail.isActive
+                            ? "text-yellow-600 hover:bg-yellow-50 px-2"
+                            : "text-green-600 hover:bg-green-50 px-2"
+                        }
+                      >
+                        {isProcessing(detail.id) ? (
+                          <div className="animate-spin rounded-full h-3 w-3 border-b border-current"></div>
+                        ) : detail.isActive ? (
+                          <X className="h-3 w-3" />
+                        ) : (
+                          <CheckCircle className="h-3 w-3" />
+                        )}
+                      </Button>
+
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedDetail(detail);
+                          setIsDeleteModalOpen(true);
+                        }}
+                        className="text-red-600 hover:bg-red-50 px-2"
+                        disabled={isProcessing(detail.id)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

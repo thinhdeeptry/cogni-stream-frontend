@@ -390,7 +390,7 @@ export default function LessonDetail() {
   const [lesson, setLesson] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Mặc định đóng trên mobile
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [timestampedTranscript, setTimestampedTranscript] = useState<
     TranscriptItem[]
@@ -548,6 +548,24 @@ export default function LessonDetail() {
     }
   }, [course?.chapters]);
 
+  // Handle window resize for responsive behavior
+  useEffect(() => {
+    const handleResize = () => {
+      // Auto close sidebar on mobile, auto open on desktop
+      if (window.innerWidth < 768) {
+        // Mobile: sidebar should be closed by default
+        setIsSidebarOpen(false);
+      }
+      // On desktop, we don't auto-open to preserve user's choice
+    };
+
+    // Set initial state based on screen size
+    handleResize();
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   // Function to handle chapter expansion toggle
   const toggleChapter = (chapterId: string) => {
     setExpandedChapters((prev) => ({
@@ -684,6 +702,11 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
         // Reset states when lesson changes
         setTimeCompleteNotified(false);
         setForceRender(0);
+
+        // Auto close sidebar on mobile when lesson changes
+        if (window.innerWidth < 768) {
+          setIsSidebarOpen(false);
+        }
 
         // Clear time tracking data when switching lessons
         // BUT only clear if the lesson is not completed
@@ -960,11 +983,11 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
 
   if (isLoading) {
     return (
-      <div className="w-full flex-1 flex flex-col min-h-screen relative px-1">
-        <div className="flex-1 pr-0 md:pr-[350px] transition-all duration-300">
-          <div className="space-y-6 mx-auto">
+      <div className="w-full flex-1 flex flex-col min-h-screen relative px-2 sm:px-4 md:pr-[350px] md:pl-4">
+        <div className="flex-1 transition-all duration-300 w-full max-w-full">
+          <div className="space-y-4 sm:space-y-6 mx-auto w-full max-w-full">
             {/* Loading breadcrumb */}
-            <div className="flex items-center text-sm px-4 pt-4 gap-2">
+            <div className="flex items-center text-sm px-0 pt-4 gap-2">
               <Skeleton className="h-4 w-20" />
               <Skeleton className="h-4 w-4 rounded-full" />
               <Skeleton className="h-4 w-32" />
@@ -974,14 +997,14 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
 
             {/* Loading video placeholder */}
             <Skeleton
-              className="w-full rounded-lg"
+              className="w-full max-w-full rounded-lg"
               style={{ aspectRatio: "16/9" }}
             />
 
             {/* Loading content card */}
-            <div className="prose max-w-none">
-              <Card className="overflow-hidden border-none shadow-md rounded-xl">
-                <CardContent className="p-6">
+            <div className="prose max-w-none w-full">
+              <Card className="overflow-hidden border-none shadow-md rounded-xl w-full">
+                <CardContent className="p-4 sm:p-6">
                   <Skeleton className="h-8 w-48 mb-4" />
                   <div className="flex items-center gap-2 mb-6">
                     <Skeleton className="h-8 w-8 rounded-full" />
@@ -1001,9 +1024,9 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
             </div>
 
             {/* Loading discussion */}
-            <div className="mt-8 pb-16">
-              <Card className="overflow-hidden border-none shadow-md rounded-xl">
-                <CardContent className="p-6">
+            <div className="mt-6 sm:mt-8 pb-16 w-full">
+              <Card className="overflow-hidden border-none shadow-md rounded-xl w-full">
+                <CardContent className="p-4 sm:p-6">
                   <Skeleton className="h-8 w-32 mb-4" />
                   <div className="space-y-4">
                     <Skeleton className="h-20 w-full rounded-lg" />
@@ -1029,7 +1052,7 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
           </div>
 
           <div className="absolute top-1/4 right-4 flex items-center">
-            <Skeleton className="h-6 w-24 mr-2" />
+            <Skeleton className="h-6 w-24 mr-2 hidden sm:block" />
             <Skeleton className="h-8 w-8 rounded-md" />
           </div>
         </div>
@@ -1297,18 +1320,26 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
 
   return (
     <>
-      <div className="w-full flex-1 flex flex-col min-h-screen relative px-1">
+      {/* Mobile Overlay */}
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      <div className="w-full flex-1 flex flex-col min-h-screen relative px-2 sm:px-4 md:pr-[350px] md:pl-4">
         <motion.div
           initial="hidden"
           animate="visible"
           variants={fadeIn}
-          className={`flex-1 ${isSidebarOpen ? "pr-[350px]" : ""} transition-all duration-300`}
+          className="flex-1 transition-all duration-300 w-full max-w-full"
         >
-          <div className="space-y-6 mx-auto ">
+          <div className="space-y-4 sm:space-y-6 mx-auto w-full max-w-full">
             {/* Course Navigation Breadcrumb */}
             <motion.div
               variants={slideUp}
-              className="flex items-center text-sm text-gray-500 px-4 pt-4"
+              className="flex items-center text-sm text-gray-500 px-0 pt-4"
             >
               <Link
                 href="/"
@@ -1335,7 +1366,7 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
               lesson.videoUrl && (
                 <motion.div
                   variants={slideUp}
-                  className="relative rounded-lg overflow-hidden shadow-lg w-full"
+                  className="relative rounded-lg overflow-hidden shadow-lg w-full max-w-full"
                   style={{ aspectRatio: "16/9" }}
                 >
                   {isVideoLoading && (
@@ -1368,9 +1399,12 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
 
             {/* Lesson Content */}
             {lesson.type !== LessonType.QUIZ && (
-              <motion.div variants={slideUp} className="prose max-w-none pb-16">
-                <Card className="overflow-hidden border-none shadow-md rounded-xl">
-                  <CardContent className="p-6">
+              <motion.div
+                variants={slideUp}
+                className="prose max-w-none pb-16 w-full"
+              >
+                <Card className="overflow-hidden border-none shadow-md rounded-xl w-full">
+                  <CardContent className="p-4 sm:p-6 w-full">
                     <h1 className="text-2xl font-bold bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent inline-block mb-4  items-center">
                       <BookOpen className="w-6 h-6 mr-2 text-orange-500" />
                       Nội dung bài học
@@ -1422,9 +1456,12 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
             )}
             {/* Quiz Section - Only show for QUIZ type lessons */}
             {lesson.type === LessonType.QUIZ && (
-              <motion.div variants={slideUp} className="mt-8 pb-16">
-                <Card className="overflow-hidden border-none shadow-md rounded-xl">
-                  <CardContent className="p-6">
+              <motion.div
+                variants={slideUp}
+                className="mt-6 sm:mt-8 pb-16 w-full"
+              >
+                <Card className="overflow-hidden border-none shadow-md rounded-xl w-full">
+                  <CardContent className="p-4 sm:p-6 w-full">
                     <h2 className="text-xl font-bold bg-gradient-to-r from-green-500 to-teal-500 bg-clip-text text-transparent inline-block mb-4 items-center">
                       <Play className="w-5 h-5 mr-2 text-green-500 inline-block" />
                       Bài kiểm tra
@@ -1658,7 +1695,7 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
           </div>
 
           <div className="absolute top-1/4 right-4 flex items-center">
-            <span className="text-md text-gray-600 font-semibold pr-2">
+            <span className="text-md text-gray-600 font-semibold pr-2 hidden sm:block">
               {course?.chapters?.find((chapter) =>
                 chapter.lessons?.some(
                   (lesson) => lesson.id === params.lessonId,
@@ -1671,23 +1708,39 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
               className="bg-white border shadow-sm hover:bg-orange-50 hover:border-orange-200 transition-colors"
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
             >
-              {isSidebarOpen ? (
-                <ArrowBigRight className="h-4 w-4 text-orange-500" />
-              ) : (
-                <Menu className="h-4 w-4 text-orange-500" />
-              )}
+              <Menu className="h-4 w-4 text-orange-500" />
             </Button>
           </div>
         </motion.div>
 
-        {/* Collapsible Sidebar */}
+        {/* Collapsible Sidebar - Responsive */}
+        {/* Desktop: Fixed sidebar, Mobile: Overlay drawer */}
         <div
-          className={`fixed right-0 top-0 h-[calc(100vh-73px)] w-[350px] bg-gray-50 border-l transform transition-transform duration-300 ${
-            isSidebarOpen ? "translate-x-0" : "translate-x-full"
-          }`}
+          className={`fixed right-0 top-0 h-[calc(100vh-73px)] w-[350px] bg-gray-50 border-l transform transition-transform duration-300
+            ${
+              // Mobile behavior - always slide in/out
+              isSidebarOpen ? "translate-x-0" : "translate-x-full"
+            }
+            md:translate-x-0 md:z-10
+            ${
+              // Mobile styling
+              isSidebarOpen ? "z-40" : "z-10"
+            }
+          `}
         >
           <div className="py-4 px-2.5 pr-4 h-full overflow-auto">
-            <h2 className="text-xl font-semibold mb-7">Nội dung khoá học</h2>
+            <div className="flex items-center justify-between mb-7">
+              <h2 className="text-xl font-semibold">Nội dung khoá học</h2>
+              {/* Close button - only visible on mobile */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="md:hidden hover:bg-orange-50 hover:border-orange-200 transition-colors"
+                onClick={() => setIsSidebarOpen(false)}
+              >
+                <ChevronRight className="h-5 w-5 text-orange-500" />
+              </Button>
+            </div>
             <div className="space-y-4">
               {course?.chapters?.map((chapter) => (
                 <Collapsible
@@ -1799,6 +1852,12 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
                                 ? "bg-orange-100"
                                 : "hover:bg-gray-200"
                             } cursor-pointer`}
+                            onClick={() => {
+                              // Auto close sidebar on mobile when clicking a lesson
+                              if (window.innerWidth < 768) {
+                                setIsSidebarOpen(false);
+                              }
+                            }}
                           >
                             {linkContent}
                           </Link>
