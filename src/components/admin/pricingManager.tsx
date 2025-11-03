@@ -787,7 +787,7 @@ export function AdminPricingManager({
             </div>
 
             {/* Commission Info Display */}
-            <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+            {/* <div className="bg-green-50 p-4 rounded-lg border border-green-200">
               <h4 className="font-medium text-green-900 mb-3 flex items-center gap-2">
                 Thông tin Commission
                 {isLoadingCommission && (
@@ -859,7 +859,7 @@ export function AdminPricingManager({
                   </p>
                 </div>
               )}
-            </div>
+            </div> */}
           </div>
 
           {/* Summary Statistics */}

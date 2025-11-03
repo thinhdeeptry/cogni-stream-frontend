@@ -148,11 +148,11 @@ export function AppSidebar() {
   const pathname = usePathname();
 
   return (
-    <Sidebar className="w-22 h-full bg-white border-r">
+    <Sidebar className="w-22 h-full bg-white border-r overflow-auto">
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupContent>
-            <SidebarMenu className="w-full">
+            <SidebarMenu className="w-full overflow-auto">
               {items.map((item) => {
                 const isActive =
                   item.url === "/"

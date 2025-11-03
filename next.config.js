@@ -8,9 +8,27 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "**",
+        hostname: "res.cloudinary.com",
+      },
+      {
+        protocol: "https",
+        hostname: "files.fullstack.edu.vn",
+      },
+      {
+        protocol: "https",
+        hostname: "*.cognistream.id.vn",
+      },
+      {
+        protocol: "https",
+        hostname: "cognistream.id.vn",
+      },
+      {
+        protocol: "https",
+        hostname: "storage.cognistream.io.vn",
       },
     ],
+    // Disable image optimization in production to avoid 400 errors
+    unoptimized: process.env.NODE_ENV === "production",
   },
 
   // Experimental optimizations
