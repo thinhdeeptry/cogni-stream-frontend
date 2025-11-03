@@ -134,7 +134,7 @@ const HeaderModal: React.FC<HeaderModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl mx-4 max-h-[95vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Layers className="h-5 w-5" />
@@ -250,7 +250,7 @@ const HeaderDetailModal: React.FC<{
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl mx-4 max-h-[95vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Layers className="h-5 w-5" />
@@ -397,7 +397,7 @@ const DeleteConfirmModal: React.FC<{
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent>
+      <DialogContent className="mx-4 max-h-[95vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-red-600">
             <Trash2 className="h-5 w-5" />
@@ -583,29 +583,32 @@ export default function CommissionPage() {
   }
 
   return (
-    <div className="w-full space-y-6 p-6 bg-slate-50">
+    <div className="w-full space-y-4 sm:space-y-6 p-4 sm:p-6 bg-slate-50">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="space-y-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">
-            📋 Quản Lý Hoa Hồng
+          <h1 className="text-lg sm:text-2xl font-bold text-slate-900">
+            Quản Lý Hoa Hồng
           </h1>
-          <p className="text-slate-500 text-sm">
+          <p className="text-xs sm:text-sm text-slate-500">
             {headersCount} cấu hình hoa hồng • Quản lý các cấu hình chính
           </p>
         </div>
 
-        <Button
-          className="bg-blue-500 hover:bg-blue-600 text-white"
-          onClick={() => setIsCreateModalOpen(true)}
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Tạo Cấu Hình Mới
-        </Button>
+        {/* Button on separate row for mobile */}
+        <div className="flex justify-end">
+          <Button
+            className="bg-blue-500 hover:bg-blue-600 text-white w-full sm:w-auto"
+            onClick={() => setIsCreateModalOpen(true)}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Tạo Cấu Hình Mới
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
-      <div className="flex gap-4 items-center">
+      <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center">
         <div className="flex-1">
           <Input
             placeholder="Tìm kiếm theo tên hoặc mô tả..."
@@ -614,7 +617,7 @@ export default function CommissionPage() {
           />
         </div>
         <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger className="w-48">
+          <SelectTrigger className="w-full sm:w-48">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -627,88 +630,247 @@ export default function CommissionPage() {
 
       {/* Table */}
       <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-slate-50">
-              <TableHead>Header</TableHead>
-              <TableHead>Trạng thái</TableHead>
-              <TableHead>Thời gian</TableHead>
-              <TableHead>Details</TableHead>
-              <TableHead className="text-right">Thao tác</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {headersCount === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={5}
-                  className="text-center py-8 text-slate-500"
-                >
-                  {searchQuery || filterStatus !== "all"
-                    ? "Không tìm thấy header nào phù hợp"
-                    : "🎯 Chưa có commission header nào"}
-                </TableCell>
+        {/* Desktop Table View */}
+        <div className="hidden lg:block">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-slate-50">
+                <TableHead>Header</TableHead>
+                <TableHead>Trạng thái</TableHead>
+                <TableHead>Thời gian</TableHead>
+                <TableHead>Details</TableHead>
+                <TableHead className="text-right">Thao tác</TableHead>
               </TableRow>
-            ) : (
-              headers.map((header: CommissionHeader) => (
-                <TableRow key={header.id} className="hover:bg-slate-50">
-                  <TableCell>
-                    <div>
-                      <p className="font-medium text-slate-900">
+            </TableHeader>
+            <TableBody>
+              {headersCount === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={5}
+                    className="text-center py-8 text-slate-500"
+                  >
+                    {searchQuery || filterStatus !== "all"
+                      ? "Không tìm thấy header nào phù hợp"
+                      : "Chưa có commission header nào"}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                headers.map((header: CommissionHeader) => (
+                  <TableRow key={header.id} className="hover:bg-slate-50">
+                    <TableCell>
+                      <div>
+                        <p className="font-medium text-slate-900">
+                          {header.name}
+                        </p>
+                        {header.description && (
+                          <p className="text-xs text-slate-500 mt-1 line-clamp-2">
+                            {header.description.slice(0, 100)}...
+                          </p>
+                        )}
+                      </div>
+                    </TableCell>
+
+                    <TableCell>
+                      <Badge
+                        className={
+                          header.status === "ACTIVE"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-yellow-100 text-yellow-800"
+                        }
+                      >
+                        {header.status === "ACTIVE" ? (
+                          <>
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            Hoạt động
+                          </>
+                        ) : (
+                          <>
+                            <Pause className="h-3 w-3 mr-1" />
+                            Tạm dừng
+                          </>
+                        )}
+                      </Badge>
+                    </TableCell>
+
+                    <TableCell>
+                      <div className="text-sm">
+                        <div className="flex items-center gap-2 text-slate-600">
+                          <Calendar className="h-4 w-4" />
+                          <span>{getTimeAgo(header.updatedAt.toString())}</span>
+                        </div>
+                        {header.startDate && (
+                          <div className="text-xs text-slate-500 mt-1">
+                            Từ:{" "}
+                            {new Date(header.startDate).toLocaleDateString(
+                              "vi-VN",
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </TableCell>
+
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline">
+                          {header._count?.details || 0} details
+                        </Badge>
+                        {(header._count?.details || 0) > 0 && (
+                          <Link
+                            href={`/admin/commission/details?headerId=${header.id}`}
+                          >
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-blue-600 hover:bg-blue-50"
+                            >
+                              <Eye className="h-3 w-3" />
+                            </Button>
+                          </Link>
+                        )}
+                      </div>
+                    </TableCell>
+
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedHeader(header);
+                            setIsDetailModalOpen(true);
+                          }}
+                          className="text-blue-600 hover:bg-blue-50"
+                        >
+                          <Eye className="h-3 w-3" />
+                        </Button>
+
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedHeader(header);
+                            setIsEditModalOpen(true);
+                          }}
+                          className="text-orange-600 hover:bg-orange-50"
+                        >
+                          <Edit className="h-3 w-3" />
+                        </Button>
+
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleToggleStatus(header)}
+                          disabled={isProcessing(header.id)}
+                          className={
+                            header.status === "ACTIVE"
+                              ? "text-yellow-600 hover:bg-yellow-50"
+                              : "text-green-600 hover:bg-green-50"
+                          }
+                        >
+                          {isProcessing(header.id) ? (
+                            <div className="animate-spin rounded-full h-3 w-3 border-b border-current"></div>
+                          ) : header.status === "ACTIVE" ? (
+                            <Pause className="h-3 w-3" />
+                          ) : (
+                            <Play className="h-3 w-3" />
+                          )}
+                        </Button>
+
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedHeader(header);
+                            setIsDeleteModalOpen(true);
+                          }}
+                          className="text-red-600 hover:bg-red-50"
+                          disabled={isProcessing(header.id)}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+
+        {/* Mobile/Tablet Card View */}
+        <div className="lg:hidden p-4">
+          {headersCount === 0 ? (
+            <div className="text-center py-8 text-slate-500">
+              <div className="text-xs sm:text-sm">
+                {searchQuery || filterStatus !== "all"
+                  ? "Không tìm thấy header nào phù hợp"
+                  : "Chưa có commission header nào"}
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {headers.map((header: CommissionHeader) => (
+                <div
+                  key={header.id}
+                  className="bg-white rounded-lg border border-slate-200 p-4 space-y-3"
+                >
+                  {/* Header name and status */}
+                  <div className="flex items-start gap-3">
+                    <div className="min-w-0 flex-[3]">
+                      <h3 className="font-medium text-slate-900 text-sm sm:text-base break-words">
                         {header.name}
-                      </p>
+                      </h3>
                       {header.description && (
-                        <p className="text-xs text-slate-500 mt-1 line-clamp-2">
-                          {header.description.slice(0, 100)}...
+                        <p className="text-xs text-slate-500 mt-1 line-clamp-3">
+                          {header.description.slice(0, 150)}...
                         </p>
                       )}
                     </div>
-                  </TableCell>
+                    <div className="flex-shrink-0">
+                      <Badge
+                        className={
+                          header.status === "ACTIVE"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-yellow-100 text-yellow-800"
+                        }
+                      >
+                        {header.status === "ACTIVE" ? (
+                          <>
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            <span className="text-xs">Hoạt động</span>
+                          </>
+                        ) : (
+                          <>
+                            <Pause className="h-3 w-3 mr-1" />
+                            <span className="text-xs">Tạm dừng</span>
+                          </>
+                        )}
+                      </Badge>
+                    </div>
+                  </div>
 
-                  <TableCell>
-                    <Badge
-                      className={
-                        header.status === "ACTIVE"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-yellow-100 text-yellow-800"
-                      }
-                    >
-                      {header.status === "ACTIVE" ? (
-                        <>
-                          <CheckCircle className="h-3 w-3 mr-1" />
-                          Hoạt động
-                        </>
-                      ) : (
-                        <>
-                          <Pause className="h-3 w-3 mr-1" />
-                          Tạm dừng
-                        </>
-                      )}
-                    </Badge>
-                  </TableCell>
-
-                  <TableCell>
-                    <div className="text-sm">
-                      <div className="flex items-center gap-2 text-slate-600">
-                        <Calendar className="h-4 w-4" />
+                  {/* Details and time info */}
+                  <div className="flex items-center justify-between text-xs text-slate-500">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
                         <span>{getTimeAgo(header.updatedAt.toString())}</span>
                       </div>
-                      {header.startDate && (
-                        <div className="text-xs text-slate-500 mt-1">
-                          Từ:{" "}
-                          {new Date(header.startDate).toLocaleDateString(
-                            "vi-VN",
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </TableCell>
-
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline">
+                      <Badge variant="outline" className="text-xs">
                         {header._count?.details || 0} details
                       </Badge>
+                    </div>
+                    {header.startDate && (
+                      <span>
+                        Từ:{" "}
+                        {new Date(header.startDate).toLocaleDateString("vi-VN")}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Action buttons */}
+                  <div className="flex justify-between items-center pt-2 border-t">
+                    <div className="flex gap-2">
                       {(header._count?.details || 0) > 0 && (
                         <Link
                           href={`/admin/commission/details?headerId=${header.id}`}
@@ -716,17 +878,16 @@ export default function CommissionPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="text-blue-600 hover:bg-blue-50"
+                            className="text-blue-600 hover:bg-blue-50 px-2"
                           >
-                            <Eye className="h-3 w-3" />
+                            <Eye className="h-3 w-3 mr-1" />
+                            <span className="text-xs">Details</span>
                           </Button>
                         </Link>
                       )}
                     </div>
-                  </TableCell>
 
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-1">
+                    <div className="flex gap-1">
                       <Button
                         variant="ghost"
                         size="sm"
@@ -734,7 +895,7 @@ export default function CommissionPage() {
                           setSelectedHeader(header);
                           setIsDetailModalOpen(true);
                         }}
-                        className="text-blue-600 hover:bg-blue-50"
+                        className="text-blue-600 hover:bg-blue-50 px-2"
                       >
                         <Eye className="h-3 w-3" />
                       </Button>
@@ -746,7 +907,7 @@ export default function CommissionPage() {
                           setSelectedHeader(header);
                           setIsEditModalOpen(true);
                         }}
-                        className="text-orange-600 hover:bg-orange-50"
+                        className="text-orange-600 hover:bg-orange-50 px-2"
                       >
                         <Edit className="h-3 w-3" />
                       </Button>
@@ -758,8 +919,8 @@ export default function CommissionPage() {
                         disabled={isProcessing(header.id)}
                         className={
                           header.status === "ACTIVE"
-                            ? "text-yellow-600 hover:bg-yellow-50"
-                            : "text-green-600 hover:bg-green-50"
+                            ? "text-yellow-600 hover:bg-yellow-50 px-2"
+                            : "text-green-600 hover:bg-green-50 px-2"
                         }
                       >
                         {isProcessing(header.id) ? (
@@ -778,18 +939,18 @@ export default function CommissionPage() {
                           setSelectedHeader(header);
                           setIsDeleteModalOpen(true);
                         }}
-                        className="text-red-600 hover:bg-red-50"
+                        className="text-red-600 hover:bg-red-50 px-2"
                         disabled={isProcessing(header.id)}
                       >
                         <Trash2 className="h-3 w-3" />
                       </Button>
                     </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Pagination would go here if needed */}
