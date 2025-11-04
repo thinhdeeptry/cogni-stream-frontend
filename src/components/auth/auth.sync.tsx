@@ -14,10 +14,20 @@ export default function AuthSync() {
   const setTokens = useUserStore((state) => state.setTokens);
   const clearUser = useUserStore((state) => state.clearUser);
   const user = useUserStore((state) => state.user);
+  const hydrated = useUserStore((state) => state.hydrated);
+  const setHydrated = useUserStore((state) => state.setHydrated);
 
   useEffect(() => {
     setMounted(true);
-  }, []);
+    // Đảm bảo Zustand store đã được hydrate
+    if (typeof window !== "undefined") {
+      const hasPersistedData = localStorage.getItem("user-session");
+      if (hasPersistedData && !hydrated) {
+        // Trigger hydration
+        setHydrated(true);
+      }
+    }
+  }, [hydrated, setHydrated]);
 
   // Listen for profile update events
   useEffect(() => {
@@ -64,27 +74,39 @@ export default function AuthSync() {
     }
 
     if (session?.user && session.accessToken) {
-      const user: IUser = {
-        id: session.user.id || "",
-        name: session.user.name || "",
-        email: session.user.email || "",
-        phone: session.user.phone || "",
-        address: session.user.address || "",
-        image: session.user.image || "",
-        role: session.user.role || "",
-        isActive: session.user.isActive || false,
-        createdAt: session.user.createdAt || "",
-        accountType: session.user.accountType || "",
-      };
+      const currentUser = useUserStore.getState().user;
 
-      // Lưu user và accessToken vào store
-      setUser(user, session.accessToken);
+      // Chỉ cập nhật nếu thông tin user thay đổi hoặc chưa có user trong store
+      const shouldUpdate =
+        !currentUser ||
+        currentUser.id !== session.user.id ||
+        currentUser.email !== session.user.email ||
+        currentUser.name !== session.user.name;
 
-      // Lưu cả accessToken và refreshToken vào store
-      // Sử dụng giá trị mặc định là chuỗi rỗng nếu refreshToken không tồn tại
-      const refreshToken =
-        typeof session.refreshToken === "string" ? session.refreshToken : "";
-      setTokens(session.accessToken, refreshToken);
+      if (shouldUpdate) {
+        const user: IUser = {
+          id: session.user.id || "",
+          name: session.user.name || "",
+          email: session.user.email || "",
+          phone: session.user.phone || "",
+          address: session.user.address || "",
+          image: session.user.image || "",
+          role: session.user.role || "",
+          isActive: session.user.isActive || false,
+          createdAt: session.user.createdAt || "",
+          accountType: session.user.accountType || "",
+        };
+
+        // Lưu user và accessToken vào store
+        setUser(user, session.accessToken);
+
+        // Lưu cả accessToken và refreshToken vào store
+        const refreshToken =
+          typeof session.refreshToken === "string" ? session.refreshToken : "";
+        setTokens(session.accessToken, refreshToken);
+
+        console.log("AuthSync: User data updated in store");
+      }
     } else {
       console.log("AuthSync: Missing user or accessToken in session");
     }

@@ -46,6 +46,10 @@ const nextConfig = {
         protocol: "https",
         hostname: "randomuser.me",
       },
+      {
+        protocol: "https",
+        hostname: "lh3.googleusercontent.com",
+      },
     ],
     // Disable image optimization in production to avoid 400 errors
     unoptimized: process.env.NODE_ENV === "production",

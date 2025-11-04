@@ -27,6 +27,7 @@ export default function GuestVerify(props: { id: string }) {
   useEffect(() => {
     setMounted(true);
     if (typeof window !== "undefined") {
+      handleResendCode();
       toast.success("Vui lòng kiểm tra email để xác thực!");
       startCountdown();
     }

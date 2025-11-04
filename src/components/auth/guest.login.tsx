@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 
+import { useAuthSync } from "@/hooks/useAuthSync";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useForm } from "react-hook-form";
@@ -10,6 +11,8 @@ import { Toaster, toast } from "sonner";
 import * as z from "zod";
 
 import { loginUser } from "@/actions/authActions";
+
+import useUserStore from "@/stores/useUserStore";
 
 import GoogleLoginButton from "@/components/auth/google-login-button";
 import { Button } from "@/components/ui/button";
@@ -42,6 +45,7 @@ function LoginFormContent() {
   const [showPassword, setShowPassword] = useState(false);
   const searchParams = useSearchParams();
   const [message, setMessage] = useState("");
+  const { syncUserData } = useAuthSync();
   useEffect(() => {
     const messageParam = searchParams.get("message");
     if (messageParam === "session-expired") {
@@ -70,9 +74,23 @@ function LoginFormContent() {
           router.push(result.redirectTo);
         }
       } else if (result.success) {
+        // Đợi một chút để session được cập nhật từ NextAuth
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        // Đồng bộ hóa user data với Zustand store ngay lập tức
+        const syncResult = await syncUserData();
+        if (syncResult.success) {
+          console.log("User data synced successfully after login");
+        } else {
+          console.warn(
+            "Failed to sync user data after login:",
+            syncResult.error,
+          );
+        }
+
         if (result.redirectTo) {
-          router.push(result.redirectTo);
           toast.success(result.message);
+          router.push(result.redirectTo);
         }
       }
     } catch (error) {

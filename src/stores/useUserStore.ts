@@ -18,12 +18,17 @@ const isServer = typeof window === "undefined";
 
 const useUserStore = create<UserState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
       accessToken: null,
       refreshToken: null,
       hydrated: false,
-      setUser: (user, accessToken) => set({ user, accessToken }),
+      setUser: (user, accessToken) => {
+        set({ user, accessToken });
+        if (!get().hydrated) {
+          set({ hydrated: true });
+        }
+      },
       setTokens: (accessToken, refreshToken) =>
         set({ accessToken, refreshToken }),
       clearUser: () =>
@@ -41,10 +46,20 @@ const useUserStore = create<UserState>()(
             removeItem: () => {},
           }))
         : createJSONStorage(() => localStorage),
-      // Skip persistence on server
-      skipHydration: true, // Always skip initial hydration
+      // Skip persistence on server but allow manual hydration
+      skipHydration: isServer,
+      onRehydrateStorage: () => (state) => {
+        if (state && !isServer) {
+          state.setHydrated(true);
+        }
+      },
     },
   ),
 );
+
+// Manual hydration for client-side
+if (!isServer) {
+  useUserStore.persist.rehydrate();
+}
 
 export default useUserStore;

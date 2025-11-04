@@ -176,9 +176,6 @@ export default function RegisterForm() {
                 className="w-full h-12 rounded-full bg-orange-500/80 hover:bg-orange-500 text-white backdrop-blur-sm transition-all"
                 disabled={isLoading}
               >
-                {isLoading ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : null}
                 Đăng ký
               </Button>
               {error && (
