@@ -56,6 +56,7 @@ import useUserStore from "@/stores/useUserStore";
 
 import { extractPlainTextFromBlockNote } from "@/utils/blocknote";
 
+// import TimeTrackingDebug from "@/components/debug/TimeTrackingDebug";
 import Discussion from "@/components/discussion";
 import { DiscussionType } from "@/components/discussion/type";
 import QuizSection from "@/components/quiz/QuizSection";
@@ -431,13 +432,16 @@ export default function LessonDetail() {
 
   // Time tracking callback - memoized to prevent re-creation
   const handleTimeComplete = useCallback(() => {
+    console.log("📚 [LessonPage] handleTimeComplete called");
     if (!timeCompleteNotified) {
       console.log(
-        "Time tracking completed for lesson: ",
+        "📚 [LessonPage] Time tracking completed for lesson: ",
         lesson?.estimatedDurationMinutes,
       );
       setTimeCompleteNotified(true);
       setForceRender((prev) => prev + 1); // Force re-render
+    } else {
+      console.log("📚 [LessonPage] Time complete already notified, skipping");
     }
   }, [lesson?.estimatedDurationMinutes, timeCompleteNotified]);
 
@@ -448,20 +452,36 @@ export default function LessonDetail() {
     onTimeComplete: handleTimeComplete,
   });
 
+  console.log("📚 [LessonPage] Time tracking initialized:", {
+    itemId: lesson ? `lesson-${params.lessonId}` : "",
+    requiredMinutes: lesson?.estimatedDurationMinutes || 5,
+    hasLesson: !!lesson,
+    lessonId: params.lessonId,
+  });
+
   // Debug time tracking state
   useEffect(() => {
-    // console.log("⏰ Time tracking update:", {
-    //   isTimeComplete: timeTracking.isTimeComplete,
-    //   elapsedSeconds: timeTracking.elapsedSeconds,
-    //   requiredMinutes: lesson?.estimatedDurationMinutes || 5,
-    //   isEnrolled,
-    // });
-  }, [timeTracking.isTimeComplete, timeTracking.elapsedSeconds]);
+    console.log("📚 [LessonPage] ⏰ Time tracking update:", {
+      isTimeComplete: timeTracking.isTimeComplete,
+      elapsedSeconds: timeTracking.elapsedSeconds,
+      requiredMinutes: lesson?.estimatedDurationMinutes || 5,
+      isEnrolled,
+      isActive: timeTracking.isActive,
+      progress: timeTracking.progress.toFixed(1) + "%",
+    });
+  }, [
+    timeTracking.isTimeComplete,
+    timeTracking.elapsedSeconds,
+    timeTracking.isActive,
+    timeTracking.progress,
+  ]);
 
   // Force re-render when time tracking completes
   useEffect(() => {
     if (timeTracking.isTimeComplete) {
-      console.log("Time tracking completed - forcing UI update");
+      console.log(
+        "📚 [LessonPage] Time tracking completed - forcing UI update",
+      );
       setForceRender((prev) => prev + 1);
     }
   }, [timeTracking.isTimeComplete]);
@@ -893,6 +913,14 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
     const isCurrentLessonCompleted =
       completedLessonIds.includes(currentLessonId);
 
+    console.log("📚 [LessonPage] Auto start check:", {
+      hasLesson: !!lesson,
+      isEnrolled,
+      isFreePreview: lesson?.isFreePreview,
+      isCurrentLessonCompleted,
+      currentLessonId,
+    });
+
     // Only start tracking if lesson is not completed yet
     if (
       lesson &&
@@ -900,18 +928,27 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
       !lesson.isFreePreview &&
       !isCurrentLessonCompleted
     ) {
-      console.log("🕒 Starting time tracking for incomplete lesson");
+      console.log(
+        "📚 [LessonPage] 🕒 Starting time tracking for incomplete lesson",
+      );
       timeTracking.start();
     } else if (isCurrentLessonCompleted) {
-      // console.log("✅ Lesson already completed - skipping time tracking");
+      console.log(
+        "📚 [LessonPage] ✅ Lesson already completed - skipping time tracking",
+      );
       // Stop tracking if it's currently active
       if (timeTracking.isActive) {
         timeTracking.pause();
       }
+    } else {
+      console.log(
+        "📚 [LessonPage] ❌ Not starting time tracking - conditions not met",
+      );
     }
 
     return () => {
       if (timeTracking.isActive) {
+        console.log("📚 [LessonPage] Cleanup: pausing time tracking");
         timeTracking.pause();
       }
     };
@@ -924,8 +961,15 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
       const isCurrentLessonCompleted =
         completedLessonIds.includes(currentLessonId);
 
+      console.log("📚 [LessonPage] Visibility change:", {
+        hidden: document.hidden,
+        isActive: timeTracking.isActive,
+        isCurrentLessonCompleted,
+      });
+
       if (document.hidden) {
         if (timeTracking.isActive) {
+          console.log("📚 [LessonPage] Page hidden - pausing time tracking");
           timeTracking.pause();
         }
       } else {
@@ -937,13 +981,20 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
           !isCurrentLessonCompleted &&
           !timeTracking.isActive
         ) {
+          console.log("📚 [LessonPage] Page visible - resuming time tracking");
           timeTracking.resume();
+        } else {
+          console.log(
+            "📚 [LessonPage] Page visible - not resuming time tracking (conditions not met)",
+          );
         }
       }
     };
 
+    console.log("📚 [LessonPage] Adding visibility change listener");
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => {
+      console.log("📚 [LessonPage] Removing visibility change listener");
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [
@@ -1884,6 +1935,11 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
         </div>
       </div>
       <LessonChatbot />
+      {/* <TimeTrackingDebug
+        timeTracking={timeTracking}
+        requiredMinutes={lesson?.estimatedDurationMinutes || 5}
+        itemId={lesson ? `lesson-${params.lessonId}` : ""}
+      /> */}
     </>
   );
 }

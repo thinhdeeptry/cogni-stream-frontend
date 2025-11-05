@@ -32,6 +32,11 @@ export const useTimeTracking = (
   // Storage key for persistence - handle empty itemId
   const storageKey = itemId ? `time-tracking-${itemId}` : null;
 
+  // Call completion callback when time is complete (only once)
+  const onTimeCompleteRef = useRef(onTimeComplete);
+  const hasCalledCompleteRef = useRef(false);
+  onTimeCompleteRef.current = onTimeComplete;
+
   // Load saved time from localStorage
   useEffect(() => {
     if (!storageKey) return;
@@ -87,24 +92,29 @@ export const useTimeTracking = (
   const remainingSeconds = Math.max(requiredSeconds - elapsedSeconds, 0);
   const remainingMinutes = Math.ceil(remainingSeconds / 60);
 
-  // Debug logging
-  if (itemId && itemId.includes("lesson")) {
-    // console.log("Time tracking debug:", {
-    //   itemId,
-    //   requiredMinutes,
-    //   requiredSeconds,
-    //   elapsedSeconds,
-    //   isTimeComplete,
-    //   progress: progress.toFixed(1) + "%",
-    //   remainingMinutes,
-    //   isActive,
-    // });
-  }
-
-  // Call completion callback when time is complete (only once)
-  const onTimeCompleteRef = useRef(onTimeComplete);
-  const hasCalledCompleteRef = useRef(false);
-  onTimeCompleteRef.current = onTimeComplete;
+  // Debug logging - only in development
+  useEffect(() => {
+    if (process.env.NODE_ENV === "development") {
+      console.log("🕒 [useTimeTracking] State update:", {
+        itemId,
+        requiredMinutes,
+        requiredSeconds,
+        elapsedSeconds,
+        isTimeComplete,
+        progress: progress.toFixed(1) + "%",
+        remainingMinutes,
+        isActive,
+      });
+    }
+  }, [
+    itemId,
+    requiredMinutes,
+    elapsedSeconds,
+    isTimeComplete,
+    progress,
+    remainingMinutes,
+    isActive,
+  ]);
 
   useEffect(() => {
     if (
