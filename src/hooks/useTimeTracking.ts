@@ -32,9 +32,21 @@ export const useTimeTracking = (
   // Storage key for persistence - handle empty itemId
   const storageKey = itemId ? `time-tracking-${itemId}` : null;
 
+  // Call completion callback when time is complete (only once)
+  const onTimeCompleteRef = useRef(onTimeComplete);
+  const hasCalledCompleteRef = useRef(false);
+  onTimeCompleteRef.current = onTimeComplete;
+
   // Load saved time from localStorage
   useEffect(() => {
-    if (!storageKey) return;
+    if (!storageKey) {
+      console.log(
+        "🕒 [useTimeTracking] No storage key, skipping localStorage load",
+      );
+      return;
+    }
+
+    console.log("🕒 [useTimeTracking] Loading from localStorage:", storageKey);
 
     // Reset completion flag when itemId changes
     hasCalledCompleteRef.current = false;
@@ -43,15 +55,27 @@ export const useTimeTracking = (
     if (savedTime) {
       const parsed = parseInt(savedTime, 10);
       if (!isNaN(parsed)) {
+        console.log(
+          "🕒 [useTimeTracking] Loaded saved time:",
+          parsed,
+          "seconds",
+        );
         setElapsedSeconds(parsed);
         pausedTimeRef.current = parsed;
       }
+    } else {
+      console.log("🕒 [useTimeTracking] No saved time found");
     }
   }, [storageKey]);
 
   // Save time to localStorage whenever it changes
   useEffect(() => {
     if (storageKey) {
+      console.log(
+        "🕒 [useTimeTracking] Saving to localStorage:",
+        elapsedSeconds,
+        "seconds",
+      );
       localStorage.setItem(storageKey, elapsedSeconds.toString());
     }
   }, [elapsedSeconds, storageKey]);
@@ -59,15 +83,22 @@ export const useTimeTracking = (
   // Timer logic
   useEffect(() => {
     if (isActive && startTimeRef.current) {
+      console.log("🕒 [useTimeTracking] Starting interval timer");
       intervalRef.current = setInterval(() => {
         const now = Date.now();
         const newElapsed =
           Math.floor((now - startTimeRef.current!) / 1000) +
           pausedTimeRef.current;
+        console.log(
+          "🕒 [useTimeTracking] Timer tick - elapsed:",
+          newElapsed,
+          "seconds",
+        );
         setElapsedSeconds(newElapsed);
       }, 1000);
     } else {
       if (intervalRef.current) {
+        console.log("🕒 [useTimeTracking] Clearing interval timer");
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
@@ -75,6 +106,7 @@ export const useTimeTracking = (
 
     return () => {
       if (intervalRef.current) {
+        console.log("🕒 [useTimeTracking] Cleanup: clearing interval");
         clearInterval(intervalRef.current);
       }
     };
@@ -88,30 +120,40 @@ export const useTimeTracking = (
   const remainingMinutes = Math.ceil(remainingSeconds / 60);
 
   // Debug logging
-  if (itemId && itemId.includes("lesson")) {
-    // console.log("Time tracking debug:", {
-    //   itemId,
-    //   requiredMinutes,
-    //   requiredSeconds,
-    //   elapsedSeconds,
-    //   isTimeComplete,
-    //   progress: progress.toFixed(1) + "%",
-    //   remainingMinutes,
-    //   isActive,
-    // });
-  }
-
-  // Call completion callback when time is complete (only once)
-  const onTimeCompleteRef = useRef(onTimeComplete);
-  const hasCalledCompleteRef = useRef(false);
-  onTimeCompleteRef.current = onTimeComplete;
+  useEffect(() => {
+    console.log("🕒 [useTimeTracking] State update:", {
+      itemId,
+      requiredMinutes,
+      requiredSeconds,
+      elapsedSeconds,
+      isTimeComplete,
+      progress: progress.toFixed(1) + "%",
+      remainingMinutes,
+      isActive,
+    });
+  }, [
+    itemId,
+    requiredMinutes,
+    elapsedSeconds,
+    isTimeComplete,
+    progress,
+    remainingMinutes,
+    isActive,
+  ]);
 
   useEffect(() => {
+    console.log("🕒 [useTimeTracking] Checking completion status:", {
+      isTimeComplete,
+      hasCallback: !!onTimeCompleteRef.current,
+      hasCalledBefore: hasCalledCompleteRef.current,
+    });
+
     if (
       isTimeComplete &&
       onTimeCompleteRef.current &&
       !hasCalledCompleteRef.current
     ) {
+      console.log("🎉 [useTimeTracking] TIME COMPLETE! Calling callback");
       hasCalledCompleteRef.current = true;
       onTimeCompleteRef.current();
     }
@@ -124,15 +166,23 @@ export const useTimeTracking = (
 
   // Control functions
   const start = useCallback(() => {
+    console.log("🕒 [useTimeTracking] START called");
     startTimeRef.current = Date.now();
     setIsActive(true);
   }, []);
 
   const pause = useCallback(() => {
+    console.log("🕒 [useTimeTracking] PAUSE called, isActive:", isActive);
     if (isActive && startTimeRef.current) {
       const now = Date.now();
       const sessionTime = Math.floor((now - startTimeRef.current) / 1000);
       pausedTimeRef.current = pausedTimeRef.current + sessionTime;
+      console.log(
+        "🕒 [useTimeTracking] Session time:",
+        sessionTime,
+        "Total paused time:",
+        pausedTimeRef.current,
+      );
       setElapsedSeconds(pausedTimeRef.current);
     }
     setIsActive(false);
@@ -140,6 +190,7 @@ export const useTimeTracking = (
   }, [isActive]);
 
   const resume = useCallback(() => {
+    console.log("🕒 [useTimeTracking] RESUME called, isActive:", isActive);
     if (!isActive) {
       startTimeRef.current = Date.now();
       setIsActive(true);
@@ -147,6 +198,7 @@ export const useTimeTracking = (
   }, [isActive]);
 
   const reset = useCallback(() => {
+    console.log("🕒 [useTimeTracking] RESET called");
     setElapsedSeconds(0);
     setIsActive(false);
     pausedTimeRef.current = 0;
