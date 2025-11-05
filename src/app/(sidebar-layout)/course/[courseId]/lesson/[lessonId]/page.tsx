@@ -56,7 +56,7 @@ import useUserStore from "@/stores/useUserStore";
 
 import { extractPlainTextFromBlockNote } from "@/utils/blocknote";
 
-import TimeTrackingDebug from "@/components/debug/TimeTrackingDebug";
+// import TimeTrackingDebug from "@/components/debug/TimeTrackingDebug";
 import Discussion from "@/components/discussion";
 import { DiscussionType } from "@/components/discussion/type";
 import QuizSection from "@/components/quiz/QuizSection";
@@ -1935,11 +1935,11 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
         </div>
       </div>
       <LessonChatbot />
-      <TimeTrackingDebug
+      {/* <TimeTrackingDebug
         timeTracking={timeTracking}
         requiredMinutes={lesson?.estimatedDurationMinutes || 5}
         itemId={lesson ? `lesson-${params.lessonId}` : ""}
-      />
+      /> */}
     </>
   );
 }
