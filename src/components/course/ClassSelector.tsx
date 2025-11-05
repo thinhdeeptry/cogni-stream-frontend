@@ -33,23 +33,11 @@ const ClassSelector = ({
   isLoading = false,
 }: ClassSelectorProps) => {
   useEffect(() => {
-    console.log("classes: ", classes);
+    console.log("classes in classSelector: ", classes);
   }, [classes]);
   // State cho modal lịch học
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [viewingClass, setViewingClass] = useState<Class | null>(null);
-  // Lọc các lớp đang mở đăng ký
-  const availableClasses = classes
-    .filter(
-      (classItem) =>
-        classItem.isPublished &&
-        classItem.currentStudents < classItem.maxStudents &&
-        new Date(classItem.startDate) > new Date(),
-    )
-    .sort(
-      (a, b) =>
-        new Date(a.startDate).getTime() - new Date(b.startDate).getTime(),
-    );
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("vi-VN", {
@@ -117,7 +105,7 @@ const ClassSelector = ({
     );
   }
 
-  if (availableClasses.length === 0) {
+  if (classes.length === 0) {
     return (
       <Card className="p-8 text-center">
         <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -143,12 +131,12 @@ const ClassSelector = ({
             Chọn lớp học
           </h3>
           <Badge variant="outline" className="bg-orange-50 text-orange-700">
-            {availableClasses.length} lớp có sẵn
+            {classes.length} lớp có sẵn
           </Badge>
         </div>
 
         <div className="grid gap-4">
-          {availableClasses.map((classItem, index) => {
+          {classes.map((classItem, index) => {
             const status = getClassStatus(classItem);
             const isSelected = selectedClassId === classItem.id;
 
@@ -272,7 +260,7 @@ const ClassSelector = ({
           })}
         </div>
 
-        {availableClasses.length > 0 && (
+        {classes.length > 0 && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <div className="flex items-start gap-2">
               <div className="bg-blue-100 rounded-full p-1">

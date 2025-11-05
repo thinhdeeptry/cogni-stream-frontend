@@ -100,7 +100,7 @@ export const {
   pages: {
     signIn: "/auth/login",
     signOut: "/auth/logout",
-    error: "/auth/error",
+    error: "/auth/login",
   },
   session: {
     strategy: "jwt",
@@ -264,8 +264,8 @@ export const {
     },
   },
   jwt: {
-    // Tăng thời gian chấp nhận sai lệch đồng hồ (nếu cần)
     maxAge: 30 * 24 * 60 * 60, // 30 ngày
   },
   secret: process.env.NEXTAUTH_SECRET,
+  debug: process.env.NODE_ENV === "development",
 });

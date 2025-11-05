@@ -151,6 +151,7 @@ export default function CourseDetail() {
 
   const getAvailableClasses = () => {
     if (!course?.classes) return [];
+    console.log("course.classes: ", course.classes);
     return course.classes
       .filter(
         (classItem) =>
