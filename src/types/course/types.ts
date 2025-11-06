@@ -447,6 +447,8 @@ export interface SyllabusItem {
     scheduledAt: string;
     durationMinutes: number;
     meetingDetail?: string;
+    meetingLink?: string;
+    recordingUrl?: string;
   } | null;
   class?: {
     id: string;

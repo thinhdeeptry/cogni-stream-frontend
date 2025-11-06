@@ -24,6 +24,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  ExternalLink,
   Eye,
   EyeOff,
   Info,
@@ -31,9 +32,11 @@ import {
   Menu,
   Pause,
   Play,
+  PlayCircle,
   Timer,
   Users,
   Video,
+  Volume2,
   X,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
@@ -1024,6 +1027,28 @@ export default function ClassLearningPage() {
     }
   };
 
+  // Handler for joining live session
+  const handleJoinLiveSession = () => {
+    const meetingLink = currentItem?.classSession?.meetingLink;
+
+    if (!meetingLink) {
+      toast({
+        title: "Thông báo",
+        description: "Chưa có link tham gia buổi học",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Open meeting link in new tab
+    window.open(meetingLink, "_blank", "noopener,noreferrer");
+
+    toast({
+      title: "Đã mở buổi học",
+      description: "Link buổi học đã được mở trong tab mới",
+    });
+  };
+
   // Handler for course completion
   const handleCourseCompletion = async () => {
     try {
@@ -1473,18 +1498,31 @@ export default function ClassLearningPage() {
                         </div>
                       </div>
 
-                      <div className="bg-red-50 p-4 rounded-lg">
-                        <p className="text-gray-700 mb-4">
-                          Buổi học trực tuyến - Tham gia cùng giảng viên và học
-                          viên khác.
-                        </p>
+                      <div className="bg-gradient-to-br from-red-50 to-orange-50 p-6 rounded-xl border border-red-100">
+                        <div className="flex items-start gap-3 mb-4">
+                          <div className="p-2 bg-red-100 rounded-lg">
+                            <Users className="h-5 w-5 text-red-600" />
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-gray-800 mb-1">
+                              Buổi học trực tuyến
+                            </h3>
+                            <p className="text-gray-600 text-sm">
+                              Tham gia cùng giảng viên và các học viên khác
+                              trong lớp
+                            </p>
+                          </div>
+                        </div>
 
                         {currentItem.classSession?.meetingDetail && (
-                          <div className="bg-white p-3 rounded border">
-                            <p className="text-sm font-medium text-gray-800 mb-1">
-                              Thông tin buổi học:
-                            </p>
-                            <p className="text-sm text-gray-600">
+                          <div className="bg-white p-4 rounded-lg border border-gray-200 mb-4 shadow-sm">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Info className="h-4 w-4 text-blue-600" />
+                              <span className="text-sm font-medium text-gray-800">
+                                Thông tin buổi học:
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-700 leading-relaxed">
                               {currentItem.classSession.meetingDetail}
                             </p>
                           </div>
@@ -1559,17 +1597,177 @@ export default function ClassLearningPage() {
                             </div>
                           )} */}
 
-                        <Button
-                          className="mt-4 bg-red-500 hover:bg-red-600"
-                          disabled={
-                            !currentItem.classSession?.scheduledAt ||
-                            new Date(currentItem.classSession.scheduledAt) >
-                              new Date()
-                          }
-                        >
-                          <Video className="h-4 w-4 mr-2" />
-                          Tham gia buổi học
-                        </Button>
+                        {/* Meeting Actions */}
+                        <div className="flex flex-col gap-3">
+                          {/* Join Meeting Button */}
+                          <div className="flex flex-col sm:flex-row gap-3">
+                            <Button
+                              className={`font-medium px-6 py-3 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 flex-1 min-h-[48px] group ${
+                                currentItem.classSession?.meetingLink &&
+                                currentItem.classSession?.scheduledAt &&
+                                new Date(
+                                  currentItem.classSession.scheduledAt,
+                                ) <= new Date()
+                                  ? "bg-red-500 hover:bg-red-600 text-white hover:scale-105"
+                                  : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                              }`}
+                              onClick={handleJoinLiveSession}
+                              disabled={
+                                !currentItem.classSession?.meetingLink ||
+                                !currentItem.classSession?.scheduledAt ||
+                                new Date(currentItem.classSession.scheduledAt) >
+                                  new Date()
+                              }
+                            >
+                              <Video className="h-5 w-5 mr-2 group-hover:animate-pulse" />
+                              {!currentItem.classSession?.meetingLink
+                                ? "Chưa có link tham gia"
+                                : new Date(
+                                      currentItem.classSession.scheduledAt ||
+                                        "",
+                                    ) > new Date()
+                                  ? "Chưa đến giờ học"
+                                  : "Tham gia buổi học"}
+                              {currentItem.classSession?.meetingLink &&
+                                new Date(
+                                  currentItem.classSession.scheduledAt || "",
+                                ) <= new Date() && (
+                                  <ExternalLink className="h-4 w-4 ml-2 opacity-70 group-hover:opacity-100 transition-opacity" />
+                                )}
+                            </Button>
+
+                            {/* Meeting Status Indicator */}
+                            <div
+                              className={`flex items-center text-sm px-3 py-2 rounded-lg border transition-all duration-200 ${
+                                currentItem.classSession?.meetingLink
+                                  ? "text-green-600 bg-green-50 border-green-200"
+                                  : "text-orange-600 bg-orange-50 border-orange-200"
+                              }`}
+                            >
+                              <div
+                                className={`w-2 h-2 rounded-full mr-2 ${
+                                  currentItem.classSession?.meetingLink
+                                    ? "bg-green-500 animate-pulse"
+                                    : "bg-orange-500"
+                                }`}
+                              ></div>
+                              <span className="whitespace-nowrap">
+                                {currentItem.classSession?.meetingLink
+                                  ? "Link sẵn sàng"
+                                  : "Đang chuẩn bị"}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Session Status Info */}
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                            <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                              <div className="flex items-center gap-2 text-blue-700">
+                                <Clock className="h-4 w-4" />
+                                <span className="font-medium">Thời gian</span>
+                              </div>
+                              <p className="text-blue-600 mt-1">
+                                {currentItem.classSession?.scheduledAt
+                                  ? new Date(
+                                      currentItem.classSession.scheduledAt,
+                                    ).toLocaleString("vi-VN")
+                                  : "Chưa xác định"}
+                              </p>
+                            </div>
+
+                            <div className="bg-purple-50 p-3 rounded-lg border border-purple-200">
+                              <div className="flex items-center gap-2 text-purple-700">
+                                <Timer className="h-4 w-4" />
+                                <span className="font-medium">Thời lượng</span>
+                              </div>
+                              <p className="text-purple-600 mt-1">
+                                {currentItem.classSession?.durationMinutes} phút
+                              </p>
+                            </div>
+
+                            <div className="bg-orange-50 p-3 rounded-lg border border-orange-200">
+                              <div className="flex items-center gap-2 text-orange-700">
+                                <Users className="h-4 w-4" />
+                                <span className="font-medium">Trạng thái</span>
+                              </div>
+                              <p className="text-orange-600 mt-1">
+                                {new Date(
+                                  currentItem.classSession?.scheduledAt || "",
+                                ) > new Date()
+                                  ? "Sắp diễn ra"
+                                  : "Đang diễn ra"}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Recording Video Section */}
+                        {currentItem.classSession?.recordingUrl && (
+                          <div className="mt-6 border-t border-gray-200 pt-6">
+                            <div className="mb-4">
+                              <div className="flex items-center gap-2 text-lg font-semibold text-gray-800 mb-2">
+                                <PlayCircle className="h-6 w-6 text-blue-600" />
+                                Bản ghi buổi học
+                              </div>
+                              <p className="text-gray-600 text-sm">
+                                Xem lại nội dung buổi học đã được ghi lại
+                              </p>
+                            </div>
+
+                            <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-xl border border-gray-200 shadow-sm">
+                              <div className="relative aspect-video bg-black rounded-lg overflow-hidden shadow-lg">
+                                <ReactPlayer
+                                  url={currentItem.classSession.recordingUrl}
+                                  width="100%"
+                                  height="100%"
+                                  controls
+                                  pip={true}
+                                  stopOnUnmount={false}
+                                  config={{
+                                    file: {
+                                      attributes: {
+                                        controlsList: "nodownload",
+                                        disablePictureInPicture: false,
+                                      },
+                                    },
+                                  }}
+                                  light={
+                                    <div className="flex items-center justify-center h-full bg-gradient-to-br from-blue-900 to-purple-900 text-white">
+                                      <div className="text-center">
+                                        <PlayCircle className="h-16 w-16 mx-auto mb-4 opacity-80" />
+                                        <h3 className="text-xl font-semibold mb-2">
+                                          {currentItem.classSession?.topic}
+                                        </h3>
+                                        <p className="text-blue-200">
+                                          Nhấn để phát video bài học
+                                        </p>
+                                      </div>
+                                    </div>
+                                  }
+                                />
+                              </div>
+
+                              {/* Video Controls Info */}
+                              <div className="flex items-center justify-between mt-3 text-sm text-gray-600">
+                                <div className="flex items-center gap-4">
+                                  <div className="flex items-center gap-1">
+                                    <Volume2 className="h-4 w-4" />
+                                    <span>Có âm thanh</span>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <Video className="h-4 w-4" />
+                                    <span>Chất lượng HD</span>
+                                  </div>
+                                </div>
+
+                                <div className="text-xs bg-gray-200 px-2 py-1 rounded-full">
+                                  Bản ghi chính thức
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
                         {/* Nút hoàn thành buổi học */}
                         {currentItemIndex === allItems.length - 1 &&
                         hasCertificate ? (

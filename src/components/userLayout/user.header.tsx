@@ -9,11 +9,13 @@ import { toast } from "sonner";
 
 import useUserStore from "@/stores/useUserStore";
 
+import { useProgressStore } from "../../stores/useProgressStore";
 import Navbar from "./navbar";
 
 export default function UserHeader() {
   const [mounted, setMounted] = useState(false);
   const { user, accessToken, clearUser } = useUserStore();
+  const { clearProgress } = useProgressStore();
   // const { otherUserData, isLoading } = useOtherUser("68036a847ccacdc40db6b727");
   const router = useRouter();
   useEffect(() => {
@@ -23,6 +25,7 @@ export default function UserHeader() {
   const handleLogout = async () => {
     try {
       clearUser();
+      clearProgress();
       await signOut({ redirect: false });
       toast.success("Đăng xuất thành công");
       router.push("/auth/login");

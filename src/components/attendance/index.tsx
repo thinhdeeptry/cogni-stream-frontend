@@ -33,7 +33,7 @@ export function AttendanceManager({
   }, []);
 
   // Only show attendance for LIVE_SESSION items
-  if (syllabusItem.itemType !== "LIVE_SESSION") {
+  if (syllabusItem?.itemType !== "LIVE_SESSION") {
     return null;
   }
 

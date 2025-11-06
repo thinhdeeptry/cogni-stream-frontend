@@ -778,32 +778,6 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
 
     fetchData();
   }, [params.courseId, params.lessonId]);
-
-  // useEffect(() => {
-  //   const fetchOrCreateThread = async () => {
-  //     if (!params.lessonId || !user) {
-  //       return;
-  //     }
-
-  //     try {
-  //       const thread = await getThreadByResourceId(
-  //         params.lessonId as string,
-  //         DiscussionType.LESSON_DISCUSSION,
-  //       );
-
-  //       if (thread) {
-  //         setThreadId(thread.id);
-  //       }
-  //     } catch (err) {
-  //       console.error("Error in discussion thread handling:", err);
-  //     }
-  //   };
-
-  //   if (lesson && user && !threadId) {
-  //     fetchOrCreateThread();
-  //   }
-  // }, [params.lessonId, user, threadId, lesson]);
-
   // Add new useEffect for fetching enrollment ID
   useEffect(() => {
     const fetchEnrollmentId = async () => {
@@ -836,7 +810,7 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
           if (response.data?.data.id) {
             setEnrollmentId(response.data.data.id);
             setProgressEnrollmentId(response.data.data.id);
-
+            console.log("Fetched enrollment ID:", response.data.data.id);
             // Kiểm tra xem có certificate không
             if (response.data.data.certificate) {
               setHasCertificate(true);
@@ -847,7 +821,7 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
             }
 
             // Fetch initial progress
-            const res = await fetchInitialProgress();
+            await fetchInitialProgress();
 
             // Update local completed lessons from store
             const currentStore = useProgressStore.getState();

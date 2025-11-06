@@ -554,11 +554,11 @@ export const CourseSidebar: React.FC<CourseSidebarProps> = ({
                                           </Badge>
                                         )}
 
-                                        {!isCurrent && isReviewable && (
+                                        {/* {!isCurrent && isReviewable && (
                                           <Badge className="text-xs bg-blue-500 text-white px-2 py-0.5">
                                             📚 Có thể xem lại
                                           </Badge>
-                                        )}
+                                        )} */}
 
                                         {isLocked && (
                                           <Badge className="text-xs bg-gray-400 text-gray-600 px-2 py-0.5">

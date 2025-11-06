@@ -115,6 +115,7 @@ export const useProgressStore = create<ProgressState>()(
 
         try {
           const result = await getInitialProgress(enrollmentId);
+          console.log("Initial progress result:", result);
           if (result.success && result.data) {
             set({
               progress: result.data.progress,
