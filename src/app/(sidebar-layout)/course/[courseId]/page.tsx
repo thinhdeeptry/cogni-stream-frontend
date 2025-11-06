@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { cn } from "@/lib/utils";
 import {
@@ -22,6 +22,7 @@ import {
   CheckCircle2,
   Clock,
   Crown,
+  Eye,
   Info,
   ListChecks,
   Loader2,
@@ -105,7 +106,6 @@ export default function CourseDetail() {
   const [isCollapsed, setIsCollapsed] = useState<Record<string, boolean>>({});
   const [isCheckingPayment, setIsCheckingPayment] = useState(false);
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
-
   // Syllabus state
   const [syllabusData, setSyllabusData] = useState<GroupedSyllabusItem[]>([]);
   const [isLoadingSyllabus, setIsLoadingSyllabus] = useState(false);
@@ -132,6 +132,12 @@ export default function CourseDetail() {
   const searchParams = useSearchParams();
   const { data: session } = useSession();
   const router = useRouter();
+
+  // Helper function để kiểm tra xem user có phải là giảng viên của khóa học này không
+  const isInstructor = useMemo(() => {
+    if (user?.role === "ADMIN") return true;
+    return user?.id === course?.instructorId;
+  }, [user?.id, course?.instructorId]);
 
   // Helper functions for class management
   const formatDate = (dateString: string) => {
@@ -522,6 +528,44 @@ export default function CourseDetail() {
     else if (firstLessonId) {
       router.push(`/course/${course.id}/lesson/${firstLessonId}`);
       console.log("Chưa học bài nào");
+    }
+  };
+
+  // Handler for instructor preview
+  const handleInstructorPreview = () => {
+    if (!course) return;
+
+    toast.success(
+      "Chế độ xem trước Giảng viên: Bạn đang xem khóa học với tư cách là giảng viên",
+    );
+
+    // Handle LIVE courses - navigate to class learning page
+    if (course.courseType === CourseType.LIVE) {
+      if (!selectedClassId) {
+        // Auto-select first available class for instructor preview
+        const availableClasses = getAvailableClasses();
+        if (availableClasses.length > 0) {
+          const firstClass = availableClasses[0];
+          router.push(`/course/${course.id}/class/${firstClass.id}`);
+          return;
+        } else if (course.classes && course.classes.length > 0) {
+          // If no available classes, use first class for preview
+          router.push(`/course/${course.id}/class/${course.classes[0].id}`);
+          return;
+        }
+        toast.error("Chưa có lớp học nào để xem trước");
+        return;
+      }
+
+      router.push(`/course/${course.id}/class/${selectedClassId}`);
+      return;
+    }
+
+    // Handle SELF_PACED courses - navigate to first lesson
+    if (firstLessonId) {
+      router.push(`/course/${course.id}/lesson/${firstLessonId}`);
+    } else {
+      toast.error("Chưa có bài học nào để xem trước");
     }
   };
 
@@ -967,8 +1011,8 @@ export default function CourseDetail() {
             </motion.div>
             <CardContent className="p-4">
               <div className="space-y-4">
-                {/* Price Display - Only show if not enrolled */}
-                {!isEnrolled && (
+                {/* Price Display - Only show if not enrolled and not instructor */}
+                {!isEnrolled && !isInstructor && (
                   <motion.div
                     className="flex items-center gap-2"
                     initial={{ opacity: 0 }}
@@ -1040,6 +1084,30 @@ export default function CourseDetail() {
                         );
                       })()
                     )}
+                  </motion.div>
+                )}
+
+                {/* Instructor Badge - Show instead of price for instructors */}
+                {isInstructor && (
+                  <motion.div
+                    className="bg-gradient-to-r from-purple-100 to-blue-100 border border-purple-200 rounded-lg p-4"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.6 }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-purple-200 rounded-full">
+                        <Users className="h-5 w-5 text-purple-700" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-purple-800">
+                          Bạn là giảng viên của khóa học này
+                        </p>
+                        <p className="text-xs text-purple-600">
+                          Xem trước nội dung và quản lý lớp học
+                        </p>
+                      </div>
+                    </div>
                   </motion.div>
                 )}
 
@@ -1134,7 +1202,27 @@ export default function CourseDetail() {
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.8 }}
                 >
-                  {!isEnrolled ? (
+                  {isInstructor ? (
+                    // Instructor Preview Button
+                    <Button
+                      className="w-full bg-purple-600 hover:bg-purple-700 text-white transition-colors relative overflow-hidden group"
+                      size="lg"
+                      onClick={handleInstructorPreview}
+                      disabled={
+                        course.courseType === CourseType.LIVE &&
+                        !selectedClassId &&
+                        (!course.classes || course.classes.length === 0)
+                      }
+                    >
+                      <span className="relative z-10 flex items-center justify-center gap-2">
+                        <Eye className="h-5 w-5" />
+                        Chế độ xem trước của Giảng viên
+                      </span>
+                      <span className="absolute inset-0 bg-gradient-to-r from-purple-500 to-purple-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
+                      <span className="absolute -inset-1 rounded-lg bg-gradient-to-r from-purple-400 via-purple-500 to-purple-400 opacity-0 group-hover:opacity-30 blur-md transition-opacity duration-300 "></span>
+                    </Button>
+                  ) : !isEnrolled ? (
+                    // Enroll/Purchase Button
                     <Button
                       className="w-full bg-orange-500 hover:bg-orange-600 text-white transition-colors relative overflow-hidden group"
                       size="lg"
@@ -1181,6 +1269,7 @@ export default function CourseDetail() {
                       )}
                     </Button>
                   ) : (
+                    // Start Learning Button (for enrolled students)
                     <Button
                       className="w-full bg-orange-500 hover:bg-orange-600 text-white transition-colors relative overflow-hidden group"
                       size="lg"
@@ -1213,7 +1302,17 @@ export default function CourseDetail() {
                     animate={{ opacity: 1 }}
                     transition={{ delay: 0.85 }}
                   >
-                    {!isEnrolled ? (
+                    {isInstructor ? (
+                      <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+                        <p className="text-xs text-purple-600">
+                          {selectedClassId
+                            ? `Xem trước lớp: ${getSelectedClass()?.name}`
+                            : course.classes && course.classes.length > 0
+                              ? "Chọn lớp để xem trước hoặc click để xem lớp đầu tiên"
+                              : "Chưa có lớp học nào được tạo"}
+                        </p>
+                      </div>
+                    ) : !isEnrolled ? (
                       !selectedClassId ? (
                         <p className="text-xs text-orange-600 bg-orange-50 px-3 py-2 rounded-md">
                           💡 Vui lòng chọn lớp học phù hợp trước khi đăng ký

@@ -27,6 +27,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  Eye,
   Menu,
   MessageSquare,
   Minus,
@@ -416,6 +417,12 @@ export default function LessonDetail() {
   const router = useRouter();
   const { data: session } = useSession();
 
+  // Helper function để kiểm tra xem user có phải là instructor/admin của khóa học này không
+  const isInstructorOrAdmin = useMemo(() => {
+    if (user?.role === "ADMIN") return true;
+    return user?.id === course?.instructorId;
+  }, [user?.id, user?.role, course?.instructorId]);
+
   // Progress store - Moved up to avoid hook order issues
   const {
     progress,
@@ -599,6 +606,16 @@ export default function LessonDetail() {
       if (session?.user?.id && course?.id) {
         console.log("id user: ", session?.user?.id);
         console.log("id course: ", course?.id);
+
+        // If user is instructor or admin, skip enrollment check and enable preview mode
+        if (isInstructorOrAdmin) {
+          console.log(
+            "Instructor/Admin preview mode - skipping enrollment check",
+          );
+          setIsEnrolled(true); // Enable preview mode
+          return;
+        }
+
         try {
           const result = await checkEnrollmentStatus(
             session.user.id,
@@ -622,7 +639,7 @@ export default function LessonDetail() {
     };
 
     checkEnrollment();
-  }, [course?.id, session?.user?.id]);
+  }, [course?.id, session?.user?.id, isInstructorOrAdmin]);
 
   // Memoize the reference text to prevent unnecessary re-renders
   const referenceText = useMemo(() => {
@@ -782,6 +799,14 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
   useEffect(() => {
     const fetchEnrollmentId = async () => {
       if (session?.user?.id && course?.id) {
+        // If user is instructor or admin, skip enrollment and progress tracking
+        if (isInstructorOrAdmin) {
+          console.log(
+            "Instructor/Admin preview mode - skipping enrollment and progress tracking",
+          );
+          return;
+        }
+
         try {
           // Kiểm tra xem lesson hiện tại có phải là preview không
           const allCourseLessons =
@@ -876,6 +901,7 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
     fetchOverallProgress,
     setProgressEnrollmentId,
     setCurrentCourseId,
+    isInstructorOrAdmin,
   ]);
 
   // New state for video loading
@@ -1354,6 +1380,29 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
       )}
 
       <div className="w-full flex-1 flex flex-col min-h-screen relative px-2 sm:px-4 md:pr-[350px] md:pl-4">
+        {/* Instructor/Admin Preview Banner */}
+        {isInstructorOrAdmin && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-neutral-300 text-gray-950 p-4 mb-4 rounded-lg shadow-lg"
+          >
+            <div className="flex items-center justify-center gap-2">
+              <Eye className="h-5 w-5" />
+              <span className="font-medium">
+                {user?.role === "ADMIN"
+                  ? "Chế độ xem trước Admin"
+                  : "Chế độ xem trước Giảng viên"}
+              </span>
+            </div>
+            <p className="text-center text-sm mt-1 opacity-90">
+              Bạn đang xem bài học với quyền{" "}
+              {user?.role === "ADMIN" ? "quản trị viên" : "giảng viên"}. Tiến
+              trình học tập và thời gian học không được theo dõi.
+            </p>
+          </motion.div>
+        )}
+
         <motion.div
           initial="hidden"
           animate="visible"

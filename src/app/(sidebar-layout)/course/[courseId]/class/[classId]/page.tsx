@@ -359,6 +359,13 @@ export default function ClassLearningPage() {
   const searchParams = useSearchParams();
   const { data: session } = useSession();
   const { user } = useUserStore();
+
+  // Helper function để kiểm tra xem user có phải là instructor/admin của khóa học này không
+  const isInstructorOrAdmin = useMemo(() => {
+    if (user?.role === "ADMIN") return true;
+    return user?.id === course?.instructorId;
+  }, [user?.id, user?.role, course?.instructorId]);
+
   const {
     progress,
     overallProgress,
@@ -416,14 +423,23 @@ export default function ClassLearningPage() {
   }, [params.courseId, params.classId, user?.id, setCurrentCourseId]);
   //fetch progress data
   useEffect(() => {
-    if (enrollmentId) {
+    if (enrollmentId && !isInstructorOrAdmin) {
       fetchInitialProgress();
     }
-  }, [enrollmentId]);
+  }, [enrollmentId, isInstructorOrAdmin]);
   // Fetch enrollment data to check certificate status and set enrollmentId for progress
   useEffect(() => {
     const fetchEnrollmentData = async () => {
       if (!user?.id || !course?.id || !params.classId) return;
+
+      // If user is instructor or admin, skip enrollment check and enable preview mode
+      if (isInstructorOrAdmin) {
+        console.log(
+          "Instructor/Admin preview mode - skipping enrollment check",
+        );
+        setIsEnrolled(true); // Enable preview mode
+        return;
+      }
 
       try {
         useProgressStore.getState().clearProgress();
@@ -437,6 +453,7 @@ export default function ClassLearningPage() {
 
         if (response.success && response.data?.data) {
           const enrollmentData = response.data.data;
+          setIsEnrolled(true);
           // Set enrollmentId vào progress store
           setEnrollmentId(enrollmentData.id);
 
@@ -445,9 +462,12 @@ export default function ClassLearningPage() {
             setHasCertificate(true);
             setCertificateId(enrollmentData.certificate.id);
           }
+        } else {
+          setIsEnrolled(false);
         }
       } catch (err) {
         console.error("Error fetching enrollment data:", err);
+        setIsEnrolled(false);
       }
     };
 
@@ -458,6 +478,7 @@ export default function ClassLearningPage() {
     params.classId,
     setEnrollmentId,
     fetchInitialProgress,
+    isInstructorOrAdmin,
   ]);
 
   // Fetch syllabus data
@@ -551,8 +572,8 @@ export default function ClassLearningPage() {
 
   // Time tracking effects
   useEffect(() => {
-    // Reset and start tracking when currentItem changes
-    if (currentItem && isEnrolled) {
+    // Reset and start tracking when currentItem changes, but skip for instructor/admin
+    if (currentItem && isEnrolled && !isInstructorOrAdmin) {
       timeTracking.reset();
       timeTracking.start();
     }
@@ -562,7 +583,7 @@ export default function ClassLearningPage() {
         timeTracking.pause();
       }
     };
-  }, [currentItem?.id, isEnrolled]);
+  }, [currentItem?.id, isEnrolled, isInstructorOrAdmin]);
 
   // Handle page visibility to pause/resume tracking
   useEffect(() => {
@@ -1104,6 +1125,29 @@ export default function ClassLearningPage() {
       animate="visible"
       variants={fadeIn}
     >
+      {/* Instructor/Admin Preview Banner */}
+      {isInstructorOrAdmin && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-neutral-300 text-gray-950 p-4 mb-4 rounded-lg shadow-lg mx-2"
+        >
+          <div className="flex items-center justify-center gap-2">
+            <Eye className="h-5 w-5" />
+            <span className="font-medium">
+              {user?.role === "ADMIN"
+                ? "Chế độ xem trước Admin"
+                : "Chế độ xem trước Giảng viên"}
+            </span>
+          </div>
+          <p className="text-center text-sm mt-1 opacity-90">
+            Bạn đang xem lớp học với quyền{" "}
+            {user?.role === "ADMIN" ? "quản trị viên" : "giảng viên"}. Tiến
+            trình học tập và thời gian học không được theo dõi.
+          </p>
+        </motion.div>
+      )}
+
       <motion.div
         initial="hidden"
         animate="visible"
@@ -1287,7 +1331,8 @@ export default function ClassLearningPage() {
                         {/* Lesson Completion Button */}
                         {currentLessonData.type !== LessonType.QUIZ &&
                           isEnrolled &&
-                          isItemCompleted(currentItem) && (
+                          !isInstructorOrAdmin &&
+                          !isItemCompleted(currentItem) && (
                             <motion.div
                               className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg"
                               initial={{ opacity: 0, y: 10 }}
@@ -1326,6 +1371,7 @@ export default function ClassLearningPage() {
                         {/* Already completed indicator */}
                         {currentLessonData.type !== LessonType.QUIZ &&
                           isEnrolled &&
+                          !isInstructorOrAdmin &&
                           isItemCompleted(currentItem) && (
                             <motion.div
                               className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-lg"
@@ -1478,9 +1524,6 @@ export default function ClassLearningPage() {
                       <div className="flex items-center gap-3 mb-4">
                         <Video className="h-6 w-6 text-red-500" />
                         <div>
-                          <h2 className="text-xl font-semibold text-gray-800">
-                            {currentItem.classSession?.topic}
-                          </h2>
                           <div className="flex items-center gap-4 text-sm text-gray-600">
                             <span>
                               Thời lượng:{" "}
