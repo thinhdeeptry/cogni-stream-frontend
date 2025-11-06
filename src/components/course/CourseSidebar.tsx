@@ -81,7 +81,7 @@ export const CourseSidebar: React.FC<CourseSidebarProps> = ({
   // Memoized helper functions to prevent re-creation on every render
   const isItemCompletedById = useCallback(
     (itemId: string): boolean => {
-      return completedItems.some((completed) => completed.id === itemId);
+      return completedItems?.some((completed) => completed.id === itemId);
     },
     [completedItems],
   );
