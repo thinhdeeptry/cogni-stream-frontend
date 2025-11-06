@@ -8,15 +8,19 @@ import { motion } from "framer-motion";
 import {
   ArrowLeft,
   Clock,
+  Image,
   MessageCircle,
   Search,
   Send,
   Users,
+  X,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 
 import {
   type ChatMessage,
+  addMemberToChatRoom,
+  createChatRoom,
   getChatRoomInfo,
   getMessages,
 } from "@/actions/classChatActions";
@@ -54,8 +58,11 @@ export default function ChatMainPage() {
   const [newMessage, setNewMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [isCreatingChatRoom, setIsCreatingChatRoom] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [sending, setSending] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   const router = useRouter();
   const { data: session } = useSession();
@@ -107,55 +114,145 @@ export default function ChatMainPage() {
   // Fetch user's enrolled classes
   useEffect(() => {
     const fetchUserClasses = async () => {
-      if (!user?.id) return;
+      if (!user?.id) {
+        console.log("Chat: No user ID found, skipping fetch");
+        return;
+      }
 
       try {
         setIsLoading(true);
+        console.log(`Chat: Fetching enrollments for user ${user.id}`);
 
         // Get all enrollments of user
         const enrollments = await getEnrollmentsByUser(user.id);
+        console.log("Chat: Enrollments response:", enrollments);
+        console.log("Chat: Enrollments data structure:", {
+          success: enrollments.success,
+          dataType: typeof enrollments.data,
+          isArray: Array.isArray(enrollments.data),
+          dataKeys: enrollments.data
+            ? Object.keys(enrollments.data)
+            : "no data",
+          dataValue: enrollments.data,
+        });
 
-        if (
-          enrollments.success &&
-          enrollments.data &&
-          Array.isArray(enrollments.data)
-        ) {
+        if (enrollments.success && enrollments.data) {
+          // Handle both array and object responses
+          let enrollmentsList = [];
+
+          if (Array.isArray(enrollments.data)) {
+            enrollmentsList = enrollments.data;
+          } else if (
+            enrollments.data.data &&
+            Array.isArray(enrollments.data.data)
+          ) {
+            // Handle nested response format from backend
+            enrollmentsList = enrollments.data.data;
+          } else if (
+            typeof enrollments.data === "object" &&
+            !Array.isArray(enrollments.data)
+          ) {
+            // Handle single object or other structures
+            enrollmentsList = [enrollments.data];
+          }
+
+          console.log(
+            `Chat: Final enrollments list (length: ${enrollmentsList.length}):`,
+            enrollmentsList,
+          );
           const classItems: ClassChatItem[] = [];
+          console.log(`Chat: Processing ${enrollmentsList.length} enrollments`);
 
-          for (const enrollment of enrollments.data) {
+          if (enrollmentsList.length === 0) {
+            console.log("Chat: No enrollments found");
+            setClassList([]);
+            return;
+          }
+
+          for (const enrollment of enrollmentsList) {
+            console.log("Chat: Processing enrollment:", {
+              id: enrollment.id,
+              type: enrollment.type,
+              hasClass: !!enrollment.class,
+              classId: enrollment.class?.id,
+              className: enrollment.class?.name,
+            });
+
             // Check both STREAM (has class) and ONLINE (has course) enrollments
             if (enrollment.class && enrollment.type === "STREAM") {
               // STREAM enrollment - has class
-              try {
-                const chatInfo = await getChatRoomInfo(enrollment.class.id);
+              // Always add the class to the list, regardless of chat room status
+              const classItem = {
+                id: enrollment.class.id,
+                name: enrollment.class.name,
+                courseName: enrollment.class.course?.title || "Khóa học",
+                lastMessage: undefined, // Will be populated later
+                unreadCount: 0, // TODO: Implement unread count
+                totalMembers: 0, // Will be updated when getChatRoomInfo succeeds
+              };
 
-                classItems.push({
-                  id: enrollment.class.id,
-                  name: enrollment.class.name,
-                  courseName: enrollment.class.course?.title || "Khóa học",
-                  lastMessage: undefined, // Will be populated later
-                  unreadCount: 0, // TODO: Implement unread count
-                  totalMembers: chatInfo.totalMembers || 0,
+              classItems.push(classItem);
+              console.log("Chat: Added class to chat list:", classItem);
+
+              // Try to get chat info in background (non-blocking)
+              getChatRoomInfo(enrollment.class.id)
+                .then((chatInfo) => {
+                  console.log(
+                    `Chat: Got chat info for class ${enrollment.class.id}:`,
+                    chatInfo,
+                  );
+                  // Update the class item with chat info
+                  setClassList((prevList) =>
+                    prevList.map((item) =>
+                      item.id === enrollment.class.id
+                        ? { ...item, totalMembers: chatInfo.totalMembers || 0 }
+                        : item,
+                    ),
+                  );
+                })
+                .catch((error) => {
+                  console.warn(
+                    `Chat: Error getting chat info for class ${enrollment.class.id}:`,
+                    error,
+                  );
+                  // Chat room might not exist yet, this is ok
                 });
-              } catch (error) {
-                console.error(
-                  `Error getting chat info for class ${enrollment.class.id}:`,
-                  error,
-                );
-              }
+            } else {
+              console.log(
+                "Chat: Skipping enrollment (not STREAM with class):",
+                {
+                  type: enrollment.type,
+                  hasClass: !!enrollment.class,
+                },
+              );
             }
             // Note: ONLINE enrollments don't have class chat rooms
           }
 
+          console.log(
+            `Chat: Final class list (${classItems.length} items):`,
+            classItems,
+          );
           setClassList(classItems);
 
           // Auto select first class if available
           if (classItems.length > 0) {
+            console.log("Chat: Auto-selecting first class:", classItems[0]);
             setSelectedClass(classItems[0]);
+          } else {
+            console.log("Chat: No classes available for chat");
           }
+        } else {
+          console.warn("Chat: Invalid enrollments response:", {
+            success: enrollments.success,
+            hasData: !!enrollments.data,
+            dataType: typeof enrollments.data,
+            isArray: Array.isArray(enrollments.data),
+            response: enrollments,
+          });
         }
       } catch (error) {
-        console.error("Error fetching user classes:", error);
+        console.error("Chat: Error fetching user classes:", error);
       } finally {
         setIsLoading(false);
       }
@@ -167,42 +264,166 @@ export default function ChatMainPage() {
   // Fetch messages for selected class
   useEffect(() => {
     const fetchMessages = async () => {
-      if (!selectedClass) return;
+      if (!selectedClass) {
+        console.log("Chat: No selected class, skipping message fetch");
+        return;
+      }
+
+      console.log(
+        `Chat: Fetching messages for class ${selectedClass.id} (${selectedClass.name})`,
+      );
 
       try {
         setIsLoadingMessages(true);
+
+        // Try to get messages
         const messagesData = await getMessages(selectedClass.id, 1, 50);
+        console.log(
+          `Chat: Got ${messagesData.messages?.length || 0} messages for class ${selectedClass.id}`,
+        );
         setMessages(messagesData.messages || []);
-      } catch (error) {
-        console.error("Error fetching messages:", error);
+      } catch (error: any) {
+        console.error(
+          `Chat: Error fetching messages for class ${selectedClass.id}:`,
+          error,
+        );
+
+        // If chat room doesn't exist, try to create it
+        if (
+          error.message?.includes("Không tìm thấy phòng chat") ||
+          error.message?.includes("chat room not found")
+        ) {
+          try {
+            console.log(
+              `Chat: Creating chat room for class ${selectedClass.id} (${selectedClass.name})`,
+            );
+            setIsCreatingChatRoom(true);
+
+            await createChatRoom(selectedClass.id, selectedClass.name);
+            console.log(
+              `Chat: Successfully created chat room for class ${selectedClass.id}`,
+            );
+
+            // Try to add current user to the chat room
+            if (user?.id) {
+              console.log(
+                `Chat: Adding user ${user.id} to chat room for class ${selectedClass.id}`,
+              );
+              await addMemberToChatRoom(selectedClass.id, user.id);
+              console.log(`Chat: Successfully added user to chat room`);
+            }
+
+            // Retry fetching messages
+            console.log(
+              `Chat: Retrying message fetch for class ${selectedClass.id}`,
+            );
+            const retryMessagesData = await getMessages(
+              selectedClass.id,
+              1,
+              50,
+            );
+            console.log(
+              `Chat: Retry got ${retryMessagesData.messages?.length || 0} messages`,
+            );
+            setMessages(retryMessagesData.messages || []);
+          } catch (createError) {
+            console.error(
+              `Chat: Error creating chat room for class ${selectedClass.id}:`,
+              createError,
+            );
+            setMessages([]);
+          } finally {
+            setIsCreatingChatRoom(false);
+          }
+        } else {
+          setMessages([]);
+        }
       } finally {
         setIsLoadingMessages(false);
       }
     };
 
     fetchMessages();
-  }, [selectedClass]);
+  }, [selectedClass, user?.id]);
 
   // Send message
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !selectedClass || sending || !socket) return;
+    if (
+      (!newMessage.trim() && !selectedImage) ||
+      !selectedClass ||
+      sending ||
+      !socket
+    )
+      return;
 
     try {
       setSending(true);
 
-      // Send message via socket
-      socket.emit("send-message", {
+      let messageData: any = {
         classId: selectedClass.id,
-        content: newMessage,
-        messageType: "TEXT",
-      });
+        messageType: selectedImage ? "IMAGE" : "TEXT",
+      };
+
+      if (selectedImage) {
+        // Convert image to base64
+        const reader = new FileReader();
+        const base64Promise = new Promise<string>((resolve, reject) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(selectedImage);
+        });
+
+        const base64Data = await base64Promise;
+        messageData.imageData = base64Data;
+        messageData.content = newMessage.trim() || ""; // Caption for image
+      } else {
+        messageData.content = newMessage;
+      }
+
+      // Send message via socket
+      socket.emit("send-message", messageData);
 
       setNewMessage("");
+      setSelectedImage(null);
+      setImagePreview(null);
     } catch (error) {
       console.error("Error sending message:", error);
     } finally {
       setSending(false);
     }
+  };
+
+  // Handle image selection
+  const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      alert("Vui lòng chọn file ảnh");
+      return;
+    }
+
+    // Validate file size (max 3MB)
+    if (file.size > 3 * 1024 * 1024) {
+      alert("Kích thước ảnh không được vượt quá 3MB");
+      return;
+    }
+
+    setSelectedImage(file);
+
+    // Create preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setImagePreview(e.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Clear selected image
+  const clearSelectedImage = () => {
+    setSelectedImage(null);
+    setImagePreview(null);
   };
 
   // Filter classes based on search
@@ -290,9 +511,15 @@ export default function ChatMainPage() {
             {filteredClasses.length === 0 ? (
               <div className="text-center py-8">
                 <MessageCircle className="h-12 w-12 mx-auto mb-3 text-gray-400" />
-                <p className="text-gray-500">Không có lớp học nào</p>
+                <p className="text-gray-500">
+                  {searchTerm
+                    ? "Không tìm thấy lớp học nào"
+                    : "Bạn chưa tham gia lớp học nào"}
+                </p>
                 <p className="text-gray-400 text-sm mt-1">
-                  Đăng ký tham gia các lớp học để chat
+                  {searchTerm
+                    ? "Thử từ khóa khác"
+                    : "Đăng ký tham gia các lớp học LIVE để sử dụng chat"}
                 </p>
               </div>
             ) : (
@@ -408,14 +635,23 @@ export default function ChatMainPage() {
 
             {/* Messages */}
             <ScrollArea className="flex-1 p-4">
-              {isLoadingMessages ? (
+              {isLoadingMessages || isCreatingChatRoom ? (
                 <div className="space-y-4">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <div key={i} className="flex space-x-3">
-                      <Skeleton className="h-8 w-8 rounded-full" />
-                      <Skeleton className="h-16 w-64" />
+                  {isCreatingChatRoom ? (
+                    <div className="text-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-3"></div>
+                      <p className="text-gray-500">
+                        Đang thiết lập phòng chat...
+                      </p>
                     </div>
-                  ))}
+                  ) : (
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <div key={i} className="flex space-x-3">
+                        <Skeleton className="h-8 w-8 rounded-full" />
+                        <Skeleton className="h-16 w-64" />
+                      </div>
+                    ))
+                  )}
                 </div>
               ) : messages.length === 0 ? (
                 <div className="text-center py-8">
@@ -463,9 +699,27 @@ export default function ChatMainPage() {
                                 : "bg-gray-100"
                             }`}
                           >
-                            <p className="text-sm">
-                              {message.content || "Tin nhắn không có nội dung"}
-                            </p>
+                            {message.messageType === "IMAGE" &&
+                            message.fileUrl ? (
+                              <div>
+                                <img
+                                  src={message.fileUrl}
+                                  alt={message.fileName || "Hình ảnh"}
+                                  className="max-w-full h-auto rounded-lg mb-2 cursor-pointer"
+                                  onClick={() =>
+                                    window.open(message.fileUrl, "_blank")
+                                  }
+                                />
+                                {message.content && (
+                                  <p className="text-sm">{message.content}</p>
+                                )}
+                              </div>
+                            ) : (
+                              <p className="text-sm">
+                                {message.content ||
+                                  "Tin nhắn không có nội dung"}
+                              </p>
+                            )}
                             {isOwnMessage && (
                               <div className="text-xs text-blue-100 mt-1 text-right">
                                 {formatTime(message.sentAt)}
@@ -482,10 +736,54 @@ export default function ChatMainPage() {
 
             {/* Message Input */}
             <div className="p-4 border-t bg-white">
+              {/* Image Preview */}
+              {imagePreview && (
+                <div className="mb-3 relative inline-block">
+                  <img
+                    src={imagePreview}
+                    alt="Preview"
+                    className="max-w-40 h-auto rounded-lg border"
+                  />
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0"
+                    onClick={clearSelectedImage}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
+
               <div className="flex items-center space-x-2">
+                {/* Image Upload Button */}
+                <div className="relative">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageSelect}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    disabled={sending || !isConnected || isCreatingChatRoom}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={sending || !isConnected || isCreatingChatRoom}
+                    className="relative"
+                  >
+                    <Image className="h-4 w-4" />
+                  </Button>
+                </div>
+
                 <Input
                   placeholder={
-                    isConnected ? "Nhập tin nhắn..." : "Đang kết nối..."
+                    isCreatingChatRoom
+                      ? "Đang thiết lập phòng chat..."
+                      : isConnected
+                        ? selectedImage
+                          ? "Thêm chú thích cho ảnh (tùy chọn)..."
+                          : "Nhập tin nhắn..."
+                        : "Đang kết nối..."
                   }
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
@@ -495,22 +793,31 @@ export default function ChatMainPage() {
                       handleSendMessage();
                     }
                   }}
-                  disabled={sending || !isConnected}
+                  disabled={sending || !isConnected || isCreatingChatRoom}
                   className="flex-1"
                 />
                 <Button
                   onClick={handleSendMessage}
-                  disabled={!newMessage.trim() || sending || !isConnected}
+                  disabled={
+                    (!newMessage.trim() && !selectedImage) ||
+                    sending ||
+                    !isConnected ||
+                    isCreatingChatRoom
+                  }
                   size="sm"
                 >
                   <Send className="h-4 w-4" />
                 </Button>
               </div>
-              {!isConnected && (
+              {!isConnected ? (
                 <p className="text-xs text-red-500 mt-1">
                   Mất kết nối - đang thử kết nối lại...
                 </p>
-              )}
+              ) : isCreatingChatRoom ? (
+                <p className="text-xs text-blue-500 mt-1">
+                  Đang thiết lập phòng chat, vui lòng chờ...
+                </p>
+              ) : null}
             </div>
           </>
         ) : (

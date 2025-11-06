@@ -300,6 +300,20 @@ export interface ClassSession {
   status?: string;
   meetingLink?: string;
   recordingUrl?: string;
+  meetingDetail?: string;
+
+  sessionMeetingLink?: string; // Link Meet riêng cho session này (nếu khác với class)
+  sessionRecordingEnabled?: boolean; // Có ghi hình session này không (mặc định true)
+  sessionRecordingStarted?: boolean; // Đã bắt đầu ghi hình chưa
+  sessionRecordingUrl?: string; // Link video đã ghi hình (Google Drive)
+  sessionRecordingFileId?: string; // ID file recording trên Google Drive
+  actualStartTime?: string; // Thời gian thực tế bắt đầu session
+  actualEndTime?: string; // Thời gian thực tế kết thúc session
+  actualDurationMinutes?: number; // Thời gian thực tế (phút)
+  participantCount?: number; // Số lượng người tham gia thực tế
+  sessionNotes?: string; // Ghi chú về buổi học
+  sessionAttendanceRequired?: boolean; // Có yêu cầu điểm danh không (mặc định true)
+
   lesson?: {
     id: string;
     title: string;
@@ -388,6 +402,20 @@ export interface Class {
   statusActive: ClassStatusActive;
   createdAt?: Date;
   updatedAt?: Date;
+
+  // 🔥 Google Meet Configuration
+  meetingHostEmail?: string; // Email của giảng viên làm host
+  allowedAttendeeEmails?: string[]; // Danh sách email được phép join
+  recordingEnabled?: boolean; // Có cho phép ghi hình không (mặc định true)
+  recordingAutoStart?: boolean; // Tự động bắt đầu ghi hình (mặc định true)
+  recordingStorageLocation?: string; // Vị trí lưu trữ recording
+  joinApprovalRequired?: boolean; // Yêu cầu duyệt khi join (mặc định false)
+  waitingRoomEnabled?: boolean; // Bật waiting room (mặc định false)
+  muteParticipantsOnJoin?: boolean; // Tự động mute participants (mặc định false)
+  allowScreenShare?: boolean; // Cho phép chia sẻ màn hình (mặc định true)
+  allowChat?: boolean; // Cho phép chat (mặc định true)
+  meetingTimezone?: string; // Timezone cho meeting
+  meetingLink?: string; // Link Google Meet
 }
 
 // Interface cho Schedule theo API response

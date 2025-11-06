@@ -308,7 +308,14 @@ export async function getEnrollmentsByUser(userId: string) {
   try {
     const api = await AxiosFactory.getApiInstance("enrollment");
     const res = await api.get(`/enrollments/user/${userId}`);
-    return { success: true, data: res.data };
+
+    // Backend returns: { message, statusCode, data: [...] }
+    // Extract the actual enrollments array
+    return {
+      success: true,
+      data: res.data.data || res.data,
+      message: res.data.message,
+    };
   } catch (error: any) {
     return {
       success: false,

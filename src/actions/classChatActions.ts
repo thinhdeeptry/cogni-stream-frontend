@@ -1,7 +1,10 @@
 // src/actions/classChatActions.ts
 import { AxiosFactory } from "@/lib/axios";
 
-const classChatApi = await AxiosFactory.getApiInstance("courses");
+// Get the correct API instance for class-chat endpoints
+const getClassChatApi = async () => {
+  return await AxiosFactory.getApiInstance("courses"); // This should be the base API
+};
 
 // Types
 export interface ChatMessage {
@@ -70,7 +73,8 @@ export const getChatRoomInfo = async (
   classId: string,
 ): Promise<ChatRoomInfo> => {
   try {
-    const response = await classChatApi.get(`/${classId}/info`);
+    const classChatApi = await getClassChatApi();
+    const response = await classChatApi.get(`/class-chat/${classId}/info`);
     return response.data;
   } catch (error: any) {
     console.error("Error fetching chat room info:", error);
@@ -89,6 +93,7 @@ export const getMessages = async (
   beforeMessageId?: string,
 ): Promise<PaginatedMessages> => {
   try {
+    const classChatApi = await getClassChatApi();
     const params = new URLSearchParams();
     params.append("page", page.toString());
     params.append("limit", limit.toString());
@@ -102,7 +107,7 @@ export const getMessages = async (
     }
 
     const response = await classChatApi.get(
-      `/${classId}/messages?${params.toString()}`,
+      `/class-chat/${classId}/messages?${params.toString()}`,
     );
     return response.data;
   } catch (error: any) {
@@ -117,9 +122,13 @@ export const createChatRoom = async (
   className: string,
 ): Promise<ChatRoomInfo> => {
   try {
-    const response = await classChatApi.post(`/${classId}/create-room`, {
-      className,
-    });
+    const classChatApi = await getClassChatApi();
+    const response = await classChatApi.post(
+      `/class-chat/${classId}/create-room`,
+      {
+        className,
+      },
+    );
     return response.data;
   } catch (error: any) {
     console.error("Error creating chat room:", error);
@@ -135,7 +144,8 @@ export const addMemberToChatRoom = async (
   userId: string,
 ): Promise<void> => {
   try {
-    await classChatApi.post(`/${classId}/add-member`, {
+    const classChatApi = await getClassChatApi();
+    await classChatApi.post(`/class-chat/${classId}/add-member`, {
       userId,
     });
   } catch (error: any) {
