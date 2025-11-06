@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 import { useSocket } from "@/hooks/useSocket";
 import { motion } from "framer-motion";
@@ -63,11 +63,24 @@ export default function ChatMainPage() {
   const [sending, setSending] = useState(false);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [sendError, setSendError] = useState<string | null>(null);
 
   const router = useRouter();
   const { data: session } = useSession();
   const { user } = useUserStore();
   const { socket, isConnected } = useSocket();
+
+  // Ref for auto-scrolling to bottom
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to bottom when messages change
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   // Socket event handlers
   useEffect(() => {
@@ -78,6 +91,7 @@ export default function ChatMainPage() {
 
     // Listen for new messages
     const handleNewMessage = (message: ChatMessage) => {
+      console.log("Received new message:", message);
       setMessages((prev) => [...prev, message]);
     };
 
@@ -358,6 +372,12 @@ export default function ChatMainPage() {
 
     try {
       setSending(true);
+      setSendError(null); // Clear any previous errors
+      console.log("Sending message:", {
+        hasText: !!newMessage.trim(),
+        hasImage: !!selectedImage,
+        messageType: selectedImage ? "IMAGE" : "TEXT",
+      });
 
       let messageData: any = {
         classId: selectedClass.id,
@@ -368,26 +388,45 @@ export default function ChatMainPage() {
         // Convert image to base64
         const reader = new FileReader();
         const base64Promise = new Promise<string>((resolve, reject) => {
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = reject;
+          reader.onload = () => {
+            const result = reader.result as string;
+            console.log("Image converted to base64, size:", result.length);
+            resolve(result);
+          };
+          reader.onerror = (error) => {
+            console.error("Error reading file:", error);
+            reject(error);
+          };
           reader.readAsDataURL(selectedImage);
         });
 
-        const base64Data = await base64Promise;
-        messageData.imageData = base64Data;
-        messageData.content = newMessage.trim() || ""; // Caption for image
+        try {
+          const base64Data = await base64Promise;
+          messageData.imageData = base64Data;
+          messageData.content = newMessage.trim() || ""; // Caption for image
+          console.log("Image data prepared, sending message...");
+        } catch (error) {
+          console.error("Error converting image to base64:", error);
+          setSendError("Lỗi khi xử lý hình ảnh. Vui lòng thử lại.");
+          return;
+        }
       } else {
         messageData.content = newMessage;
       }
 
       // Send message via socket
+      console.log("Emitting message via socket:", messageData);
       socket.emit("send-message", messageData);
 
+      // Clear form
       setNewMessage("");
       setSelectedImage(null);
       setImagePreview(null);
+
+      console.log("Message sent successfully");
     } catch (error) {
       console.error("Error sending message:", error);
+      setSendError("Lỗi khi gửi tin nhắn. Vui lòng thử lại.");
     } finally {
       setSending(false);
     }
@@ -398,15 +437,21 @@ export default function ChatMainPage() {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    console.log("Selected file:", {
+      name: file.name,
+      size: file.size,
+      type: file.type,
+    });
+
     // Validate file type
     if (!file.type.startsWith("image/")) {
       alert("Vui lòng chọn file ảnh");
       return;
     }
 
-    // Validate file size (max 3MB)
-    if (file.size > 3 * 1024 * 1024) {
-      alert("Kích thước ảnh không được vượt quá 3MB");
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Kích thước ảnh không được vượt quá 5MB");
       return;
     }
 
@@ -415,7 +460,13 @@ export default function ChatMainPage() {
     // Create preview
     const reader = new FileReader();
     reader.onload = (e) => {
-      setImagePreview(e.target?.result as string);
+      const result = e.target?.result as string;
+      setImagePreview(result);
+      console.log("Image preview created");
+    };
+    reader.onerror = (error) => {
+      console.error("Error creating preview:", error);
+      alert("Lỗi khi tạo preview ảnh");
     };
     reader.readAsDataURL(file);
   };
@@ -424,6 +475,7 @@ export default function ChatMainPage() {
   const clearSelectedImage = () => {
     setSelectedImage(null);
     setImagePreview(null);
+    console.log("Cleared selected image");
   };
 
   // Filter classes based on search
@@ -730,6 +782,8 @@ export default function ChatMainPage() {
                       </div>
                     );
                   })}
+                  {/* Auto-scroll anchor */}
+                  <div ref={messagesEndRef} />
                 </div>
               )}
             </ScrollArea>
@@ -755,6 +809,13 @@ export default function ChatMainPage() {
                 </div>
               )}
 
+              {/* Error message */}
+              {sendError && (
+                <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-red-600 text-sm">{sendError}</p>
+                </div>
+              )}
+
               <div className="flex items-center space-x-2">
                 {/* Image Upload Button */}
                 <div className="relative">
@@ -764,12 +825,14 @@ export default function ChatMainPage() {
                     onChange={handleImageSelect}
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                     disabled={sending || !isConnected || isCreatingChatRoom}
+                    key={selectedImage ? "has-image" : "no-image"} // Reset input when image is cleared
                   />
                   <Button
                     variant="outline"
                     size="sm"
                     disabled={sending || !isConnected || isCreatingChatRoom}
                     className="relative"
+                    title="Chọn ảnh để gửi"
                   >
                     <Image className="h-4 w-4" />
                   </Button>
@@ -786,7 +849,10 @@ export default function ChatMainPage() {
                         : "Đang kết nối..."
                   }
                   value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
+                  onChange={(e) => {
+                    setNewMessage(e.target.value);
+                    if (sendError) setSendError(null); // Clear error when user starts typing
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
