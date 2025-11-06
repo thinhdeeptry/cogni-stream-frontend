@@ -7,8 +7,10 @@ import { useSocket } from "@/hooks/useSocket";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
+  ChevronLeft,
   Clock,
   Image,
+  Menu,
   MessageCircle,
   Search,
   Send,
@@ -64,6 +66,10 @@ export default function ChatMainPage() {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [currentChatInfo, setCurrentChatInfo] = useState<{
+    totalMembers: number;
+  }>({ totalMembers: 0 });
 
   const router = useRouter();
   const { data: session } = useSession();
@@ -72,6 +78,23 @@ export default function ChatMainPage() {
 
   // Ref for auto-scrolling to bottom
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Handle responsive sidebar
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 1024) {
+        setIsSidebarOpen(true);
+      } else {
+        setIsSidebarOpen(false);
+      }
+    };
+
+    // Set initial state
+    handleResize();
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   // Auto-scroll to bottom when messages change
   const scrollToBottom = () => {
@@ -280,6 +303,7 @@ export default function ChatMainPage() {
     const fetchMessages = async () => {
       if (!selectedClass) {
         console.log("Chat: No selected class, skipping message fetch");
+        setCurrentChatInfo({ totalMembers: 0 });
         return;
       }
 
@@ -289,6 +313,16 @@ export default function ChatMainPage() {
 
       try {
         setIsLoadingMessages(true);
+
+        // Try to get chat room info first
+        try {
+          const chatInfo = await getChatRoomInfo(selectedClass.id);
+          console.log(`Chat: Got current chat info:`, chatInfo);
+          setCurrentChatInfo({ totalMembers: chatInfo.totalMembers || 0 });
+        } catch (infoError) {
+          console.log("Chat: Chat room info not available yet");
+          setCurrentChatInfo({ totalMembers: 0 });
+        }
 
         // Try to get messages
         const messagesData = await getMessages(selectedClass.id, 1, 50);
@@ -340,6 +374,16 @@ export default function ChatMainPage() {
               `Chat: Retry got ${retryMessagesData.messages?.length || 0} messages`,
             );
             setMessages(retryMessagesData.messages || []);
+
+            // Update chat info after creating room
+            try {
+              const updatedChatInfo = await getChatRoomInfo(selectedClass.id);
+              setCurrentChatInfo({
+                totalMembers: updatedChatInfo.totalMembers || 0,
+              });
+            } catch (infoError) {
+              console.log("Chat: Could not get updated chat info");
+            }
           } catch (createError) {
             console.error(
               `Chat: Error creating chat room for class ${selectedClass.id}:`,
@@ -528,9 +572,25 @@ export default function ChatMainPage() {
   }
 
   return (
-    <div className="h-screen bg-gray-50 flex">
+    <div className="h-screen bg-gray-50 flex relative">
+      {/* Mobile Backdrop */}
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar - Class List */}
-      <div className="w-80 bg-white border-r flex flex-col">
+      <div
+        className={`
+        ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}
+        fixed lg:relative z-50 lg:z-0
+        w-80 h-full bg-white border-r flex flex-col
+        transition-transform duration-300 ease-in-out
+        lg:translate-x-0
+      `}
+      >
         {/* Header */}
         <div className="p-4 border-b">
           <div className="flex items-center justify-between mb-4">
@@ -543,6 +603,15 @@ export default function ChatMainPage() {
                 Chat
               </h1>
             </div>
+            {/* Close button for mobile */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="lg:hidden"
+              onClick={() => setIsSidebarOpen(false)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
           </div>
 
           {/* Search */}
@@ -587,7 +656,13 @@ export default function ChatMainPage() {
                         ? "bg-blue-50 border-blue-200"
                         : "hover:bg-gray-50"
                     }`}
-                    onClick={() => setSelectedClass(classItem)}
+                    onClick={() => {
+                      setSelectedClass(classItem);
+                      // Close sidebar on mobile when selecting a class
+                      if (window.innerWidth < 1024) {
+                        setIsSidebarOpen(false);
+                      }
+                    }}
                   >
                     <CardContent className="p-3">
                       <div className="flex items-center space-x-3">
@@ -648,12 +723,52 @@ export default function ChatMainPage() {
       </div>
 
       {/* Chat Area */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col lg:ml-0">
+        {/* Mobile Header with Menu Button */}
+        <div className="lg:hidden p-4 bg-white border-b flex items-center gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsSidebarOpen(true)}
+          >
+            <Menu className="h-4 w-4" />
+          </Button>
+          {selectedClass && (
+            <div className="flex items-center gap-2">
+              <Avatar className="h-8 w-8">
+                <AvatarFallback className="bg-blue-100 text-blue-600">
+                  {selectedClass.name.charAt(0)}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <h2 className="font-semibold text-sm">{selectedClass.name}</h2>
+                <p className="text-xs text-gray-600">
+                  {currentChatInfo.totalMembers} thành viên
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+
         {selectedClass ? (
           <>
-            {/* Chat Header */}
-            <div className="p-4 border-b bg-white">
+            {/* Desktop Chat Header */}
+            <div className="hidden lg:block p-4 border-b bg-white">
               <div className="flex items-center gap-3">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                  title={
+                    isSidebarOpen ? "Ẩn danh sách lớp" : "Hiện danh sách lớp"
+                  }
+                >
+                  {isSidebarOpen ? (
+                    <ChevronLeft className="h-4 w-4" />
+                  ) : (
+                    <Menu className="h-4 w-4" />
+                  )}
+                </Button>
                 <Avatar className="h-10 w-10">
                   <AvatarFallback className="bg-blue-100 text-blue-600">
                     {selectedClass.name.charAt(0)}
@@ -675,7 +790,7 @@ export default function ChatMainPage() {
                     )}
                   </div>
                   <p className="text-sm text-gray-600">
-                    {selectedClass.courseName} • {selectedClass.totalMembers}{" "}
+                    {selectedClass.courseName} • {currentChatInfo.totalMembers}{" "}
                     thành viên
                     {!isConnected && (
                       <span className="text-red-500 ml-2">• Mất kết nối</span>
@@ -893,9 +1008,20 @@ export default function ChatMainPage() {
               <h3 className="text-lg font-medium text-gray-900 mb-2">
                 Chọn một lớp học để bắt đầu chat
               </h3>
-              <p className="text-gray-500">
-                Chọn lớp học từ danh sách bên trái để xem và gửi tin nhắn
+              <p className="text-gray-500 mb-4">
+                Chọn lớp học từ danh sách để xem và gửi tin nhắn
               </p>
+              {/* Show menu button on mobile when no class selected */}
+              <div className="lg:hidden">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsSidebarOpen(true)}
+                  className="flex items-center gap-2"
+                >
+                  <Menu className="h-4 w-4" />
+                  Xem danh sách lớp học
+                </Button>
+              </div>
             </div>
           </div>
         )}
