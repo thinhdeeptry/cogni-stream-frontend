@@ -26,7 +26,7 @@ import {
   Video,
 } from "lucide-react";
 
-import { createLesson, uploadImage } from "@/actions/courseAction";
+import { createLesson, uploadCourseVideo } from "@/actions/courseAction";
 
 import UnlockRequirementsBuilder from "@/components/admin/UnlockRequirementsBuilder";
 import LessonReviewSidebar from "@/components/lesson/LessonReviewSidebar";
@@ -93,13 +93,9 @@ export default function CreateLessonPage({
   const editor = useCreateBlockNote({
     uploadFile: async (file: File) => {
       try {
-        const result = await uploadImage(
-          file,
-          "courses",
-          `lessons/${resolvedParams.courseId}`,
-        );
+        const result = await uploadCourseVideo(file, resolvedParams.courseId);
         if (result.success) {
-          return result.url;
+          return result.driveUrl;
         } else {
           throw new Error(result.message);
         }

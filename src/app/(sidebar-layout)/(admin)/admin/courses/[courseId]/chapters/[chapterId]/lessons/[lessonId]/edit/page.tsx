@@ -34,7 +34,7 @@ import { z } from "zod";
 import {
   getLessonById,
   updateLesson,
-  uploadImage,
+  uploadCourseVideo,
 } from "@/actions/courseAction";
 
 import UnlockRequirementsBuilder from "@/components/admin/UnlockRequirementsBuilder";
@@ -156,13 +156,9 @@ export default function EditLessonPage({
   const editor = useCreateBlockNote({
     uploadFile: async (file: File) => {
       try {
-        const result = await uploadImage(
-          file,
-          "courses",
-          `lessons/${resolvedParams.courseId}`,
-        );
+        const result = await uploadCourseVideo(file, resolvedParams.courseId);
         if (result.success) {
-          return result.url;
+          return result.driveUrl;
         } else {
           throw new Error(result.message);
         }

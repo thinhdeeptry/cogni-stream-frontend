@@ -20,7 +20,7 @@ import {
   getAllCategories,
   getCourseById,
   updateCourse,
-  uploadImage,
+  uploadCourseThumbnail,
 } from "@/actions/courseAction";
 
 import useUserStore from "@/stores/useUserStore";
@@ -106,19 +106,18 @@ export default function EditCoursePage({
         const imageUrl = URL.createObjectURL(file);
         setSelectedImage(imageUrl);
 
-        // Upload file lên server
-        const response = await uploadImage(
+        // Upload course thumbnail to Google Drive
+        const response = await uploadCourseThumbnail(
           file,
-          "courses",
-          `course-thumbnails/${user?.id}`,
+          resolvedParams.courseId,
         );
 
         if (response.success) {
-          // Cập nhật URL thật từ server
-          setSelectedImage(response.url);
+          // Cập nhật URL thật từ Google Drive
+          setSelectedImage(response.driveUrl);
           toast({
             title: "Thành công",
-            description: "Đã tải lên hình ảnh",
+            description: "Đã tải lên Google Drive",
           });
         } else {
           toast({

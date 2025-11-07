@@ -14,7 +14,6 @@ import {
   createCourse,
   getAllCategories,
   uploadFileToDrive,
-  uploadImage,
 } from "@/actions/courseAction";
 
 import useUserStore from "@/stores/useUserStore";
@@ -140,8 +139,12 @@ export default function CreateCoursePage() {
         const imageUrl = URL.createObjectURL(file);
         setSelectedImage(imageUrl);
 
-        // Upload file lên Google Drive
-        const result = await uploadFileToDrive(file);
+        // Upload file lên Google Drive với user context (vì chưa có courseId)
+        const result = await uploadFileToDrive(file, {
+          type: "user",
+          entityId: user?.id || "temp-user",
+          subfolder: "course-thumbnails",
+        });
 
         if (result.success) {
           // Cập nhật URL từ Drive

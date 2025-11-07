@@ -621,8 +621,54 @@ export const uploadImage = async (
   }
 };
 
-// Upload file lên Google Drive
+// Upload file lên Google Drive với context-aware folder structure
 export const uploadFileToDrive = async (
+  file: File,
+  context: {
+    type: "course" | "user" | "class";
+    entityId: string;
+    subfolder?: string; // e.g., 'thumbnails', 'videos', 'documents'
+  },
+) => {
+  try {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("type", context.type);
+    formData.append("entityId", context.entityId);
+    if (context.subfolder) {
+      formData.append("subfolder", context.subfolder);
+    }
+
+    const { data } = await courseApi.post(
+      "/google/drive/upload-context",
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      },
+    );
+
+    return {
+      success: true,
+      data,
+      driveUrl: data.webViewLink,
+      fileId: data.id,
+      folderPath: data.folderPath,
+      context: data.context,
+    };
+  } catch (error) {
+    console.error("Error uploading file to Drive:", error);
+    return {
+      success: false,
+      message: "Không thể tải file lên Google Drive",
+    };
+  }
+};
+
+// Deprecated - use uploadFileToDrive instead
+// Upload file lên Google Drive
+export const uploadFileToDriveOld = async (
   file: File,
   parentFolderId?: string,
 ) => {
@@ -652,6 +698,73 @@ export const uploadFileToDrive = async (
       message: "Không thể tải file lên Google Drive",
     };
   }
+};
+
+// ============================================
+// HELPER FUNCTIONS FOR SPECIFIC CONTEXTS
+// ============================================
+
+// Upload course thumbnail
+export const uploadCourseThumbnail = async (file: File, courseId: string) => {
+  return uploadFileToDrive(file, {
+    type: "course",
+    entityId: courseId,
+    subfolder: "thumbnails",
+  });
+};
+
+// Upload course video
+export const uploadCourseVideo = async (file: File, courseId: string) => {
+  return uploadFileToDrive(file, {
+    type: "course",
+    entityId: courseId,
+    subfolder: "videos",
+  });
+};
+
+// Upload course documents
+export const uploadCourseDocument = async (file: File, courseId: string) => {
+  return uploadFileToDrive(file, {
+    type: "course",
+    entityId: courseId,
+    subfolder: "documents",
+  });
+};
+
+// Upload user avatar
+export const uploadUserAvatar = async (file: File, userId: string) => {
+  return uploadFileToDrive(file, {
+    type: "user",
+    entityId: userId,
+    subfolder: "avatars",
+  });
+};
+
+// Upload user documents
+export const uploadUserDocument = async (file: File, userId: string) => {
+  return uploadFileToDrive(file, {
+    type: "user",
+    entityId: userId,
+    subfolder: "documents",
+  });
+};
+
+// Upload class materials
+export const uploadClassMaterial = async (file: File, classId: string) => {
+  return uploadFileToDrive(file, {
+    type: "class",
+    entityId: classId,
+    subfolder: "materials",
+  });
+};
+
+// Upload class assignments
+export const uploadClassAssignment = async (file: File, classId: string) => {
+  return uploadFileToDrive(file, {
+    type: "class",
+    entityId: classId,
+    subfolder: "assignments",
+  });
 };
 
 export const createCategory = async (categoryData: {
