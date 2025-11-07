@@ -39,6 +39,7 @@ const bannerImages = [
 interface LiveCourseItemData {
   course: Course;
   classData: Class;
+  currentStudents?: number;
 }
 
 function HomeContent() {
@@ -102,6 +103,7 @@ function HomeContent() {
               liveItems.push({
                 course,
                 classData: classItem,
+                currentStudents: classItem._count?.enrollments || 0,
               });
             });
           }

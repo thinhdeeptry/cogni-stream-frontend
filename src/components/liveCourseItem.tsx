@@ -30,6 +30,7 @@ export default function LiveCourseItem({
 
   // Fetch pricing data
   useEffect(() => {
+    console.log("classData: ", classData);
     const fetchPricing = async () => {
       try {
         const priceData = await getCourseCurrentPrice(course.id);
@@ -124,8 +125,8 @@ export default function LiveCourseItem({
 
         <CardContent className="px-4 py-3">
           {/* Course title */}
-          <h3 className="font-bold text-md line-clamp-2 mb-2 text-gray-800">
-            {course.title}
+          <h3 className="font-bold text-md text-gray-800 mb-2 h-12 flex items-start overflow-hidden">
+            <span className="line-clamp-2 leading-6">{course.title}</span>
           </h3>
 
           {/* Class name */}
@@ -239,7 +240,7 @@ export default function LiveCourseItem({
             <div className="flex items-center gap-1 text-sm text-gray-600">
               <Users className="h-4 w-4 text-blue-500" />
               <span>
-                {classData.currentStudents}/{classData.maxStudents}
+                {classData._count?.enrollments || 0}/{classData.maxStudents}
               </span>
             </div>
           </div>

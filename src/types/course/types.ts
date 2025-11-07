@@ -403,6 +403,11 @@ export interface Class {
   createdAt?: Date;
   updatedAt?: Date;
 
+  // Count relations
+  _count?: {
+    enrollments?: number;
+  };
+
   // 🔥 Google Meet Configuration
   meetingHostEmail?: string; // Email của giảng viên làm host
   allowedAttendeeEmails?: string[]; // Danh sách email được phép join
