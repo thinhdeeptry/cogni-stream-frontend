@@ -4,6 +4,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import React, { useEffect, useMemo, useState } from "react";
 
 import { toast } from "@/hooks/use-toast";
+import { usePopupChatbot } from "@/hooks/usePopupChatbot";
 import {
   formatTime,
   formatTimeMinutes,
@@ -59,9 +60,12 @@ import {
   type GroupedSyllabusItem,
   getSyllabusByClassId,
 } from "@/actions/syllabusActions";
+import { getYoutubeTranscript } from "@/actions/youtubeTranscript.action";
 
 import { useProgressStore } from "@/stores/useProgressStore";
 import useUserStore from "@/stores/useUserStore";
+
+import { extractPlainTextFromBlockNote } from "@/utils/blocknote";
 
 import { AttendanceManager } from "@/components/attendance";
 import AttendanceChecker from "@/components/attendance/AttendanceChecker";
@@ -330,6 +334,15 @@ export default function ClassLearningPage() {
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [pendingNavigation, setPendingNavigation] =
     useState<SyllabusItem | null>(null);
+  // Chatbot states
+  const [timestampedTranscript, setTimestampedTranscript] = useState<
+    Array<{
+      text: string;
+      timestamp: string;
+      offset: number;
+      duration: number;
+    }>
+  >([]);
 
   // Time tracking for current item
   const timeTracking = useTimeTracking({
@@ -567,8 +580,38 @@ export default function ClassLearningPage() {
       fetchLessonData(currentItem.lesson.id);
     } else {
       setCurrentLessonData(null);
+      setTimestampedTranscript([]); // Clear transcript when not a lesson
     }
   }, [currentItem]);
+
+  // Effect to fetch transcript when lesson data changes
+  useEffect(() => {
+    const fetchTranscript = async () => {
+      if (currentLessonData?.videoUrl) {
+        try {
+          const result = await getYoutubeTranscript(currentLessonData.videoUrl);
+
+          if ("error" in result) {
+            console.warn(
+              `Transcript fetch failed: ${result.error}`,
+              result.details,
+            );
+            setTimestampedTranscript([]);
+          } else {
+            setTimestampedTranscript(result.timestampedTranscript);
+            console.log("Transcript fetched successfully for class lesson");
+          }
+        } catch (error) {
+          console.error("Error fetching transcript for class lesson:", error);
+          setTimestampedTranscript([]);
+        }
+      } else {
+        setTimestampedTranscript([]);
+      }
+    };
+
+    fetchTranscript();
+  }, [currentLessonData?.videoUrl]);
 
   // Time tracking effects
   useEffect(() => {
@@ -646,7 +689,109 @@ export default function ClassLearningPage() {
       ? allItems.findIndex((item) => item.id === currentItem.id)
       : -1;
   }, [allItems, currentItem]);
+  // Memoize the reference text for chatbot - only for lesson content
+  const referenceText = useMemo(() => {
+    // Only generate reference text for lessons
+    if (
+      currentItem?.itemType !== SyllabusItemType.LESSON ||
+      !currentLessonData
+    ) {
+      return "";
+    }
 
+    // Format timestamped transcript for reference
+    let transcriptSection = "No video transcript available";
+
+    if (timestampedTranscript.length > 0) {
+      // Check if we have valid timestamps (not all 0:00)
+      const hasValidTimestamps = timestampedTranscript.some(
+        (item) => item.timestamp !== "0:00",
+      );
+
+      if (hasValidTimestamps) {
+        transcriptSection = timestampedTranscript
+          .map((item) => `[${item.timestamp}] ${item.text}`)
+          .join("\n");
+      } else {
+        transcriptSection = timestampedTranscript
+          .map((item, index) => `[Part ${index + 1}] ${item.text}`)
+          .join("\n");
+      }
+    }
+
+    // Extract plain text from lesson content if it exists
+    const plainContent = currentLessonData?.content
+      ? extractPlainTextFromBlockNote(currentLessonData.content)
+      : "No content available";
+
+    return `
+    Course Title: ${course?.title} \n
+    Class Name: ${classInfo?.name} \n
+    Lesson Title: ${currentLessonData?.title} \n
+    Lesson Content: ${plainContent} \n
+    Lesson Type: ${currentLessonData?.type} \n
+    Lesson Video Transcript with Timestamps: \n${transcriptSection} \n
+    `;
+  }, [
+    currentItem?.itemType,
+    currentLessonData,
+    course?.title,
+    classInfo?.name,
+    timestampedTranscript,
+  ]);
+
+  // Chatbot component - only show for lessons
+  const ClassLessonChatbot = usePopupChatbot({
+    initialOpen: false,
+    position: "bottom-right",
+    referenceText,
+    title: "Trợ lý học tập CogniStream AI",
+    welcomeMessage: "", // Will be auto-generated based on context
+    showBalloon: false,
+    // Context-aware props
+    userName: user?.name || user?.email?.split("@")[0] || "bạn",
+    courseName: course?.title,
+    lessonName: currentLessonData?.title,
+    lessonOrder: currentItemIndex + 1, // Use current item index as order
+    totalLessons: syllabusData.reduce(
+      (total, group) =>
+        total +
+        group.items.filter((item) => item.itemType === SyllabusItemType.LESSON)
+          .length,
+      0,
+    ),
+    chapterName: `${classInfo?.name} - Ngày ${
+      currentItem &&
+      syllabusData.find((g) => g.items.some((i) => i.id === currentItem.id))
+        ?.day
+    }`,
+    systemPrompt: `Bạn là trợ lý AI học tập cá nhân của CogniStream, được tối ưu hóa để hỗ trợ quá trình học tập trong lớp học trực tuyến. Hãy tuân thủ các nguyên tắc sau:
+
+1. NỘI DUNG VÀ GIỌNG ĐIỆU
+- Trả lời ngắn gọn, đảm bảo thông tin chính xác và có tính giáo dục cao
+- Ưu tiên cách giải thích dễ hiểu, sử dụng ví dụ minh họa khi cần thiết
+- Sử dụng giọng điệu thân thiện, khuyến khích và tích cực
+- Nhấn mạnh tính tương tác và hợp tác trong môi trường lớp học
+
+2. NGUỒN THÔNG TIN
+- Phân tích và sử dụng chính xác nội dung từ reference text (bài học trong lớp) được cung cấp
+- Nếu câu hỏi nằm ngoài phạm vi bài học, hãy nói rõ và cung cấp kiến thức nền tảng
+- Đề xuất tài liệu bổ sung chỉ khi thực sự cần thiết
+- Khuyến khích thảo luận và tương tác với giảng viên và bạn học
+
+3. HỖ TRỢ HỌC TẬP
+- Giúp người học hiểu sâu hơn về khái niệm, không chỉ ghi nhớ thông tin
+- Hướng dẫn người học tư duy phản biện và giải quyết vấn đề
+- Điều chỉnh độ phức tạp của câu trả lời phù hợp với ngữ cảnh lớp học
+- Gợi ý các hoạt động thực hành và ứng dụng kiến thức
+
+4. ĐỊNH DẠNG
+- Sử dụng Markdown để định dạng câu trả lời và đảm bảo dễ đọc
+- Dùng đậm, in nghiêng và danh sách để làm nổi bật điểm quan trọng
+- Đảm bảo thuật ngữ kỹ thuật được giải thích rõ ràng
+
+Reference text chứa thông tin về khóa học, lớp học và nội dung bài học. Hãy sử dụng thông tin này khi trả lời.`,
+  });
   // Helper function to check if an item is completed
   const isItemCompleted = (item: SyllabusItem) => {
     if (!completedItems || !Array.isArray(completedItems)) return false;
@@ -1223,7 +1368,7 @@ export default function ClassLearningPage() {
                             animate={{ opacity: 1, scale: 1 }}
                             transition={{ delay: 0.2 }}
                           >
-                            <div className="relative w-full aspect-video bg-black rounded-lg overflow-hidden">
+                            <div className="relative w-full max-w-5xl mx-auto aspect-video bg-black rounded-lg overflow-hidden shadow-lg">
                               {isVideoLoading && (
                                 <div className="absolute inset-0 flex items-center justify-center bg-gray-900 z-10">
                                   <Loader2 className="h-8 w-8 animate-spin text-white" />
@@ -1476,7 +1621,7 @@ export default function ClassLearningPage() {
                                 }
 
                                 return contentBlocks.length > 0 ? (
-                                  <div className="space-y-4">
+                                  <div className="space-y-4 mb-10">
                                     {contentBlocks.map((block, index) => (
                                       <div key={index}>
                                         {renderBlockToHtml(block)}
@@ -1495,7 +1640,7 @@ export default function ClassLearningPage() {
                             </div>
                           ) : (
                             <div className="bg-blue-50 p-6 rounded-lg">
-                              <div className="flex items-center gap-3 mb-3">
+                              {/* <div className="flex items-center gap-3 mb-3">
                                 <Video className="h-6 w-6 text-blue-500" />
                                 <h3 className="text-lg font-semibold text-blue-800">
                                   Bài học video
@@ -1503,7 +1648,7 @@ export default function ClassLearningPage() {
                               </div>
                               <p className="text-blue-700">
                                 Xem video bên trên để học nội dung bài học này.
-                              </p>
+                              </p> */}
                             </div>
                           )}
                         </motion.div>
@@ -1758,7 +1903,7 @@ export default function ClassLearningPage() {
                             </div>
 
                             <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-xl border border-gray-200 shadow-sm">
-                              <div className="relative aspect-video bg-black rounded-lg overflow-hidden shadow-lg">
+                              <div className="relative w-full max-w-4xl mx-auto aspect-video bg-black rounded-lg overflow-hidden shadow-lg">
                                 <ReactPlayer
                                   url={currentItem.classSession.recordingUrl}
                                   width="100%"
@@ -1958,27 +2103,7 @@ export default function ClassLearningPage() {
           canNavigateToItem={canNavigateToItem}
           getNextAvailableItem={getNextAvailableItem}
           onItemSelect={(item: SyllabusItem) => {
-            // // Check if navigation to this item is allowed
-            // if (!canNavigateToItem(item)) {
-            //   const targetIndex = allItems.findIndex((i) => i.id === item.id);
-            //   const nextAvailable = getNextAvailableItem();
-
-            //   toast({
-            //     title: "❌ Không thể bỏ qua bài học",
-            //     description: nextAvailable
-            //       ? `Bạn cần hoàn thành các bài học trước đó. Bài học tiếp theo: "${
-            //           nextAvailable.itemType === SyllabusItemType.LESSON
-            //             ? nextAvailable.lesson?.title
-            //             : nextAvailable.classSession?.topic
-            //         }"`
-            //       : "Bạn cần hoàn thành tất cả các bài học trước đó.",
-            //     variant: "destructive",
-            //   });
-            //   return;
-            // }
-
             setCurrentItem(item);
-            // Progress is automatically tracked when lesson changes
           }}
         />
       )}
@@ -2028,6 +2153,11 @@ export default function ClassLearningPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Chatbot - Only show for lesson items */}
+      {currentItem?.itemType === SyllabusItemType.LESSON &&
+        currentLessonData &&
+        isEnrolled && <ClassLessonChatbot />}
     </motion.div>
   );
 }
