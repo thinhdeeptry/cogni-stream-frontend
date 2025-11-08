@@ -6,7 +6,7 @@ export type ProgressStatus = "ATTENDED" | "COMPLETED_SELF_STUDY";
 
 export interface CreateStudentProgressDto {
   enrollmentId: string;
-  syllabusItemId: string;
+  syllabusItemId?: string;
   classSessionId?: string;
   lessonId?: string;
   status?: ProgressStatus;
@@ -29,7 +29,7 @@ interface OverallProgressResponse {
 export const createStudentProgress = async (dto: CreateStudentProgressDto) => {
   try {
     const api = await AxiosFactory.getApiInstance("progress");
-    const response = await api.post("/", dto);
+    const response = await api.post("/progress", dto);
     return {
       error: false,
       success: true,
@@ -188,6 +188,30 @@ export const getOverallProgress = async (enrollmentId: string) => {
       success: false,
       message:
         error.response?.data?.message || "Không thể lấy tổng quan tiến trình.",
+      data: null,
+    };
+  }
+};
+
+export const getCompletedItems = async (enrollmentId: string) => {
+  try {
+    const progressApi = await AxiosFactory.getApiInstance("progress");
+    const response = await progressApi.get(
+      `/progress/enrollment/${enrollmentId}?completed-items=true`,
+    );
+
+    return {
+      error: false,
+      success: true,
+      data: response.data,
+    };
+  } catch (error: any) {
+    return {
+      error: true,
+      success: false,
+      message:
+        error.response?.data?.message ||
+        "Không thể lấy danh sách bài học đã hoàn thành.",
       data: null,
     };
   }
