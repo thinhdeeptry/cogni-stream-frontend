@@ -1378,6 +1378,75 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
     }
   };
 
+  // Handle course completion after quiz completion
+  const handleQuizCourseCompletion = useCallback(async () => {
+    if (!lesson || !course || !enrollmentId) return;
+
+    const currentLessonId = params.lessonId as string;
+    const isCurrentLessonLast = currentLessonIndex === allLessons.length - 1;
+
+    console.log("🎯 [QuizCompletion] Checking course completion conditions:", {
+      currentLessonId,
+      isCurrentLessonLast,
+      currentLessonIndex,
+      totalLessons: allLessons.length,
+      completedLessonsCount: completedLessonIds.length,
+      allLessonsExceptCurrent: allLessons.length - 1,
+    });
+
+    // Check if this is the last lesson in the course
+    if (!isCurrentLessonLast) {
+      console.log(
+        "🎯 [QuizCompletion] Not the final lesson, skipping course completion",
+      );
+      return;
+    }
+
+    // Get all lesson IDs except the current one (which was just completed)
+    const otherLessonIds = allLessons
+      .filter((l): l is NonNullable<typeof l> => l != null && l.id != null) // Type guard for undefined lessons
+      .map((l) => l.id)
+      .filter((id) => id !== currentLessonId);
+
+    // Check if all other lessons are completed
+    const allOtherLessonsCompleted = otherLessonIds.every((id) =>
+      completedLessonIds.includes(id),
+    );
+
+    console.log("🎯 [QuizCompletion] All other lessons completion check:", {
+      otherLessonIds,
+      completedLessonIds,
+      allOtherLessonsCompleted,
+    });
+
+    if (allOtherLessonsCompleted) {
+      console.log(
+        "🎉 [QuizCompletion] All conditions met - completing course!",
+      );
+
+      // Add a small delay to ensure the quiz completion is processed
+      setTimeout(async () => {
+        try {
+          await handleCourseCompletion();
+        } catch (error) {
+          console.error("Error in course completion:", error);
+          toast.error("Có lỗi khi cấp chứng chỉ hoàn thành khóa học");
+        }
+      }, 1000);
+    } else {
+      console.log("🎯 [QuizCompletion] Not all lessons completed yet");
+    }
+  }, [
+    lesson,
+    course,
+    enrollmentId,
+    params.lessonId,
+    currentLessonIndex,
+    allLessons,
+    completedLessonIds,
+    handleCourseCompletion,
+  ]);
+
   return (
     <>
       {/* Mobile Overlay - Enhanced for Quiz */}
@@ -1589,6 +1658,7 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
                         }
                       }}
                       onQuizStateChange={handleQuizStateChange}
+                      onCourseCompletion={handleQuizCourseCompletion}
                     />
                   ) : (
                     <div className="flex items-center justify-center p-8">

@@ -78,6 +78,7 @@ interface QuizSectionProps {
   onNavigateToNextIncomplete?: () => void; // Callback to navigate to next incomplete syllabus item (class page provides)
   isInstructorOrAdmin?: boolean; // Preview mode for instructor/admin - bypasses time restrictions
   onQuizStateChange?: (isActivelyTaking: boolean) => void; // Callback when quiz active state changes
+  onCourseCompletion?: () => void; // Callback when course is completed after final quiz
 }
 
 export default function QuizSection({
@@ -92,6 +93,7 @@ export default function QuizSection({
   onNavigateToNextIncomplete,
   isInstructorOrAdmin = false,
   onQuizStateChange,
+  onCourseCompletion,
 }: QuizSectionProps) {
   const router = useRouter();
   const [status, setStatus] = useState<QuizStatus | null>(null);
