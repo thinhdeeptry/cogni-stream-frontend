@@ -76,6 +76,8 @@ interface QuizSectionProps {
   onQuizCompleted?: (success: boolean) => void; // Callback when quiz is completed successfully
   onNavigateToLesson?: (lessonId: string) => void; // Callback to navigate to required lesson
   onNavigateToNextIncomplete?: () => void; // Callback to navigate to next incomplete syllabus item (class page provides)
+  isInstructorOrAdmin?: boolean; // Preview mode for instructor/admin - bypasses time restrictions
+  onQuizStateChange?: (isActivelyTaking: boolean) => void; // Callback when quiz active state changes
 }
 
 export default function QuizSection({
@@ -88,6 +90,8 @@ export default function QuizSection({
   onQuizCompleted,
   onNavigateToLesson,
   onNavigateToNextIncomplete,
+  isInstructorOrAdmin = false,
+  onQuizStateChange,
 }: QuizSectionProps) {
   const router = useRouter();
   const [status, setStatus] = useState<QuizStatus | null>(null);
@@ -127,11 +131,37 @@ export default function QuizSection({
 
   useEffect(() => {
     if (!isEnrolled) return;
+    console.log("Fetching quiz data for lessonId:", lessonId);
+
     fetchQuizData();
   }, [lessonId, isEnrolled]);
 
+  // Notify parent when quiz active state changes
   useEffect(() => {
-    if (!currentAttempt || timeRemaining === null || timeRemaining <= 0) return;
+    const isActivelyTaking = !!(
+      currentAttempt &&
+      allQuestions.length > 0 &&
+      !isLoadingQuestions &&
+      !result
+    );
+    onQuizStateChange?.(isActivelyTaking);
+  }, [
+    currentAttempt,
+    allQuestions.length,
+    isLoadingQuestions,
+    result,
+    onQuizStateChange,
+  ]);
+
+  useEffect(() => {
+    // Skip timer for instructor/admin preview mode
+    if (
+      !currentAttempt ||
+      timeRemaining === null ||
+      timeRemaining <= 0 ||
+      isInstructorOrAdmin
+    )
+      return;
 
     const interval = setInterval(() => {
       setTimeRemaining((prev) => {
@@ -145,7 +175,7 @@ export default function QuizSection({
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [currentAttempt, timeRemaining]);
+  }, [currentAttempt, timeRemaining, isInstructorOrAdmin]);
 
   // Block countdown timer effect
   useEffect(() => {
@@ -176,9 +206,10 @@ export default function QuizSection({
 
   const fetchQuizData = async () => {
     try {
+      console.log("Fetching quiz data for lessonId:", lessonId);
       setIsLoading(true);
       const [statusResult, historyResult] = await Promise.all([
-        getQuizStatus(lessonId),
+        getQuizStatus(lessonId, isInstructorOrAdmin),
         getQuizHistory(lessonId),
       ]);
 
@@ -239,7 +270,11 @@ export default function QuizSection({
 
     try {
       setIsStarting(true);
-      const result = await startQuizAttempt(lessonId, enrollmentId);
+      const result = await startQuizAttempt(
+        lessonId,
+        enrollmentId,
+        isInstructorOrAdmin,
+      );
       console.log("result start Quiz: ", result);
       if (result.success && result.data) {
         setCurrentAttempt(result.data);
@@ -248,8 +283,11 @@ export default function QuizSection({
         setResult(null);
         setQuizStartTime(new Date());
         setFlaggedQuestions(new Set());
-        if (result.data.timeLimit) {
+        // Bypass time limit for instructor/admin preview mode
+        if (result.data.timeLimit && !isInstructorOrAdmin) {
           setTimeRemaining(result.data.timeLimit * 60);
+        } else if (isInstructorOrAdmin) {
+          setTimeRemaining(null); // No time limit for preview mode
         }
 
         await fetchAllQuestions();
@@ -321,7 +359,12 @@ export default function QuizSection({
         }),
       };
       console.log("submission: ", submission);
-      const result = await submitQuizAttempt(currentAttempt.id, submission);
+      const result = await submitQuizAttempt(
+        currentAttempt.id,
+        submission,
+        lessonId,
+        isInstructorOrAdmin,
+      );
 
       if (result.success && result.data) {
         toast.success("Nộp bài quiz thành công!");
@@ -564,9 +607,16 @@ export default function QuizSection({
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-xl text-blue-900">
-                    {lessonTitle}
-                  </CardTitle>
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-xl text-blue-900">
+                      {lessonTitle}
+                    </CardTitle>
+                    {isInstructorOrAdmin && (
+                      <span className="px-2 py-1 text-xs bg-orange-100 text-orange-800 rounded-full font-medium">
+                        Chế độ xem trước
+                      </span>
+                    )}
+                  </div>
                   <p className="text-sm text-blue-700">
                     Lần thử thứ {currentAttempt.attemptNumber || 1}
                     {quizStartTime && (
@@ -575,11 +625,16 @@ export default function QuizSection({
                         {quizStartTime.toLocaleTimeString("vi-VN")}
                       </span>
                     )}
+                    {isInstructorOrAdmin && (
+                      <span className="ml-2 text-orange-600">
+                        • Không giới hạn thời gian
+                      </span>
+                    )}
                   </p>
                 </div>
 
                 <div className="flex items-center gap-4">
-                  {timeRemaining !== null && (
+                  {timeRemaining !== null && !isInstructorOrAdmin && (
                     <div
                       className={cn(
                         "flex items-center gap-2 bg-white/90 px-4 py-2 rounded-lg border-2 transition-all duration-300",
@@ -608,6 +663,20 @@ export default function QuizSection({
                             : timeRemaining < 600
                               ? "Còn ít thời gian"
                               : "Thời gian còn lại"}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {isInstructorOrAdmin && (
+                    <div className="flex items-center gap-2 bg-orange-50/90 px-4 py-2 rounded-lg border-2 border-orange-200">
+                      <Timer className="h-5 w-5 text-orange-600" />
+                      <div className="flex flex-col items-center">
+                        <span className="font-mono text-lg font-bold text-orange-600">
+                          ∞ Không giới hạn
+                        </span>
+                        <span className="text-xs text-orange-500">
+                          Chế độ xem trước
                         </span>
                       </div>
                     </div>
@@ -971,7 +1040,8 @@ export default function QuizSection({
 
         {timeRemaining !== null &&
           timeRemaining <= 300 &&
-          timeRemaining > 0 && (
+          timeRemaining > 0 &&
+          !isInstructorOrAdmin && (
             <motion.div
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -996,6 +1066,13 @@ export default function QuizSection({
 
   // Show quiz result
   if (result) {
+    console.log("🎯 [QuizResult] Rendering quiz result:", {
+      passed: result.passed,
+      score: result.score,
+      canRetry: result.canRetry,
+      timeSpent: result.timeSpent,
+    });
+
     return (
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
@@ -1007,13 +1084,13 @@ export default function QuizSection({
           ref={confettiRef}
           manualstart
           options={{}}
-          className="absolute top-0 left-0 z-0 size-full"
+          className="absolute top-0 left-0 pointer-events-none z-0 size-full"
         />
         <Card
-          className={`border-2 ${result.passed ? "border-green-200 bg-green-50" : "border-orange-200 bg-orange-50"}`}
+          className={`border-2 relative z-10 ${result.passed ? "border-green-200 bg-green-50" : "border-orange-200 bg-orange-50"}`}
         >
           <CardContent className="p-6">
-            <div className="text-center space-y-4">
+            <div className="text-center space-y-4 relative z-20">
               {result.passed ? (
                 <CheckCircle className="h-16 w-16 text-green-500 mx-auto" />
               ) : (
@@ -1034,11 +1111,14 @@ export default function QuizSection({
                 </p>
               </div>
 
-              <div className="flex gap-3 justify-center">
+              <div className="flex gap-3 justify-center relative z-10">
                 {result.passed ? (
                   // Nút "Tiếp tục học" khi đã đạt
                   <Button
                     onClick={() => {
+                      console.log(
+                        "✅ [QuizResult] Tiếp tục học button clicked",
+                      );
                       // Prefer navigating to the next incomplete syllabus item if parent provided a handler
                       if (onNavigateToNextIncomplete) {
                         try {
@@ -1062,7 +1142,7 @@ export default function QuizSection({
                       //   : `/course/${courseId}`;
                       // router.push(backPath);
                     }}
-                    className="bg-green-600 hover:bg-green-700 flex items-center gap-2"
+                    className="bg-green-600 hover:bg-green-700 flex items-center gap-2 relative z-20"
                   >
                     <span>Tiếp tục học</span>
                     <ChevronRight className="h-4 w-4" />
@@ -1070,11 +1150,33 @@ export default function QuizSection({
                 ) : (
                   // Nút "Làm lại" khi chưa đạt
                   <Button
-                    onClick={() => {
+                    onClick={(e) => {
+                      console.log(
+                        "🔄 [QuizResult] Làm lại quiz button clicked",
+                        e,
+                      );
+                      console.log("🔄 [QuizResult] Current status:", {
+                        isInstructorOrAdmin,
+                        canAttempt: status?.canAttempt,
+                        canStart: status
+                          ? canStartQuiz(
+                              status,
+                              status.unlockRequirementsSummary?.allCompleted,
+                            )
+                          : false,
+                      });
+                      e.preventDefault();
+                      e.stopPropagation();
                       setResult(null);
                       fetchQuizData();
                     }}
-                    className="bg-orange-600 hover:bg-orange-700 flex items-center gap-2"
+                    // Disable button only if not admin/instructor and cannot attempt
+                    disabled={
+                      !isInstructorOrAdmin && status && !status.canAttempt
+                        ? true
+                        : undefined
+                    }
+                    className="bg-orange-600 hover:bg-orange-700 flex items-center gap-2 relative z-20 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <RefreshCw className="h-4 w-4" />
                     <span>Làm lại quiz</span>
@@ -1084,13 +1186,19 @@ export default function QuizSection({
                 {/* Nút quay về khóa học */}
                 <Button
                   variant="outline"
-                  onClick={() => {
+                  onClick={(e) => {
+                    console.log(
+                      "🏠 [QuizResult] Quay về khóa học button clicked",
+                      e,
+                    );
+                    e.preventDefault();
+                    e.stopPropagation();
                     const backPath = classId
                       ? `/course/${courseId}/class/${classId}`
                       : `/course/${courseId}`;
                     router.push(backPath);
                   }}
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-2 relative z-20"
                 >
                   <span>Quay về khóa học</span>
                 </Button>

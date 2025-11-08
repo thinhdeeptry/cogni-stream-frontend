@@ -643,6 +643,7 @@ export const uploadFileToDrive = async (
       success: true,
       data: response.data,
       driveUrl: response.data.webViewLink,
+      url: response.data.webContentLink,
       fileId: response.data.id,
     };
   } catch (error) {

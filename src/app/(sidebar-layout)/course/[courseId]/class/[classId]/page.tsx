@@ -1543,14 +1543,15 @@ Reference text chứa thông tin về khóa học, lớp học và nội dung b�
                           {currentLessonData.type === LessonType.QUIZ ? (
                             // Quiz Content
                             <div className="max-w-none prose-headings:text-gray-900 prose-p:text-gray-700">
-                              {enrollmentId ? (
+                              {enrollmentId || isInstructorOrAdmin ? (
                                 <QuizSection
                                   lessonId={currentLessonData.id}
-                                  enrollmentId={enrollmentId}
+                                  enrollmentId={enrollmentId || ""}
                                   lessonTitle={currentLessonData.title}
                                   isEnrolled={isEnrolled}
                                   classId={params.classId as string}
                                   courseId={params.courseId as string}
+                                  isInstructorOrAdmin={isInstructorOrAdmin}
                                   onQuizCompleted={(success: boolean) => {
                                     if (success && currentLessonData?.id) {
                                       // Khi quiz hoàn thành thành công, xử lý unlock requirements

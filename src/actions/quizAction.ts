@@ -128,13 +128,18 @@ export interface QuizHistory {
 /**
  * Kiểm tra trạng thái quiz attempt của học viên
  */
-export async function getQuizStatus(lessonId: string): Promise<{
+export async function getQuizStatus(
+  lessonId: string,
+  isPreview: boolean = false,
+): Promise<{
   success: boolean;
   data?: QuizStatus;
   message: string;
 }> {
   try {
-    const { data } = await quizApi.get(`/quizzes/lesson/${lessonId}/status`);
+    const { data } = await quizApi.get(`/quizzes/lesson/${lessonId}/status`, {
+      params: { isPreview },
+    });
     return {
       success: true,
       data: data as QuizStatus,
@@ -159,14 +164,17 @@ export async function getQuizStatus(lessonId: string): Promise<{
 export async function startQuizAttempt(
   lessonId: string,
   enrollmentId: string,
+  isPreview: boolean = false,
 ): Promise<{
   success: boolean;
   data?: QuizAttempt;
   message: string;
 }> {
   try {
+    const enrollmentIdFinal = isPreview ? "preview" : enrollmentId;
     const { data } = await quizApi.post(
-      `/quizzes/attempt/${lessonId}/${enrollmentId}/start`,
+      `/quizzes/attempt/${lessonId}/${enrollmentIdFinal}/start`,
+      { isPreview },
     );
     return {
       success: true,
@@ -208,6 +216,8 @@ export async function startQuizAttempt(
 export async function submitQuizAttempt(
   attemptId: string,
   submission: QuizSubmission,
+  lessonId: string,
+  isPreview: boolean = false,
 ): Promise<{
   success: boolean;
   data?: QuizResult;
@@ -216,7 +226,7 @@ export async function submitQuizAttempt(
   try {
     const { data } = await quizApi.post(
       `/quizzes/attempt/${attemptId}/submit`,
-      submission,
+      { ...submission, isPreview, lessonId },
     );
     return {
       success: true,

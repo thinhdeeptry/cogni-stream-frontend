@@ -28,6 +28,8 @@ import {
   ChevronRight,
   Clock,
   Eye,
+  EyeOff,
+  Loader2,
   Menu,
   MessageSquare,
   Minus,
@@ -405,6 +407,7 @@ export default function LessonDetail() {
   const [forceRender, setForceRender] = useState(0);
   const [isButtonEnabled, setIsButtonEnabled] = useState(false);
   const [completedLessonIds, setCompletedLessonIds] = useState<string[]>([]);
+  const [isQuizActivelyTaking, setIsQuizActivelyTaking] = useState(false); // Track if user is actively taking quiz
 
   // console.log("🔍 Component render - Current states:", {
   //   isButtonEnabled,
@@ -459,12 +462,12 @@ export default function LessonDetail() {
     onTimeComplete: handleTimeComplete,
   });
 
-  console.log("📚 [LessonPage] Time tracking initialized:", {
-    itemId: lesson ? `lesson-${params.lessonId}` : "",
-    requiredMinutes: lesson?.estimatedDurationMinutes || 5,
-    hasLesson: !!lesson,
-    lessonId: params.lessonId,
-  });
+  // console.log("📚 [LessonPage] Time tracking initialized:", {
+  //   itemId: lesson ? `lesson-${params.lessonId}` : "",
+  //   requiredMinutes: lesson?.estimatedDurationMinutes || 5,
+  //   hasLesson: !!lesson,
+  //   lessonId: params.lessonId,
+  // });
 
   // Debug time tracking state
   useEffect(() => {
@@ -765,7 +768,9 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
         ]);
         setCourse(courseData);
         setLesson(lessonData);
-
+        if (lessonData?.lessonType === LessonType.QUIZ) {
+          setIsSidebarOpen(true);
+        }
         if (lessonData?.videoUrl) {
           try {
             // Use the new server action to fetch the transcript
@@ -1005,6 +1010,10 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
     params.lessonId,
   ]);
 
+  // Handle quiz state changes
+  const handleQuizStateChange = useCallback((isActivelyTaking: boolean) => {
+    setIsQuizActivelyTaking(isActivelyTaking);
+  }, []);
   // New animation variants
   const fadeIn = {
     hidden: { opacity: 0 },
@@ -1371,15 +1380,25 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
 
   return (
     <>
-      {/* Mobile Overlay */}
+      {/* Mobile Overlay - Enhanced for Quiz */}
       {isSidebarOpen && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden"
+          className={`fixed inset-0 bg-black bg-opacity-50 z-30 ${
+            lesson?.type === LessonType.QUIZ ? "block" : "md:hidden"
+          }`}
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
 
-      <div className="w-full flex-1 flex flex-col min-h-screen relative px-2 sm:px-4 md:pr-[350px] md:pl-4">
+      <div
+        className={`w-full flex-1 flex flex-col min-h-screen relative px-2 sm:px-4 transition-all duration-300 ${
+          lesson?.type === LessonType.QUIZ
+            ? isSidebarOpen
+              ? "md:pr-[350px]"
+              : "md:pr-4"
+            : "md:pr-[350px]"
+        } md:pl-4`}
+      >
         {/* Instructor/Admin Preview Banner */}
         {isInstructorOrAdmin && (
           <motion.div
@@ -1534,19 +1553,49 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
                 variants={slideUp}
                 className="mt-6 sm:mt-8 pb-16 w-full"
               >
-                <Card className="overflow-hidden border-none shadow-md rounded-xl w-full">
-                  <CardContent className="p-4 sm:p-6 w-full">
-                    <h2 className="text-xl font-bold bg-gradient-to-r from-green-500 to-teal-500 bg-clip-text text-transparent inline-block mb-4 items-center">
-                      <Play className="w-5 h-5 mr-2 text-green-500 inline-block" />
-                      Bài kiểm tra
-                    </h2>
-                    {/* <QuizSection
+                <div className="max-w-none prose-headings:text-gray-900 prose-p:text-gray-700">
+                  {enrollmentId || isInstructorOrAdmin ? (
+                    <QuizSection
                       lessonId={params.lessonId as string}
+                      enrollmentId={enrollmentId || ""}
                       lessonTitle={lesson.title}
                       isEnrolled={isEnrolled}
-                    /> */}
-                  </CardContent>
-                </Card>
+                      courseId={params.courseId as string}
+                      isInstructorOrAdmin={isInstructorOrAdmin}
+                      onQuizCompleted={(success: boolean) => {
+                        if (success && lesson?.id) {
+                          // Khi quiz hoàn thành thành công, xử lý unlock requirements và navigate
+                          handleLessonCompletion();
+                        }
+                      }}
+                      onNavigateToLesson={(targetLessonId: string) => {
+                        // Navigate to target lesson by ID
+                        router.push(
+                          `/course/${params.courseId}/lesson/${targetLessonId}`,
+                        );
+                      }}
+                      onNavigateToNextIncomplete={() => {
+                        // Navigate to next lesson if available
+                        if (nextLesson) {
+                          router.push(
+                            `/course/${params.courseId}/lesson/${nextLesson.id}`,
+                          );
+                        } else {
+                          useToast({
+                            title: "Không tìm thấy bài học tiếp theo",
+                            description:
+                              "Bạn đã hoàn thành tất cả các bài học trong khóa học.",
+                          });
+                        }
+                      }}
+                      onQuizStateChange={handleQuizStateChange}
+                    />
+                  ) : (
+                    <div className="flex items-center justify-center p-8">
+                      <Loader2 className="h-8 w-8 animate-spin text-gray-500" />
+                    </div>
+                  )}
+                </div>
               </motion.div>
             )}
 
@@ -1565,398 +1614,434 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
           </div>
         </motion.div>
 
-        {/* Fixed Navigation Bar */}
-        <motion.div
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.3, duration: 0.4 }}
-          className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t px-6 py-3 z-1"
-        >
-          <div className="flex items-center justify-center gap-4">
-            {previousLesson ? (
-              <Link
-                href={
-                  course
-                    ? `/course/${course.id}/lesson/${previousLesson.id}`
-                    : "#"
-                }
-              >
-                <Button
-                  variant="outline"
-                  className="w-40 group transition-all duration-300 hover:border-orange-500 hover:text-orange-600 hover:bg-orange-50"
+        {/* Fixed Navigation Bar - Hidden when actively taking quiz */}
+        {!(lesson.type === LessonType.QUIZ && isQuizActivelyTaking) && (
+          <motion.div
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.3, duration: 0.4 }}
+            className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t px-6 py-3 z-1"
+          >
+            <div className="flex items-center justify-center gap-4">
+              {previousLesson ? (
+                <Link
+                  href={
+                    course
+                      ? `/course/${course.id}/lesson/${previousLesson.id}`
+                      : "#"
+                  }
                 >
-                  <ChevronLeft className="mr-2 h-4 w-4 group-hover:-translate-x-1 transition-transform" />
-                  Bài trước
-                </Button>
-              </Link>
-            ) : (
-              <Button variant="outline" className="w-40 opacity-50" disabled>
-                <ChevronLeft className="mr-2 h-4 w-4" /> Bài trước
-              </Button>
-            )}
-
-            {nextLesson ? (
-              isButtonEnabled ? (
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button
-                      key={`next-lesson-btn-enabled-${forceRender}`}
-                      className="w-40 transition-all duration-300 group bg-gradient-to-r from-orange-500 to-red-500 text-white hover:from-orange-600 hover:to-red-600"
-                      onClick={() => {
-                        console.log(
-                          "🎯 Next Button clicked! Opening dialog...",
-                        );
-                      }}
-                    >
-                      Học tiếp{" "}
-                      <ChevronRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent className="rounded-xl border-none shadow-xl">
-                    <motion.div
-                      initial={{ scale: 0.9, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      transition={{ duration: 0.3 }}
-                    >
-                      <AlertDialogHeader>
-                        <AlertDialogTitle className="text-xl font-bold text-center bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">
-                          Xác nhận hoàn thành bài học
-                        </AlertDialogTitle>
-                        <AlertDialogDescription className="text-center text-gray-600 mt-2">
-                          {isEnrolled &&
-                          timeTracking.isTimeComplete &&
-                          lesson.estimatedDurationMinutes ? (
-                            <>
-                              Bạn đã học{" "}
-                              {formatTime(timeTracking.elapsedSeconds)} /{" "}
-                              {lesson.estimatedDurationMinutes} phút yêu cầu.
-                              <br />
-                              Hãy đảm bảo rằng bạn đã nắm vững kiến thức trước
-                              khi chuyển sang bài tiếp theo.
-                            </>
-                          ) : (
-                            "Bạn đã hoàn thành bài học này chưa? Hãy đảm bảo rằng bạn đã nắm vững kiến thức trước khi chuyển sang bài tiếp theo."
-                          )}
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter className="flex gap-3 mt-4">
-                        <AlertDialogCancel className="w-full">
-                          Chưa, tôi cần học lại
-                        </AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={handleLessonCompletion}
-                          className="w-full bg-gradient-to-r from-orange-500 to-red-500 text-white hover:from-orange-600 hover:to-red-600"
-                        >
-                          Đã hoàn thành, học tiếp
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </motion.div>
-                  </AlertDialogContent>
-                </AlertDialog>
+                  <Button
+                    variant="outline"
+                    className="w-40 group transition-all duration-300 hover:border-orange-500 hover:text-orange-600 hover:bg-orange-50"
+                  >
+                    <ChevronLeft className="mr-2 h-4 w-4 group-hover:-translate-x-1 transition-transform" />
+                    Bài trước
+                  </Button>
+                </Link>
               ) : (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div>
-                        <Button
-                          className="w-40 bg-gray-300 text-gray-500 cursor-not-allowed transition-all duration-300"
-                          disabled={true}
-                        >
-                          Học tiếp <ChevronRight className="ml-2 h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>
-                        Bạn cần học ít nhất{" "}
-                        {lesson?.estimatedDurationMinutes || 5} phút để hoàn
-                        thành bài học này
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )
-            ) : isEnrolled && currentLessonIndex === allLessons.length - 1 ? (
-              hasCertificate ? (
-                <Button
-                  className="w-40 bg-gradient-to-r from-purple-500 to-indigo-500 text-white hover:from-purple-600 hover:to-indigo-600 transition-all duration-300 group"
-                  onClick={() => router.push(`/certificate/${certificateId}`)}
-                >
-                  Xem bằng{" "}
-                  <ChevronRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                <Button variant="outline" className="w-40 opacity-50" disabled>
+                  <ChevronLeft className="mr-2 h-4 w-4" /> Bài trước
                 </Button>
-              ) : isButtonEnabled ? (
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button
-                      key={`complete-course-btn-enabled-${forceRender}`}
-                      className="w-40 transition-all duration-300 group bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600"
-                      onClick={() => {
-                        console.log(
-                          "🎯 Complete Course Button clicked! Opening dialog...",
-                        );
-                        console.log("isenrolled: ", isEnrolled);
-                        console.log(
-                          "time tracking.iscomplete: ",
-                          timeTracking.isTimeComplete,
-                        );
-                        console.log("isbuttonenabled: ", isButtonEnabled);
-                      }}
-                    >
-                      Hoàn thành{" "}
-                      <ChevronRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent className="rounded-xl border-none shadow-xl">
-                    <motion.div
-                      initial={{ scale: 0.9, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      transition={{ duration: 0.3 }}
-                    >
-                      <AlertDialogHeader>
-                        <AlertDialogTitle className="text-xl font-bold text-center bg-gradient-to-r from-green-500 to-emerald-500 bg-clip-text text-transparent">
-                          Chúc mừng bạn đã hoàn thành khóa học!
-                        </AlertDialogTitle>
-                        <AlertDialogDescription className="text-center text-gray-600 mt-2">
-                          Bạn đã hoàn thành toàn bộ bài học trong khóa. Bạn có
-                          thể quay lại trang khóa học để xem lại nội dung hoặc
-                          khám phá các khóa học khác.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter className="flex gap-3 mt-4">
-                        <AlertDialogCancel className="w-full">
-                          Ở lại trang này
-                        </AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={handleCourseCompletion}
-                          className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600"
-                        >
-                          Hoàn thành khóa học
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </motion.div>
-                  </AlertDialogContent>
-                </AlertDialog>
+              )}
+
+              {nextLesson ? (
+                isButtonEnabled ? (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        key={`next-lesson-btn-enabled-${forceRender}`}
+                        className="w-40 transition-all duration-300 group bg-gradient-to-r from-orange-500 to-red-500 text-white hover:from-orange-600 hover:to-red-600"
+                        onClick={() => {
+                          console.log(
+                            "🎯 Next Button clicked! Opening dialog...",
+                          );
+                        }}
+                      >
+                        Học tiếp{" "}
+                        <ChevronRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent className="rounded-xl border-none shadow-xl">
+                      <motion.div
+                        initial={{ scale: 0.9, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <AlertDialogHeader>
+                          <AlertDialogTitle className="text-xl font-bold text-center bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">
+                            Xác nhận hoàn thành bài học
+                          </AlertDialogTitle>
+                          <AlertDialogDescription className="text-center text-gray-600 mt-2">
+                            {isEnrolled &&
+                            timeTracking.isTimeComplete &&
+                            lesson.estimatedDurationMinutes ? (
+                              <>
+                                Bạn đã học{" "}
+                                {formatTime(timeTracking.elapsedSeconds)} /{" "}
+                                {lesson.estimatedDurationMinutes} phút yêu cầu.
+                                <br />
+                                Hãy đảm bảo rằng bạn đã nắm vững kiến thức trước
+                                khi chuyển sang bài tiếp theo.
+                              </>
+                            ) : (
+                              "Bạn đã hoàn thành bài học này chưa? Hãy đảm bảo rằng bạn đã nắm vững kiến thức trước khi chuyển sang bài tiếp theo."
+                            )}
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter className="flex gap-3 mt-4">
+                          <AlertDialogCancel className="w-full">
+                            Chưa, tôi cần học lại
+                          </AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={handleLessonCompletion}
+                            className="w-full bg-gradient-to-r from-orange-500 to-red-500 text-white hover:from-orange-600 hover:to-red-600"
+                          >
+                            Đã hoàn thành, học tiếp
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </motion.div>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                ) : (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div>
+                          <Button
+                            className="w-40 bg-gray-300 text-gray-500 cursor-not-allowed transition-all duration-300"
+                            disabled={true}
+                          >
+                            Học tiếp <ChevronRight className="ml-2 h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>
+                          Bạn cần học ít nhất{" "}
+                          {lesson?.estimatedDurationMinutes || 5} phút để hoàn
+                          thành bài học này
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )
+              ) : isEnrolled && currentLessonIndex === allLessons.length - 1 ? (
+                hasCertificate ? (
+                  <Button
+                    className="w-40 bg-gradient-to-r from-purple-500 to-indigo-500 text-white hover:from-purple-600 hover:to-indigo-600 transition-all duration-300 group"
+                    onClick={() => router.push(`/certificate/${certificateId}`)}
+                  >
+                    Xem bằng{" "}
+                    <ChevronRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                  </Button>
+                ) : isButtonEnabled ? (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        key={`complete-course-btn-enabled-${forceRender}`}
+                        className="w-40 transition-all duration-300 group bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600"
+                        onClick={() => {
+                          console.log(
+                            "🎯 Complete Course Button clicked! Opening dialog...",
+                          );
+                          console.log("isenrolled: ", isEnrolled);
+                          console.log(
+                            "time tracking.iscomplete: ",
+                            timeTracking.isTimeComplete,
+                          );
+                          console.log("isbuttonenabled: ", isButtonEnabled);
+                        }}
+                      >
+                        Hoàn thành{" "}
+                        <ChevronRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent className="rounded-xl border-none shadow-xl">
+                      <motion.div
+                        initial={{ scale: 0.9, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <AlertDialogHeader>
+                          <AlertDialogTitle className="text-xl font-bold text-center bg-gradient-to-r from-green-500 to-emerald-500 bg-clip-text text-transparent">
+                            Chúc mừng bạn đã hoàn thành khóa học!
+                          </AlertDialogTitle>
+                          <AlertDialogDescription className="text-center text-gray-600 mt-2">
+                            Bạn đã hoàn thành toàn bộ bài học trong khóa. Bạn có
+                            thể quay lại trang khóa học để xem lại nội dung hoặc
+                            khám phá các khóa học khác.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter className="flex gap-3 mt-4">
+                          <AlertDialogCancel className="w-full">
+                            Ở lại trang này
+                          </AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={handleCourseCompletion}
+                            className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600"
+                          >
+                            Hoàn thành khóa học
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </motion.div>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                ) : (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div>
+                          <Button
+                            className="w-40 bg-gray-300 text-gray-500 cursor-not-allowed transition-all duration-300"
+                            disabled={true}
+                          >
+                            Hoàn thành <ChevronRight className="ml-2 h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>
+                          Bạn cần học ít nhất{" "}
+                          {lesson?.estimatedDurationMinutes || 5} phút để hoàn
+                          thành bài học này
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )
               ) : (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div>
-                        <Button
-                          className="w-40 bg-gray-300 text-gray-500 cursor-not-allowed transition-all duration-300"
-                          disabled={true}
-                        >
-                          Hoàn thành <ChevronRight className="ml-2 h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>
-                        Bạn cần học ít nhất{" "}
-                        {lesson?.estimatedDurationMinutes || 5} phút để hoàn
-                        thành bài học này
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )
-            ) : (
-              <Button variant="outline" className="w-40 opacity-50" disabled>
-                Học tiếp
-                <ChevronRight className="ml-2 h-4 w-4" />
-              </Button>
-            )}
-          </div>
+                <Button variant="outline" className="w-40 opacity-50" disabled>
+                  Học tiếp
+                  <ChevronRight className="ml-2 h-4 w-4" />
+                </Button>
+              )}
+            </div>
 
-          <div className="absolute top-1/4 right-4 flex items-center">
-            <span className="text-md text-gray-600 font-semibold pr-2 hidden sm:block">
-              {course?.chapters?.find((chapter) =>
-                chapter.lessons?.some(
-                  (lesson) => lesson.id === params.lessonId,
-                ),
-              )?.title || ""}
-            </span>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="bg-white border shadow-sm hover:bg-orange-50 hover:border-orange-200 transition-colors"
-              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            >
-              <Menu className="h-4 w-4 text-orange-500" />
-            </Button>
-          </div>
-        </motion.div>
-
-        {/* Collapsible Sidebar - Responsive */}
-        {/* Desktop: Fixed sidebar, Mobile: Overlay drawer */}
-        <div
-          className={`fixed right-0 top-0 h-[calc(100vh-73px)] w-[350px] bg-gray-50 border-l transform transition-transform duration-300
-            ${
-              // Mobile behavior - always slide in/out
-              isSidebarOpen ? "translate-x-0" : "translate-x-full"
-            }
-            md:translate-x-0 md:z-10
-            ${
-              // Mobile styling
-              isSidebarOpen ? "z-40" : "z-10"
-            }
-          `}
-        >
-          <div className="py-4 px-2.5 pr-4 h-full overflow-auto">
-            <div className="flex items-center justify-between mb-7">
-              <h2 className="text-xl font-semibold">Nội dung khoá học</h2>
-              {/* Close button - only visible on mobile */}
+            <div className="absolute top-1/4 right-4 flex items-center">
+              <span className="text-md text-gray-600 font-semibold pr-2 hidden sm:block">
+                {course?.chapters?.find((chapter) =>
+                  chapter.lessons?.some(
+                    (lesson) => lesson.id === params.lessonId,
+                  ),
+                )?.title || ""}
+              </span>
               <Button
                 variant="ghost"
                 size="icon"
-                className="md:hidden hover:bg-orange-50 hover:border-orange-200 transition-colors"
-                onClick={() => setIsSidebarOpen(false)}
+                className="bg-white border shadow-sm hover:bg-orange-50 hover:border-orange-200 transition-colors"
+                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
               >
-                <ChevronRight className="h-5 w-5 text-orange-500" />
+                <Menu className="h-4 w-4 text-orange-500" />
               </Button>
             </div>
-            <div className="space-y-4">
-              {course?.chapters?.map((chapter) => (
-                <Collapsible
-                  key={chapter.id}
-                  open={expandedChapters[chapter.id]}
-                  onOpenChange={() => toggleChapter(chapter.id)}
+          </motion.div>
+        )}
+
+        {/* Floating Toggle Button for Quiz on mobile when sidebar is closed */}
+        {lesson.type === LessonType.QUIZ && !isSidebarOpen && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            className="fixed top-20 right-4 z-50 md:hidden"
+          >
+            <Button
+              onClick={() => setIsSidebarOpen(true)}
+              className="w-12 h-12 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center"
+            >
+              <Eye className="w-5 h-5" />
+            </Button>
+          </motion.div>
+        )}
+
+        {/* Collapsible Sidebar - Responsive - Show for all lesson types but controlled by toggle for Quiz */}
+        {(lesson.type !== LessonType.QUIZ || isSidebarOpen) && (
+          <div
+            className={`fixed right-0 top-0 h-[calc(100vh-73px)] w-[350px] bg-gray-50 border-l transform transition-transform duration-300 ${
+              lesson.type === LessonType.QUIZ
+                ? isSidebarOpen
+                  ? "translate-x-0"
+                  : "translate-x-full"
+                : isSidebarOpen
+                  ? "translate-x-0"
+                  : "translate-x-full md:translate-x-0"
+            } ${
+              // Z-index management
+              lesson.type === LessonType.QUIZ
+                ? isSidebarOpen
+                  ? "z-50"
+                  : "z-10"
+                : isSidebarOpen
+                  ? "z-40"
+                  : "z-10 md:z-10"
+            }`}
+          >
+            <div className="py-4 px-2.5 pr-4 h-full overflow-auto">
+              <div className="flex items-center justify-between mb-7">
+                <h2 className="text-xl font-semibold">
+                  {lesson.type === LessonType.QUIZ
+                    ? "Danh sách bài học"
+                    : "Nội dung khoá học"}
+                </h2>
+                {/* Close button - visible on mobile or for quiz on desktop */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={`hover:bg-orange-50 hover:border-orange-200 transition-colors ${
+                    lesson.type === LessonType.QUIZ ? "block" : "md:hidden"
+                  }`}
+                  onClick={() => setIsSidebarOpen(false)}
                 >
-                  <CollapsibleTrigger className="flex items-center justify-between w-full p-4 bg-gray-100 hover:bg-gray-200 rounded-lg transition-all duration-200">
-                    <div className="flex items-center gap-2 truncate">
-                      <div className="text-gray-500 transition-transform duration-200">
-                        {expandedChapters[chapter.id] ? (
-                          <div className="transform transition-transform duration-200">
-                            <Minus className="h-4 w-4 text-orange-500" />
-                          </div>
-                        ) : (
-                          <Plus className="h-4 w-4 text-orange-500" />
-                        )}
+                  <ChevronRight className="h-5 w-5 text-orange-500" />
+                </Button>
+              </div>
+              <div className="space-y-4">
+                {course?.chapters?.map((chapter) => (
+                  <Collapsible
+                    key={chapter.id}
+                    open={expandedChapters[chapter.id]}
+                    onOpenChange={() => toggleChapter(chapter.id)}
+                  >
+                    <CollapsibleTrigger className="flex items-center justify-between w-full p-4 bg-gray-100 hover:bg-gray-200 rounded-lg transition-all duration-200">
+                      <div className="flex items-center gap-2 truncate">
+                        <div className="text-gray-500 transition-transform duration-200">
+                          {expandedChapters[chapter.id] ? (
+                            <div className="transform transition-transform duration-200">
+                              <Minus className="h-4 w-4 text-orange-500" />
+                            </div>
+                          ) : (
+                            <Plus className="h-4 w-4 text-orange-500" />
+                          )}
+                        </div>
+                        <h4 className="font-semibold text-gray-700">
+                          {chapter.title}
+                        </h4>
                       </div>
-                      <h4 className="font-semibold text-gray-700">
-                        {chapter.title}
-                      </h4>
-                    </div>
-                    <div className="flex items-center gap-2 pl-1">
-                      <span className="text-sm text-gray-600 truncate">
-                        {chapter.lessons?.length || 0} bài
-                      </span>
-                    </div>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="pl-4">
-                    <ul className="mt-2 space-y-2">
-                      {chapter.lessons?.map((lesson) => {
-                        // Kiểm tra bài học đã hoàn thành - dựa trên dữ liệu từ server
-                        if (lesson.status !== "PUBLISHED") {
-                          return null;
-                        }
-                        const isLessonCompleted = completedLessonIds.includes(
-                          lesson.id,
-                        );
+                      <div className="flex items-center gap-2 pl-1">
+                        <span className="text-sm text-gray-600 truncate">
+                          {chapter.lessons?.length || 0} bài
+                        </span>
+                      </div>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="pl-4">
+                      <ul className="mt-2 space-y-2">
+                        {chapter.lessons?.map((lesson) => {
+                          // Kiểm tra bài học đã hoàn thành - dựa trên dữ liệu từ server
+                          if (lesson.status !== "PUBLISHED") {
+                            return null;
+                          }
+                          const isLessonCompleted = completedLessonIds.includes(
+                            lesson.id,
+                          );
 
-                        // Tính toán index để kiểm tra khả năng truy cập
-                        const currentLessonIndex = allLessons.findIndex(
-                          (lessonItem) => lessonItem?.id === params.lessonId,
-                        );
-                        const lessonIndex = allLessons.findIndex(
-                          (lessonItem) => lessonItem?.id === lesson.id,
-                        );
+                          // Tính toán index để kiểm tra khả năng truy cập
+                          const currentLessonIndex = allLessons.findIndex(
+                            (lessonItem) => lessonItem?.id === params.lessonId,
+                          );
+                          const lessonIndex = allLessons.findIndex(
+                            (lessonItem) => lessonItem?.id === lesson.id,
+                          );
 
-                        // Kiểm tra xem có được phép truy cập bài học này không
-                        const canAccessLesson =
-                          !isEnrolled || // Nếu chưa enroll thì cho xem tất cả (để hiển thị preview)
-                          lesson.isFreePreview || // Bài preview luôn được phép
-                          isLessonCompleted || // Bài học đã hoàn thành luôn được phép truy cập
-                          lesson.id === params.lessonId || // Bài hiện tại
-                          (lessonIndex === currentLessonIndex + 1 &&
-                            isButtonEnabled); // Bài tiếp theo chỉ khi button enabled
+                          // Kiểm tra xem có được phép truy cập bài học này không
 
-                        const linkContent = (
-                          <div className="flex items-center gap-2 min-h-[32px]">
-                            <div className="flex-shrink-0">
-                              {isLessonCompleted ? (
-                                <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
-                                  <Check className="w-3 h-3 text-white" />
-                                </div>
-                              ) : lesson.id === params.lessonId ? (
-                                <div className="w-5 h-5 bg-gray-400 rounded-full flex items-center justify-center">
-                                  <Clock className="w-3 h-3 text-white" />
-                                </div>
-                              ) : (
-                                <div className="w-5 h-5 bg-gray-300 rounded-full"></div>
-                              )}
-                            </div>
-                            <div className="flex-1 overflow-hidden">
-                              <span
-                                className={`block truncate text-[15px] ${
-                                  lesson.id === params.lessonId
-                                    ? "font-medium"
-                                    : ""
-                                } ${!canAccessLesson ? "text-gray-400" : ""}`}
-                              >
-                                {lesson.title}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              {lesson.id === lastLessonId && (
-                                <span className="flex-shrink-0 text-xs px-1 py-0.5 rounded bg-orange-100 text-orange-600">
-                                  Đang học
+                          const canAccessLesson =
+                            isInstructorOrAdmin || // Giảng viên/Admin có thể truy cập tất cả
+                            !isEnrolled || // Nếu chưa enroll thì cho xem tất cả (để hiển thị preview)
+                            lesson.isFreePreview || // Bài preview luôn được phép
+                            isLessonCompleted || // Bài học đã hoàn thành luôn được phép truy cập
+                            lesson.id === params.lessonId || // Bài hiện tại
+                            (lessonIndex === currentLessonIndex + 1 &&
+                              isButtonEnabled); // Bài tiếp theo chỉ khi button enabled
+
+                          const linkContent = (
+                            <div className="flex items-center gap-2 min-h-[32px]">
+                              <div className="flex-shrink-0">
+                                {isLessonCompleted ? (
+                                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                                    <Check className="w-3 h-3 text-white" />
+                                  </div>
+                                ) : lesson.id === params.lessonId ? (
+                                  <div className="w-5 h-5 bg-gray-400 rounded-full flex items-center justify-center">
+                                    <Clock className="w-3 h-3 text-white" />
+                                  </div>
+                                ) : (
+                                  <div className="w-5 h-5 bg-gray-300 rounded-full"></div>
+                                )}
+                              </div>
+                              <div className="flex-1 overflow-hidden">
+                                <span
+                                  className={`block truncate text-[15px] ${
+                                    lesson.id === params.lessonId
+                                      ? "font-medium"
+                                      : ""
+                                  } ${!canAccessLesson ? "text-gray-400" : ""}`}
+                                >
+                                  {lesson.title}
                                 </span>
-                              )}
-                              {lesson.isFreePreview && (
-                                <span className="flex-shrink-0 text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded">
-                                  Miễn phí
-                                </span>
-                              )}
-                              {!canAccessLesson && isEnrolled && (
-                                <span className="flex-shrink-0 text-xs bg-gray-200 text-gray-500 px-2 py-1 rounded">
-                                  Đã khóa
-                                </span>
-                              )}
+                              </div>
+                              <div className="flex items-center gap-1">
+                                {lesson.id === lastLessonId && (
+                                  <span className="flex-shrink-0 text-xs px-1 py-0.5 rounded bg-orange-100 text-orange-600">
+                                    Đang học
+                                  </span>
+                                )}
+                                {lesson.isFreePreview && (
+                                  <span className="flex-shrink-0 text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded">
+                                    Miễn phí
+                                  </span>
+                                )}
+                                {!canAccessLesson && (
+                                  <span className="flex-shrink-0 text-xs bg-gray-200 text-gray-500 px-2 py-1 rounded">
+                                    Đã khóa
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        );
+                          );
 
-                        return canAccessLesson ? (
-                          <Link
-                            href={`/course/${course ? course.id : ""}/lesson/${lesson.id}`}
-                            key={lesson.id}
-                            className={`block p-2 rounded-lg transition-colors ${
-                              lesson.id === params.lessonId
-                                ? "bg-orange-100"
-                                : "hover:bg-gray-200"
-                            } cursor-pointer`}
-                            onClick={() => {
-                              // Auto close sidebar on mobile when clicking a lesson
-                              if (window.innerWidth < 768) {
-                                setIsSidebarOpen(false);
-                              }
-                            }}
-                          >
-                            {linkContent}
-                          </Link>
-                        ) : (
-                          <div
-                            key={lesson.id}
-                            className={`block p-2 rounded-lg transition-colors ${
-                              lesson.id === params.lessonId
-                                ? "bg-orange-100"
-                                : "bg-gray-50"
-                            } cursor-not-allowed opacity-60`}
-                            title="Bạn cần hoàn thành bài học hiện tại trước khi tiếp tục"
-                          >
-                            {linkContent}
-                          </div>
-                        );
-                      })}
-                    </ul>
-                  </CollapsibleContent>
-                </Collapsible>
-              ))}
+                          return canAccessLesson ? (
+                            <Link
+                              href={`/course/${course ? course.id : ""}/lesson/${lesson.id}`}
+                              key={lesson.id}
+                              className={`block p-2 rounded-lg transition-colors ${
+                                lesson.id === params.lessonId
+                                  ? "bg-orange-100"
+                                  : "hover:bg-gray-200"
+                              } cursor-pointer`}
+                              onClick={() => {
+                                // Auto close sidebar on mobile when clicking a lesson
+                                if (window.innerWidth < 768) {
+                                  setIsSidebarOpen(false);
+                                }
+                              }}
+                            >
+                              {linkContent}
+                            </Link>
+                          ) : (
+                            <div
+                              key={lesson.id}
+                              className={`block p-2 rounded-lg transition-colors ${
+                                lesson.id === params.lessonId
+                                  ? "bg-orange-100"
+                                  : "bg-gray-50"
+                              } cursor-not-allowed opacity-60`}
+                              title="Bạn cần hoàn thành bài học hiện tại trước khi tiếp tục"
+                            >
+                              {linkContent}
+                            </div>
+                          );
+                        })}
+                      </ul>
+                    </CollapsibleContent>
+                  </Collapsible>
+                ))}
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
+
       <LessonChatbot />
       {/* <TimeTrackingDebug
         timeTracking={timeTracking}
