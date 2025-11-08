@@ -92,18 +92,19 @@ export const useTimeTracking = (
   const remainingSeconds = Math.max(requiredSeconds - elapsedSeconds, 0);
   const remainingMinutes = Math.ceil(remainingSeconds / 60);
 
-  // Debug logging - only in development
+  // Debug logging - simplified and only important info
   useEffect(() => {
     if (process.env.NODE_ENV === "development") {
-      console.log("🕒 [useTimeTracking] State update:", {
-        itemId,
-        requiredMinutes,
-        requiredSeconds,
-        elapsedSeconds,
-        isTimeComplete,
-        progress: progress.toFixed(1) + "%",
-        remainingMinutes,
-        isActive,
+      const elapsedMinutes = Math.floor(elapsedSeconds / 60);
+      const elapsedSecs = elapsedSeconds % 60;
+
+      console.log("⏱️ [useTimeTracking]", {
+        item: itemId,
+        "Yêu cầu": `${requiredMinutes} phút`,
+        "Đã học": `${elapsedMinutes}:${elapsedSecs.toString().padStart(2, "0")}`,
+        "Hoàn thành": isTimeComplete ? "✅" : "❌",
+        "Tiến độ": `${progress.toFixed(0)}%`,
+        Active: isActive ? "▶️" : "⏸️",
       });
     }
   }, [
@@ -112,7 +113,6 @@ export const useTimeTracking = (
     elapsedSeconds,
     isTimeComplete,
     progress,
-    remainingMinutes,
     isActive,
   ]);
 
