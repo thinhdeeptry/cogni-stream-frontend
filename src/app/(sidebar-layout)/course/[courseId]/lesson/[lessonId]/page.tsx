@@ -321,17 +321,17 @@ export default function LessonDetail() {
           );
 
           if (hasValidTimestamps) {
-            content += `Video Transcript with Timestamps:\n${timestampedTranscript
+            content += `Video Transcript/Subtitles with Timestamps:\n${timestampedTranscript
               .map((item) => `[${item.timestamp}] ${item.text}`)
               .join("\n")}\n\n`;
           } else {
-            content += `Video Transcript:\n${timestampedTranscript
+            content += `Video Transcript/Subtitles:\n${timestampedTranscript
               .map((item, index) => `[Part ${index + 1}] ${item.text}`)
               .join("\n")}\n\n`;
           }
         } else {
           content += `Video URL: ${lesson?.videoUrl || "Not available"}\n`;
-          content += `Note: Video transcript is not available for this lesson. AI should inform users that detailed video content cannot be analyzed, but can provide general guidance based on lesson title and any written content.\n\n`;
+          content += `Note: Video transcript and subtitles are not available for this lesson. AI should inform users that detailed video content cannot be analyzed, but can provide general guidance based on lesson title and any written content.\n\n`;
         }
 
         // Add written content for MIXED type
@@ -423,19 +423,19 @@ export default function LessonDetail() {
 
 2. NGUỒN THÔNG TIN VÀ LOẠI BÀI HỌC
 - Phân tích và sử dụng chính xác nội dung từ reference text (bài học) được cung cấp
-- **BÀI HỌC VIDEO**: Nếu có transcript, hãy tham chiếu cụ thể đến timestamp. Nếu không có transcript, thông báo rằng không thể phân tích chi tiết nội dung video và đưa ra hướng dẫn chung
+- **BÀI HỌC VIDEO**: Nếu có transcript/subtitles, hãy tham chiếu cụ thể đến timestamp. Nếu không có transcript/subtitles, thông báo rằng không thể phân tích chi tiết nội dung video và đưa ra hướng dẫn chung
 - **BÀI ĐỌC/BLOG**: Phân tích và giải thích từng phần của nội dung văn bản, tạo summary, và đưa ra câu hỏi ôn tập
 - **BÀI QUIZ**: ⚠️ TUYỆT ĐỐI không đưa ra đáp án trực tiếp! Chỉ giải thích khái niệm, gợi ý cách tư duy, và khuyến khích học sinh tự suy nghĩ
 - Nếu câu hỏi nằm ngoài phạm vi bài học, hãy nói rõ và cung cấp kiến thức nền tảng
 
 3. HỖ TRỢ HỌC TẬP THEO LOẠI BÀI
-- **Video không có transcript**: "Mình không thể xem chi tiết video này, nhưng dựa trên tiêu đề bài học, mình có thể hỗ trợ bạn về [topic]. Bạn có thể mô tả phần nào trong video mà bạn cần hỗ trợ không?"
+- **Video không có transcript/subtitles**: "Mình không thể xem chi tiết video này, nhưng dựa trên tiêu đề bài học, mình có thể hỗ trợ bạn về [topic]. Bạn có thể mô tả phần nào trong video mà bạn cần hỗ trợ không?"
 - **Bài đọc**: Giúp phân tích cấu trúc, tóm tắt từng phần, tạo mindmap khái niệm
 - **Quiz**: "Đây là bài kiểm tra, mình sẽ không đưa đáp án nhưng có thể giúp bạn hiểu khái niệm. Bạn nghĩ câu này đang hỏi về điều gì?"
 - Điều chỉnh độ phức tạp của câu trả lời phù hợp với ngữ cảnh
 
 4. PHƯƠNG PHÁP HỖ TRỢ THÔNG MINH
-- Khi video không có transcript: Yêu cầu học sinh mô tả nội dung hoặc câu hỏi cụ thể từ video
+- Khi video không có transcript/subtitles: Yêu cầu học sinh mô tả nội dung hoặc câu hỏi cụ thể từ video
 - Đối với quiz: Sử dụng phương pháp Socratic questioning để dẫn dắt tư duy
 - Khuyến khích ghi chú, tóm tắt, và tạo câu hỏi ôn tập
 - Đưa ra gợi ý học tập hiệu quả cho từng loại bài học
@@ -484,21 +484,28 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
         }
         if (lessonData?.videoUrl) {
           try {
-            // Use the new server action to fetch the transcript
+            // Use the improved server action to fetch the transcript/subtitles
             const result = await getYoutubeTranscript(lessonData.videoUrl);
 
             if ("error" in result) {
               console.warn(
-                `Transcript fetch failed: ${result.error}`,
+                `Transcript/Subtitle fetch failed: ${result.error}`,
                 result.details,
               );
               setTimestampedTranscript([]);
             } else {
               setTimestampedTranscript(result.timestampedTranscript);
-              console.log("Transcript fetched successfully");
+              console.log("Transcript/Subtitles fetched successfully:", {
+                totalItems: result.timestampedTranscript.length,
+                videoId: result.videoId,
+                source: result.source || "transcript",
+                hasTimestamps: result.timestampedTranscript.some(
+                  (item) => item.timestamp !== "0:00",
+                ),
+              });
             }
           } catch (error) {
-            console.error("Error fetching transcript:", error);
+            console.error("Error fetching transcript/subtitles:", error);
             setTimestampedTranscript([]);
           }
         }

@@ -14,6 +14,7 @@ interface TranscriptResponse {
   transcript: string;
   timestampedTranscript: TimestampedTranscriptItem[];
   videoId: string;
+  source: "transcript" | "subtitles" | "captions"; // Track the source of content
 }
 
 interface ErrorResponse {
@@ -70,60 +71,96 @@ export async function getYoutubeTranscript(
       };
     }
 
-    // Fetch the transcript using the youtube-transcript library
+    // Try to fetch transcript/subtitles with multiple language options
     let transcriptData;
-    try {
-      console.log(`Attempting to fetch transcript for video ID: ${videoId}`);
-      transcriptData = await YoutubeTranscript.fetchTranscript(videoId);
+    let sourceType: "transcript" | "subtitles" | "captions" = "transcript";
+    const languagesToTry = ["vi", "en", "en-US", "en-GB", "auto"]; // Vietnamese first, then English variants, then auto-generated
 
-      if (!transcriptData || transcriptData.length === 0) {
-        console.warn(`No transcript data returned for video ID: ${videoId}`);
-        return {
-          error: "No transcript available",
-          details: "The video does not have any transcript data available.",
-          videoId,
-        };
-      }
+    // The youtube-transcript library can fetch:
+    // 1. Manual transcripts (uploaded by video creator)
+    // 2. Auto-generated captions (created by YouTube's AI)
+    // 3. Community-contributed subtitles (if available)
+    // We try multiple languages to maximize success rate
 
-      console.log(
-        `Successfully fetched transcript with ${transcriptData.length} items`,
-      );
-    } catch (error) {
-      console.error(
-        `Error fetching transcript for video ID ${videoId}:`,
-        error,
-      );
+    for (const lang of languagesToTry) {
+      try {
+        console.log(
+          `Attempting to fetch transcript for video ID: ${videoId} with language: ${lang}`,
+        );
 
-      if (error instanceof Error) {
-        if (error.message.includes("Transcript is disabled")) {
-          return {
-            error: "Transcript is not available for this video",
-            details:
-              "The video owner has disabled captions/transcripts or they are not available for this video.",
-            videoId,
-          };
+        if (lang === "auto") {
+          // Try without specifying language (auto-detect)
+          transcriptData = await YoutubeTranscript.fetchTranscript(videoId);
+          sourceType = "captions";
+        } else {
+          // Try with specific language
+          transcriptData = await YoutubeTranscript.fetchTranscript(videoId, {
+            lang: lang,
+          });
+          sourceType = lang === "vi" ? "subtitles" : "transcript";
         }
 
-        if (
-          error.message.includes("Failed to fetch") ||
-          error.message.includes("NetworkError")
-        ) {
-          return {
-            error: "Network error while fetching transcript",
-            details:
-              "There was an issue connecting to YouTube's servers. This might be related to HTTPS restrictions in production.",
-            videoId,
-          };
+        if (transcriptData && transcriptData.length > 0) {
+          console.log(
+            `Successfully fetched ${sourceType} with ${transcriptData.length} items using language: ${lang}`,
+          );
+          break; // Found transcript, break out of loop
         }
+      } catch (langError) {
+        console.log(
+          `Failed to fetch ${sourceType} with language ${lang}:`,
+          langError,
+        );
+        // Continue to next language
       }
+    }
 
+    // If still no transcript data, try one more time with auto-generated captions
+    if (!transcriptData || transcriptData.length === 0) {
+      try {
+        console.log(
+          `Attempting to fetch auto-generated captions for video ID: ${videoId}`,
+        );
+        // Try to fetch auto-generated captions explicitly
+        transcriptData = await YoutubeTranscript.fetchTranscript(videoId, {
+          lang: "en",
+        });
+      } catch (autoError) {
+        console.log("Auto-generated captions also failed:", autoError);
+      }
+    }
+
+    if (!transcriptData || transcriptData.length === 0) {
+      console.warn(
+        `No transcript/subtitle data available for video ID: ${videoId}`,
+      );
       return {
-        error: "Failed to fetch transcript",
+        error: "No transcript or subtitles available",
         details:
-          error instanceof Error ? error.message : "Unknown error occurred",
+          "The video does not have any transcript data or subtitles available in supported languages (Vietnamese, English).",
         videoId,
       };
     }
+
+    console.log(
+      `Successfully fetched transcript/subtitles with ${transcriptData.length} items`,
+    );
+
+    if (!transcriptData || transcriptData.length === 0) {
+      console.warn(
+        `No transcript/subtitle data available for video ID: ${videoId}`,
+      );
+      return {
+        error: "No transcript or subtitles available",
+        details:
+          "The video does not have any transcript data or subtitles available in supported languages (Vietnamese, English).",
+        videoId,
+      };
+    }
+
+    console.log(
+      `Successfully fetched transcript/subtitles with ${transcriptData.length} items`,
+    );
 
     // Format the transcript data
     const formattedTranscript = transcriptData
@@ -162,6 +199,7 @@ export async function getYoutubeTranscript(
       transcript: formattedTranscript,
       timestampedTranscript,
       videoId,
+      source: sourceType,
     };
   } catch (error) {
     console.error("Unexpected error in youtube-transcript action:", error);
