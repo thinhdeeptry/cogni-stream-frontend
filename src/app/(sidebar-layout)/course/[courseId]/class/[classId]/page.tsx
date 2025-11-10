@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 
 import { toast } from "@/hooks/use-toast";
 import { usePopupChatbot } from "@/hooks/usePopupChatbot";
@@ -330,6 +330,7 @@ export default function ClassLearningPage() {
   const [isVideoLoading, setIsVideoLoading] = useState(true);
   const [hasCertificate, setHasCertificate] = useState<boolean>(false);
   const [certificateId, setCertificateId] = useState<string | null>(null);
+  const [isQuizActivelyTaking, setIsQuizActivelyTaking] = useState(false); // Track if user is actively taking quiz
   // Modal states
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [pendingNavigation, setPendingNavigation] =
@@ -552,6 +553,15 @@ export default function ClassLearningPage() {
     currentItem,
     params.classId,
   ]);
+  // Effect to handle UI changes when currentItem changes
+  useEffect(() => {
+    if (
+      currentItem?.itemType === SyllabusItemType.LESSON &&
+      currentItem.lesson?.type === LessonType.QUIZ
+    ) {
+      setIsSidebarOpen(false);
+    }
+  }, [currentItem]);
 
   // Fetch lesson data when lesson item is selected
   const fetchLessonData = async (lessonId: string) => {
@@ -575,9 +585,9 @@ export default function ClassLearningPage() {
   useEffect(() => {
     if (
       currentItem?.itemType === SyllabusItemType.LESSON &&
-      currentItem.lesson?.id
+      currentItem.lessonId
     ) {
-      fetchLessonData(currentItem.lesson.id);
+      fetchLessonData(currentItem.lessonId);
     } else {
       setCurrentLessonData(null);
       setTimestampedTranscript([]); // Clear transcript when not a lesson
@@ -694,7 +704,8 @@ export default function ClassLearningPage() {
     // Only generate reference text for lessons
     if (
       currentItem?.itemType !== SyllabusItemType.LESSON ||
-      !currentLessonData
+      !currentLessonData ||
+      currentLessonData.type === LessonType.QUIZ
     ) {
       return "";
     }
@@ -739,7 +750,144 @@ export default function ClassLearningPage() {
     classInfo?.name,
     timestampedTranscript,
   ]);
+  // Handler for course completion (skip in preview mode)
+  const handleCourseCompletion = async () => {
+    // Preview (instructor/admin) should NOT mark real completion or issue certificates
+    if (isInstructorOrAdmin) {
+      console.log("[PreviewMode] Skipping real course completion.");
+      return;
+    }
+    try {
+      if (!enrollmentId) {
+        toast({
+          title: "Lỗi",
+          description: "Không tìm thấy thông tin ghi danh",
+          variant: "destructive",
+        });
+        return;
+      }
 
+      // Gọi action để đánh dấu hoàn thành khóa học
+      const result = await markCourseAsCompleted(enrollmentId);
+
+      if (result.success && result.data?.data) {
+        const completedEnrollment = result.data.data;
+
+        // Kiểm tra xem có certificate được tạo không
+        if (completedEnrollment.certificate) {
+          setHasCertificate(true);
+          setCertificateId(completedEnrollment.certificate.id);
+          toast({
+            title: "Chúc mừng!",
+            description: "Bạn đã hoàn thành khóa học và nhận được chứng chỉ!",
+          });
+          // Chuyển hướng đến trang chứng chỉ
+          router.push(`/certificate/${completedEnrollment.certificate.id}`);
+        } else {
+          toast({
+            title: "Chúc mừng!",
+            description: "Bạn đã hoàn thành khóa học",
+          });
+          router.push(`/course/${params.courseId}`);
+        }
+      } else {
+        throw new Error(result.message || "Không thể hoàn thành khóa học");
+      }
+    } catch (err: any) {
+      console.error("Error completing course:", err);
+      toast({
+        title: "Lỗi",
+        description: err.message || "Không thể cập nhật tiến độ học tập",
+        variant: "destructive",
+      });
+    }
+  };
+  // Handle quiz state changes
+  const handleQuizStateChange = useCallback((isActivelyTaking: boolean) => {
+    setIsQuizActivelyTaking(isActivelyTaking);
+  }, []);
+
+  // Handle course completion after quiz completion
+  const handleQuizCourseCompletion = useCallback(async () => {
+    // Skip certificate logic entirely in preview mode
+    if (isInstructorOrAdmin) {
+      console.log("[PreviewMode] Skipping quiz-triggered course completion.");
+      return;
+    }
+    if (!currentItem || !course || !enrollmentId || !currentLessonData) return;
+
+    const currentItemIndex = allItems.findIndex(
+      (item) => item.id === currentItem.id,
+    );
+    const isCurrentItemLast = currentItemIndex === allItems.length - 1;
+
+    console.log(
+      "🎯 [ClassQuizCompletion] Checking course completion conditions:",
+      {
+        currentItemId: currentItem.id,
+        isCurrentItemLast,
+        currentItemIndex,
+        totalItems: allItems.length,
+      },
+    );
+
+    // Check if this is the last item in the syllabus
+    if (!isCurrentItemLast) {
+      console.log(
+        "🎯 [ClassQuizCompletion] Not the final item, skipping course completion",
+      );
+      return;
+    }
+
+    // Get all item IDs except the current one (which was just completed)
+    const otherItemIds = allItems
+      .filter(
+        (item): item is NonNullable<typeof item> =>
+          item != null && item.id != null,
+      )
+      .map((item) => item.id)
+      .filter((id) => id !== currentItem.id);
+
+    // Check if all other items are completed
+    const allOtherItemsCompleted = otherItemIds.every((id) =>
+      completedItems?.some((completedItem: any) => completedItem.id === id),
+    );
+
+    console.log("🎯 [ClassQuizCompletion] All other items completion check:", {
+      otherItemIds,
+      completedItems,
+      allOtherItemsCompleted,
+    });
+
+    if (allOtherItemsCompleted) {
+      console.log(
+        "🎉 [ClassQuizCompletion] All conditions met - completing course!",
+      );
+
+      // Add a small delay to ensure the quiz completion is processed
+      setTimeout(async () => {
+        try {
+          await handleCourseCompletion();
+        } catch (error) {
+          console.error("Error in course completion:", error);
+          toast({
+            title: "Có lỗi khi cấp chứng chỉ hoàn thành khóa học",
+            variant: "destructive",
+          });
+        }
+      }, 1000);
+    } else {
+      console.log("🎯 [ClassQuizCompletion] Not all items completed yet");
+    }
+  }, [
+    currentItem,
+    course,
+    enrollmentId,
+    currentLessonData,
+    allItems,
+    completedItems,
+    handleCourseCompletion,
+  ]);
   // Chatbot component - only show for lessons
   const ClassLessonChatbot = usePopupChatbot({
     initialOpen: false,
@@ -801,6 +949,8 @@ Reference text chứa thông tin về khóa học, lớp học và nội dung b�
 
   // Helper function to check if navigation to an item is allowed
   const canNavigateToItem = (targetItem: SyllabusItem) => {
+    // In preview mode allow unrestricted navigation
+    if (isInstructorOrAdmin) return true;
     const targetIndex = allItems.findIndex((item) => item.id === targetItem.id);
     const currentIndex = currentItemIndex;
 
@@ -822,6 +972,12 @@ Reference text chứa thông tin về khóa học, lớp học và nội dung b�
 
   // Helper function to find the next available lesson
   const getNextAvailableItem = () => {
+    // In preview mode simply return the immediate next item (if any)
+    if (isInstructorOrAdmin) {
+      return currentItemIndex + 1 < allItems.length
+        ? allItems[currentItemIndex + 1]
+        : null;
+    }
     for (let i = currentItemIndex + 1; i < allItems.length; i++) {
       if (canNavigateToItem(allItems[i])) {
         return allItems[i];
@@ -972,14 +1128,16 @@ Reference text chứa thông tin về khóa học, lớp học và nội dung b�
     if (!nextItem) return;
 
     // If current lesson is not completed, show confirmation modal
-    if (
-      currentItem?.itemType === SyllabusItemType.LESSON &&
-      currentItem.lesson?.type !== LessonType.QUIZ &&
-      !isItemCompleted(currentItem)
-    ) {
-      setPendingNavigation(nextItem);
-      setIsConfirmModalOpen(true);
-      return;
+    if (!isInstructorOrAdmin) {
+      if (
+        currentItem?.itemType === SyllabusItemType.LESSON &&
+        currentItem.lesson?.type !== LessonType.QUIZ &&
+        !isItemCompleted(currentItem)
+      ) {
+        setPendingNavigation(nextItem);
+        setIsConfirmModalOpen(true);
+        return;
+      }
     }
 
     // If already completed or is a quiz, navigate directly
@@ -991,30 +1149,36 @@ Reference text chứa thông tin về khóa học, lớp học và nội dung b�
     if (!pendingNavigation) return;
 
     // Complete current lesson if it's not a quiz
-    if (
-      currentItem?.itemType === SyllabusItemType.LESSON &&
-      currentItem.lesson?.id &&
-      currentItem.lesson?.type !== LessonType.QUIZ
-    ) {
-      try {
-        // create progress cho lesson hiện tại
-        await createSyllabusProgress(currentItem?.id);
+    if (!isInstructorOrAdmin) {
+      if (
+        currentItem?.itemType === SyllabusItemType.LESSON &&
+        currentItem.lesson?.id &&
+        currentItem.lesson?.type !== LessonType.QUIZ
+      ) {
+        try {
+          // create progress cho lesson hiện tại
+          await createSyllabusProgress(currentItem?.id);
 
-        // Xử lý unlock requirements
-        await handleLessonCompletion(currentItem.lesson.id);
+          // Xử lý unlock requirements
+          await handleLessonCompletion(currentItem.lesson.id);
 
-        toast({
-          title: "✅ Đã hoàn thành bài học!",
-          description: "Chuyển sang bài học tiếp theo.",
-        });
-      } catch (error) {
-        console.error("Error completing lesson:", error);
-        toast({
-          title: "Lỗi",
-          description: "Không thể cập nhật tiến độ học tập",
-          variant: "destructive",
-        });
+          toast({
+            title: "✅ Đã hoàn thành bài học!",
+            description: "Chuyển sang bài học tiếp theo.",
+          });
+        } catch (error) {
+          console.error("Error completing lesson:", error);
+          toast({
+            title: "Lỗi",
+            description: "Không thể cập nhật tiến độ học tập",
+            variant: "destructive",
+          });
+        }
       }
+    } else {
+      console.log(
+        "[PreviewMode] Navigation confirmed without progress update.",
+      );
     }
 
     // Navigate to next item
@@ -1215,54 +1379,6 @@ Reference text chứa thông tin về khóa học, lớp học và nội dung b�
     });
   };
 
-  // Handler for course completion
-  const handleCourseCompletion = async () => {
-    try {
-      if (!enrollmentId) {
-        toast({
-          title: "Lỗi",
-          description: "Không tìm thấy thông tin ghi danh",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Gọi action để đánh dấu hoàn thành khóa học
-      const result = await markCourseAsCompleted(enrollmentId);
-
-      if (result.success && result.data?.data) {
-        const completedEnrollment = result.data.data;
-
-        // Kiểm tra xem có certificate được tạo không
-        if (completedEnrollment.certificate) {
-          setHasCertificate(true);
-          setCertificateId(completedEnrollment.certificate.id);
-          toast({
-            title: "Chúc mừng!",
-            description: "Bạn đã hoàn thành khóa học và nhận được chứng chỉ!",
-          });
-          // Chuyển hướng đến trang chứng chỉ
-          router.push(`/certificate/${completedEnrollment.certificate.id}`);
-        } else {
-          toast({
-            title: "Chúc mừng!",
-            description: "Bạn đã hoàn thành khóa học",
-          });
-          router.push(`/course/${params.courseId}`);
-        }
-      } else {
-        throw new Error(result.message || "Không thể hoàn thành khóa học");
-      }
-    } catch (err: any) {
-      console.error("Error completing course:", err);
-      toast({
-        title: "Lỗi",
-        description: err.message || "Không thể cập nhật tiến độ học tập",
-        variant: "destructive",
-      });
-    }
-  };
-
   return (
     <motion.div
       className="w-full flex-1 flex flex-col min-h-screen relative px-1"
@@ -1299,7 +1415,11 @@ Reference text chứa thông tin về khóa học, lớp học và nội dung b�
         variants={fadeIn}
         className={`flex-1 ${
           isSidebarOpen &&
-          !(currentLessonData && currentLessonData.type === LessonType.QUIZ)
+          !(
+            currentLessonData &&
+            currentLessonData.type === LessonType.QUIZ &&
+            isQuizActivelyTaking
+          )
             ? "pr-[350px]"
             : ""
         } transition-all duration-300`}
@@ -1585,6 +1705,10 @@ Reference text chứa thông tin về khóa học, lớp học và nội dung b�
                                       setCurrentItem(next);
                                     }
                                   }}
+                                  onQuizStateChange={handleQuizStateChange}
+                                  onCourseCompletion={
+                                    handleQuizCourseCompletion
+                                  }
                                 />
                               ) : (
                                 <div className="flex items-center justify-center p-8">
@@ -2032,7 +2156,11 @@ Reference text chứa thông tin về khóa học, lớp học và nội dung b�
       </motion.div>
 
       {/* Navigation Footer */}
-      {!(currentLessonData && currentLessonData.type === LessonType.QUIZ) && (
+      {!(
+        currentLessonData &&
+        currentLessonData.type === LessonType.QUIZ &&
+        isQuizActivelyTaking
+      ) && (
         <motion.div
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
@@ -2088,7 +2216,11 @@ Reference text chứa thông tin về khóa học, lớp học và nội dung b�
       )}
 
       {/* Sidebar */}
-      {!(currentLessonData && currentLessonData.type === LessonType.QUIZ) && (
+      {!(
+        currentLessonData &&
+        currentLessonData.type === LessonType.QUIZ &&
+        isQuizActivelyTaking
+      ) && (
         <CourseSidebar
           isOpen={isSidebarOpen}
           onClose={() => setIsSidebarOpen(false)}
@@ -2158,6 +2290,7 @@ Reference text chứa thông tin về khóa học, lớp học và nội dung b�
       {/* Chatbot - Only show for lesson items */}
       {currentItem?.itemType === SyllabusItemType.LESSON &&
         currentLessonData &&
+        currentLessonData.type !== LessonType.QUIZ &&
         isEnrolled && <ClassLessonChatbot />}
     </motion.div>
   );
