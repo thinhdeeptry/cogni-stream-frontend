@@ -106,19 +106,19 @@ export default function LessonDetail() {
   // Time tracking callback - memoized to prevent re-creation
   const handleTimeComplete = useCallback(() => {
     const requiredMinutes = lesson?.estimatedDurationMinutes || 5;
-    console.log("Hoàn thành time tracking:", {
-      "Thời gian yêu cầu": `${requiredMinutes} phút`,
-      "Đã thông báo trước đó": timeCompleteNotified ? "ok" : "no",
-    });
+    // console.log("Hoàn thành thời gian tracking:", {
+    //   "Thời gian yêu cầu": `${requiredMinutes} phút`,
+    //   "Đã thông báo trước đó": timeCompleteNotified ? "chưa" : "rồi",
+    //   "Lesson ID": (params.lessonId as string)?.substring(0, 8) + "...",
+    // });
 
     if (!timeCompleteNotified) {
-      console.log("Lần đầu hoàn thành - cập nhật state");
       setTimeCompleteNotified(true);
       setForceRender((prev) => prev + 1); // Force re-render
     } else {
-      console.log("� [TimeComplete] Đã thông báo rồi - bỏ qua");
+      // console.log("⏭️ [TimeComplete] Đã thông báo rồi - bỏ qua");
     }
-  }, [lesson?.estimatedDurationMinutes, timeCompleteNotified]);
+  }, [lesson?.estimatedDurationMinutes, timeCompleteNotified, params.lessonId]);
 
   // Time tracking state - Moved after params declaration
   const timeTracking = useTimeTracking({
@@ -132,13 +132,13 @@ export default function LessonDetail() {
     const elapsedMinutes = Math.floor(timeTracking.elapsedSeconds / 60);
     const remainingSeconds = timeTracking.elapsedSeconds % 60;
 
-    console.log("Chi tiết thời gian:", {
-      "Yêu cầu": requiredMinutes,
-      "Đã học": `${elapsedMinutes}p${remainingSeconds}s(${timeTracking.elapsedSeconds}total)`,
-      "Tiến độ": `${timeTracking.progress.toFixed(1)}%`,
-      "Đã hoàn thành": timeTracking.isTimeComplete ? "ok" : "no",
-      "Đang tracking": timeTracking.isActive ? "ok" : "no",
-    });
+    // console.log("Chi tiết thời gian:", {
+    //   "Yêu cầu": requiredMinutes,
+    //   "Đã học": `${elapsedMinutes}p${remainingSeconds}s(${timeTracking.elapsedSeconds}total)`,
+    //   "Tiến độ": `${timeTracking.progress.toFixed(1)}%`,
+    //   "Đã hoàn thành": timeTracking.isTimeComplete ? "ok" : "no",
+    //   "Đang tracking": timeTracking.isActive ? "ok" : "no",
+    // });
   }, [
     timeTracking.isTimeComplete,
     timeTracking.elapsedSeconds,
@@ -201,8 +201,12 @@ export default function LessonDetail() {
     // Otherwise, wait for time tracking completion
     const shouldEnable =
       isCurrentLessonCompleted || timeTracking.isTimeComplete;
-
     setIsButtonEnabled(shouldEnable);
+
+    // Update time complete notification status
+    if (timeTracking.isTimeComplete && !timeCompleteNotified) {
+      setTimeCompleteNotified(true);
+    }
 
     // Force re-render để đảm bảo UI update
     if (shouldEnable !== isButtonEnabled) {
@@ -214,6 +218,7 @@ export default function LessonDetail() {
     completedLessonIds,
     params.lessonId,
     isButtonEnabled,
+    timeCompleteNotified,
     lesson?.estimatedDurationMinutes,
   ]);
 
@@ -455,19 +460,18 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
           setIsSidebarOpen(false);
         }
 
-        // Clear time tracking data when switching lessons
-        // BUT only clear if the lesson is not completed
+        // KHÔNG XÓA time tracking data khi chuyển bài học
+        // Time tracking hook sẽ tự động load data từ localStorage
+        // và tiếp tục từ thời gian đã lưu
         const currentLessonId = params.lessonId as string;
         const isCurrentLessonCompleted =
           completedLessonIds.includes(currentLessonId);
 
-        if (!isCurrentLessonCompleted) {
-          // Clear tracking data for incomplete lessons to restart tracking
-          localStorage.removeItem(`time-tracking-lesson-${params.lessonId}`);
-          console.log("🧹 Cleared time tracking for incomplete lesson");
-        } else {
-          console.log("✅ Keeping time tracking data for completed lesson");
-        }
+        // console.log("📚 [LessonChange] Switching to lesson:", {
+        //   lessonId: currentLessonId,
+        //   isCompleted: isCurrentLessonCompleted,
+        //   action: "Keeping time tracking data intact"
+        // });
 
         const [courseData, lessonData] = await Promise.all([
           getCourseById(params.courseId as string),
@@ -682,43 +686,56 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
     const isCurrentLessonCompleted =
       completedLessonIds.includes(currentLessonId);
 
-    console.log("� [AutoStart] Kiểm tra điều kiện auto-start:", {
-      "Có lesson": !!lesson,
-      "Đã enrolled": isEnrolled,
-      "Là bài miễn phí": lesson?.isFreePreview ? "✅" : "❌",
-      "Bài học đã hoàn thành": isCurrentLessonCompleted ? "✅" : "❌",
-      "ID bài học": currentLessonId,
-      "Tracking đang active": timeTracking.isActive ? "✅" : "❌",
-    });
+    // console.log("⏰ [AutoStart] Kiểm tra điều kiện auto-start:", {
+    //   "Có lesson": !!lesson,
+    //   "Đã enrolled": isEnrolled,
+    //   "Là bài miễn phí": lesson?.isFreePreview ? "✅" : "❌",
+    //   "Bài học đã hoàn thành": isCurrentLessonCompleted ? "✅" : "❌",
+    //   "ID bài học": currentLessonId,
+    //   "Tracking đang active": timeTracking.isActive ? "✅" : "❌",
+    //   "Thời gian đã track": `${Math.floor(timeTracking.elapsedSeconds / 60)}:${(timeTracking.elapsedSeconds % 60).toString().padStart(2, "0")}`,
+    // });
 
-    // Start tracking if lesson is not completed yet (regardless of free preview status for enrolled users)
+    // Start/Resume tracking if lesson is not completed yet (regardless of free preview status for enrolled users)
     if (lesson && isEnrolled && !isCurrentLessonCompleted) {
-      console.log("� [AutoStart] Bắt đầu tracking cho bài chưa hoàn thành");
-      timeTracking.start();
+      // Nếu chưa tracking và chưa hoàn thành thời gian required
+      if (!timeTracking.isActive && !timeTracking.isTimeComplete) {
+        console.log("Bắt đầu/tiếp tục tracking cho bài chưa hoàn thành");
+        timeTracking.start();
+      } else if (timeTracking.isTimeComplete && !timeCompleteNotified) {
+        console.log("Thời gian đã đủ nhưng chưa thông báo - update state");
+        setTimeCompleteNotified(true);
+        setForceRender((prev) => prev + 1);
+      }
     } else if (isCurrentLessonCompleted) {
-      console.log("✅ [AutoStart] Bài đã hoàn thành - bỏ qua tracking");
+      console.log("Bài đã hoàn thành - không cần tracking");
       // Stop tracking if it's currently active
       if (timeTracking.isActive) {
         timeTracking.pause();
       }
     } else {
-      console.log(
-        "❌ [AutoStart] Không đủ điều kiện để bắt đầu tracking - Lý do:",
-        {
-          "Không có lesson": !lesson,
-          "Chưa enrolled": !isEnrolled,
-          "Bài đã hoàn thành": isCurrentLessonCompleted,
-        },
-      );
+      console.log("Không đủ điều kiện để bắt đầu tracking - Lý do:", {
+        "Không có lesson": !lesson,
+        "Chưa enrolled": !isEnrolled,
+        "Bài đã hoàn thành": isCurrentLessonCompleted,
+      });
     }
 
     return () => {
+      // Chỉ pause tracking khi component unmount, KHÔNG reset
       if (timeTracking.isActive) {
-        console.log("🧹 [AutoStart] Cleanup: tạm dừng tracking");
+        console.log("");
         timeTracking.pause();
       }
     };
-  }, [lesson, isEnrolled, completedLessonIds, params.lessonId]);
+  }, [
+    lesson,
+    isEnrolled,
+    completedLessonIds,
+    params.lessonId,
+    timeTracking.isTimeComplete,
+    timeCompleteNotified,
+  ]);
 
   // Handle page visibility to pause/resume tracking
   useEffect(() => {
@@ -728,25 +745,30 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
         completedLessonIds.includes(currentLessonId);
 
       if (document.hidden) {
+        // Tạm dừng tracking khi không nhìn thấy trang
         if (timeTracking.isActive) {
+          console.log("Tạm dừng tracking - trang ẩn");
           timeTracking.pause();
         }
       } else {
-        // Only resume tracking if lesson is not completed (regardless of free preview status for enrolled users)
+        // Tiếp tục tracking khi trang hiển thị lại
+        // Chỉ resume nếu lesson chưa hoàn thành và user đã enrolled
         if (
           lesson &&
           isEnrolled &&
           !isCurrentLessonCompleted &&
-          !timeTracking.isActive
+          !timeTracking.isActive &&
+          !timeTracking.isTimeComplete
         ) {
-          console.log("Trang hiển thị - tiếp tục tracking");
+          console.log("Tiếp tục tracking - trang hiển thị lại");
           timeTracking.resume();
         } else {
-          console.log("Trang hiển thị - không tiếp tục tracking - Lý do:", {
+          console.log("Không tiếp tục tracking - Lý do:", {
             "Không có lesson": !lesson,
             "Chưa enrolled": !isEnrolled,
             "Bài đã hoàn thành": isCurrentLessonCompleted,
             "Tracking đã active": timeTracking.isActive,
+            "Thời gian đã đủ": timeTracking.isTimeComplete,
           });
         }
       }
@@ -758,6 +780,7 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
     };
   }, [
     timeTracking.isActive,
+    timeTracking.isTimeComplete,
     lesson,
     isEnrolled,
     completedLessonIds,

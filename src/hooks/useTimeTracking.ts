@@ -98,14 +98,14 @@ export const useTimeTracking = (
       const elapsedMinutes = Math.floor(elapsedSeconds / 60);
       const elapsedSecs = elapsedSeconds % 60;
 
-      console.log("⏱️ [useTimeTracking]", {
-        item: itemId,
-        "Yêu cầu": `${requiredMinutes} phút`,
-        "Đã học": `${elapsedMinutes}:${elapsedSecs.toString().padStart(2, "0")}`,
-        "Hoàn thành": isTimeComplete ? "✅" : "❌",
-        "Tiến độ": `${progress.toFixed(0)}%`,
-        Active: isActive ? "▶️" : "⏸️",
-      });
+      // console.log("track: ", {
+      //   item: itemId,
+      //   "Yêu cầu": `${requiredMinutes} phút`,
+      //   "Đã học": `${elapsedMinutes}:${elapsedSecs.toString().padStart(2, "0")}`,
+      //   "Hoàn thành": isTimeComplete ? "✅" : "❌",
+      //   "Tiến độ": `${progress.toFixed(0)}%`,
+      //   Active: isActive ? "▶️" : "⏸️",
+      // });
     }
   }, [
     itemId,
