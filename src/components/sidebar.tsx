@@ -194,7 +194,7 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter>
+      {/* <SidebarFooter>
         <SidebarMenuButton asChild className="mb-10 rounded-full">
           <Link
             href={"/"}
@@ -205,7 +205,7 @@ export function AppSidebar() {
             </p>
           </Link>
         </SidebarMenuButton>
-      </SidebarFooter>
+      </SidebarFooter> */}
     </Sidebar>
   );
 }

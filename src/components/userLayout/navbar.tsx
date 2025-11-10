@@ -15,6 +15,7 @@ import {
   BookOpen,
   Clock,
   LogOut,
+  Menu,
   Search,
   Settings,
   User,
@@ -39,6 +40,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { useSidebar } from "@/components/ui/sidebar";
 
 interface NavbarProps {
   isLoggedIn?: boolean;
@@ -58,6 +60,8 @@ export default function Navbar({
   const searchParams = useSearchParams();
   const params = useParams();
   const [searchQuery, setSearchQuery] = useState("");
+  const { toggleSidebar } = useSidebar();
+
   useEffect(() => {
     const query = searchParams.get("q");
     if (query) {
@@ -195,6 +199,16 @@ export default function Navbar({
   return (
     <header className="w-full border-b bg-white">
       <div className="container flex h-16 items-center justify-between px-4">
+        {/* Sidebar Toggle Button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={toggleSidebar}
+          className="mr-2"
+        >
+          <Menu className="h-5 w-5" />
+        </Button>
+
         {/* Logo and Brand */}
         <Link href="/" className="flex items-center gap-3">
           {/* <div className="flex h-10 w-10 items-center justify-center rounded-md bg-orange-500 text-white font-bold text-xl">
