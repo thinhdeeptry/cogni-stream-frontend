@@ -27,7 +27,7 @@ import {
   deleteCategory,
   deleteCourse,
   getAllCategories,
-  getAllCourses,
+  getAllCoursesManagement,
 } from "@/actions/courseAction";
 import { getCourseCurrentPrice } from "@/actions/pricingActions";
 
@@ -198,7 +198,11 @@ export default function AdminCoursesPage() {
             : courseFilters.isPublished,
       };
 
-      const response = await getAllCourses(filteredParams, page, limit);
+      const response = await getAllCoursesManagement(
+        filteredParams,
+        page,
+        limit,
+      );
 
       if (response && response.data) {
         setCourses(response.data);
@@ -386,7 +390,7 @@ export default function AdminCoursesPage() {
         </div>
         <div className="flex gap-2">
           {/* 🆕 New approval link */}
-          <Link href="/admin/approvals">
+          {/* <Link href="/admin/approvals">
             <Button
               variant="outline"
               className="border-orange-200 text-orange-600 hover:bg-orange-50"
@@ -394,7 +398,7 @@ export default function AdminCoursesPage() {
               <CheckCircle className="mr-2 h-4 w-4" />
               Xét duyệt nội dung
             </Button>
-          </Link>
+          </Link> */}
 
           <Dialog open={isFilterOpen} onOpenChange={setIsFilterOpen}>
             <DialogTrigger asChild>

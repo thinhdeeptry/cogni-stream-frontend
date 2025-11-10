@@ -146,6 +146,121 @@ export const getAllCourses = async (
     throw error;
   }
 };
+export const getAllCoursesManagement = async (
+  filters: CourseFilters = {},
+  page: number = 1,
+  limit: number = 10,
+): Promise<PaginatedResponse<Course>> => {
+  try {
+    // Build query parameters
+    const params = new URLSearchParams();
+
+    // Add pagination parameters if not skipping pagination
+    if (!filters.skipPagination) {
+      params.append("page", page.toString());
+      params.append("limit", limit.toString());
+    } else {
+      // If skipping pagination, request a large limit to get all courses
+      params.append("limit", "1000"); // Use a large number to get all courses
+    }
+
+    // Add filter parameters if they exist
+    if (filters.categoryId) params.append("categoryId", filters.categoryId);
+    if (filters.minPrice !== undefined)
+      params.append("minPrice", filters.minPrice.toString());
+    if (filters.maxPrice !== undefined)
+      params.append("maxPrice", filters.maxPrice.toString());
+    if (filters.level) params.append("level", filters.level);
+    if (filters.createdAt)
+      params.append("createdAt", filters.createdAt.toISOString());
+
+    // Always include isPublished parameter if specified
+    if (filters.isPublished !== undefined) {
+      params.append("isPublished", filters.isPublished.toString());
+    }
+
+    console.log("API Request URL:", `/courses?${params.toString()}`);
+    const { data } = await courseApi.get(
+      `/courses/management?${params.toString()}`,
+    );
+    console.log("data course: ", data);
+    // If the backend doesn't return a paginated response format yet, transform it
+    if (Array.isArray(data)) {
+      // Filter out unpublished courses if isPublished=true is specified
+      let filteredData = data;
+      if (filters.isPublished === true) {
+        console.log("Filtering for published courses only");
+        filteredData = data.filter(
+          (course: Course) => course.status === "PUBLISHED",
+        );
+        console.log("Filtered data length:", filteredData.length);
+      }
+
+      // If skipPagination is true, return all courses
+      if (filters.skipPagination) {
+        console.log("Skipping pagination, returning all filtered courses");
+        return {
+          data: filteredData,
+          meta: {
+            totalCount: filteredData.length,
+            page: 1,
+            limit: filteredData.length,
+            totalPages: 1,
+            hasPreviousPage: false,
+            hasNextPage: false,
+          },
+        };
+      }
+
+      // Apply manual pagination if needed
+      const startIndex = (page - 1) * limit;
+      const endIndex = startIndex + limit;
+      const paginatedData = filteredData.slice(startIndex, endIndex);
+      console.log(
+        `Paginating data: page ${page}, limit ${limit}, showing ${paginatedData.length} of ${filteredData.length} courses`,
+      );
+
+      return {
+        data: paginatedData,
+        meta: {
+          totalCount: filteredData.length,
+          page,
+          limit,
+          totalPages: Math.ceil(filteredData.length / limit),
+          hasPreviousPage: page > 1,
+          hasNextPage: endIndex < filteredData.length,
+        },
+      };
+    }
+
+    // If the backend returns a paginated response, use it directly
+    // But ensure we filter by isPublished if needed
+    if (
+      data &&
+      data.data &&
+      Array.isArray(data.data) &&
+      filters.isPublished === true
+    ) {
+      const filteredData = data.data.filter(
+        (course: Course) => course.status === "PUBLISHED",
+      );
+      return {
+        data: filteredData,
+        meta: {
+          ...data.meta,
+          total: filteredData.length,
+          totalPages: Math.ceil(
+            filteredData.length / (data.meta.limit || limit),
+          ),
+        },
+      };
+    }
+
+    return data;
+  } catch (error) {
+    throw error;
+  }
+};
 
 export const getCourseById = async (courseId: string): Promise<Course> => {
   try {
