@@ -1108,6 +1108,165 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
     currentLessonIndex < allLessons.length - 1
       ? allLessons[currentLessonIndex + 1]
       : null;
+  // Trong component, thêm đoạn code để lấy thông tin người tạo khóa học
+  // const { otherUserData: instructorData } = useOtherUser(course?.ownerId);
+
+  // Thêm hàm xử lý hoàn thành khóa học (gọi API backend và chuyển hướng chứng chỉ)
+  const handleCourseCompletion = async () => {
+    try {
+      if (!enrollmentId) {
+        console.log("No enrollmentId available");
+        toast.error("Không tìm thấy thông tin ghi danh");
+        return;
+      }
+
+      console.log("Starting course completion for enrollmentId:", enrollmentId);
+      console.log("Course info:", {
+        id: course?.id,
+        title: course?.title,
+        isHasCertificate: course?.isHasCertificate,
+      });
+
+      // Gọi action để đánh dấu hoàn thành khóa học
+      const result = await markCourseAsCompleted(enrollmentId);
+      console.log("Course completion result:", result);
+
+      if (result.success && result.data) {
+        const completedEnrollment = result.data.data;
+        console.log("Completed enrollment:", completedEnrollment);
+
+        // Kiểm tra xem có certificate được tạo không
+        if (completedEnrollment.certificate) {
+          console.log(
+            "Certificate found in response:",
+            completedEnrollment.certificate,
+          );
+          setHasCertificate(true);
+          setCertificateId(completedEnrollment.certificate.id);
+          toast.success(
+            "Chúc mừng! Bạn đã hoàn thành khóa học và nhận được chứng chỉ!",
+          );
+          // Chuyển hướng đến trang chứng chỉ
+          router.push(`/certificate/${completedEnrollment.certificate.id}`);
+          return;
+        }
+
+        // Nếu không có certificate trong response, thử fetch lại
+        console.log(
+          "No certificate in immediate response, fetching enrollment again...",
+        );
+        const enrollmentResponse = await getEnrollmentByCourse(course!.id);
+
+        console.log(
+          "Refetched enrollment after completion:",
+          enrollmentResponse,
+        );
+        if (enrollmentResponse.success && enrollmentResponse.data?.data) {
+          const updatedEnrollment = enrollmentResponse.data.data;
+
+          // Kiểm tra xem có certificate được tạo không
+          if (updatedEnrollment.certificate) {
+            console.log(
+              "Certificate found in refetch:",
+              updatedEnrollment.certificate,
+            );
+            setHasCertificate(true);
+            setCertificateId(updatedEnrollment.certificate.id);
+            toast.success(
+              "Chúc mừng! Bạn đã hoàn thành khóa học và nhận được chứng chỉ!",
+            );
+            // Chuyển hướng đến trang chứng chỉ
+            router.push(`/certificate/${updatedEnrollment.certificate.id}`);
+          } else {
+            console.log(
+              "No certificate found in updated enrollment - course may not offer certificate",
+            );
+            toast.success("Chúc mừng! Bạn đã hoàn thành khóa học");
+            router.push(`/course/${course?.id}`);
+          }
+        } else {
+          // Fallback nếu không lấy được enrollment mới
+          console.log("Failed to refetch enrollment");
+          toast.success("Chúc mừng! Bạn đã hoàn thành khóa học");
+          router.push(`/course/${course?.id}`);
+        }
+      } else {
+        throw new Error(result.message || "Không thể hoàn thành khóa học");
+      }
+    } catch (err: any) {
+      console.error("Error completing course:", err);
+      toast.error(err.message || "Không thể cập nhật tiến độ học tập");
+    }
+  };
+
+  // Handle course completion after quiz completion
+  const handleQuizCourseCompletion = useCallback(async () => {
+    if (!lesson || !course || !enrollmentId) return;
+
+    const currentLessonId = params.lessonId as string;
+    const isCurrentLessonLast = currentLessonIndex === allLessons.length - 1;
+
+    console.log("🎯 [QuizCompletion] Checking course completion conditions:", {
+      currentLessonId,
+      isCurrentLessonLast,
+      currentLessonIndex,
+      totalLessons: allLessons.length,
+      completedLessonsCount: completedLessonIds.length,
+      allLessonsExceptCurrent: allLessons.length - 1,
+    });
+
+    // Check if this is the last lesson in the course
+    if (!isCurrentLessonLast) {
+      console.log(
+        "🎯 [QuizCompletion] Not the final lesson, skipping course completion",
+      );
+      return;
+    }
+
+    // Get all lesson IDs except the current one (which was just completed)
+    const otherLessonIds = allLessons
+      .filter((l): l is NonNullable<typeof l> => l != null && l.id != null) // Type guard for undefined lessons
+      .map((l) => l.id)
+      .filter((id) => id !== currentLessonId);
+
+    // Check if all other lessons are completed
+    const allOtherLessonsCompleted = otherLessonIds.every((id) =>
+      completedLessonIds.includes(id),
+    );
+
+    console.log("🎯 [QuizCompletion] All other lessons completion check:", {
+      otherLessonIds,
+      completedLessonIds,
+      allOtherLessonsCompleted,
+    });
+
+    if (allOtherLessonsCompleted) {
+      console.log(
+        "🎉 [QuizCompletion] All conditions met - completing course!",
+      );
+
+      // Add a small delay to ensure the quiz completion is processed
+      setTimeout(async () => {
+        try {
+          await handleCourseCompletion();
+        } catch (error) {
+          console.error("Error in course completion:", error);
+          toast.error("Có lỗi khi cấp chứng chỉ hoàn thành khóa học");
+        }
+      }, 1000);
+    } else {
+      console.log("🎯 [QuizCompletion] Not all lessons completed yet");
+    }
+  }, [
+    lesson,
+    course,
+    enrollmentId,
+    params.lessonId,
+    currentLessonIndex,
+    allLessons,
+    completedLessonIds,
+    handleCourseCompletion,
+  ]);
 
   if (isLoading) {
     return (
@@ -1407,166 +1566,6 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
       toast.error("Không thể cập nhật tiến độ học tập");
     }
   };
-
-  // Trong component, thêm đoạn code để lấy thông tin người tạo khóa học
-  // const { otherUserData: instructorData } = useOtherUser(course?.ownerId);
-
-  // Thêm hàm xử lý hoàn thành khóa học (gọi API backend và chuyển hướng chứng chỉ)
-  const handleCourseCompletion = async () => {
-    try {
-      if (!enrollmentId) {
-        console.log("No enrollmentId available");
-        toast.error("Không tìm thấy thông tin ghi danh");
-        return;
-      }
-
-      console.log("Starting course completion for enrollmentId:", enrollmentId);
-      console.log("Course info:", {
-        id: course?.id,
-        title: course?.title,
-        isHasCertificate: course?.isHasCertificate,
-      });
-
-      // Gọi action để đánh dấu hoàn thành khóa học
-      const result = await markCourseAsCompleted(enrollmentId);
-      console.log("Course completion result:", result);
-
-      if (result.success && result.data) {
-        const completedEnrollment = result.data.data;
-        console.log("Completed enrollment:", completedEnrollment);
-
-        // Kiểm tra xem có certificate được tạo không
-        if (completedEnrollment.certificate) {
-          console.log(
-            "Certificate found in response:",
-            completedEnrollment.certificate,
-          );
-          setHasCertificate(true);
-          setCertificateId(completedEnrollment.certificate.id);
-          toast.success(
-            "Chúc mừng! Bạn đã hoàn thành khóa học và nhận được chứng chỉ!",
-          );
-          // Chuyển hướng đến trang chứng chỉ
-          router.push(`/certificate/${completedEnrollment.certificate.id}`);
-          return;
-        }
-
-        // Nếu không có certificate trong response, thử fetch lại
-        console.log(
-          "No certificate in immediate response, fetching enrollment again...",
-        );
-        const enrollmentResponse = await getEnrollmentByCourse(course!.id);
-
-        console.log(
-          "Refetched enrollment after completion:",
-          enrollmentResponse,
-        );
-        if (enrollmentResponse.success && enrollmentResponse.data?.data) {
-          const updatedEnrollment = enrollmentResponse.data.data;
-
-          // Kiểm tra xem có certificate được tạo không
-          if (updatedEnrollment.certificate) {
-            console.log(
-              "Certificate found in refetch:",
-              updatedEnrollment.certificate,
-            );
-            setHasCertificate(true);
-            setCertificateId(updatedEnrollment.certificate.id);
-            toast.success(
-              "Chúc mừng! Bạn đã hoàn thành khóa học và nhận được chứng chỉ!",
-            );
-            // Chuyển hướng đến trang chứng chỉ
-            router.push(`/certificate/${updatedEnrollment.certificate.id}`);
-          } else {
-            console.log(
-              "No certificate found in updated enrollment - course may not offer certificate",
-            );
-            toast.success("Chúc mừng! Bạn đã hoàn thành khóa học");
-            router.push(`/course/${course?.id}`);
-          }
-        } else {
-          // Fallback nếu không lấy được enrollment mới
-          console.log("Failed to refetch enrollment");
-          toast.success("Chúc mừng! Bạn đã hoàn thành khóa học");
-          router.push(`/course/${course?.id}`);
-        }
-      } else {
-        throw new Error(result.message || "Không thể hoàn thành khóa học");
-      }
-    } catch (err: any) {
-      console.error("Error completing course:", err);
-      toast.error(err.message || "Không thể cập nhật tiến độ học tập");
-    }
-  };
-
-  // Handle course completion after quiz completion
-  const handleQuizCourseCompletion = useCallback(async () => {
-    if (!lesson || !course || !enrollmentId) return;
-
-    const currentLessonId = params.lessonId as string;
-    const isCurrentLessonLast = currentLessonIndex === allLessons.length - 1;
-
-    console.log("🎯 [QuizCompletion] Checking course completion conditions:", {
-      currentLessonId,
-      isCurrentLessonLast,
-      currentLessonIndex,
-      totalLessons: allLessons.length,
-      completedLessonsCount: completedLessonIds.length,
-      allLessonsExceptCurrent: allLessons.length - 1,
-    });
-
-    // Check if this is the last lesson in the course
-    if (!isCurrentLessonLast) {
-      console.log(
-        "🎯 [QuizCompletion] Not the final lesson, skipping course completion",
-      );
-      return;
-    }
-
-    // Get all lesson IDs except the current one (which was just completed)
-    const otherLessonIds = allLessons
-      .filter((l): l is NonNullable<typeof l> => l != null && l.id != null) // Type guard for undefined lessons
-      .map((l) => l.id)
-      .filter((id) => id !== currentLessonId);
-
-    // Check if all other lessons are completed
-    const allOtherLessonsCompleted = otherLessonIds.every((id) =>
-      completedLessonIds.includes(id),
-    );
-
-    console.log("🎯 [QuizCompletion] All other lessons completion check:", {
-      otherLessonIds,
-      completedLessonIds,
-      allOtherLessonsCompleted,
-    });
-
-    if (allOtherLessonsCompleted) {
-      console.log(
-        "🎉 [QuizCompletion] All conditions met - completing course!",
-      );
-
-      // Add a small delay to ensure the quiz completion is processed
-      setTimeout(async () => {
-        try {
-          await handleCourseCompletion();
-        } catch (error) {
-          console.error("Error in course completion:", error);
-          toast.error("Có lỗi khi cấp chứng chỉ hoàn thành khóa học");
-        }
-      }, 1000);
-    } else {
-      console.log("🎯 [QuizCompletion] Not all lessons completed yet");
-    }
-  }, [
-    lesson,
-    course,
-    enrollmentId,
-    params.lessonId,
-    currentLessonIndex,
-    allLessons,
-    completedLessonIds,
-    handleCourseCompletion,
-  ]);
 
   return (
     <>
