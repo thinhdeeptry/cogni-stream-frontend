@@ -260,6 +260,7 @@ export function PopupChatbot({
     lessonOrder,
     totalLessons,
     chapterName,
+    referenceText, // Add referenceText as dependency
   ]);
 
   const [messages, setMessages] = useState<
@@ -274,20 +275,44 @@ export function PopupChatbot({
   >([]);
 
   const contextualWelcomeMessage = useMemo(() => {
+    // Check lesson type from reference text for contextual welcome
+    const isQuizLesson = referenceText?.includes(
+      "QUIZ LESSON - SPECIAL INSTRUCTIONS",
+    );
+    const hasVideoNoTranscript = referenceText?.includes(
+      "Video transcript is not available",
+    );
+    const hasReadingContent = referenceText?.includes("Reading Content:");
+    const hasVideoTranscript = referenceText?.includes("Video Transcript");
+
     if (userName) {
       let message = `Xin chào ${userName}! 👋 Mình là AI Assistant của CogniStream.`;
 
       if (lessonName && courseName) {
-        message += ` Mình thấy ${userName} đang học bài "${lessonName}" trong khóa "${courseName}".`;
+        if (isQuizLesson) {
+          message += ` Mình thấy ${userName} đang chuẩn bị cho bài kiểm tra "${lessonName}" trong khóa "${courseName}".`;
+          message += `\n\n🎯 **Lưu ý quan trọng**: Đây là bài kiểm tra, mình sẽ **không đưa ra đáp án trực tiếp** nhưng sẽ giúp ${userName} hiểu khái niệm và phát triển tư duy để tự giải quyết các câu hỏi!`;
+        } else if (hasVideoNoTranscript) {
+          message += ` ${userName} đang học bài video "${lessonName}" đúng không?`;
+          message += `\n\n📹 **Về video**: Mình không thể xem được nội dung chi tiết của video này, nhưng ${userName} có thể mô tả phần nào cần hỗ trợ, mình sẽ giúp giải thích khái niệm!`;
+        } else if (hasReadingContent) {
+          message += ` ${userName} đang đọc bài "${lessonName}" trong khóa "${courseName}".`;
+          message += `\n\n📚 **Bài đọc**: Mình đã đọc toàn bộ nội dung và có thể giúp ${userName} phân tích, tóm tắt, hoặc tạo câu hỏi ôn tập!`;
+        } else if (hasVideoTranscript) {
+          message += ` ${userName} đang xem video "${lessonName}" với đầy đủ transcript.`;
+          message += `\n\n🎥 **Video có transcript**: Mình có thể tham chiếu đến từng phần cụ thể của video để hỗ trợ ${userName} tốt nhất!`;
+        } else {
+          message += ` Mình thấy ${userName} đang học bài "${lessonName}" trong khóa "${courseName}".`;
+        }
       } else if (courseName) {
         message += ` ${userName} đang tham gia khóa học "${courseName}" đúng không?`;
       }
 
-      message += `\n\nMình sẽ nhớ cuộc trò chuyện của chúng ta để hỗ trợ ${userName} tốt hơn! ${userName} có thể hỏi bất cứ điều gì - từ giải thích khái niệm đến ví dụ thực tế nhé! 🚀`;
+      message += `\n\nMình sẽ nhớ cuộc trò chuyện của chúng ta để hỗ trợ ${userName} tốt hơn! Hãy hỏi bất cứ điều gì nhé! 🚀`;
       return message;
     }
     return welcomeMessage;
-  }, [welcomeMessage, userName, courseName, lessonName]);
+  }, [welcomeMessage, userName, courseName, lessonName, referenceText]);
 
   // Create context-aware suggested questions with conversation analysis
   const contextualSuggestedQuestions = useMemo(() => {
@@ -296,17 +321,72 @@ export function PopupChatbot({
     }
 
     // Initial questions for new conversations
-    const defaultQuestions = [
-      lessonName
-        ? `Bài "${lessonName}" nói về gì chính?`
-        : "Bài học này về chủ đề gì?",
-      courseName
-        ? `Tại sao cần học khóa "${courseName}"?`
-        : "Tại sao cần học khóa này?",
-      "Những khái niệm nào cần nắm vững?",
-      "Kiến thức này ứng dụng như thế nào?",
-      "Tôi cần chuẩn bị gì để học tốt?",
-    ];
+    const getContextualQuestions = () => {
+      // Check reference text for lesson type information
+      const isQuizLesson = referenceText?.includes(
+        "QUIZ LESSON - SPECIAL INSTRUCTIONS",
+      );
+      const hasVideoTranscript = referenceText?.includes("Video Transcript");
+      const hasVideoNoTranscript = referenceText?.includes(
+        "Video transcript is not available",
+      );
+      const hasReadingContent = referenceText?.includes("Reading Content:");
+
+      if (isQuizLesson) {
+        return [
+          "Làm thế nào để ôn tập hiệu quả cho bài kiểm tra này?",
+          "Những khái niệm nào cần nắm vững để làm tốt quiz?",
+          "Chiến lược nào giúp tư duy logic khi làm bài?",
+          "Cách quản lý thời gian khi làm bài kiểm tra?",
+          "Làm sao để giảm căng thẳng khi thi?",
+        ];
+      }
+
+      if (hasVideoNoTranscript) {
+        return [
+          "Video này về chủ đề gì chính?",
+          "Hướng dẫn tôi cách ghi chú hiệu quả khi xem video",
+          "Làm thế nào để tập trung khi học qua video?",
+          "Cách ôn tập lại nội dung video vừa xem?",
+          "Những điểm quan trọng cần chú ý trong video này?",
+        ];
+      }
+
+      if (hasReadingContent) {
+        return [
+          `Tóm tắt nội dung bài "${lessonName}" này`,
+          "Phân tích cấu trúc của bài đọc này",
+          "Tạo mindmap cho các khái niệm chính",
+          "Câu hỏi ôn tập cho bài đọc này",
+          "Ví dụ thực tế về những gì đã học",
+        ];
+      }
+
+      if (hasVideoTranscript) {
+        return [
+          `Video "${lessonName}" nói về những gì chính?`,
+          "Phân tích timeline của video theo các mốc quan trọng",
+          "Tóm tắt ý chính từng phần của video",
+          "Tạo note-taking từ nội dung video",
+          "Kiến thức này áp dụng như thế nào thực tế?",
+        ];
+      }
+
+      // Default questions
+      return [
+        lessonName
+          ? `Bài "${lessonName}" nói về gì chính?`
+          : "Bài học này về chủ đề gì?",
+        courseName
+          ? `Tại sao cần học khóa "${courseName}"?`
+          : "Tại sao cần học khóa này?",
+        "Những khái niệm nào cần nắm vững?",
+        "Kiến thức này ứng dụng như thế nào?",
+        "Tôi cần chuẩn bị gì để học tốt?",
+      ];
+    };
+
+    const defaultQuestions = getContextualQuestions();
 
     return defaultQuestions;
   }, [suggestedQuestions, courseName, lessonName]);
@@ -424,20 +504,68 @@ export function PopupChatbot({
         }
 
         // Fallback advanced questions for ongoing conversations
-        return [
-          "Cho tôi ví dụ thực tế về điều này",
-          "Làm sao để áp dụng vào công việc?",
-          "Có cách nào học nhớ lâu hơn không?",
-          "So sánh với những gì đã học trước",
-          "Tạo bài tập thực hành cho tôi",
-        ];
+        const getAdvancedQuestions = () => {
+          const isQuizLesson = referenceText?.includes(
+            "QUIZ LESSON - SPECIAL INSTRUCTIONS",
+          );
+          const hasVideoNoTranscript = referenceText?.includes(
+            "Video transcript is not available",
+          );
+          const hasReadingContent = referenceText?.includes("Reading Content:");
+
+          if (isQuizLesson) {
+            return [
+              "Tôi cần ôn luyện thêm về phần nào?",
+              "Cách nhớ lâu các khái niệm quan trọng?",
+              "Chiến thuật làm bài hiệu quả nhất?",
+              "Kiểm tra độ hiểu biết của tôi",
+              "Gợi ý cách tự đánh giá kiến thức",
+            ];
+          }
+
+          if (hasVideoNoTranscript) {
+            return [
+              "Hướng dẫn ghi chú từ video này",
+              "Những điểm mấu chốt cần ghi nhớ?",
+              "Cách kết nối với kiến thức đã học?",
+              "Bài tập thực hành cho phần này",
+              "Tôi hiểu đúng chưa về [concept]?",
+            ];
+          }
+
+          if (hasReadingContent) {
+            return [
+              "Tạo sơ đồ tư duy cho bài này",
+              "Câu hỏi tự kiểm tra hiểu biết",
+              "Ví dụ thực tế cho khái niệm này",
+              "Kết nối với kiến thức trước đó",
+              "Điểm nào dễ nhầm lẫn nhất?",
+            ];
+          }
+
+          return [
+            "Cho tôi ví dụ thực tế về điều này",
+            "Làm sao để áp dụng vào công việc?",
+            "Có cách nào học nhớ lâu hơn không?",
+            "So sánh với những gì đã học trước",
+            "Tạo bài tập thực hành cho tôi",
+          ];
+        };
+
+        return getAdvancedQuestions();
       }
 
       return contextualSuggestedQuestions;
     }
 
     return contextualSuggestedQuestions;
-  }, [contextualSuggestedQuestions, messages, courseName, lessonName]);
+  }, [
+    contextualSuggestedQuestions,
+    messages,
+    courseName,
+    lessonName,
+    referenceText,
+  ]);
 
   // Chọn mảng suggested questions phù hợp
   const SUGGESTED_QUESTIONS = enhancedSuggestedQuestions;

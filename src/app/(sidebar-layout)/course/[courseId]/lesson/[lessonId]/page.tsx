@@ -13,35 +13,8 @@ import {
   useTimeTracking,
 } from "@/hooks/useTimeTracking";
 import { Course, Lesson, LessonType } from "@/types/course/types";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@radix-ui/react-collapsible";
 import { motion } from "framer-motion";
-import {
-  ArrowBigRight,
-  BookOpen,
-  Calendar,
-  Check,
-  ChevronLeft,
-  ChevronRight,
-  Clock,
-  Eye,
-  EyeOff,
-  Loader2,
-  Menu,
-  MessageSquare,
-  Minus,
-  Pause,
-  Play,
-  Plus,
-  Timer,
-  Trophy,
-} from "lucide-react";
 import { useSession } from "next-auth/react";
-import ReactPlayer from "react-player";
-import { JSX } from "react/jsx-runtime";
 import { toast } from "sonner";
 
 import { getCourseById, getLessonById } from "@/actions/courseAction";
@@ -63,327 +36,13 @@ import useUserStore from "@/stores/useUserStore";
 
 import { extractPlainTextFromBlockNote } from "@/utils/blocknote";
 
-// import TimeTrackingDebug from "@/components/debug/TimeTrackingDebug";
-import Discussion from "@/components/discussion";
-import { DiscussionType } from "@/components/discussion/type";
-import QuizSection from "@/components/quiz/QuizSection";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
+import { LessonContent } from "@/components/lesson/LessonContent";
+// Import new components
+import { LessonHeader } from "@/components/lesson/LessonHeader";
+import { LessonNavigationBar } from "@/components/lesson/LessonNavigationBar";
+import { LessonSidebar } from "@/components/lesson/LessonSidebar";
+import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-
-interface Block {
-  id: string;
-  type: string;
-  props: {
-    textColor?: string;
-    backgroundColor?: string;
-    textAlignment?: string;
-    level?: number;
-    name?: string;
-    url?: string;
-    caption?: string;
-    showPreview?: boolean;
-    previewWidth?: number;
-  };
-  content?: Array<{
-    type: string;
-    text: string;
-    styles: Record<string, any>;
-  }>;
-  children: Block[];
-}
-
-const renderBlockToHtml = (block: Block): JSX.Element => {
-  // Xử lý màu sắc và background
-  const textColorStyle =
-    block.props.textColor !== "default" ? { color: block.props.textColor } : {};
-  const backgroundColorStyle =
-    block.props.backgroundColor !== "default"
-      ? { backgroundColor: block.props.backgroundColor }
-      : {};
-  const textAlignStyle = {
-    textAlign: block.props.textAlignment as React.CSSProperties["textAlign"],
-  };
-
-  const baseStyles = {
-    ...textColorStyle,
-    ...backgroundColorStyle,
-    ...textAlignStyle,
-  };
-
-  // Render nội dung content
-  const renderContent = () => {
-    if (!block.content) return null;
-
-    return block.content.map((contentItem, index) => {
-      if (contentItem.type === "link") {
-        return (
-          <a
-            key={index}
-            href={contentItem.text}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-600 hover:underline"
-          >
-            {contentItem.text
-              ?.split(" ")
-              .map((word: string, linkIndex: number) => (
-                <span key={linkIndex} style={contentItem.styles}>
-                  {word}
-                </span>
-              ))}
-          </a>
-        );
-      }
-
-      const textStyles = {
-        ...contentItem.styles,
-        ...(contentItem.styles?.bold && { fontWeight: "bold" }),
-        ...(contentItem.styles?.italic && { fontStyle: "italic" }),
-        ...(contentItem.styles?.underline && { textDecoration: "underline" }),
-        ...(contentItem.styles?.strike && { textDecoration: "line-through" }),
-        ...(contentItem.styles?.textColor && {
-          color: contentItem.styles.textColor,
-        }),
-      };
-
-      return (
-        <span key={index} style={textStyles}>
-          {contentItem.text}
-        </span>
-      );
-    });
-  };
-
-  switch (block.type) {
-    case "paragraph":
-      return (
-        <p className="mb-4" style={baseStyles}>
-          {renderContent()}
-        </p>
-      );
-
-    case "heading":
-      const HeadingTag =
-        `h${block.props.level || 1}` as keyof JSX.IntrinsicElements;
-      return (
-        <HeadingTag
-          className={`mb-4 font-semibold ${
-            block.props.level === 1
-              ? "text-3xl"
-              : block.props.level === 2
-                ? "text-2xl"
-                : "text-xl"
-          }`}
-          style={baseStyles}
-        >
-          {renderContent()}
-        </HeadingTag>
-      );
-
-    case "quote":
-      return (
-        <blockquote
-          className="border-l-4 border-gray-300 pl-4 italic my-4"
-          style={baseStyles}
-        >
-          {renderContent()}
-          {block.children.length > 0 && (
-            <div className="mt-2 pl-4">
-              {block.children.map((child, index) => (
-                <div key={child.id || `child-${index}`}>
-                  {renderBlockToHtml(child)}
-                </div>
-              ))}
-            </div>
-          )}
-        </blockquote>
-      );
-
-    case "bulletListItem":
-      return (
-        <li className="list-disc ml-6 my-1" style={baseStyles}>
-          {renderContent()}
-          {block.children.length > 0 && (
-            <ul className="ml-6">
-              {block.children.map((child) => renderBlockToHtml(child))}
-            </ul>
-          )}
-        </li>
-      );
-
-    case "numberedListItem":
-      return (
-        <li className="list-decimal ml-6 my-1" style={baseStyles}>
-          {renderContent()}
-          {block.children.length > 0 && (
-            <ol className="ml-6">
-              {block.children.map((child) => renderBlockToHtml(child))}
-            </ol>
-          )}
-        </li>
-      );
-
-    case "codeBlock":
-      return (
-        <pre
-          className="bg-gray-800 p-4 rounded-lg overflow-x-auto my-4"
-          style={baseStyles}
-        >
-          <code className="language-text">{renderContent()}</code>
-        </pre>
-      );
-
-    case "table":
-      return (
-        <div className="overflow-x-auto my-4">
-          <table className="min-w-full border">
-            <tbody>
-              {(block.content as any)?.rows?.map(
-                (row: any, rowIndex: number) => (
-                  <tr key={rowIndex}>
-                    {row.cells.map(
-                      (
-                        cell: {
-                          props: {
-                            textAlignment?: string;
-                            backgroundColor?: string;
-                            textColor?: string;
-                            colspan?: number;
-                            rowspan?: number;
-                          };
-                          content: Array<{
-                            styles: Record<string, any>;
-                            text: string;
-                          }>;
-                        },
-                        cellIndex: number,
-                      ) => {
-                        const cellStyles = {
-                          ...baseStyles,
-                          textAlign: cell.props.textAlignment,
-                          backgroundColor: cell.props.backgroundColor,
-                          color: cell.props.textColor,
-                          ...(cell.props.colspan && {
-                            colspan: cell.props.colspan,
-                          }),
-                          ...(cell.props.rowspan && {
-                            rowspan: cell.props.rowspan,
-                          }),
-                        };
-
-                        return (
-                          <td
-                            key={cellIndex}
-                            className="border p-2"
-                            style={{
-                              textAlign: cell.props
-                                .textAlignment as React.CSSProperties["textAlign"],
-                              backgroundColor: cell.props.backgroundColor,
-                              color: cell.props.textColor,
-                              ...(cell.props.colspan && {
-                                colSpan: cell.props.colspan,
-                              }),
-                              ...(cell.props.rowspan && {
-                                rowSpan: cell.props.rowspan,
-                              }),
-                            }}
-                          >
-                            {cell.content.map((content, contentIndex) => (
-                              <span key={contentIndex} style={content.styles}>
-                                {content.text}
-                              </span>
-                            ))}
-                          </td>
-                        );
-                      },
-                    )}
-                  </tr>
-                ),
-              )}
-            </tbody>
-          </table>
-        </div>
-      );
-
-    case "image":
-      return (
-        <div className="my-4" style={baseStyles}>
-          <img
-            src={block.props.url}
-            alt={block.props.name || "Lesson image"}
-            className="max-w-full rounded-lg mx-auto"
-            style={{
-              width: block.props.previewWidth
-                ? `${block.props.previewWidth}px`
-                : "100%",
-              maxWidth: "100%",
-              height: "auto",
-            }}
-          />
-          {block.props.caption && (
-            <p className="text-sm text-gray-500 mt-2 text-center">
-              {block.props.caption}
-            </p>
-          )}
-        </div>
-      );
-
-    case "video":
-      return (
-        <div className="my-4" style={baseStyles}>
-          <div className="aspect-video w-full">
-            <ReactPlayer
-              url={block.props.url}
-              controls={true}
-              width="100%"
-              height="100%"
-              className="rounded-lg"
-            />
-          </div>
-          {block.props.caption && (
-            <p className="text-sm text-gray-500 mt-2 text-center">
-              {block.props.caption}
-            </p>
-          )}
-        </div>
-      );
-
-    default:
-      console.warn(`Unsupported block type: ${block.type}`);
-      return (
-        <div className="my-4 p-2 bg-yellow-100 text-yellow-800 rounded">
-          [Unsupported block type: {block.type}]
-        </div>
-      );
-  }
-};
 
 // Interface for transcript items with timestamps
 interface TranscriptItem {
@@ -467,14 +126,6 @@ export default function LessonDetail() {
     requiredMinutes: lesson?.estimatedDurationMinutes || 5,
     onTimeComplete: handleTimeComplete,
   });
-
-  // console.log("📚 [LessonPage] Time tracking initialized:", {
-  //   itemId: lesson ? `lesson-${params.lessonId}` : "",
-  //   requiredMinutes: lesson?.estimatedDurationMinutes || 5,
-  //   hasLesson: !!lesson,
-  //   lessonId: params.lessonId,
-  // });
-
   // Debug time tracking state
   useEffect(() => {
     const requiredMinutes = lesson?.estimatedDurationMinutes || 5;
@@ -499,9 +150,6 @@ export default function LessonDetail() {
   // Force re-render when time tracking completes
   useEffect(() => {
     if (timeTracking.isTimeComplete) {
-      console.log(
-        "� [ForceRender] Time tracking đã hoàn thành - force UI update",
-      );
       setForceRender((prev) => prev + 1);
     }
   }, [timeTracking.isTimeComplete]);
@@ -518,7 +166,7 @@ export default function LessonDetail() {
         );
       }
       console.log(
-        "🔄 Synced completed lessons from store:",
+        "Synced completed lessons from store:",
         storeCompletedLessonIds,
       );
     }
@@ -535,7 +183,6 @@ export default function LessonDetail() {
         `completed-lessons-${course.id}`,
         JSON.stringify(completedLessonIds),
       );
-      // console.log("💾 Saved completed lessons to localStorage:", completedLessonIds);
     }
   }, [completedLessonIds, course?.id]);
 
@@ -559,7 +206,6 @@ export default function LessonDetail() {
 
     // Force re-render để đảm bảo UI update
     if (shouldEnable !== isButtonEnabled) {
-      console.log("🚀 Button state changed - Forcing re-render");
       setForceRender((prev) => prev + 1);
     }
   }, [
@@ -657,47 +303,88 @@ export default function LessonDetail() {
 
   // Memoize the reference text to prevent unnecessary re-renders
   const referenceText = useMemo(() => {
-    // Format timestamped transcript for reference
-    let transcriptSection = "No video transcript available";
+    let content = `Course Title: ${course?.title}\nLesson Title: ${lesson?.title}\nLesson Type: ${lesson?.type}\n\n`;
 
-    if (timestampedTranscript.length > 0) {
-      // Check if we have valid timestamps (not all 0:00)
-      const hasValidTimestamps = timestampedTranscript.some(
-        (item) => item.timestamp !== "0:00",
-      );
+    // Handle different lesson types with enhanced content extraction
+    switch (lesson?.type) {
+      case LessonType.VIDEO:
+      case LessonType.MIXED:
+        // For video lessons, prioritize transcript content
+        if (timestampedTranscript.length > 0) {
+          const hasValidTimestamps = timestampedTranscript.some(
+            (item) => item.timestamp !== "0:00",
+          );
 
-      if (hasValidTimestamps) {
-        transcriptSection = timestampedTranscript
-          .map((item) => `[${item.timestamp}] ${item.text}`)
-          .join("\n");
-      } else {
-        // If all timestamps are 0:00, log an error and use a simpler format
-        console.error(
-          "All transcript timestamps are 0:00. Check the YouTube transcript API response.",
-        );
-        transcriptSection = timestampedTranscript
-          .map((item, index) => `[Part ${index + 1}] ${item.text}`)
-          .join("\n");
-      }
+          if (hasValidTimestamps) {
+            content += `Video Transcript with Timestamps:\n${timestampedTranscript
+              .map((item) => `[${item.timestamp}] ${item.text}`)
+              .join("\n")}\n\n`;
+          } else {
+            content += `Video Transcript:\n${timestampedTranscript
+              .map((item, index) => `[Part ${index + 1}] ${item.text}`)
+              .join("\n")}\n\n`;
+          }
+        } else {
+          content += `Video URL: ${lesson?.videoUrl || "Not available"}\n`;
+          content += `Note: Video transcript is not available for this lesson. AI should inform users that detailed video content cannot be analyzed, but can provide general guidance based on lesson title and any written content.\n\n`;
+        }
+
+        // Add written content for MIXED type
+        if (lesson.type === LessonType.MIXED && lesson?.content) {
+          const plainContent = extractPlainTextFromBlockNote(lesson.content);
+          if (plainContent && plainContent !== "No content available") {
+            content += `Written Content:\n${plainContent}\n\n`;
+          }
+        }
+        break;
+
+      case LessonType.BLOG:
+        // For blog/reading lessons, extract and structure the written content
+        if (lesson?.content) {
+          const plainContent = extractPlainTextFromBlockNote(lesson.content);
+          if (plainContent && plainContent !== "No content available") {
+            content += `Reading Content:\n${plainContent}\n\n`;
+            content += `Note: This is a reading lesson with structured content. AI can help explain concepts, provide examples, and answer questions about the material.\n\n`;
+          } else {
+            content += `Note: This reading lesson content could not be extracted. AI should provide general educational support based on lesson title.\n\n`;
+          }
+        } else {
+          content += `Note: No written content available for this reading lesson.\n\n`;
+        }
+        break;
+
+      case LessonType.QUIZ:
+        // For quiz lessons, provide context but avoid revealing answers
+        content += `QUIZ LESSON - SPECIAL INSTRUCTIONS:\n`;
+        content += `- This is a quiz/assessment lesson\n`;
+        content += `- DO NOT provide direct answers to quiz questions\n`;
+        content += `- Help with understanding concepts but encourage thinking\n`;
+        content += `- Can provide study tips and general explanations\n`;
+        content += `- Can help clarify question meanings if student is confused\n`;
+        content += `- Should motivate and guide learning process\n\n`;
+        break;
+
+      default:
+        // Fallback for unknown lesson types
+        if (lesson?.content) {
+          const plainContent = extractPlainTextFromBlockNote(lesson.content);
+          content += `Lesson Content:\n${plainContent || "No content available"}\n\n`;
+        }
     }
 
-    // Extract plain text from lesson content if it exists
-    const plainContent = lesson?.content
-      ? extractPlainTextFromBlockNote(lesson.content)
-      : "No content available";
+    // Add estimated duration for time management tips
+    if (lesson?.estimatedDurationMinutes) {
+      content += `Estimated Study Time: ${lesson.estimatedDurationMinutes} minutes\n\n`;
+    }
 
-    return `
-    Course Title: ${course?.title} \n
-    Lesson Title: ${lesson?.title} \n
-    Lesson Content: ${plainContent} \n
-    Lesson Type: ${lesson?.type} \n
-    Lesson Video Transcript with Timestamps: \n${transcriptSection} \n
-    `;
+    return content;
   }, [
     course?.title,
     lesson?.title,
     lesson?.content,
     lesson?.type,
+    lesson?.videoUrl,
+    lesson?.estimatedDurationMinutes,
     timestampedTranscript,
   ]);
 
@@ -729,22 +416,31 @@ export default function LessonDetail() {
 - Ưu tiên cách giải thích dễ hiểu, sử dụng ví dụ minh họa khi cần thiết
 - Sử dụng giọng điệu thân thiện, khuyến khích và tích cực
 
-2. NGUỒN THÔNG TIN
+2. NGUỒN THÔNG TIN VÀ LOẠI BÀI HỌC
 - Phân tích và sử dụng chính xác nội dung từ reference text (bài học) được cung cấp
+- **BÀI HỌC VIDEO**: Nếu có transcript, hãy tham chiếu cụ thể đến timestamp. Nếu không có transcript, thông báo rằng không thể phân tích chi tiết nội dung video và đưa ra hướng dẫn chung
+- **BÀI ĐỌC/BLOG**: Phân tích và giải thích từng phần của nội dung văn bản, tạo summary, và đưa ra câu hỏi ôn tập
+- **BÀI QUIZ**: ⚠️ TUYỆT ĐỐI không đưa ra đáp án trực tiếp! Chỉ giải thích khái niệm, gợi ý cách tư duy, và khuyến khích học sinh tự suy nghĩ
 - Nếu câu hỏi nằm ngoài phạm vi bài học, hãy nói rõ và cung cấp kiến thức nền tảng
-- Đề xuất tài liệu bổ sung chỉ khi thực sự cần thiết
 
-3. HỖ TRỢ HỌC TẬP
-- Giúp người học hiểu sâu hơn về khái niệm, không chỉ ghi nhớ thông tin 
-- Hướng dẫn người học tư duy phản biện và giải quyết vấn đề
+3. HỖ TRỢ HỌC TẬP THEO LOẠI BÀI
+- **Video không có transcript**: "Mình không thể xem chi tiết video này, nhưng dựa trên tiêu đề bài học, mình có thể hỗ trợ bạn về [topic]. Bạn có thể mô tả phần nào trong video mà bạn cần hỗ trợ không?"
+- **Bài đọc**: Giúp phân tích cấu trúc, tóm tắt từng phần, tạo mindmap khái niệm
+- **Quiz**: "Đây là bài kiểm tra, mình sẽ không đưa đáp án nhưng có thể giúp bạn hiểu khái niệm. Bạn nghĩ câu này đang hỏi về điều gì?"
 - Điều chỉnh độ phức tạp của câu trả lời phù hợp với ngữ cảnh
 
-4. ĐỊNH DẠNG
+4. PHƯƠNG PHÁP HỖ TRỢ THÔNG MINH
+- Khi video không có transcript: Yêu cầu học sinh mô tả nội dung hoặc câu hỏi cụ thể từ video
+- Đối với quiz: Sử dụng phương pháp Socratic questioning để dẫn dắt tư duy
+- Khuyến khích ghi chú, tóm tắt, và tạo câu hỏi ôn tập
+- Đưa ra gợi ý học tập hiệu quả cho từng loại bài học
+
+5. ĐỊNH DẠNG
 - Sử dụng Markdown để định dạng câu trả lời và đảm bảo dễ đọc
 - Dùng đậm, in nghiêng và danh sách để làm nổi bật điểm quan trọng
 - Đảm bảo thuật ngữ kỹ thuật được giải thích rõ ràng
 
-Reference text chứa thông tin về khóa học, bài học và nội dung. Hãy sử dụng thông tin này khi trả lời.`,
+Reference text chứa thông tin về khóa học, bài học và nội dung. Hãy sử dụng thông tin này khi trả lời và luôn chú ý đến loại bài học để đưa ra hỗ trợ phù hợp.`,
   });
 
   useEffect(() => {
@@ -1031,15 +727,8 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
       const isCurrentLessonCompleted =
         completedLessonIds.includes(currentLessonId);
 
-      console.log("�️ [Visibility] Thay đổi trạng thái trang:", {
-        "Trang bị ẩn": document.hidden ? "✅" : "❌",
-        "Tracking đang active": timeTracking.isActive ? "✅" : "❌",
-        "Bài học đã hoàn thành": isCurrentLessonCompleted ? "✅" : "❌",
-      });
-
       if (document.hidden) {
         if (timeTracking.isActive) {
-          console.log("⏸️ [Visibility] Trang bị ẩn - tạm dừng tracking");
           timeTracking.pause();
         }
       } else {
@@ -1050,18 +739,15 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
           !isCurrentLessonCompleted &&
           !timeTracking.isActive
         ) {
-          console.log("▶️ [Visibility] Trang hiển thị - tiếp tục tracking");
+          console.log("Trang hiển thị - tiếp tục tracking");
           timeTracking.resume();
         } else {
-          console.log(
-            "❌ [Visibility] Trang hiển thị - không tiếp tục tracking - Lý do:",
-            {
-              "Không có lesson": !lesson,
-              "Chưa enrolled": !isEnrolled,
-              "Bài đã hoàn thành": isCurrentLessonCompleted,
-              "Tracking đã active": timeTracking.isActive,
-            },
-          );
+          console.log("Trang hiển thị - không tiếp tục tracking - Lý do:", {
+            "Không có lesson": !lesson,
+            "Chưa enrolled": !isEnrolled,
+            "Bài đã hoàn thành": isCurrentLessonCompleted,
+            "Tracking đã active": timeTracking.isActive,
+          });
         }
       }
     };
@@ -1112,6 +798,153 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
   // const { otherUserData: instructorData } = useOtherUser(course?.ownerId);
 
   // Thêm hàm xử lý hoàn thành khóa học (gọi API backend và chuyển hướng chứng chỉ)
+  // Handle lesson completion and navigation to next lesson
+  const handleLessonCompletion = async () => {
+    if (!lesson || !nextLesson) {
+      return;
+    }
+
+    // If not enrolled, just navigate without updating progress
+    if (!enrollmentId) {
+      toast.info("Chuyển sang bài học tiếp theo");
+      router.push(`/course/${course ? course.id : ""}/lesson/${nextLesson.id}`);
+      return;
+    }
+    try {
+      // Lấy index của bài học hiện tại
+      const currentLessonIndex = allLessons.findIndex(
+        (lessonItem) => lessonItem?.id === params.lessonId,
+      );
+
+      // Lấy thông tin bài học tiếp theo
+      const nextLessonIndex = allLessons.findIndex(
+        (lessonItem) => lessonItem?.id === nextLesson.id,
+      );
+
+      console.log("Progress check:", {
+        currentLessonIndex,
+        nextLessonIndex,
+        currentLessonId: params.lessonId,
+        nextLessonId: nextLesson.id,
+        lastLessonId,
+        progress,
+      });
+
+      // Luôn cập nhật tiến trình với thông tin của bài học tiếp theo
+      const currentProgress = typeof progress === "number" ? progress : 0;
+      const newProgressPercentage = Math.max(
+        currentProgress,
+        ((nextLessonIndex + 1) / totalLessons) * 100,
+      );
+
+      // Lấy currentProgressId từ store hoặc tạo mới nếu chưa có
+      const currentProgressState = useProgressStore.getState();
+      let currentProgressId = currentProgressState.currentProgress?.id;
+
+      console.log("Progress state check:", {
+        currentProgress: currentProgressState.currentProgress,
+        currentProgressId,
+        enrollmentId,
+        newProgressPercentage,
+        nextLesson: nextLesson.title,
+        nextLessonId: nextLesson.id,
+      });
+
+      // Nếu chưa có currentProgressId, thử tạo progress record mới
+      if (!currentProgressId) {
+        console.log(
+          "No currentProgressId found, trying to create initial progress...",
+        );
+        try {
+          // Thử tạo progress cho lesson hiện tại trước
+          const createData = {
+            enrollmentId,
+            lessonId: params.lessonId as string,
+            status: "ATTENDED" as const,
+          };
+
+          console.log("Creating progress with data:", createData);
+          const createResult = await createStudentProgress(createData);
+
+          console.log("Create progress result:", createResult);
+
+          if (!createResult.success) {
+            throw new Error(createResult.message);
+          }
+
+          // Refresh state sau khi tạo
+          await useProgressStore.getState().fetchInitialProgress();
+          const updatedState = useProgressStore.getState();
+          currentProgressId = updatedState.currentProgress?.id;
+
+          console.log(
+            "After creating progress, currentProgressId:",
+            currentProgressId,
+          );
+
+          if (!currentProgressId) {
+            console.error("Still no currentProgressId after creating progress");
+            console.error("Debug info:", {
+              enrollmentId,
+              lessonId: params.lessonId,
+              currentProgressState: currentProgressState.currentProgress,
+              hasEnrollmentId: !!enrollmentId,
+              error: currentProgressState.error,
+            });
+            toast.error(
+              "Không thể khởi tạo tiến trình học tập. Vui lòng refresh trang và thử lại.",
+            );
+            return;
+          }
+        } catch (error: any) {
+          console.error("Error creating progress:", error);
+          console.error("Debug info:", {
+            enrollmentId,
+            lessonId: params.lessonId,
+            error: error,
+          });
+          toast.error(
+            "Không thể tạo thông tin tiến trình. Vui lòng kiểm tra kết nối và thử lại.",
+          );
+          return;
+        }
+      }
+
+      // Cập nhật tiến trình với thông tin bài học TIẾP THEO
+      await updateLessonProgress({
+        progress: newProgressPercentage,
+        currentProgressId,
+        nextLesson: nextLesson.title,
+        nextLessonId: nextLesson.id,
+        isLessonCompleted: true,
+      });
+
+      // Add current lesson to completed list locally for immediate UI update
+      const currentLessonId = params.lessonId as string;
+      setCompletedLessonIds((prev) => {
+        if (!prev.includes(currentLessonId)) {
+          const newCompleted = [...prev, currentLessonId];
+          // Save to localStorage
+          if (typeof window !== "undefined") {
+            localStorage.setItem(
+              `completed-lessons-${course?.id}`,
+              JSON.stringify(newCompleted),
+            );
+          }
+          return newCompleted;
+        }
+        return prev;
+      });
+
+      toast.success("Tiến độ học tập đã được cập nhật!");
+
+      // Navigate to next lesson
+      router.push(`/course/${course ? course.id : ""}/lesson/${nextLesson.id}`);
+    } catch (err) {
+      toast.error("Không thể cập nhật tiến độ học tập");
+    }
+  };
+
   const handleCourseCompletion = async () => {
     try {
       if (!enrollmentId) {
@@ -1384,189 +1217,6 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
     );
   }
 
-  // Parse lesson content for BLOG or MIXED types
-  let contentBlocks: Block[] = [];
-  if (
-    lesson?.content &&
-    typeof lesson.content === "string" &&
-    (lesson.type === LessonType.BLOG || lesson.type === LessonType.MIXED)
-  ) {
-    try {
-      // Kiểm tra xem content có phải định dạng JSON không
-      const trimmedContent = lesson.content.trim();
-      if (
-        trimmedContent &&
-        (trimmedContent[0] === "[" || trimmedContent[0] === "{")
-      ) {
-        contentBlocks = JSON.parse(lesson.content);
-      } else {
-        console.warn("Lesson content is not in JSON format:", lesson.content);
-      }
-    } catch (error) {
-      console.error("Error parsing lesson content:", error);
-    }
-  }
-
-  // Handle lesson completion and navigation to next lesson
-  const handleLessonCompletion = async () => {
-    // console.log("🚀 handleLessonCompletion called with: ", {
-    //   enrollmentId,
-    //   lessonId: lesson?.id,
-    //   lessonTitle: lesson?.title,
-    //   nextLessonId: nextLesson?.id,
-    //   nextLessonTitle: nextLesson?.title,
-    //   isEnrolled,
-    // });
-    if (!lesson || !nextLesson) {
-      // console.log("❌ Missing required data:", {
-      //   lesson: !!lesson,
-      //   nextLesson: !!nextLesson,
-      // });
-      return;
-    }
-
-    // If not enrolled, just navigate without updating progress
-    if (!enrollmentId) {
-      toast.info("Chuyển sang bài học tiếp theo");
-      router.push(`/course/${course ? course.id : ""}/lesson/${nextLesson.id}`);
-      return;
-    }
-    try {
-      // Lấy index của bài học hiện tại
-      const currentLessonIndex = allLessons.findIndex(
-        (lessonItem) => lessonItem?.id === params.lessonId,
-      );
-
-      // Lấy thông tin bài học tiếp theo
-      const nextLessonIndex = allLessons.findIndex(
-        (lessonItem) => lessonItem?.id === nextLesson.id,
-      );
-
-      console.log("Progress check:", {
-        currentLessonIndex,
-        nextLessonIndex,
-        currentLessonId: params.lessonId,
-        nextLessonId: nextLesson.id,
-        lastLessonId,
-        progress,
-      });
-
-      // Luôn cập nhật tiến trình với thông tin của bài học tiếp theo
-      // vì chúng ta đang chuyển đến bài học đó
-      const currentProgress = typeof progress === "number" ? progress : 0;
-      const newProgressPercentage = Math.max(
-        currentProgress, // Current progress from store
-        ((nextLessonIndex + 1) / totalLessons) * 100,
-      );
-
-      // Lấy currentProgressId từ store hoặc tạo mới nếu chưa có
-      const currentProgressState = useProgressStore.getState();
-      let currentProgressId = currentProgressState.currentProgress?.id;
-
-      console.log("Progress state check:", {
-        currentProgress: currentProgressState.currentProgress,
-        currentProgressId,
-        enrollmentId,
-        newProgressPercentage,
-        nextLesson: nextLesson.title,
-        nextLessonId: nextLesson.id,
-      });
-
-      // Nếu chưa có currentProgressId, thử tạo progress record mới
-      if (!currentProgressId) {
-        console.log(
-          "No currentProgressId found, trying to create initial progress...",
-        );
-        try {
-          // Thử tạo progress cho lesson hiện tại trước
-          const createData = {
-            enrollmentId,
-            lessonId: params.lessonId as string,
-            status: "ATTENDED" as const,
-          };
-
-          console.log("Creating progress with data:", createData);
-          const createResult = await createStudentProgress(createData);
-
-          console.log("Create progress result:", createResult);
-
-          if (!createResult.success) {
-            throw new Error(createResult.message);
-          }
-
-          // Refresh state sau khi tạo
-          await useProgressStore.getState().fetchInitialProgress();
-          const updatedState = useProgressStore.getState();
-          currentProgressId = updatedState.currentProgress?.id;
-
-          console.log(
-            "After creating progress, currentProgressId:",
-            currentProgressId,
-          );
-
-          if (!currentProgressId) {
-            console.error("Still no currentProgressId after creating progress");
-            console.error("Debug info:", {
-              enrollmentId,
-              lessonId: params.lessonId,
-              currentProgressState: currentProgressState.currentProgress,
-              hasEnrollmentId: !!enrollmentId,
-              error: currentProgressState.error,
-            });
-            toast.error(
-              "Không thể khởi tạo tiến trình học tập. Vui lòng refresh trang và thử lại.",
-            );
-            return;
-          }
-        } catch (error: any) {
-          console.error("Error creating progress:", error);
-          console.error("Debug info:", {
-            enrollmentId,
-            lessonId: params.lessonId,
-            error: error,
-          });
-          toast.error(
-            "Không thể tạo thông tin tiến trình. Vui lòng kiểm tra kết nối và thử lại.",
-          );
-          return;
-        }
-      }
-
-      // Cập nhật tiến trình với thông tin bài học TIẾP THEO
-      await updateLessonProgress({
-        progress: newProgressPercentage,
-        currentProgressId,
-        nextLesson: nextLesson.title, // Sử dụng tên của bài học tiếp theo
-        nextLessonId: nextLesson.id, // Sử dụng ID của bài học tiếp theo
-        isLessonCompleted: true,
-      });
-
-      // Add current lesson to completed list locally for immediate UI update
-      const currentLessonId = params.lessonId as string;
-      setCompletedLessonIds((prev) => {
-        if (!prev.includes(currentLessonId)) {
-          const newCompleted = [...prev, currentLessonId];
-          // Save to localStorage
-          if (typeof window !== "undefined") {
-            localStorage.setItem(
-              `completed-lessons-${course?.id}`,
-              JSON.stringify(newCompleted),
-            );
-          }
-          return newCompleted;
-        }
-        return prev;
-      });
-
-      toast.success("Tiến độ học tập đã được cập nhật!");
-
-      // Navigate to next lesson
-      router.push(`/course/${course ? course.id : ""}/lesson/${nextLesson.id}`);
-    } catch (err) {
-      toast.error("Không thể cập nhật tiến độ học tập");
-    }
-  };
-
   return (
     <>
       {/* Mobile Overlay - Enhanced for Quiz */}
@@ -1588,29 +1238,6 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
             : "md:pr-[350px]"
         } md:pl-4`}
       >
-        {/* Instructor/Admin Preview Banner */}
-        {isInstructorOrAdmin && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-neutral-300 text-gray-950 p-4 mb-4 rounded-lg shadow-lg"
-          >
-            <div className="flex items-center justify-center gap-2">
-              <Eye className="h-5 w-5" />
-              <span className="font-medium">
-                {user?.role === "ADMIN"
-                  ? "Chế độ xem trước Admin"
-                  : "Chế độ xem trước Giảng viên"}
-              </span>
-            </div>
-            <p className="text-center text-sm mt-1 opacity-90">
-              Bạn đang xem bài học với quyền{" "}
-              {user?.role === "ADMIN" ? "quản trị viên" : "giảng viên"}. Tiến
-              trình học tập và thời gian học không được theo dõi.
-            </p>
-          </motion.div>
-        )}
-
         <motion.div
           initial="hidden"
           animate="visible"
@@ -1618,626 +1245,93 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
           className="flex-1 transition-all duration-300 w-full max-w-full"
         >
           <div className="space-y-4 sm:space-y-6 mx-auto w-full max-w-full">
-            {/* Course Navigation Breadcrumb */}
-            <motion.div
-              variants={slideUp}
-              className="flex items-center text-sm text-gray-500 px-0 pt-4"
-            >
-              <Link
-                href="/"
-                className="hover:text-orange-500 transition-colors"
-              >
-                Khóa học
-              </Link>
-              <ChevronRight className="h-4 w-4 mx-2" />
-              <Link
-                href={course ? `/course/${course.id}` : "#"}
-                className="hover:text-orange-500 transition-colors"
-              >
-                {course?.title}
-              </Link>
-              <ChevronRight className="h-4 w-4 mx-2" />
-              <span className="text-gray-700 font-medium truncate">
-                {lesson?.title}
-              </span>
-            </motion.div>
+            {/* Lesson Header Component */}
+            <LessonHeader
+              course={course}
+              lesson={lesson}
+              isInstructorOrAdmin={isInstructorOrAdmin}
+              userRole={user?.role}
+            />
 
-            {/* Video Content for VIDEO or MIXED */}
-            {(lesson.type === LessonType.VIDEO ||
-              lesson.type === LessonType.MIXED) &&
-              lesson.videoUrl && (
-                <motion.div
-                  variants={slideUp}
-                  className="relative rounded-lg overflow-hidden shadow-lg w-full max-w-full"
-                  style={{ aspectRatio: "16/9" }}
-                >
-                  {isVideoLoading && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-gray-900/30 backdrop-blur-sm">
-                      <div className="flex flex-col items-center">
-                        <div className="w-16 h-16 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
-                        <p className="text-white mt-4 font-medium">
-                          Đang tải video...
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                  <ReactPlayer
-                    url={lesson.videoUrl}
-                    controls={true}
-                    onReady={() => setIsVideoLoading(false)}
-                    onBuffer={() => setIsVideoLoading(true)}
-                    onBufferEnd={() => setIsVideoLoading(false)}
-                    config={{
-                      youtube: {
-                        playerVars: { showinfo: 1 },
-                      },
-                    }}
-                    className="react-player"
-                    width="100%"
-                    height="100%"
-                  />
-                </motion.div>
-              )}
-
-            {/* Lesson Content */}
-            {lesson.type !== LessonType.QUIZ && (
-              <motion.div
-                variants={slideUp}
-                className="prose max-w-none pb-16 w-full"
-              >
-                <Card className="overflow-hidden border-none shadow-md rounded-xl w-full">
-                  <CardContent className="p-4 sm:p-6 w-full">
-                    <h1 className="text-2xl font-bold bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent inline-block mb-4  items-center">
-                      <BookOpen className="w-6 h-6 mr-2 text-orange-500" />
-                      Nội dung bài học
-                    </h1>
-                    <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
-                      <span className="bg-orange-100 text-orange-600 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold">
-                        {lesson.order}
-                      </span>
-                      <span>{lesson.title}</span>
-                    </h2>
-
-                    {/* Time Tracking Component - HIDDEN but still tracking */}
-                    {/* Time tracking is running in background via timeTracking hook */}
-
-                    {/* Render Parsed Content for BLOG or MIXED */}
-                    {(lesson.type === LessonType.BLOG ||
-                      lesson.type === LessonType.MIXED) &&
-                      contentBlocks.length > 0 && (
-                        <div className="mt-4">
-                          {contentBlocks.map((block, index) => (
-                            <motion.div
-                              key={block.id}
-                              initial={{ opacity: 0, y: 10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              transition={{ delay: 0.1 * index, duration: 0.3 }}
-                            >
-                              {renderBlockToHtml(block)}
-                            </motion.div>
-                          ))}
-                        </div>
-                      )}
-
-                    {/* Fallback for VIDEO-only or empty content */}
-                    {lesson.type === LessonType.VIDEO && !lesson.videoUrl && (
-                      <p className="text-md text-gray-500">
-                        Không có nội dung video.
-                      </p>
-                    )}
-                    {(lesson.type === LessonType.BLOG ||
-                      lesson.type === LessonType.MIXED) &&
-                      contentBlocks.length === 0 && (
-                        <p className="text-md text-gray-500">
-                          Không có nội dung bài viết.
-                        </p>
-                      )}
-                  </CardContent>
-                </Card>
-              </motion.div>
-            )}
-            {/* Quiz Section - Only show for QUIZ type lessons */}
-            {lesson.type === LessonType.QUIZ && (
-              <motion.div
-                variants={slideUp}
-                className="mt-6 sm:mt-8 pb-16 w-full"
-              >
-                <div className="max-w-none prose-headings:text-gray-900 prose-p:text-gray-700">
-                  {enrollmentId || isInstructorOrAdmin ? (
-                    <QuizSection
-                      lessonId={params.lessonId as string}
-                      enrollmentId={enrollmentId || ""}
-                      lessonTitle={lesson.title}
-                      isEnrolled={isEnrolled}
-                      courseId={params.courseId as string}
-                      isInstructorOrAdmin={isInstructorOrAdmin}
-                      onQuizCompleted={(success: boolean) => {
-                        if (success && lesson?.id) {
-                          // Khi quiz hoàn thành thành công, xử lý unlock requirements và navigate
-                          handleLessonCompletion();
-                        }
-                      }}
-                      onNavigateToLesson={(targetLessonId: string) => {
-                        // Navigate to target lesson by ID
-                        router.push(
-                          `/course/${params.courseId}/lesson/${targetLessonId}`,
-                        );
-                      }}
-                      onNavigateToNextIncomplete={() => {
-                        // Navigate to next lesson if available
-                        if (nextLesson) {
-                          router.push(
-                            `/course/${params.courseId}/lesson/${nextLesson.id}`,
-                          );
-                        } else {
-                          useToast({
-                            title: "Không tìm thấy bài học tiếp theo",
-                            description:
-                              "Bạn đã hoàn thành tất cả các bài học trong khóa học.",
-                          });
-                        }
-                      }}
-                      onQuizStateChange={handleQuizStateChange}
-                      onCourseCompletion={handleQuizCourseCompletion}
-                    />
-                  ) : (
-                    <div className="flex items-center justify-center p-8">
-                      <Loader2 className="h-8 w-8 animate-spin text-gray-500" />
-                    </div>
-                  )}
-                </div>
-              </motion.div>
-            )}
-
-            {/* Discussion Component */}
-            {/* <motion.div variants={slideUp} className="mt-8 pb-16">
-              <Card className="overflow-hidden border-none shadow-md rounded-xl">
-                <CardContent className="p-6">
-                  <h2 className="text-xl font-bold bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent inline-block mb-4  items-center">
-                    <MessageSquare className="w-5 h-5 mr-2 text-blue-500" />
-                    Thảo luận
-                  </h2>
-                  <Discussion threadId={threadId || ""} />
-                </CardContent>
-              </Card>
-            </motion.div> */}
+            {/* Lesson Content Component */}
+            <LessonContent
+              lesson={lesson}
+              enrollmentId={enrollmentId}
+              isEnrolled={isEnrolled}
+              isInstructorOrAdmin={isInstructorOrAdmin}
+              courseId={params.courseId as string}
+              onQuizCompleted={(success: boolean) => {
+                if (success && lesson?.id) {
+                  handleLessonCompletion();
+                }
+              }}
+              onNavigateToLesson={(targetLessonId: string) => {
+                router.push(
+                  `/course/${params.courseId}/lesson/${targetLessonId}`,
+                );
+              }}
+              onNavigateToNextIncomplete={() => {
+                if (nextLesson) {
+                  router.push(
+                    `/course/${params.courseId}/lesson/${nextLesson.id}`,
+                  );
+                } else {
+                  useToast({
+                    title: "Không tìm thấy bài học tiếp theo",
+                    description:
+                      "Bạn đã hoàn thành tất cả các bài học trong khóa học.",
+                  });
+                }
+              }}
+              onQuizStateChange={handleQuizStateChange}
+              onCourseCompletion={handleQuizCourseCompletion}
+            />
           </div>
         </motion.div>
 
-        {/* Fixed Navigation Bar - Hidden when actively taking quiz */}
-        {!(lesson.type === LessonType.QUIZ && isQuizActivelyTaking) && (
-          <motion.div
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.3, duration: 0.4 }}
-            className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t px-6 py-3 z-1"
-          >
-            <div className="flex items-center justify-center gap-4">
-              {previousLesson ? (
-                <Link
-                  href={
-                    course
-                      ? `/course/${course.id}/lesson/${previousLesson.id}`
-                      : "#"
-                  }
-                >
-                  <Button
-                    variant="outline"
-                    className="w-40 group transition-all duration-300 hover:border-orange-500 hover:text-orange-600 hover:bg-orange-50"
-                  >
-                    <ChevronLeft className="mr-2 h-4 w-4 group-hover:-translate-x-1 transition-transform" />
-                    Bài trước
-                  </Button>
-                </Link>
-              ) : (
-                <Button variant="outline" className="w-40 opacity-50" disabled>
-                  <ChevronLeft className="mr-2 h-4 w-4" /> Bài trước
-                </Button>
-              )}
+        {/* Lesson Navigation Bar Component */}
+        <LessonNavigationBar
+          lesson={lesson}
+          course={course}
+          previousLesson={previousLesson}
+          nextLesson={nextLesson}
+          isButtonEnabled={isButtonEnabled}
+          isEnrolled={isEnrolled}
+          currentLessonIndex={currentLessonIndex}
+          allLessons={allLessons}
+          hasCertificate={hasCertificate}
+          certificateId={certificateId}
+          timeTracking={timeTracking}
+          forceRender={forceRender}
+          isQuizActivelyTaking={isQuizActivelyTaking}
+          onLessonCompletion={handleLessonCompletion}
+          onCourseCompletion={handleCourseCompletion}
+          onSidebarToggle={() => setIsSidebarOpen(!isSidebarOpen)}
+          router={router}
+        />
 
-              {nextLesson ? (
-                isButtonEnabled ? (
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        key={`next-lesson-btn-enabled-${forceRender}`}
-                        className="w-40 transition-all duration-300 group bg-gradient-to-r from-orange-500 to-red-500 text-white hover:from-orange-600 hover:to-red-600"
-                        onClick={() => {
-                          console.log(
-                            "🎯 Next Button clicked! Opening dialog...",
-                          );
-                        }}
-                      >
-                        Học tiếp{" "}
-                        <ChevronRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent className="rounded-xl border-none shadow-xl">
-                      <motion.div
-                        initial={{ scale: 0.9, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        transition={{ duration: 0.3 }}
-                      >
-                        <AlertDialogHeader>
-                          <AlertDialogTitle className="text-xl font-bold text-center bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">
-                            Xác nhận hoàn thành bài học
-                          </AlertDialogTitle>
-                          <AlertDialogDescription className="text-center text-gray-600 mt-2">
-                            {isEnrolled &&
-                            timeTracking.isTimeComplete &&
-                            lesson.estimatedDurationMinutes ? (
-                              <>
-                                Bạn đã học{" "}
-                                {formatTime(timeTracking.elapsedSeconds)} /{" "}
-                                {lesson.estimatedDurationMinutes} phút yêu cầu.
-                                <br />
-                                Hãy đảm bảo rằng bạn đã nắm vững kiến thức trước
-                                khi chuyển sang bài tiếp theo.
-                              </>
-                            ) : (
-                              "Bạn đã hoàn thành bài học này chưa? Hãy đảm bảo rằng bạn đã nắm vững kiến thức trước khi chuyển sang bài tiếp theo."
-                            )}
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter className="flex gap-3 mt-4">
-                          <AlertDialogCancel className="w-full">
-                            Chưa, tôi cần học lại
-                          </AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={handleLessonCompletion}
-                            className="w-full bg-gradient-to-r from-orange-500 to-red-500 text-white hover:from-orange-600 hover:to-red-600"
-                          >
-                            Đã hoàn thành, học tiếp
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </motion.div>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                ) : (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div>
-                          <Button
-                            className="w-40 bg-gray-300 text-gray-500 cursor-not-allowed transition-all duration-300"
-                            disabled={true}
-                          >
-                            Học tiếp <ChevronRight className="ml-2 h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>
-                          Bạn cần học ít nhất{" "}
-                          {lesson?.estimatedDurationMinutes || 5} phút để hoàn
-                          thành bài học này
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                )
-              ) : isEnrolled && currentLessonIndex === allLessons.length - 1 ? (
-                hasCertificate ? (
-                  <Button
-                    className="w-40 bg-gradient-to-r from-purple-500 to-indigo-500 text-white hover:from-purple-600 hover:to-indigo-600 transition-all duration-300 group"
-                    onClick={() => router.push(`/certificate/${certificateId}`)}
-                  >
-                    Xem bằng{" "}
-                    <ChevronRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                  </Button>
-                ) : isButtonEnabled ? (
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        key={`complete-course-btn-enabled-${forceRender}`}
-                        className="w-40 transition-all duration-300 group bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600"
-                        onClick={() => {
-                          console.log(
-                            "🎯 Complete Course Button clicked! Opening dialog...",
-                          );
-                          console.log("isenrolled: ", isEnrolled);
-                          console.log(
-                            "time tracking.iscomplete: ",
-                            timeTracking.isTimeComplete,
-                          );
-                          console.log("isbuttonenabled: ", isButtonEnabled);
-                        }}
-                      >
-                        Hoàn thành{" "}
-                        <ChevronRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent className="rounded-xl border-none shadow-xl">
-                      <motion.div
-                        initial={{ scale: 0.9, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        transition={{ duration: 0.3 }}
-                      >
-                        <AlertDialogHeader>
-                          <AlertDialogTitle className="text-xl font-bold text-center bg-gradient-to-r from-green-500 to-emerald-500 bg-clip-text text-transparent">
-                            Chúc mừng bạn đã hoàn thành khóa học!
-                          </AlertDialogTitle>
-                          <AlertDialogDescription className="text-center text-gray-600 mt-2">
-                            Bạn đã hoàn thành toàn bộ bài học trong khóa. Bạn có
-                            thể quay lại trang khóa học để xem lại nội dung hoặc
-                            khám phá các khóa học khác.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter className="flex gap-3 mt-4">
-                          <AlertDialogCancel className="w-full">
-                            Ở lại trang này
-                          </AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={handleCourseCompletion}
-                            className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600"
-                          >
-                            Hoàn thành khóa học
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </motion.div>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                ) : (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div>
-                          <Button
-                            className="w-40 bg-gray-300 text-gray-500 cursor-not-allowed transition-all duration-300"
-                            disabled={true}
-                          >
-                            Hoàn thành <ChevronRight className="ml-2 h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>
-                          Bạn cần học ít nhất{" "}
-                          {lesson?.estimatedDurationMinutes || 5} phút để hoàn
-                          thành bài học này
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                )
-              ) : (
-                <Button variant="outline" className="w-40 opacity-50" disabled>
-                  Học tiếp
-                  <ChevronRight className="ml-2 h-4 w-4" />
-                </Button>
-              )}
-            </div>
-
-            <div className="absolute top-1/4 right-4 flex items-center">
-              <span className="text-md text-gray-600 font-semibold pr-2 hidden sm:block">
-                {course?.chapters?.find((chapter) =>
-                  chapter.lessons?.some(
-                    (lesson) => lesson.id === params.lessonId,
-                  ),
-                )?.title || ""}
-              </span>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="bg-white border shadow-sm hover:bg-orange-50 hover:border-orange-200 transition-colors"
-                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              >
-                <Menu className="h-4 w-4 text-orange-500" />
-              </Button>
-            </div>
-          </motion.div>
-        )}
-
-        {/* Floating Toggle Button for Quiz on mobile when sidebar is closed */}
-        {lesson.type === LessonType.QUIZ && !isSidebarOpen && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.8 }}
-            className="fixed top-20 right-4 z-50 md:hidden"
-          >
-            <Button
-              onClick={() => setIsSidebarOpen(true)}
-              className="w-12 h-12 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center"
-            >
-              <Eye className="w-5 h-5" />
-            </Button>
-          </motion.div>
-        )}
-
-        {/* Collapsible Sidebar - Responsive - Show for all lesson types but controlled by toggle for Quiz */}
-        {(lesson.type !== LessonType.QUIZ || isSidebarOpen) && (
-          <div
-            className={`fixed right-0 top-0 h-[calc(100vh-73px)] w-[350px] bg-gray-50 border-l transform transition-transform duration-300 ${
-              lesson.type === LessonType.QUIZ
-                ? isSidebarOpen
-                  ? "translate-x-0"
-                  : "translate-x-full"
-                : isSidebarOpen
-                  ? "translate-x-0"
-                  : "translate-x-full md:translate-x-0"
-            } ${
-              // Z-index management
-              lesson.type === LessonType.QUIZ
-                ? isSidebarOpen
-                  ? "z-50"
-                  : "z-10"
-                : isSidebarOpen
-                  ? "z-40"
-                  : "z-10 md:z-10"
-            }`}
-          >
-            <div className="py-4 px-2.5 pr-4 h-full overflow-auto">
-              <div className="flex items-center justify-between mb-7">
-                <h2 className="text-xl font-semibold">
-                  {lesson.type === LessonType.QUIZ
-                    ? "Danh sách bài học"
-                    : "Nội dung khoá học"}
-                </h2>
-                {/* Close button - visible on mobile or for quiz on desktop */}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={`hover:bg-orange-50 hover:border-orange-200 transition-colors ${
-                    lesson.type === LessonType.QUIZ ? "block" : "md:hidden"
-                  }`}
-                  onClick={() => setIsSidebarOpen(false)}
-                >
-                  <ChevronRight className="h-5 w-5 text-orange-500" />
-                </Button>
-              </div>
-              <div className="space-y-4">
-                {course?.chapters?.map((chapter) => (
-                  <Collapsible
-                    key={chapter.id}
-                    open={expandedChapters[chapter.id]}
-                    onOpenChange={() => toggleChapter(chapter.id)}
-                  >
-                    <CollapsibleTrigger className="flex items-center justify-between w-full p-4 bg-gray-100 hover:bg-gray-200 rounded-lg transition-all duration-200">
-                      <div className="flex items-center gap-2 truncate">
-                        <div className="text-gray-500 transition-transform duration-200">
-                          {expandedChapters[chapter.id] ? (
-                            <div className="transform transition-transform duration-200">
-                              <Minus className="h-4 w-4 text-orange-500" />
-                            </div>
-                          ) : (
-                            <Plus className="h-4 w-4 text-orange-500" />
-                          )}
-                        </div>
-                        <h4 className="font-semibold text-gray-700">
-                          {chapter.title}
-                        </h4>
-                      </div>
-                      <div className="flex items-center gap-2 pl-1">
-                        <span className="text-sm text-gray-600 truncate">
-                          {chapter.lessons?.length || 0} bài
-                        </span>
-                      </div>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent className="pl-4">
-                      <ul className="mt-2 space-y-2">
-                        {chapter.lessons?.map((lesson) => {
-                          // Kiểm tra bài học đã hoàn thành - dựa trên dữ liệu từ server
-                          if (lesson.status !== "PUBLISHED") {
-                            return null;
-                          }
-                          const isLessonCompleted = completedLessonIds.includes(
-                            lesson.id,
-                          );
-
-                          // Tính toán index để kiểm tra khả năng truy cập
-                          const currentLessonIndex = allLessons.findIndex(
-                            (lessonItem) => lessonItem?.id === params.lessonId,
-                          );
-                          const lessonIndex = allLessons.findIndex(
-                            (lessonItem) => lessonItem?.id === lesson.id,
-                          );
-
-                          // Kiểm tra xem có được phép truy cập bài học này không
-
-                          const canAccessLesson =
-                            isInstructorOrAdmin || // Giảng viên/Admin có thể truy cập tất cả
-                            !isEnrolled || // Nếu chưa enroll thì cho xem tất cả (để hiển thị preview)
-                            lesson.isFreePreview || // Bài preview luôn được phép
-                            isLessonCompleted || // Bài học đã hoàn thành luôn được phép truy cập
-                            lesson.id === params.lessonId || // Bài hiện tại
-                            (lessonIndex === currentLessonIndex + 1 &&
-                              isButtonEnabled); // Bài tiếp theo chỉ khi button enabled
-
-                          const linkContent = (
-                            <div className="flex items-center gap-2 min-h-[32px]">
-                              <div className="flex-shrink-0">
-                                {isLessonCompleted ? (
-                                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
-                                    <Check className="w-3 h-3 text-white" />
-                                  </div>
-                                ) : lesson.id === params.lessonId ? (
-                                  <div className="w-5 h-5 bg-gray-400 rounded-full flex items-center justify-center">
-                                    <Clock className="w-3 h-3 text-white" />
-                                  </div>
-                                ) : (
-                                  <div className="w-5 h-5 bg-gray-300 rounded-full"></div>
-                                )}
-                              </div>
-                              <div className="flex-1 overflow-hidden">
-                                <span
-                                  className={`block truncate text-[15px] ${
-                                    lesson.id === params.lessonId
-                                      ? "font-medium"
-                                      : ""
-                                  } ${!canAccessLesson ? "text-gray-400" : ""}`}
-                                >
-                                  {lesson.title}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-1">
-                                {lesson.id === lastLessonId && (
-                                  <span className="flex-shrink-0 text-xs px-1 py-0.5 rounded bg-orange-100 text-orange-600">
-                                    Đang học
-                                  </span>
-                                )}
-                                {lesson.isFreePreview && (
-                                  <span className="flex-shrink-0 text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded">
-                                    Miễn phí
-                                  </span>
-                                )}
-                                {!canAccessLesson && (
-                                  <span className="flex-shrink-0 text-xs bg-gray-200 text-gray-500 px-2 py-1 rounded">
-                                    Đã khóa
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          );
-
-                          return canAccessLesson ? (
-                            <Link
-                              href={`/course/${course ? course.id : ""}/lesson/${lesson.id}`}
-                              key={lesson.id}
-                              className={`block p-2 rounded-lg transition-colors ${
-                                lesson.id === params.lessonId
-                                  ? "bg-orange-100"
-                                  : "hover:bg-gray-200"
-                              } cursor-pointer`}
-                              onClick={() => {
-                                // Auto close sidebar on mobile when clicking a lesson
-                                if (window.innerWidth < 768) {
-                                  setIsSidebarOpen(false);
-                                }
-                              }}
-                            >
-                              {linkContent}
-                            </Link>
-                          ) : (
-                            <div
-                              key={lesson.id}
-                              className={`block p-2 rounded-lg transition-colors ${
-                                lesson.id === params.lessonId
-                                  ? "bg-orange-100"
-                                  : "bg-gray-50"
-                              } cursor-not-allowed opacity-60`}
-                              title="Bạn cần hoàn thành bài học hiện tại trước khi tiếp tục"
-                            >
-                              {linkContent}
-                            </div>
-                          );
-                        })}
-                      </ul>
-                    </CollapsibleContent>
-                  </Collapsible>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Lesson Sidebar Component */}
+        <LessonSidebar
+          course={course}
+          lesson={lesson}
+          isSidebarOpen={isSidebarOpen}
+          setIsSidebarOpen={setIsSidebarOpen}
+          expandedChapters={expandedChapters}
+          toggleChapter={toggleChapter}
+          completedLessonIds={completedLessonIds}
+          allLessons={allLessons}
+          params={{
+            lessonId: params.lessonId as string,
+            courseId: params.courseId as string,
+          }}
+          lastLessonId={lastLessonId}
+          isEnrolled={isEnrolled}
+          isInstructorOrAdmin={isInstructorOrAdmin}
+          isButtonEnabled={isButtonEnabled}
+        />
       </div>
 
       <LessonChatbot />
-      {/* <TimeTrackingDebug
-        timeTracking={timeTracking}
-        requiredMinutes={lesson?.estimatedDurationMinutes || 5}
-        itemId={lesson ? `lesson-${params.lessonId}` : ""}
-      /> */}
     </>
   );
 }
