@@ -189,12 +189,32 @@ export default function InstructorApplicationPage() {
       );
 
       finalQualifications.push(...filteredQualifications);
-      finalPortfolioLinks.push(...filteredPortfolioLinks);
+
+      // Normalize portfolio links to ensure proper protocol
+      const normalizedPortfolioLinks = filteredPortfolioLinks.map((link) => {
+        const trimmedLink = link.trim();
+        return trimmedLink.startsWith("http://") ||
+          trimmedLink.startsWith("https://")
+          ? trimmedLink
+          : `https://${trimmedLink}`;
+      });
+
+      finalPortfolioLinks.push(...normalizedPortfolioLinks);
+
+      // Normalize CV link if it exists
+      const normalizedCvLink =
+        finalCvLink &&
+        (finalCvLink.startsWith("http://") ||
+          finalCvLink.startsWith("https://"))
+          ? finalCvLink
+          : finalCvLink
+            ? `https://${finalCvLink}`
+            : finalCvLink;
 
       // Step 2: Create instructor registration with all links
       const applicationData = {
         ...data,
-        curriculum_vitae_link: finalCvLink,
+        curriculum_vitae_link: normalizedCvLink,
         userId: user.id,
         qualifications: finalQualifications,
         portfolio_links: finalPortfolioLinks,
@@ -439,12 +459,13 @@ export default function InstructorApplicationPage() {
               <div>
                 <h4 className="font-medium mb-4">Hoặc thêm link trực tiếp</h4>
                 <p className="text-sm text-slate-600 mb-4">
-                  Thêm link đến portfolio, dự án, hoặc trang cá nhân của bạn
+                  Thêm link đến portfolio, dự án, hoặc trang cá nhân của bạn (có
+                  thể bỏ qua https://)
                 </p>
                 {portfolioLinks.map((link, index) => (
                   <div key={index} className="flex gap-2 mb-2">
                     <Input
-                      placeholder="https://github.com/username hoặc https://portfolio.com"
+                      placeholder="github.com/username hoặc portfolio.com hoặc https://yoursite.com"
                       value={link}
                       onChange={(e) =>
                         updatePortfolioLink(index, e.target.value)

@@ -67,7 +67,7 @@ export function LessonSidebar({
                 : "translate-x-full"
               : isSidebarOpen
                 ? "translate-x-0"
-                : "translate-x-full md:translate-x-0"
+                : "translate-x-full"
           } ${
             lesson.type === LessonType.QUIZ
               ? isSidebarOpen
@@ -75,7 +75,7 @@ export function LessonSidebar({
                 : "z-10"
               : isSidebarOpen
                 ? "z-40"
-                : "z-10 md:z-10"
+                : "z-10"
           }`}
         >
           <div className="py-4 px-2.5 pr-4 h-full overflow-auto">
@@ -88,9 +88,7 @@ export function LessonSidebar({
               <Button
                 variant="ghost"
                 size="icon"
-                className={`hover:bg-orange-50 hover:border-orange-200 transition-colors ${
-                  lesson.type === LessonType.QUIZ ? "block" : "md:hidden"
-                }`}
+                className="hover:bg-orange-50 hover:border-orange-200 transition-colors"
                 onClick={() => setIsSidebarOpen(false)}
               >
                 <ChevronRight className="h-5 w-5 text-orange-500" />

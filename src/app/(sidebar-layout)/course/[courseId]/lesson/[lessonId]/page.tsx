@@ -243,12 +243,15 @@ export default function LessonDetail() {
   // Handle window resize for responsive behavior
   useEffect(() => {
     const handleResize = () => {
-      // Auto close sidebar on mobile, auto open on desktop
       if (window.innerWidth < 768) {
         // Mobile: sidebar should be closed by default
         setIsSidebarOpen(false);
+      } else {
+        // Desktop: sidebar should be open by default (unless it's a quiz)
+        if (lesson?.type !== LessonType.QUIZ) {
+          setIsSidebarOpen(true);
+        }
       }
-      // On desktop, we don't auto-open to preserve user's choice
     };
 
     // Set initial state based on screen size
@@ -256,7 +259,7 @@ export default function LessonDetail() {
 
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, []);
+  }, [lesson?.type]);
 
   // Function to handle chapter expansion toggle
   const toggleChapter = (chapterId: string) => {
@@ -1260,12 +1263,8 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
       )}
 
       <div
-        className={`w-full flex-1 flex flex-col min-h-screen relative px-2 sm:px-4 transition-all duration-300 ${
-          lesson?.type === LessonType.QUIZ
-            ? isSidebarOpen
-              ? "md:pr-[350px]"
-              : "md:pr-4"
-            : "md:pr-[350px]"
+        className={`w-full flex-1 flex flex-col min-h-screen relative px-2 sm:px-4 transition-all duration-300 ease-in-out ${
+          isSidebarOpen ? "md:pr-[350px]" : "md:pr-4"
         } md:pl-4`}
       >
         <motion.div
