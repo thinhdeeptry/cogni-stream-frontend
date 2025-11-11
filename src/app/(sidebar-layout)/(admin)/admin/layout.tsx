@@ -22,10 +22,6 @@ export default function AdminLayout({
       router.push("/auth/login");
       return;
     }
-
-    if (session.user.role !== "ADMIN") {
-      router.push("/unauthorized");
-    }
   }, [session, status, router]);
 
   if (status === "loading") {
