@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { use } from "react";
 import { useEffect, useState } from "react";
@@ -236,9 +237,10 @@ export default function CourseDetailPage({
             </CardHeader>
             <CardContent className="space-y-6 pt-6">
               <div className="aspect-video relative rounded-lg overflow-hidden border border-slate-200">
-                <img
+                <Image
                   {...createGoogleDriveImageProps(course.thumbnailUrl || "")}
                   alt={course.title}
+                  fill
                   className="object-cover w-full h-full"
                 />
               </div>

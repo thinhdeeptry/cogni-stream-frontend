@@ -58,7 +58,7 @@ export default function CreateCoursePage() {
   const { user } = useUserStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  // const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(true);
   const [courseData, setCourseData] = useState<CourseFormData>({
@@ -133,45 +133,27 @@ export default function CreateCoursePage() {
     setCourseData((prev) => ({ ...prev, [name]: checked }));
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      try {
-        // Hiển thị preview ngay lập tức
-        const imageUrl = URL.createObjectURL(file);
-        setSelectedImage(imageUrl);
-
-        // Upload file lên Google Drive với user context (vì chưa có courseId)
-        const result = await uploadFileToDrive(file, {
-          type: "user",
-          entityId: user?.id || "temp-user",
-          subfolder: "course-thumbnails",
-        });
-
-        if (result.success) {
-          // Cập nhật URL từ Drive
-          setSelectedImage(result.driveUrl);
-          // Lưu URL Drive vào courseData
-          setCourseData((prev) => ({ ...prev, driveFileUrl: result.driveUrl }));
-          toast({
-            title: "Thành công",
-            description: "Đã tải lên Google Drive",
-          });
-        } else {
-          toast({
-            title: "Lỗi",
-            description: result.message || "Không thể tải lên Google Drive",
-            variant: "destructive",
-          });
-        }
-      } catch (error) {
-        console.error("Error uploading to Drive:", error);
+      // Validate file size (5MB limit)
+      const maxSize = 5 * 1024 * 1024; // 5MB
+      if (file.size > maxSize) {
         toast({
           title: "Lỗi",
-          description: "Không thể tải lên Google Drive",
+          description: "File quá lớn. Vui lòng chọn file nhỏ hơn 5MB",
           variant: "destructive",
         });
+        return;
       }
+
+      // Create preview and store file
+      const imageUrl = URL.createObjectURL(file);
+      setSelectedImage(imageUrl);
+      setImageFile(file);
+
+      // Clear any existing drive URL since we have a new file
+      setCourseData((prev) => ({ ...prev, driveFileUrl: undefined }));
     }
   };
 
@@ -376,16 +358,41 @@ export default function CreateCoursePage() {
     setIsSubmitting(true);
 
     try {
+      let finalThumbnailUrl = courseData.driveFileUrl || selectedImage;
+
+      // Upload image if we have a file to upload
+      if (imageFile) {
+        try {
+          const result = await uploadFileToDrive(imageFile, {
+            type: "user",
+            entityId: user?.id || "temp-user",
+            subfolder: "course-thumbnails",
+          });
+
+          if (result.success) {
+            finalThumbnailUrl = result.driveUrl;
+          } else {
+            // If upload fails, still continue with local preview
+            console.warn(
+              "Image upload failed, using local preview:",
+              result.message,
+            );
+          }
+        } catch (error) {
+          console.error("Error uploading image:", error);
+          // Continue with course creation even if image upload fails
+        }
+      }
+
       const courseDataToSubmit = {
         ...courseData,
         instructorId: user?.id || "",
-        thumbnailUrl: courseData.driveFileUrl || selectedImage, // Ưu tiên URL Drive, fallback về selectedImage
+        thumbnailUrl: finalThumbnailUrl || undefined,
       };
 
       // Create course with price included
       const result = await createCourse({
         ...courseDataToSubmit,
-        thumbnailUrl: courseDataToSubmit.thumbnailUrl || undefined,
         price: courseData.price,
         commissionId: courseData.commissionId, // 🆕 Gửi commissionId nếu có
       });
@@ -1042,21 +1049,30 @@ export default function CreateCoursePage() {
               <CardContent>
                 <div className="space-y-4">
                   {selectedImage ? (
-                    <div className="relative aspect-video rounded-lg overflow-hidden border border-gray-200">
-                      <img
-                        {...createGoogleDriveImageProps(selectedImage)}
-                        alt="Course thumbnail"
-                        className="object-cover w-full h-full"
-                      />
-                      <div className="absolute inset-0 bg-black bg-opacity-20 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <Button
-                          type="button"
-                          className="bg-red-500 text-white hover:bg-red-600"
-                          size="sm"
-                          onClick={() => setSelectedImage(null)}
-                        >
-                          <Trash className="h-4 w-4 mr-2" /> Xóa ảnh
-                        </Button>
+                    <div className="relative">
+                      <div className="relative aspect-video rounded-lg overflow-hidden border border-gray-200">
+                        <img
+                          {...createGoogleDriveImageProps(selectedImage)}
+                          alt="Course thumbnail"
+                          className="object-cover w-full h-full"
+                        />
+                        <div className="absolute inset-0 bg-black bg-opacity-20 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <Button
+                            type="button"
+                            className="bg-red-500 text-white hover:bg-red-600"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedImage(null);
+                              setImageFile(null);
+                              setCourseData((prev) => ({
+                                ...prev,
+                                driveFileUrl: undefined,
+                              }));
+                            }}
+                          >
+                            <Trash className="h-4 w-4 mr-2" /> Xóa ảnh
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   ) : (

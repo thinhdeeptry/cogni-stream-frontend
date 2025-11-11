@@ -51,6 +51,7 @@ export default function EditCoursePage({
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(true);
   const [courseData, setCourseData] = useState<Course | null>(null);
@@ -100,45 +101,15 @@ export default function EditCoursePage({
     setCourseData((prev) => (prev ? { ...prev, [name]: checked } : null));
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      try {
-        // Hiển thị preview ngay lập tức
-        const imageUrl = URL.createObjectURL(file);
-        setSelectedImage(imageUrl);
+      // Lưu file để upload sau
+      setImageFile(file);
 
-        // Upload course thumbnail to Google Drive
-        const response = await uploadCourseThumbnail(
-          file,
-          resolvedParams.courseId,
-        );
-
-        if (response.success) {
-          // Cập nhật URL thật từ Google Drive
-          setSelectedImage(response.driveUrl);
-          setCourseData((prev) =>
-            prev ? { ...prev, thumbnailUrl: response.driveUrl } : null,
-          );
-          toast({
-            title: "Thành công",
-            description: "Đã tải lên Google Drive",
-          });
-        } else {
-          toast({
-            title: "Lỗi",
-            description: response.message,
-            variant: "destructive",
-          });
-        }
-      } catch (error) {
-        console.error("Error uploading image:", error);
-        toast({
-          title: "Lỗi",
-          description: "Không thể tải lên hình ảnh",
-          variant: "destructive",
-        });
-      }
+      // Hiển thị preview ngay lập tức
+      const imageUrl = URL.createObjectURL(file);
+      setSelectedImage(imageUrl);
     }
   };
 
@@ -258,6 +229,31 @@ export default function EditCoursePage({
     setIsSubmitting(true);
 
     try {
+      let thumbnailUrl = courseData.thumbnailUrl; // URL hiện tại
+
+      // Upload image mới nếu có
+      if (imageFile) {
+        const uploadResponse = await uploadCourseThumbnail(
+          imageFile,
+          resolvedParams.courseId,
+        );
+
+        if (uploadResponse.success) {
+          thumbnailUrl = uploadResponse.driveUrl;
+          toast({
+            title: "Thông báo",
+            description: "Đã tải ảnh lên Google Drive thành công",
+          });
+        } else {
+          toast({
+            title: "Cảnh báo",
+            description: `Không thể tải ảnh lên: ${uploadResponse.message}. Khóa học sẽ được cập nhật mà không có ảnh mới.`,
+            variant: "destructive",
+          });
+          // Tiếp tục với URL cũ nếu upload thất bại
+        }
+      }
+
       const result = await updateCourse(resolvedParams.courseId, {
         title: courseData.title,
         description: courseData.description || "",
@@ -268,7 +264,7 @@ export default function EditCoursePage({
         learningOutcomes: courseData.learningOutcomes,
         requirements: courseData.requirements,
         targetAudience: courseData.targetAudience || "",
-        thumbnailUrl: selectedImage || undefined,
+        thumbnailUrl: thumbnailUrl || undefined,
       });
 
       if (result.success) {
@@ -303,6 +299,9 @@ export default function EditCoursePage({
           title: "Thành công",
           description: commissionMessage,
         });
+
+        // Clear imageFile sau khi thành công
+        setImageFile(null);
         router.push("/admin/courses");
       } else {
         toast({
@@ -363,7 +362,14 @@ export default function EditCoursePage({
               className="bg-gradient-to-r from-orange-500 to-red-500 text-white hover:from-orange-600 hover:to-red-600"
               disabled={isSubmitting}
             >
-              {isSubmitting ? "Đang lưu..." : "Lưu thay đổi"}
+              {isSubmitting ? (
+                <div className="flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  {"Đang lưu..."}
+                </div>
+              ) : (
+                "Lưu thay đổi"
+              )}
             </Button>
           </div>
         </div>
@@ -765,12 +771,25 @@ export default function EditCoursePage({
                         alt="Course thumbnail"
                         className="object-cover w-full h-full"
                       />
+
+                      {/* Delete overlay */}
                       <div className="absolute inset-0 bg-black bg-opacity-20 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
                         <Button
                           type="button"
                           className="bg-red-500 text-white hover:bg-red-600"
                           size="sm"
-                          onClick={() => setSelectedImage(null)}
+                          onClick={() => {
+                            setSelectedImage(null);
+                            setImageFile(null);
+                            // Chỉ cập nhật courseData nếu đang xóa ảnh gốc (không có imageFile)
+                            if (!imageFile) {
+                              setCourseData((prev) =>
+                                prev
+                                  ? { ...prev, thumbnailUrl: undefined }
+                                  : null,
+                              );
+                            }
+                          }}
                         >
                           <Trash className="h-4 w-4 mr-2" /> Xóa ảnh
                         </Button>
@@ -814,6 +833,18 @@ export default function EditCoursePage({
                     <li>Hình ảnh phải liên quan đến nội dung khóa học</li>
                   </ul>
                 </div>
+
+                {imageFile && (
+                  <div className="mt-4 bg-blue-50 p-4 rounded-lg border border-blue-200">
+                    <h4 className="text-sm font-medium text-blue-800 mb-2">
+                      💡 Thông báo
+                    </h4>
+                    <p className="text-xs text-blue-700">
+                      Ảnh mới sẽ được tải lên Google Drive khi bạn ấn "Lưu thay
+                      đổi"
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
