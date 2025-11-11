@@ -18,6 +18,8 @@ import {
 
 import useUserStore from "@/stores/useUserStore";
 
+import { createGoogleDriveImageProps } from "@/utils/googleDriveUtils";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -1042,7 +1044,7 @@ export default function CreateCoursePage() {
                   {selectedImage ? (
                     <div className="relative aspect-video rounded-lg overflow-hidden border border-gray-200">
                       <img
-                        src={selectedImage}
+                        {...createGoogleDriveImageProps(selectedImage)}
                         alt="Course thumbnail"
                         className="object-cover w-full h-full"
                       />

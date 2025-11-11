@@ -15,6 +15,7 @@ export async function middleware(request: any) {
     }
 
     if (session.user.role !== "ADMIN" && session.user.role !== "INSTRUCTOR") {
+      console.log("user role:", session.user);
       // Logged in but not an admin, redirect to home or unauthorized page
       return NextResponse.redirect(new URL("/unauthorized", request.url));
     }

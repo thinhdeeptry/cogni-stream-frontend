@@ -10,6 +10,8 @@ import { Book, Calendar, Clock, Crown, Star, Users, Video } from "lucide-react";
 
 import { getCourseCurrentPrice } from "@/actions/pricingActions";
 
+import { createGoogleDriveImageProps } from "@/utils/googleDriveUtils";
+
 import { Badge } from "./ui/badge";
 import { Card, CardContent, CardFooter } from "./ui/card";
 
@@ -86,7 +88,9 @@ export default function LiveCourseItem({
       <Card className="overflow-hidden h-full border-none shadow-md hover:shadow-2xl transition-all duration-300">
         <div className="relative h-36 w-full overflow-hidden group">
           <Image
-            src={course.thumbnailUrl || "/placeholder-course.jpg"}
+            {...createGoogleDriveImageProps(
+              course.thumbnailUrl || "/placeholder-course.jpg",
+            )}
             alt={course.title}
             fill
             className="object-cover transition-transform duration-500 group-hover:scale-110"

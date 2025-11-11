@@ -13,6 +13,8 @@ import { getCourseCurrentPrice } from "@/actions/pricingActions";
 
 import useUserStore from "@/stores/useUserStore";
 
+import { createGoogleDriveImageProps } from "@/utils/googleDriveUtils";
+
 import { Badge } from "./ui/badge";
 import { Card, CardContent, CardFooter } from "./ui/card";
 
@@ -85,7 +87,7 @@ export default function CourseItem({
       <Card className="overflow-hidden h-full border-none shadow-md hover:shadow-2xl transition-all duration-300">
         <div className="relative h-36 w-full overflow-hidden group">
           <Image
-            src={thumbnailUrl || "/placeholder-course.jpg"}
+            {...createGoogleDriveImageProps(thumbnailUrl)}
             alt={title}
             fill
             className="object-cover transition-transform duration-500 group-hover:scale-110"

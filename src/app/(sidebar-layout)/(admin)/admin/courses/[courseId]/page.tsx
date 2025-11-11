@@ -21,6 +21,8 @@ import { getCourseCurrentPrice } from "@/actions/pricingActions";
 
 import useUserStore from "@/stores/useUserStore";
 
+import { createGoogleDriveImageProps } from "@/utils/googleDriveUtils";
+
 import { CourseContent } from "@/components/CourseContent";
 import { ApprovalButtons } from "@/components/admin/ApprovalButtons";
 import { AdminPricingManager } from "@/components/admin/pricingManager";
@@ -235,7 +237,7 @@ export default function CourseDetailPage({
             <CardContent className="space-y-6 pt-6">
               <div className="aspect-video relative rounded-lg overflow-hidden border border-slate-200">
                 <img
-                  src={course.thumbnailUrl || "/placeholder-course.jpg"}
+                  {...createGoogleDriveImageProps(course.thumbnailUrl || "")}
                   alt={course.title}
                   className="object-cover w-full h-full"
                 />

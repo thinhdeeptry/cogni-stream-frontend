@@ -53,6 +53,8 @@ import {
 import { useProgressStore } from "@/stores/useProgressStore";
 import useUserStore from "@/stores/useUserStore";
 
+import { createGoogleDriveImageProps } from "@/utils/googleDriveUtils";
+
 import ClassSelector from "@/components/course/ClassSelector";
 import ClassSessionsModal from "@/components/course/ClassSessionsModal";
 import SyllabusDisplay from "@/components/course/SyllabusDisplay";
@@ -993,7 +995,7 @@ export default function CourseDetail() {
               transition={{ type: "spring", stiffness: 300 }}
             >
               <Image
-                src={course.thumbnailUrl || "/placeholder-course.jpg"}
+                {...createGoogleDriveImageProps(course.thumbnailUrl)}
                 alt={course.title}
                 fill
                 className="object-cover"

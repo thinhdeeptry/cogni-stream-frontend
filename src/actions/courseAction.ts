@@ -365,7 +365,7 @@ export const updateCourse = async (
     description: string;
     categoryId: string;
     level: string;
-    isPublished: boolean;
+    // isPublished: boolean;
     isHasCertificate: boolean;
     tags?: string[];
     learningOutcomes: string[];

@@ -54,6 +54,10 @@ const nextConfig = {
         protocol: "https",
         hostname: "i.ytimg.com",
       },
+      {
+        protocol: "https",
+        hostname: "drive.google.com",
+      },
     ],
     // Disable image optimization in production to avoid 400 errors
     unoptimized: process.env.NODE_ENV === "production",

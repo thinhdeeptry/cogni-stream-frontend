@@ -15,6 +15,8 @@ import {
   reorderLessons,
 } from "@/actions/courseAction";
 
+import useUserStore from "@/stores/useUserStore";
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,6 +37,7 @@ interface Lesson {
   title: string;
   order: number;
   type: string;
+  status?: string;
 }
 
 interface Chapter {
@@ -57,6 +60,7 @@ export function CourseContent({
   onOrderUpdate,
   optimistic = true, // Mặc định bật optimistic updates
 }: CourseContentProps) {
+  const { user } = useUserStore();
   const [items, setItems] = useState(chapters);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDeletingLesson, setIsDeletingLesson] = useState(false);

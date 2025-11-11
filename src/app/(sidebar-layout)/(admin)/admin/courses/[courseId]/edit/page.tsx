@@ -25,6 +25,8 @@ import {
 
 import useUserStore from "@/stores/useUserStore";
 
+import { createGoogleDriveImageProps } from "@/utils/googleDriveUtils";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -115,6 +117,9 @@ export default function EditCoursePage({
         if (response.success) {
           // Cập nhật URL thật từ Google Drive
           setSelectedImage(response.driveUrl);
+          setCourseData((prev) =>
+            prev ? { ...prev, thumbnailUrl: response.driveUrl } : null,
+          );
           toast({
             title: "Thành công",
             description: "Đã tải lên Google Drive",
@@ -258,7 +263,6 @@ export default function EditCoursePage({
         description: courseData.description || "",
         categoryId: courseData.categoryId,
         level: courseData.level || "BEGINNER",
-        isPublished: courseData.status === "PUBLISHED",
         isHasCertificate: courseData.isHasCertificate,
         tags: courseData.tags,
         learningOutcomes: courseData.learningOutcomes,
@@ -627,54 +631,6 @@ export default function EditCoursePage({
               </CardContent>
             </Card>
 
-            {/* Learning Outcomes Card */}
-            <Card className="shadow-sm border-none">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-xl font-semibold text-gray-800">
-                  Kết quả đạt được
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {courseData.learningOutcomes.map((outcome, index) => (
-                  <div key={index} className="flex gap-2 items-center">
-                    <div className="flex-shrink-0 w-6 h-6 bg-orange-100 text-orange-500 rounded-full flex items-center justify-center">
-                      {index + 1}
-                    </div>
-                    <Input
-                      value={outcome}
-                      onChange={(e) =>
-                        handleArrayFieldChange(
-                          "learningOutcomes",
-                          index,
-                          e.target.value,
-                        )
-                      }
-                      className="border-gray-300 focus:border-orange-500 focus:ring-orange-500"
-                      placeholder="Học viên sẽ có được gì sau khóa học?"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeArrayItem("learningOutcomes", index)}
-                      className="text-gray-400 hover:text-red-500"
-                    >
-                      <Trash className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => addArrayItem("learningOutcomes")}
-                  className="mt-2 border-dashed border-gray-300 hover:border-orange-500 hover:text-orange-500"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Thêm kết quả đạt được
-                </Button>
-              </CardContent>
-            </Card>
-
             {/* Requirements Card */}
             <Card className="shadow-sm border-none">
               <CardHeader className="pb-3">
@@ -805,7 +761,7 @@ export default function EditCoursePage({
                   {selectedImage ? (
                     <div className="relative aspect-video rounded-lg overflow-hidden border border-gray-200">
                       <img
-                        src={selectedImage}
+                        {...createGoogleDriveImageProps(selectedImage)}
                         alt="Course thumbnail"
                         className="object-cover w-full h-full"
                       />
