@@ -19,7 +19,10 @@ import { getClassesByCourse } from "@/actions/classActions";
 import { getCourseById } from "@/actions/courseAction";
 import { getCourseCurrentPrice } from "@/actions/pricingActions";
 
+import useUserStore from "@/stores/useUserStore";
+
 import { CourseContent } from "@/components/CourseContent";
+import { ApprovalButtons } from "@/components/admin/ApprovalButtons";
 import { AdminPricingManager } from "@/components/admin/pricingManager";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -33,6 +36,7 @@ export default function CourseDetailPage({
   params: Promise<{ courseId: string }>;
 }) {
   const resolvedParams = use(params);
+  const { user } = useUserStore();
   const [course, setCourse] = useState<Course | null>(null);
   const [coursePrice, setCoursePrice] = useState<CoursePrice | null>(null);
   const [classes, setClasses] = useState<Class[]>([]);
@@ -197,12 +201,25 @@ export default function CourseDetailPage({
               </div>
             </div>
           </div>
-          <Link href={`/admin/courses/${resolvedParams.courseId}/edit`}>
-            <Button className="bg-orange-500 hover:bg-orange-600 text-white gap-2">
-              <Edit className="h-4 w-4" />
-              Chỉnh sửa khóa học
-            </Button>
-          </Link>
+          <div className="flex items-center gap-3">
+            {/* Approval buttons - only show for ADMIN users */}
+            {user?.role === "ADMIN" && (
+              <ApprovalButtons
+                type="course"
+                itemId={resolvedParams.courseId}
+                itemTitle={course.title}
+                status={course.status}
+                onStatusChange={fetchCourseData}
+              />
+            )}
+
+            <Link href={`/admin/courses/${resolvedParams.courseId}/edit`}>
+              <Button className="bg-orange-500 hover:bg-orange-600 text-white gap-2">
+                <Edit className="h-4 w-4" />
+                Chỉnh sửa khóa học
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
 
