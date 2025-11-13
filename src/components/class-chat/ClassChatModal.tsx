@@ -28,6 +28,8 @@ import {
   getMessages,
 } from "@/actions/classChatActions";
 
+import { createGoogleDriveImageProps } from "@/utils/googleDriveUtils";
+
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -497,8 +499,8 @@ const ClassChatModal: React.FC<ClassChatModalProps> = ({
                     <div className="mb-2 break-words">{message.content}</div>
                   )}
                   <img
-                    src={message.fileUrl}
-                    alt={message.fileName}
+                    {...createGoogleDriveImageProps(message.fileUrl)}
+                    alt={message.fileName || "Image"}
                     className="max-w-full h-auto rounded cursor-pointer hover:opacity-90 transition-opacity"
                     onClick={() => window.open(message.fileUrl, "_blank")}
                   />
