@@ -454,13 +454,17 @@ const ClassChatModal: React.FC<ClassChatModalProps> = ({
                   variant={
                     message.sender.role === "INSTRUCTOR"
                       ? "default"
-                      : "secondary"
+                      : message.sender.role === "ADMIN"
+                        ? "destructive"
+                        : "secondary"
                   }
                   className="text-xs"
                 >
                   {message.sender.role === "INSTRUCTOR"
                     ? "Giảng viên"
-                    : "Học viên"}
+                    : message.sender.role === "ADMIN"
+                      ? "Quản trị viên"
+                      : "Học viên"}
                 </Badge>
               </div>
             )}
@@ -690,12 +694,16 @@ const ClassChatModal: React.FC<ClassChatModalProps> = ({
                           variant={
                             member.role === "INSTRUCTOR"
                               ? "default"
-                              : "secondary"
+                              : member.role === "ADMIN"
+                                ? "default"
+                                : "secondary"
                           }
                         >
                           {member.role === "INSTRUCTOR"
                             ? "Giảng viên"
-                            : "Học viên"}
+                            : member.role === "ADMIN"
+                              ? "Giảng viên"
+                              : "Học viên"}
                         </Badge>
                       </div>
                     ))}

@@ -687,12 +687,16 @@ const ClassChat: React.FC<ClassChatProps> = ({ classId, isOpen, onClose }) => {
                           variant={
                             member.role === "INSTRUCTOR"
                               ? "default"
-                              : "secondary"
+                              : member.role === "ADMIN"
+                                ? "default"
+                                : "secondary"
                           }
                         >
                           {member.role === "INSTRUCTOR"
                             ? "Giảng viên"
-                            : "Học viên"}
+                            : member.role === "ADMIN"
+                              ? "Giảng viên"
+                              : "Học viên"}
                         </Badge>
                       </div>
                     ))}
