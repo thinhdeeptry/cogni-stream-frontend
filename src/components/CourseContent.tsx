@@ -5,7 +5,14 @@ import type React from "react";
 import { useEffect, useRef, useState } from "react";
 
 import { toast } from "@/hooks/use-toast";
-import { Brain, Edit, GripVertical, Plus, Trash } from "lucide-react";
+import {
+  AlertCircle,
+  Brain,
+  Edit,
+  GripVertical,
+  Plus,
+  Trash,
+} from "lucide-react";
 
 import {
   deleteChapter,
@@ -17,6 +24,7 @@ import {
 
 import useUserStore from "@/stores/useUserStore";
 
+import { ApprovalButtons } from "@/components/admin/ApprovalButtons";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,7 +45,8 @@ interface Lesson {
   title: string;
   order: number;
   type: string;
-  status?: string;
+  status: "PENDING_APPROVAL" | "APPROVED" | "REJECTED" | "PUBLISHED";
+  rejectionReason?: string;
 }
 
 interface Chapter {
@@ -544,32 +553,95 @@ export function CourseContent({
                     onDragLeave={handleDragLeave}
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={(e) => handleDrop(e, "lesson", chapter.id)}
-                    className="flex items-center justify-between p-3 bg-secondary rounded-lg cursor-move"
+                    className="flex items-start justify-between p-3 bg-secondary rounded-lg cursor-move"
                   >
-                    <div className="flex items-center gap-2">
-                      <GripVertical className="h-4 w-4 text-gray-500" />
+                    <div className="flex items-center gap-2 flex-1">
+                      <GripVertical className="h-4 w-4 text-gray-500 mt-1" />
                       {lesson.type === "QUIZ" ? (
-                        <Brain className="h-4 w-4 text-purple-600" />
+                        <Brain className="h-4 w-4 text-purple-600 mt-1" />
                       ) : (
-                        <div className="w-4 h-4" />
+                        <div className="w-4 h-4 mt-1" />
                       )}
-                      <span
-                        className={
-                          lesson.type === "QUIZ"
-                            ? "text-purple-700 font-medium"
-                            : ""
-                        }
-                      >
-                        {lesson.title}
-                      </span>
-                      {lesson.type === "QUIZ" && (
-                        <Badge
-                          variant="outline"
-                          className="border-purple-300 text-purple-700 bg-purple-100 text-xs"
-                        >
-                          Quiz
-                        </Badge>
-                      )}
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span
+                            className={
+                              lesson.type === "QUIZ"
+                                ? "text-purple-700 font-medium"
+                                : ""
+                            }
+                          >
+                            {lesson.title}
+                          </span>
+                          {lesson.type === "QUIZ" && (
+                            <Badge
+                              variant="outline"
+                              className="border-purple-300 text-purple-700 bg-purple-100 text-xs"
+                            >
+                              Quiz
+                            </Badge>
+                          )}
+                          {/* Status Badge */}
+                          <Badge
+                            variant={
+                              lesson.status === "PUBLISHED"
+                                ? "default"
+                                : lesson.status === "APPROVED"
+                                  ? "secondary"
+                                  : lesson.status === "REJECTED"
+                                    ? "destructive"
+                                    : "outline"
+                            }
+                            className={`text-xs ${
+                              lesson.status === "PUBLISHED"
+                                ? "bg-green-500"
+                                : lesson.status === "APPROVED"
+                                  ? "bg-blue-500"
+                                  : lesson.status === "REJECTED"
+                                    ? "bg-red-500"
+                                    : "bg-orange-500"
+                            }`}
+                          >
+                            {lesson.status === "PUBLISHED" && "Đã xuất bản"}
+                            {lesson.status === "APPROVED" && "Đã duyệt"}
+                            {lesson.status === "PENDING_APPROVAL" &&
+                              "Chờ duyệt"}
+                            {lesson.status === "REJECTED" && "Bị từ chối"}
+                          </Badge>
+                        </div>
+
+                        {/* Rejection Reason Display */}
+                        {lesson.status === "REJECTED" &&
+                          lesson.rejectionReason && (
+                            <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-md">
+                              <div className="flex items-start gap-2">
+                                <AlertCircle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
+                                <div>
+                                  <p className="text-xs font-medium text-red-800 mb-1">
+                                    Lý do từ chối:
+                                  </p>
+                                  <p className="text-xs text-red-700">
+                                    {lesson.rejectionReason}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                        {/* Approval Buttons for Admin */}
+                        {user?.role === "ADMIN" &&
+                          lesson.status === "PENDING_APPROVAL" && (
+                            <div className="mt-2">
+                              <ApprovalButtons
+                                type="lesson"
+                                itemId={lesson.id}
+                                itemTitle={lesson.title}
+                                status={lesson.status}
+                                onStatusChange={onOrderUpdate}
+                              />
+                            </div>
+                          )}
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <Link

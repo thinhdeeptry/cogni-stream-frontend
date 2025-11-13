@@ -14,7 +14,14 @@ import {
   CourseStatus,
   CourseType,
 } from "@/types/course/types";
-import { BookOpen, ChevronLeft, Edit, Loader2, Plus } from "lucide-react";
+import {
+  AlertCircle,
+  BookOpen,
+  ChevronLeft,
+  Edit,
+  Loader2,
+  Plus,
+} from "lucide-react";
 
 import { getClassesByCourse } from "@/actions/classActions";
 import { getCourseById } from "@/actions/courseAction";
@@ -202,6 +209,24 @@ export default function CourseDetailPage({
                   {course.level}
                 </Badge>
               </div>
+
+              {/* Course Rejection Reason Display */}
+              {course.status === CourseStatus.REJECTED &&
+                (course as any).rejectionReason && (
+                  <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="text-sm font-medium text-red-800 mb-1">
+                          Lý do từ chối khóa học:
+                        </p>
+                        <p className="text-sm text-red-700">
+                          {(course as any).rejectionReason}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
             </div>
           </div>
           <div className="flex items-center gap-3">

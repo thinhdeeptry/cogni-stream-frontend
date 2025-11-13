@@ -130,6 +130,7 @@ export interface Course {
   avgRating?: number;
   totalRatings?: number;
   totalStudents?: number;
+  rejectionReason?: string; // Lý do từ chối từ admin
 }
 
 export interface Chapter {
@@ -172,6 +173,7 @@ export interface Lesson {
   // Relations
   chapter?: Chapter;
   unlockRequirements?: UnlockRequirement[]; // Điều kiện mở khóa
+  rejectionReason?: string; // Lý do từ chối từ admin
   createdAt: Date;
   updatedAt: Date;
 }
