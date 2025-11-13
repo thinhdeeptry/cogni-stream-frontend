@@ -1108,9 +1108,9 @@ export default function QuizSection({
                 <p className="text-lg">
                   Điểm số: <span className="font-bold">{result.score}%</span>
                 </p>
-                <p className="text-sm text-muted-foreground">
+                {/* <p className="text-sm text-muted-foreground">
                   Thời gian làm bài: {result.timeSpent} phút
-                </p>
+                </p> */}
               </div>
 
               <div className="flex gap-3 justify-center relative z-10">
@@ -1297,7 +1297,7 @@ export default function QuizSection({
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                 {/* Time Limit */}
-                <div className="flex justify-between items-center py-2 border-b border-blue-100">
+                {/* <div className="flex justify-between items-center py-2 border-b border-blue-100">
                   <span className="text-gray-600 flex items-center gap-2">
                     <Clock className="h-4 w-4" />
                     Thời gian làm bài:
@@ -1305,7 +1305,7 @@ export default function QuizSection({
                   <span className="font-medium text-blue-800">
                     {formatTimeLimit(status.timeLimit)}
                   </span>
-                </div>
+                </div> */}
 
                 {/* Retry Delay */}
                 {status.retryDelay && (
