@@ -59,14 +59,14 @@ export function NavigationFooter({
           {currentIndex + 1} / {totalItems}
         </span>
 
-        {/* Show certificate button if course is completed and has certificate */}
-        {allItemsCompleted || hasCertificate || certificateId ? (
+        {/* Show certificate button if course is completed */}
+        {allItemsCompleted ? (
           <Button
             onClick={onCertificateClick}
             className="bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white transition-all duration-300"
           >
             <Award className="h-4 w-4 mr-2" />
-            Nhận bằng
+            {certificateId ? "Xem bằng" : "Nhận bằng"}
           </Button>
         ) : (
           <Button

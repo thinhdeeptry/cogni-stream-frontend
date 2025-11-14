@@ -280,7 +280,7 @@ export function PopupChatbot({
       "QUIZ LESSON - SPECIAL INSTRUCTIONS",
     );
     const hasVideoNoTranscript = referenceText?.includes(
-      "Video transcript is not available",
+      "Video Status: Video available but transcript not accessible",
     );
     const hasReadingContent = referenceText?.includes("Reading Content:");
     const hasVideoTranscript = referenceText?.includes("Video Transcript");
@@ -294,7 +294,7 @@ export function PopupChatbot({
           message += `\n\n🎯 **Lưu ý quan trọng**: Đây là bài kiểm tra, mình sẽ **không đưa ra đáp án trực tiếp** nhưng sẽ giúp ${userName} hiểu khái niệm và phát triển tư duy để tự giải quyết các câu hỏi!`;
         } else if (hasVideoNoTranscript) {
           message += ` ${userName} đang học bài video "${lessonName}" đúng không?`;
-          message += `\n\n📹 **Về video**: Mình không thể xem được nội dung chi tiết của video này, nhưng ${userName} có thể mô tả phần nào cần hỗ trợ, mình sẽ giúp giải thích khái niệm!`;
+          message += `\n\n📹 **Về video**: Video có sẵn để xem nhưng mình không có transcript chi tiết. Tuy nhiên, dựa vào nội dung bài học và kiến thức chuyên môn, mình vẫn có thể hỗ trợ ${userName} giải thích khái niệm, trả lời câu hỏi và tạo bài tập ôn luyện!`;
         } else if (hasReadingContent) {
           message += ` ${userName} đang đọc bài "${lessonName}" trong khóa "${courseName}".`;
           message += `\n\n📚 **Bài đọc**: Mình đã đọc toàn bộ nội dung và có thể giúp ${userName} phân tích, tóm tắt, hoặc tạo câu hỏi ôn tập!`;
@@ -328,7 +328,7 @@ export function PopupChatbot({
       );
       const hasVideoTranscript = referenceText?.includes("Video Transcript");
       const hasVideoNoTranscript = referenceText?.includes(
-        "Video transcript is not available",
+        "Video Status: Video available but transcript not accessible",
       );
       const hasReadingContent = referenceText?.includes("Reading Content:");
 
@@ -509,7 +509,7 @@ export function PopupChatbot({
             "QUIZ LESSON - SPECIAL INSTRUCTIONS",
           );
           const hasVideoNoTranscript = referenceText?.includes(
-            "Video transcript is not available",
+            "Video Status: Video available but transcript not accessible",
           );
           const hasReadingContent = referenceText?.includes("Reading Content:");
 

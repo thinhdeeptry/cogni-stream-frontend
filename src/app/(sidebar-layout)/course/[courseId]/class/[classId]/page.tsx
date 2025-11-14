@@ -272,18 +272,70 @@ export default function ClassLearningPage() {
     return allItems.every((item) => isItemCompleted(item));
   }, [allItems, filteredCompletedItems]);
 
-  // Handler for certificate click
+  // Handler for issuing certificate
+  const handleIssueCertificate = useCallback(async () => {
+    if (isInstructorOrAdmin) {
+      console.log("[PreviewMode] Skipping certificate issuance.");
+      return;
+    }
+
+    if (!enrollmentId) {
+      toast({
+        title: "Lỗi",
+        description: "Không tìm thấy thông tin ghi danh",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      console.log("🏆 [Certificate] Starting certificate issuance...");
+
+      const certificateResult = await issueCertificate(enrollmentId);
+
+      if (certificateResult.success && certificateResult.data) {
+        console.log(
+          "🎉 [Certificate] Certificate issued successfully:",
+          certificateResult.data.id,
+        );
+
+        setHasCertificate(true);
+        setCertificateId(certificateResult.data.id);
+        toast({
+          title: "🎉 Chúc mừng!",
+          description: "Bạn đã nhận được chứng chỉ!",
+        });
+        router.push(`/certificate/${certificateResult.data.id}`);
+      } else {
+        console.warn(
+          "⚠️ [Certificate] Failed to issue certificate:",
+          certificateResult.message,
+        );
+        toast({
+          title: "Lỗi",
+          description: "Không thể cấp chứng chỉ. Vui lòng thử lại sau.",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      console.error("❌ [Certificate] Certificate issuance error:", error);
+      toast({
+        title: "Lỗi",
+        description: error.message || "Không thể cấp chứng chỉ",
+        variant: "destructive",
+      });
+    }
+  }, [enrollmentId, isInstructorOrAdmin, router]);
+
+  // Handler for certificate click (view existing certificate)
   const handleCertificateClick = useCallback(() => {
     if (certificateId) {
       router.push(`/certificate/${certificateId}`);
     } else {
-      toast({
-        title: "Lỗi",
-        description: "Không tìm thấy thông tin chứng chỉ",
-        variant: "destructive",
-      });
+      // If no certificate exists, try to issue one
+      handleIssueCertificate();
     }
-  }, [certificateId, router]);
+  }, [certificateId, router, handleIssueCertificate]);
 
   // Helper function to find the next available lesson
   const getNextAvailableItem = () => {
@@ -1024,9 +1076,15 @@ export default function ClassLearningPage() {
       return "";
     }
 
-    let transcriptSection = "No video transcript available";
+    const plainContent = currentLessonData?.content
+      ? extractPlainTextFromBlockNote(currentLessonData.content)
+      : "No written content available";
+
+    let transcriptSection = "";
+    let hasTranscript = false;
 
     if (timestampedTranscript.length > 0) {
+      hasTranscript = true;
       const hasValidTimestamps = timestampedTranscript.some(
         (item) => item.timestamp !== "0:00",
       );
@@ -1042,18 +1100,27 @@ export default function ClassLearningPage() {
       }
     }
 
-    const plainContent = currentLessonData?.content
-      ? extractPlainTextFromBlockNote(currentLessonData.content)
-      : "No content available";
+    // Create context-aware reference text
+    let referenceContent = `Course: ${course?.title || "N/A"}
+Class: ${classInfo?.name || "N/A"}
+Lesson: ${currentLessonData?.title || "N/A"}
+Type: ${currentLessonData?.type || "N/A"}`;
 
-    return `
-    Course Title: ${course?.title} \n
-    Class Name: ${classInfo?.name} \n
-    Lesson Title: ${currentLessonData?.title} \n
-    Lesson Content: ${plainContent} \n
-    Lesson Type: ${currentLessonData?.type} \n
-    Lesson Video Transcript with Timestamps: \n${transcriptSection} \n
-    `;
+    if (currentLessonData?.videoUrl) {
+      referenceContent += `\nVideo URL: ${currentLessonData.videoUrl}`;
+    }
+
+    if (plainContent && plainContent !== "No written content available") {
+      referenceContent += `\n\nWritten Content:\n${plainContent}`;
+    }
+
+    if (hasTranscript) {
+      referenceContent += `\n\nVideo Transcript:\n${transcriptSection}`;
+    } else if (currentLessonData?.videoUrl) {
+      referenceContent += `\n\nVideo Status: Video available but transcript not accessible. The lesson has video content that students can watch.`;
+    }
+
+    return referenceContent;
   }, [
     currentItem?.itemType,
     currentLessonData,
@@ -1086,7 +1153,32 @@ export default function ClassLearningPage() {
       syllabusData.find((g) => g.items.some((i) => i.id === currentItem.id))
         ?.day
     }`,
-    systemPrompt: `Bạn là trợ lý AI học tập cá nhân của CogniStream...`,
+    systemPrompt: `Bạn là trợ lý AI học tập thông minh của CogniStream. Tuân thủ các nguyên tắc sau:
+
+🎯 PERSONALITY & TONE:
+- Thân thiện, kiên nhẫn và khuyến khích
+- Giọng điệu như một mentor giàu kinh nghiệm
+- Tránh lặp lại câu trả lời, luôn đa dạng cách diễn đạt
+- Nhận biết được context và không trả lời máy móc
+
+💬 VIDEO CONTENT GUIDANCE:
+- Khi video KHÔNG có transcript: Dựa vào written content, lesson title và course context để trả lời
+- KHÔNG đoán mò hoặc biên soạn nội dung video
+- Thú nhận giới hạn và tập trung vào giá trị có thể mang lại từ thông tin có sẵn
+- Gợi ý học viên chia sẻ nội dung cụ thể để hỗ trợ tốt hơn
+- Sử dụng written content để tạo câu hỏi ôn tập và đề xuất hướng học tập
+
+📚 CONTENT STRATEGY:
+- Ơu tiên sử dụng written content làm nền tảng cho câu trả lời
+- Kết hợp lesson title và course context để đưa ra gợi ý phù hợp
+- Tạo câu hỏi suy ngẫm dựa trên nội dung có sẵn
+- Khuyến khích tư duy phản biện và ứng dụng thực tế
+
+🧠 CONVERSATION INTELLIGENCE:
+- Phân tích conversation history để hiểu learning journey
+- Nhận biết pattern: user thích học theo cách nào, gặp khó khăn gì
+- Tránh repeat thông tin, thay vào đó build upon previous answers
+- Response cho social cues như "thanks", "ok", "hiểu rồi" một cách tự nhiên`,
   });
 
   // Handle requirement completion
@@ -1696,7 +1788,7 @@ export default function ClassLearningPage() {
       {/* Chatbot */}
       {currentItem?.itemType === SyllabusItemType.LESSON &&
         currentLessonData &&
-        currentLessonData.type !== LessonType.QUIZ &&
+        // currentLessonData.type !== LessonType.QUIZ &&
         isEnrolled && <ClassLessonChatbot />}
     </motion.div>
   );
