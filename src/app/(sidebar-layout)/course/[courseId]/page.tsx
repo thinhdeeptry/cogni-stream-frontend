@@ -655,7 +655,7 @@ export default function CourseDetail() {
                 </div>
                 <div className="flex-1 text-left">
                   <h4 className="font-semibold text-gray-800 text-lg mb-1">
-                    {course.instructor.headline || "Giảng viên"}
+                    {course.instructor.user?.name || "Giảng viên"}
                   </h4>
                   {course.instructor.specialization && (
                     <p className="text-orange-600 font-medium mb-2">

@@ -112,7 +112,9 @@ export interface Course {
     totalRatings?: number;
     status?: string;
     user?: {
+      name?: string;
       image?: string;
+      email?: string;
     };
   };
   thumbnailUrl?: string;
