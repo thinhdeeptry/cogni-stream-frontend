@@ -1173,11 +1173,11 @@ export default function QuizSection({
                       fetchQuizData();
                     }}
                     // Disable button only if not admin/instructor and cannot attempt
-                    disabled={
-                      !isInstructorOrAdmin && status && !status.canAttempt
-                        ? true
-                        : undefined
-                    }
+                    // disabled={
+                    //   !isInstructorOrAdmin && status && !status.canAttempt
+                    //     ? true
+                    //     : undefined
+                    // }
                     className="bg-orange-600 hover:bg-orange-700 flex items-center gap-2 relative z-20 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <RefreshCw className="h-4 w-4" />
@@ -1186,7 +1186,7 @@ export default function QuizSection({
                 )}
 
                 {/* Nút quay về khóa học */}
-                <Button
+                {/* <Button
                   variant="outline"
                   onClick={(e) => {
                     console.log(
@@ -1203,7 +1203,7 @@ export default function QuizSection({
                   className="flex items-center gap-2 relative z-20"
                 >
                   <span>Quay về khóa học</span>
-                </Button>
+                </Button> */}
               </div>
 
               {/* {!result.passed && (

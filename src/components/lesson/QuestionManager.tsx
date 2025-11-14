@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { toast } from "@/hooks/use-toast";
 import {
@@ -67,6 +67,8 @@ interface QuestionManagerProps {
   courseId?: string;
   chapterId?: string;
   onQuestionsChange?: (questions: Question[]) => void;
+  mode?: "edit" | "create"; // New mode prop to handle draft vs. edit mode
+  initialQuestions?: Question[]; // Initial questions for create mode
 }
 
 interface QuestionFormData {
@@ -81,6 +83,8 @@ export function QuestionManager({
   courseId,
   chapterId,
   onQuestionsChange,
+  mode = "edit",
+  initialQuestions = [],
 }: QuestionManagerProps) {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -91,6 +95,10 @@ export function QuestionManager({
   );
   const [questionPoints, setQuestionPoints] = useState<number>(2.0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Use ref to prevent circular updates
+  const isInitializedRef = useRef(false);
+  const lastNotifiedQuestionsRef = useRef<Question[]>([]);
 
   // Form state for new/editing question
   const [formData, setFormData] = useState<QuestionFormData>({
@@ -157,19 +165,43 @@ export function QuestionManager({
     },
   ];
 
-  // Load questions when lessonId changes
-  useEffect(() => {
-    if (lessonId) {
-      loadQuestions();
-    }
-  }, [lessonId]);
+  // Memoized function to check if questions are different
+  const areQuestionsDifferent = useCallback(
+    (current: Question[], initial: Question[]) => {
+      if (current.length !== initial.length) return true;
+      return JSON.stringify(current) !== JSON.stringify(initial);
+    },
+    [],
+  );
 
-  // Notify parent component when questions change
+  // Load questions when lessonId changes or set initial questions for create mode
   useEffect(() => {
-    if (onQuestionsChange) {
+    if (mode === "edit" && lessonId) {
+      loadQuestions();
+      isInitializedRef.current = true;
+    } else if (mode === "create" && !isInitializedRef.current) {
+      // Initialize only once
+      if (initialQuestions.length > 0) {
+        setQuestions(initialQuestions);
+      } else {
+        setQuestions([]);
+      }
+      isInitializedRef.current = true;
+    }
+  }, [lessonId, mode]); // Removed initialQuestions from dependencies to prevent loops
+
+  // Notify parent component when questions change (with circular update prevention)
+  useEffect(() => {
+    if (!isInitializedRef.current) return; // Don't notify during initialization
+
+    if (
+      onQuestionsChange &&
+      areQuestionsDifferent(questions, lastNotifiedQuestionsRef.current)
+    ) {
+      lastNotifiedQuestionsRef.current = [...questions]; // Store deep copy
       onQuestionsChange(questions);
     }
-  }, [questions, onQuestionsChange]);
+  }, [questions, onQuestionsChange, areQuestionsDifferent]);
 
   const loadQuestions = async () => {
     if (!lessonId) return;
@@ -567,16 +599,6 @@ export function QuestionManager({
     try {
       setIsSubmitting(true);
 
-      if (!lessonId) {
-        toast({
-          title: "Lỗi",
-          description: "Không xác định được bài học để tạo câu hỏi",
-          variant: "destructive",
-        });
-        setIsSubmitting(false);
-        return;
-      }
-
       // Clean up accepted answers by removing empty lines before sending to server
       const cleanedFormData = {
         ...formData,
@@ -590,34 +612,79 @@ export function QuestionManager({
       const questionData = {
         ...cleanedFormData,
         points: questionPoints,
-        lessonId: lessonId,
+        lessonId: lessonId || "",
         order: editingQuestion ? editingQuestion.order : questions.length,
       };
 
       let result;
-      if (editingQuestion) {
-        result = await updateQuestion(editingQuestion.id!, questionData);
-      } else {
-        result = await createQuestion(questionData);
-      }
+      if (mode === "create") {
+        // In create mode, we just add to local state instead of making API calls
+        const newQuestion: Question = {
+          id: `temp-${Date.now()}`, // Temporary ID for create mode
+          text: questionData.text,
+          type: questionData.type,
+          points: questionData.points,
+          order: questionData.order,
+          answers: questionData.answers,
+        };
 
-      if (result.success) {
+        if (editingQuestion) {
+          // Update existing question in local state
+          const updatedQuestions = questions.map((q) =>
+            q.id === editingQuestion.id
+              ? { ...newQuestion, id: editingQuestion.id }
+              : q,
+          );
+          setQuestions(updatedQuestions);
+        } else {
+          // Add new question to local state
+          setQuestions([...questions, newQuestion]);
+        }
+
         toast({
           title: "Thành công",
           description: editingQuestion
             ? "Cập nhật câu hỏi thành công"
-            : "Tạo câu hỏi thành công",
+            : "Thêm câu hỏi thành công",
         });
         resetForm();
         setEditingQuestion(null);
         setShowAddForm(false);
-        await loadQuestions();
       } else {
-        toast({
-          title: "Lỗi",
-          description: result.message || "Có lỗi xảy ra",
-          variant: "destructive",
-        });
+        // Edit mode - make API calls as before
+        if (!lessonId) {
+          toast({
+            title: "Lỗi",
+            description: "Không xác định được bài học để tạo câu hỏi",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        if (editingQuestion) {
+          result = await updateQuestion(editingQuestion.id!, questionData);
+        } else {
+          result = await createQuestion(questionData);
+        }
+
+        if (result.success) {
+          toast({
+            title: "Thành công",
+            description: editingQuestion
+              ? "Cập nhật câu hỏi thành công"
+              : "Tạo câu hỏi thành công",
+          });
+          resetForm();
+          setEditingQuestion(null);
+          setShowAddForm(false);
+          await loadQuestions();
+        } else {
+          toast({
+            title: "Lỗi",
+            description: result.message || "Có lỗi xảy ra",
+            variant: "destructive",
+          });
+        }
       }
     } catch (error) {
       console.error("Error saving question:", error);
@@ -646,19 +713,30 @@ export function QuestionManager({
   const handleDelete = async (questionId: string) => {
     setIsLoading(true);
     try {
-      const result = await deleteQuestion(questionId);
-      if (result.success) {
+      if (mode === "create") {
+        // In create mode, just remove from local state
+        const updatedQuestions = questions.filter((q) => q.id !== questionId);
+        setQuestions(updatedQuestions);
         toast({
           title: "Thành công",
           description: "Xóa câu hỏi thành công",
         });
-        await loadQuestions();
       } else {
-        toast({
-          title: "Lỗi",
-          description: result.message || "Không thể xóa câu hỏi",
-          variant: "destructive",
-        });
+        // Edit mode - make API call
+        const result = await deleteQuestion(questionId);
+        if (result.success) {
+          toast({
+            title: "Thành công",
+            description: "Xóa câu hỏi thành công",
+          });
+          await loadQuestions();
+        } else {
+          toast({
+            title: "Lỗi",
+            description: result.message || "Không thể xóa câu hỏi",
+            variant: "destructive",
+          });
+        }
       }
     } catch (error) {
       toast({
@@ -798,20 +876,22 @@ export function QuestionManager({
       // Update local state immediately for better UX
       setQuestions(updatedQuestions);
 
-      // Update the two affected questions on the backend
-      const questionToUpdate1 = updatedQuestions[currentIndex];
-      const questionToUpdate2 = updatedQuestions[newIndex];
+      if (mode === "edit") {
+        // In edit mode, update backend
+        const questionToUpdate1 = updatedQuestions[currentIndex];
+        const questionToUpdate2 = updatedQuestions[newIndex];
 
-      await Promise.all([
-        updateQuestion(questionToUpdate1.id!, {
-          ...questionToUpdate1,
-          order: questionToUpdate1.order,
-        }),
-        updateQuestion(questionToUpdate2.id!, {
-          ...questionToUpdate2,
-          order: questionToUpdate2.order,
-        }),
-      ]);
+        await Promise.all([
+          updateQuestion(questionToUpdate1.id!, {
+            ...questionToUpdate1,
+            order: questionToUpdate1.order,
+          }),
+          updateQuestion(questionToUpdate2.id!, {
+            ...questionToUpdate2,
+            order: questionToUpdate2.order,
+          }),
+        ]);
+      }
 
       toast({
         title: "Thành công",
@@ -819,7 +899,9 @@ export function QuestionManager({
       });
     } catch (error) {
       // Revert local state if backend update fails
-      await loadQuestions();
+      if (mode === "edit") {
+        await loadQuestions();
+      }
       toast({
         title: "Lỗi",
         description: "Không thể cập nhật thứ tự câu hỏi",

@@ -40,7 +40,52 @@ interface UnlockRequirementsBuilderProps {
   onChange: (requirements: UnlockRequirement[]) => void;
   courseId: string;
   currentLessonId?: string;
+  onValidationChange?: (isValid: boolean, errors: string[]) => void; // New callback for validation status
 }
+
+// Helper function to validate all requirements (can be used by parent components)
+export const validateAllRequirements = (
+  requirements: UnlockRequirement[],
+): { isValid: boolean; errors: string[] } => {
+  const allErrors: string[] = [];
+  let isValid = true;
+
+  requirements.forEach((requirement, index) => {
+    const errors: string[] = [];
+
+    if (!requirement.title.trim()) {
+      errors.push("Tiêu đề là bắt buộc");
+    }
+
+    if (
+      requirement.type === UnlockRequirementType.WATCH_LESSON &&
+      !requirement.targetLessonId
+    ) {
+      errors.push("Cần chọn bài học mục tiêu");
+    }
+
+    if (
+      requirement.type === UnlockRequirementType.COMPLETE_QUIZ &&
+      !requirement.targetQuizId
+    ) {
+      errors.push("Cần chọn quiz mục tiêu");
+    }
+
+    if (
+      requirement.type === UnlockRequirementType.WAIT_TIME &&
+      (!requirement.waitTimeMinutes || requirement.waitTimeMinutes <= 0)
+    ) {
+      errors.push("Thời gian chờ phải lớn hơn 0");
+    }
+
+    if (errors.length > 0) {
+      isValid = false;
+      allErrors.push(`Điều kiện ${index + 1}: ${errors.join(", ")}`);
+    }
+  });
+
+  return { isValid, errors: allErrors };
+};
 
 const requirementTypeOptions = [
   {
@@ -78,6 +123,7 @@ export default function UnlockRequirementsBuilder({
   onChange,
   courseId,
   currentLessonId,
+  onValidationChange,
 }: UnlockRequirementsBuilderProps) {
   const [expandedRequirement, setExpandedRequirement] = useState<string | null>(
     null,
@@ -86,6 +132,24 @@ export default function UnlockRequirementsBuilder({
   const [quizLessons, setQuizLessons] = useState<any[]>([]);
   const [loadingLessons, setLoadingLessons] = useState(false);
   const [loadingQuizzes, setLoadingQuizzes] = useState(false);
+
+  // Validate all requirements and notify parent component
+  useEffect(() => {
+    if (onValidationChange) {
+      const allErrors: string[] = [];
+      let isValid = true;
+
+      requirements.forEach((requirement, index) => {
+        const errors = validateRequirement(requirement);
+        if (errors.length > 0) {
+          isValid = false;
+          allErrors.push(`Điều kiện ${index + 1}: ${errors.join(", ")}`);
+        }
+      });
+
+      onValidationChange(isValid, allErrors);
+    }
+  }, [requirements, onValidationChange]);
 
   // Load lessons for dropdown
   useEffect(() => {
@@ -426,8 +490,12 @@ export default function UnlockRequirementsBuilder({
                           </div>
 
                           <div>
-                            <Label htmlFor={`req-title-${requirement.id}`}>
+                            <Label
+                              htmlFor={`req-title-${requirement.id}`}
+                              className="flex items-center gap-1"
+                            >
                               Tiêu đề
+                              <span className="text-red-500">*</span>
                             </Label>
                             <Input
                               id={`req-title-${requirement.id}`}
@@ -438,7 +506,19 @@ export default function UnlockRequirementsBuilder({
                                 })
                               }
                               placeholder="Nhập tiêu đề cho điều kiện"
+                              className={`${
+                                !requirement.title.trim()
+                                  ? "border-red-300 focus:border-red-500 focus:ring-red-200"
+                                  : "border-green-300 focus:border-green-500 focus:ring-green-200"
+                              }`}
+                              required
                             />
+                            {!requirement.title.trim() && (
+                              <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                                <AlertCircle className="h-3 w-3" />
+                                Tiêu đề là bắt buộc
+                              </p>
+                            )}
                           </div>
 
                           <div className="flex items-center space-x-2">
