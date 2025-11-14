@@ -248,6 +248,13 @@ export default function ClassLearningPage() {
     return filteredCompletedItems.some((p: any) => p.id === item.id);
   };
 
+  // Helper function to check if a live session attendance is completed
+  const isLiveSessionAttendanceCompleted = (item: SyllabusItem) => {
+    if (item.itemType !== SyllabusItemType.LIVE_SESSION) return true; // Not a live session, no attendance needed
+    if (isInstructorOrAdmin) return true; // Instructors can always proceed
+    return attendanceCompleted.has(item.id);
+  };
+
   // Helper function to check if navigation to an item is allowed
   const canNavigateToItem = (targetItem: SyllabusItem) => {
     if (isInstructorOrAdmin) return true;
@@ -255,16 +262,34 @@ export default function ClassLearningPage() {
     const currentIndex = currentItemIndex;
 
     if (targetIndex <= currentIndex) return true;
-    if (targetIndex === currentIndex + 1) return true;
+    if (targetIndex === currentIndex + 1) {
+      // For the next item, check if current item requirements are met
+      if (currentItem) {
+        // If current item is live session, check attendance
+        if (currentItem.itemType === SyllabusItemType.LIVE_SESSION) {
+          return isLiveSessionAttendanceCompleted(currentItem);
+        }
+        // For other items, check completion status
+        return isItemCompleted(currentItem) || isInstructorOrAdmin;
+      }
+      return true;
+    }
 
     for (let i = currentIndex + 1; i < targetIndex; i++) {
-      if (!isItemCompleted(allItems[i])) {
+      const item = allItems[i];
+      // Check both completion and attendance (for live sessions)
+      if (!isItemCompleted(item) || !isLiveSessionAttendanceCompleted(item)) {
         return false;
       }
     }
 
     return true;
   };
+
+  // State to track attendance status for live sessions
+  const [attendanceCompleted, setAttendanceCompleted] = useState<Set<string>>(
+    new Set(),
+  );
 
   // Helper function to check if all items are completed
   const allItemsCompleted = useMemo(() => {
@@ -344,12 +369,14 @@ export default function ClassLearningPage() {
         ? allItems[currentItemIndex + 1]
         : null;
     }
-    for (let i = currentItemIndex + 1; i < allItems.length; i++) {
-      if (canNavigateToItem(allItems[i])) {
-        return allItems[i];
-      }
+
+    // Check if we can move to the immediate next item
+    const nextItem = allItems[currentItemIndex + 1];
+    if (nextItem && canNavigateToItem(nextItem)) {
+      return nextItem;
     }
-    return null;
+
+    return null; // Cannot proceed to next item
   };
 
   // Navigation functions
@@ -365,13 +392,26 @@ export default function ClassLearningPage() {
     }
   };
 
-  // Enhanced goToNext with lesson completion handling
+  // Enhanced goToNext with lesson completion and attendance handling
   const handleGoToNext = () => {
     const nextItem = allItems[currentItemIndex + 1];
     if (!nextItem) return;
 
     if (!isInstructorOrAdmin) {
-      if (
+      // For live sessions, check attendance status
+      if (currentItem?.itemType === SyllabusItemType.LIVE_SESSION) {
+        if (!isLiveSessionAttendanceCompleted(currentItem)) {
+          toast({
+            title: "⚠️ Chưa thể tiếp tục",
+            description:
+              "Bạn cần hoàn thành điểm danh cho buổi học này trước khi tiếp tục.",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+      // For lessons, check completion status
+      else if (
         currentItem?.itemType === SyllabusItemType.LESSON &&
         currentItem.lesson?.type !== LessonType.QUIZ &&
         !isItemCompleted(currentItem)
@@ -644,7 +684,43 @@ export default function ClassLearningPage() {
     handleCourseCompletion,
   ]);
 
-  // Handler for completing a live session
+  // Handler for successful attendance (for live sessions)
+  const handleAttendanceSuccess = async () => {
+    if (isInstructorOrAdmin || !currentItem || !enrollmentId) return;
+
+    try {
+      // Mark attendance as completed for this live session
+      setAttendanceCompleted((prev) => new Set(prev).add(currentItem.id));
+
+      // Mark the live session as completed via attendance
+      await createSyllabusProgress(currentItem.id);
+
+      const nextItem = allItems[currentItemIndex + 1];
+      const isLastItem = currentItemIndex === allItems.length - 1;
+
+      if (isLastItem) {
+        // If this was the last item, complete the course
+        await handleCourseCompletion();
+      } else {
+        // Show success message but don't auto-navigate
+        toast({
+          title: "✅ Điểm danh thành công!",
+          description: nextItem
+            ? "Bạn có thể chuyển sang buổi học tiếp theo."
+            : "Bạn đã hoàn thành tất cả buổi học!",
+        });
+      }
+    } catch (error) {
+      console.error("Error handling attendance success:", error);
+      toast({
+        title: "Lỗi",
+        description: "Không thể cập nhật tiến trình học tập.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Handler for completing a live session (manual completion for instructors)
   const handleCompleteLiveSession = async () => {
     if (!enrollmentId || !currentItem) return;
     const nextItem = allItems[currentItemIndex + 1];
@@ -960,9 +1036,14 @@ export default function ClassLearningPage() {
     fetchTranscript();
   }, [currentLessonData?.videoUrl]);
 
-  // Time tracking effects
+  // Time tracking effects - skip for live sessions since they use attendance
   useEffect(() => {
     if (currentItem && isEnrolled && !isInstructorOrAdmin) {
+      // Skip time tracking for live sessions - they use attendance instead
+      if (currentItem.itemType === SyllabusItemType.LIVE_SESSION) {
+        return;
+      }
+
       timeTracking.reset();
       timeTracking.start();
     }
@@ -1018,9 +1099,14 @@ export default function ClassLearningPage() {
     isInstructorOrAdmin,
   ]);
 
-  // Handle page visibility to pause/resume tracking
+  // Handle page visibility to pause/resume tracking - skip for live sessions
   useEffect(() => {
     const handleVisibilityChange = () => {
+      // Skip time tracking for live sessions
+      if (currentItem?.itemType === SyllabusItemType.LIVE_SESSION) {
+        return;
+      }
+
       if (document.hidden) {
         if (timeTracking.isActive) {
           timeTracking.pause();
@@ -1706,6 +1792,9 @@ Type: ${currentLessonData?.type || "N/A"}`;
                     isLast={currentItemIndex === allItems.length - 1}
                     hasCertificate={hasCertificate}
                     certificateId={certificateId || undefined}
+                    enrollmentId={enrollmentId || undefined}
+                    isInstructorOrAdmin={isInstructorOrAdmin}
+                    userRole={user?.role === "ADMIN" ? "ADMIN" : "INSTRUCTOR"}
                     onJoinSession={handleJoinLiveSession}
                     onCompleteSession={handleCompleteLiveSession}
                     onViewCertificate={() => {
@@ -1713,6 +1802,7 @@ Type: ${currentLessonData?.type || "N/A"}`;
                         router.push(`/certificate/${certificateId}`);
                       }
                     }}
+                    onAttendanceSuccess={handleAttendanceSuccess}
                   />
                 )}
               </div>
@@ -1731,7 +1821,19 @@ Type: ${currentLessonData?.type || "N/A"}`;
         currentIndex={currentItemIndex}
         totalItems={allItems.length}
         canGoPrevious={currentItemIndex > 0}
-        canGoNext={currentItemIndex < allItems.length - 1}
+        canGoNext={(() => {
+          const nextItem = allItems[currentItemIndex + 1];
+          if (!nextItem) return false; // No next item
+          if (isInstructorOrAdmin) return true; // Instructors can always proceed
+
+          // For live sessions, check attendance completion
+          if (currentItem?.itemType === SyllabusItemType.LIVE_SESSION) {
+            return isLiveSessionAttendanceCompleted(currentItem);
+          }
+
+          // For other items, allow navigation
+          return true;
+        })()}
         isSidebarOpen={isSidebarOpen}
         onPrevious={goToPrevious}
         onNext={handleGoToNext}
@@ -1748,6 +1850,19 @@ Type: ${currentLessonData?.type || "N/A"}`;
         certificateId={certificateId}
         onCertificateClick={handleCertificateClick}
         allItemsCompleted={allItemsCompleted}
+        // Attendance props
+        disabledReason={(() => {
+          const nextItem = allItems[currentItemIndex + 1];
+          if (!nextItem || isInstructorOrAdmin) return undefined;
+
+          if (currentItem?.itemType === SyllabusItemType.LIVE_SESSION) {
+            if (!isLiveSessionAttendanceCompleted(currentItem)) {
+              return "Cần hoàn thành điểm danh để tiếp tục";
+            }
+          }
+
+          return undefined;
+        })()}
       />
 
       {/* Sidebar */}

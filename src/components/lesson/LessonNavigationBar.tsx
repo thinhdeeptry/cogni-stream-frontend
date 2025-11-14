@@ -126,6 +126,7 @@ export function LessonNavigationBar({
                     </AlertDialogTitle>
                     <AlertDialogDescription className="text-center text-gray-600 mt-2">
                       {isEnrolled &&
+                      lesson.type !== LessonType.QUIZ &&
                       timeTracking.isTimeComplete &&
                       lesson.estimatedDurationMinutes ? (
                         <>
@@ -135,6 +136,8 @@ export function LessonNavigationBar({
                           Hãy đảm bảo rằng bạn đã nắm vững kiến thức trước khi
                           chuyển sang bài tiếp theo.
                         </>
+                      ) : lesson.type === LessonType.QUIZ ? (
+                        "Bạn đã hoàn thành quiz này chưa? Hãy đảm bảo rằng bạn đã đạt điểm yêu cầu để chuyển sang bài tiếp theo."
                       ) : (
                         "Bạn đã hoàn thành bài học này chưa? Hãy đảm bảo rằng bạn đã nắm vững kiến thức trước khi chuyển sang bài tiếp theo."
                       )}

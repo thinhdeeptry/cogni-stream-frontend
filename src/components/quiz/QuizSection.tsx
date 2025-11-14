@@ -460,6 +460,10 @@ export default function QuizSection({
           });
 
           // Call callback when quiz is completed successfully
+          if (onQuizCompleted) {
+            onQuizCompleted(true);
+          }
+
           if (onCourseCompletion) {
             onCourseCompletion();
           }

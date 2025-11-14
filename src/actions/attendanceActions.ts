@@ -7,8 +7,27 @@ import {
   AttendanceRecord,
   AttendanceStats,
 } from "@/types/course/types";
+import { getSession } from "next-auth/react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
+// Helper function to get auth headers
+async function getAuthHeaders() {
+  const session = await getSession();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+
+  if (session?.accessToken) {
+    headers["Authorization"] = `Bearer ${session.accessToken}`;
+  }
+
+  if (session?.user?.id) {
+    headers["X-User-Id"] = session.user.id;
+  }
+
+  return headers;
+}
 
 // =============================================
 // WORKFLOW STEP 1: Tạo mã điểm danh (Giảng viên)
@@ -16,17 +35,18 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 export async function createAttendanceCode(data: {
   syllabusItemId: string;
-  code?: string; // Optional - nếu không có thì auto generate
   expiresAt?: Date;
 }) {
   try {
+    const headers = await getAuthHeaders();
     const response = await fetch(`${API_BASE}/attendance/codes`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        // TODO: Add authorization header
-      },
-      body: JSON.stringify(data),
+      headers,
+      body: JSON.stringify({
+        syllabusItemId: data.syllabusItemId,
+        expiresAt: data.expiresAt?.toISOString(),
+        autoExpire: !!data.expiresAt,
+      }),
     });
 
     const result = await response.json();
@@ -55,14 +75,18 @@ export async function createAttendanceCode(data: {
 
 export async function deactivateAttendanceCode(syllabusItemId: string) {
   try {
+    // First get current code, then deactivate it
+    const currentCodeResult = await getCurrentAttendanceCode(syllabusItemId);
+    if (!currentCodeResult.success || !currentCodeResult.data) {
+      throw new Error("Không tìm thấy mã điểm danh đang hoạt động");
+    }
+
+    const headers = await getAuthHeaders();
     const response = await fetch(
-      `${API_BASE}/attendance/codes/${syllabusItemId}/deactivate`,
+      `${API_BASE}/attendance/codes/${currentCodeResult.data.id}`,
       {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          // TODO: Add authorization header
-        },
+        method: "DELETE",
+        headers,
       },
     );
 
@@ -96,13 +120,14 @@ export async function submitAttendanceCode(data: {
   code: string;
 }) {
   try {
-    const response = await fetch(`${API_BASE}/attendance/submit`, {
+    const headers = await getAuthHeaders();
+    const response = await fetch(`${API_BASE}/attendance/check-in`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        // TODO: Add authorization header
-      },
-      body: JSON.stringify(data),
+      headers,
+      body: JSON.stringify({
+        code: data.code,
+        syllabusItemId: data.syllabusItemId,
+      }),
     });
 
     const result = await response.json();
@@ -134,14 +159,12 @@ export async function checkAttendanceStatus(
   enrollmentId: string,
 ) {
   try {
+    const headers = await getAuthHeaders();
     const response = await fetch(
-      `${API_BASE}/attendance/status/${syllabusItemId}/${enrollmentId}`,
+      `${API_BASE}/attendance/syllabus/${syllabusItemId}/info`,
       {
         method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          // TODO: Add authorization header
-        },
+        headers,
       },
     );
 
@@ -171,14 +194,12 @@ export async function checkAttendanceStatus(
 
 export async function getAttendanceStats(syllabusItemId: string) {
   try {
+    const headers = await getAuthHeaders();
     const response = await fetch(
-      `${API_BASE}/attendance/stats/${syllabusItemId}`,
+      `${API_BASE}/attendance/syllabus/${syllabusItemId}/report`,
       {
         method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          // TODO: Add authorization header
-        },
+        headers,
       },
     );
 
@@ -208,14 +229,12 @@ export async function getAttendanceStats(syllabusItemId: string) {
 
 export async function getCurrentAttendanceCode(syllabusItemId: string) {
   try {
+    const headers = await getAuthHeaders();
     const response = await fetch(
-      `${API_BASE}/attendance/codes/${syllabusItemId}/current`,
+      `${API_BASE}/attendance/syllabus/${syllabusItemId}/codes`,
       {
         method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          // TODO: Add authorization header
-        },
+        headers,
       },
     );
 
@@ -227,9 +246,13 @@ export async function getCurrentAttendanceCode(syllabusItemId: string) {
       );
     }
 
+    // Find active code from the list
+    const activeCodes = result.data?.filter((code: any) => code.isActive);
+    const activeCode = activeCodes?.[0] || null;
+
     return {
       success: true,
-      data: result.data,
+      data: activeCode,
       message: result.message,
     };
   } catch (error: any) {
@@ -237,6 +260,81 @@ export async function getCurrentAttendanceCode(syllabusItemId: string) {
     return {
       success: false,
       message: error.message || "Lỗi lấy mã điểm danh hiện tại",
+    };
+  }
+}
+
+// =============================================
+// HELPER: Lấy tất cả mã điểm danh của syllabus item
+// =============================================
+
+export async function getAttendanceCodesBySyllabusItem(syllabusItemId: string) {
+  try {
+    const headers = await getAuthHeaders();
+    const response = await fetch(
+      `${API_BASE}/attendance/syllabus/${syllabusItemId}/codes`,
+      {
+        method: "GET",
+        headers,
+      },
+    );
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.message || "Failed to get attendance codes");
+    }
+
+    return {
+      success: true,
+      data: result.data || [],
+      message: result.message,
+    };
+  } catch (error: any) {
+    console.error("Error getting attendance codes:", error);
+    return {
+      success: false,
+      data: [],
+      message: error.message || "Lỗi lấy danh sách mã điểm danh",
+    };
+  }
+}
+
+// =============================================
+// HELPER: Lấy lịch sử điểm danh của học viên
+// =============================================
+
+export async function getStudentAttendanceHistory(classId?: string) {
+  try {
+    const headers = await getAuthHeaders();
+    const url = classId
+      ? `${API_BASE}/attendance/history?classId=${classId}`
+      : `${API_BASE}/attendance/history`;
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers,
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        result.message || "Failed to get student attendance history",
+      );
+    }
+
+    return {
+      success: true,
+      data: result.data || [],
+      message: result.message,
+    };
+  } catch (error: any) {
+    console.error("Error getting student attendance history:", error);
+    return {
+      success: false,
+      data: [],
+      message: error.message || "Lỗi lấy lịch sử điểm danh",
     };
   }
 }
