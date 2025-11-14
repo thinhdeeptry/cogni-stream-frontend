@@ -79,12 +79,12 @@ export const CourseSidebar: React.FC<CourseSidebarProps> = ({
 }) => {
   const router = useRouter();
   // Memoized helper functions to prevent re-creation on every render
-  const isItemCompletedById = useCallback(
-    (itemId: string): boolean => {
-      return completedItems?.some((completed) => completed.id === itemId);
-    },
-    [completedItems],
-  );
+  // const isItemCompletedById = useCallback(
+  //   (itemId: string): boolean => {
+  //     return completedItems?.some((completed) => completed.id === itemId);
+  //   },
+  //   [completedItems],
+  // );
 
   const getCompletedItemData = useCallback(
     (itemId: string): CompletedItem | null => {
@@ -371,8 +371,7 @@ export const CourseSidebar: React.FC<CourseSidebarProps> = ({
                           (item: SyllabusItem, itemIndex: number) => {
                             const itemStatus = getItemStatus(item); // ← Giờ đây safe
                             const canAccess =
-                              isItemCompletedById(item.id) ||
-                              canNavigateToItem(item);
+                              isItemCompleted(item) || canNavigateToItem(item);
                             const {
                               isCompleted,
                               isCurrent,

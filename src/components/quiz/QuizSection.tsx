@@ -1,8 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
+import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import type { Question } from "@/types/assessment/quiz-types";
 import confetti from "canvas-confetti";
@@ -28,7 +29,6 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import { toast } from "sonner";
 
 import {
   type QuizAttempt,
@@ -66,6 +66,14 @@ import { Progress } from "@/components/ui/progress";
 
 import { Confetti } from "../ui/confetti";
 
+interface RequirementTrackingState {
+  isTrackingRequirement: boolean;
+  requirementTimeSpent: number;
+  requirementTimeNeeded: number;
+  currentRequirementIndex: number;
+  completedRequirements: Set<string>;
+}
+
 interface QuizSectionProps {
   lessonId: string;
   enrollmentId: string;
@@ -79,6 +87,14 @@ interface QuizSectionProps {
   isInstructorOrAdmin?: boolean; // Preview mode for instructor/admin - bypasses time restrictions
   onQuizStateChange?: (isActivelyTaking: boolean) => void; // Callback when quiz active state changes
   onCourseCompletion?: () => void; // Callback when course is completed after final quiz
+  currentLessonData?: any; // Current lesson data being viewed (for time tracking)
+  onGetLessonData?: (lessonId: string) => Promise<any>; // Callback to get lesson data
+  onNavigateToRequirement?: (
+    reqIndex: number,
+    targetLessonId: string,
+    quizLessonId: string,
+  ) => void; // Callback to navigate to requirement lesson
+  requirementTrackingState?: RequirementTrackingState; // State from parent for requirement tracking
 }
 
 export default function QuizSection({
@@ -94,6 +110,10 @@ export default function QuizSection({
   isInstructorOrAdmin = false,
   onQuizStateChange,
   onCourseCompletion,
+  currentLessonData,
+  onGetLessonData,
+  onNavigateToRequirement,
+  requirementTrackingState,
 }: QuizSectionProps) {
   const router = useRouter();
   const [status, setStatus] = useState<QuizStatus | null>(null);
@@ -132,9 +152,7 @@ export default function QuizSection({
   );
 
   useEffect(() => {
-    if (!isEnrolled) return;
-    console.log("Fetching quiz data for lessonId:", lessonId);
-
+    if (!isEnrolled || !lessonId) return;
     fetchQuizData();
   }, [lessonId, isEnrolled]);
 
@@ -183,6 +201,9 @@ export default function QuizSection({
   useEffect(() => {
     if (!status?.lesson.blockDuration || !status?.blockedUntil) return;
 
+    // Use ref to track if we already refreshed to prevent multiple calls
+    let hasRefreshed = false;
+
     const updateCountdown = () => {
       const now = new Date().getTime();
       const blockEnd = new Date(status.blockedUntil!).getTime();
@@ -190,8 +211,11 @@ export default function QuizSection({
 
       if (timeLeft <= 0) {
         setBlockCountdown(null);
-        // Refresh quiz status when block expires
-        fetchQuizData();
+        // Only refresh once when block expires to prevent infinite loop
+        if (!hasRefreshed) {
+          hasRefreshed = true;
+          fetchQuizData();
+        }
       } else {
         setBlockCountdown(timeLeft);
       }
@@ -205,6 +229,26 @@ export default function QuizSection({
 
     return () => clearInterval(interval);
   }, [status?.blockedUntil, status?.lesson.blockDuration]);
+
+  // Handle navigation to a requirement lesson - now uses parent callback
+  const handleNavigateToRequirement = useCallback(
+    (reqIndex: number) => {
+      if (!status?.unlockRequirements || !onNavigateToRequirement) {
+        console.log(
+          "Cannot navigate to requirement - missing data or callbacks",
+        );
+        return;
+      }
+
+      const requirement = status.unlockRequirements[reqIndex];
+      console.log("Navigating to requirement:", requirement);
+      if (!requirement?.targetLesson?.id) return;
+
+      // Use parent callback which handles all the logic
+      onNavigateToRequirement(reqIndex, requirement.targetLesson.id, lessonId);
+    },
+    [status, onNavigateToRequirement, lessonId],
+  );
 
   const fetchQuizData = async () => {
     try {
@@ -224,7 +268,11 @@ export default function QuizSection({
       }
     } catch (error) {
       console.error("Error fetching quiz data:", error);
-      toast.error("Không thể tải thông tin quiz");
+      toast({
+        title: "Lỗi",
+        description: "Không thể tải thông tin quiz",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -251,11 +299,19 @@ export default function QuizSection({
         setTotalQuestions(result.data.total);
         console.log("Fetched all questions:", questions);
       } else {
-        toast.error(result.message);
+        toast({
+          title: "Lỗi",
+          description: result.message,
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Error fetching questions:", error);
-      toast.error("Không thể tải câu hỏi");
+      toast({
+        title: "Lỗi",
+        description: "Không thể tải câu hỏi",
+        variant: "destructive",
+      });
     } finally {
       setIsLoadingQuestions(false);
     }
@@ -266,7 +322,11 @@ export default function QuizSection({
       !status ||
       !canStartQuiz(status, status.unlockRequirementsSummary.allCompleted)
     ) {
-      toast.error("Không thể bắt đầu quiz lúc này");
+      toast({
+        title: "Lỗi",
+        description: "Không thể bắt đầu quiz lúc này",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -293,13 +353,24 @@ export default function QuizSection({
         }
 
         await fetchAllQuestions();
-        toast.success("Bắt đầu quiz thành công!");
+        toast({
+          title: "Thành công",
+          description: "Bắt đầu quiz thành công!",
+        });
       } else {
-        toast.error(result.message);
+        toast({
+          title: "Lỗi",
+          description: result.message,
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Error starting quiz:", error);
-      toast.error("Không thể bắt đầu quiz");
+      toast({
+        title: "Lỗi",
+        description: "Không thể bắt đầu quiz",
+        variant: "destructive",
+      });
     } finally {
       setIsStarting(false);
     }
@@ -318,7 +389,10 @@ export default function QuizSection({
     if (!currentAttempt || isSubmitting) return;
 
     setIsSubmitting(true);
-    toast.info("⏰ Hết thời gian! Tự động nộp bài...");
+    toast({
+      title: "⏰ Hết thời gian!",
+      description: "Tự động nộp bài...",
+    });
     await handleSubmitQuiz();
   };
 
@@ -369,7 +443,10 @@ export default function QuizSection({
       );
 
       if (result.success && result.data) {
-        toast.success("Nộp bài quiz thành công!");
+        toast({
+          title: "Thành công",
+          description: "Nộp bài quiz thành công!",
+        });
         console.log("Quiz submission result:", result.data);
         setResult(result.data);
         setCurrentAttempt(null);
@@ -377,18 +454,20 @@ export default function QuizSection({
         await fetchQuizData();
 
         if (result.data.passed) {
-          toast.success(
-            `Chúc mừng! Bạn đã đạt ${result.data.score}% và vượt qua quiz!`,
-          );
+          toast({
+            title: "Chúc mừng!",
+            description: `Bạn đã đạt ${result.data.score}% và vượt qua quiz!`,
+          });
 
           // Call callback when quiz is completed successfully
-          if (onQuizCompleted) {
-            onQuizCompleted(true);
+          if (onCourseCompletion) {
+            onCourseCompletion();
           }
         } else {
-          toast.warning(
-            `Bạn đạt ${result.data.score}%. ${result.data.canRetry ? "Hãy cố gắng lần sau!" : "Bạn đã hết lượt thử."}`,
-          );
+          toast({
+            title: "Chưa đạt",
+            description: `Bạn đạt ${result.data.score}%. ${result.data.canRetry ? "Hãy cố gắng lần sau!" : "Bạn đã hết lượt thử."}`,
+          });
 
           // Call callback even when not passed to update progress
           if (onQuizCompleted) {
@@ -396,11 +475,19 @@ export default function QuizSection({
           }
         }
       } else {
-        toast.error(result.message);
+        toast({
+          title: "Lỗi",
+          description: result.message,
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Error submitting quiz:", error);
-      toast.error("Không thể nộp bài quiz");
+      toast({
+        title: "Lỗi",
+        description: "Không thể nộp bài quiz",
+        variant: "destructive",
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -1389,7 +1476,7 @@ export default function QuizSection({
                     {status.passPercent}% để đạt)
                   </span>
                 </div>
-                <button
+                {/* {all(<button
                   onClick={() => {
                     // Navigate back to the class or course to access next lesson
                     const backPath = classId
@@ -1401,7 +1488,7 @@ export default function QuizSection({
                 >
                   <span>Tiếp tục học</span>
                   <ChevronRight className="h-4 w-4" />
-                </button>
+                </button>)} */}
               </div>
             )}
 
@@ -1512,17 +1599,103 @@ export default function QuizSection({
                                     {/* Navigation button for lessons */}
                                     {requirement.targetLesson?.id &&
                                       onNavigateToLesson && (
-                                        <button
-                                          onClick={() =>
-                                            onNavigateToLesson(
-                                              requirement.targetLesson.id,
-                                            )
-                                          }
-                                          className="flex-shrink-0 inline-flex items-center gap-1 px-3 py-2 bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-600 transition-colors"
-                                        >
-                                          <span>Học ngay</span>
-                                          <ExternalLink className="h-3 w-3" />
-                                        </button>
+                                        <div className="flex-shrink-0 flex flex-col gap-2 items-end">
+                                          <button
+                                            onClick={() =>
+                                              handleNavigateToRequirement(index)
+                                            }
+                                            disabled={
+                                              requirementTrackingState?.completedRequirements.has(
+                                                requirement.id,
+                                              ) || false
+                                            }
+                                            className={`inline-flex items-center gap-1 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                                              requirementTrackingState?.completedRequirements.has(
+                                                requirement.id,
+                                              )
+                                                ? "bg-green-100 text-green-700 cursor-not-allowed"
+                                                : "bg-orange-400 text-white hover:bg-orange-600"
+                                            }`}
+                                          >
+                                            {requirementTrackingState?.completedRequirements.has(
+                                              requirement.id,
+                                            ) ? (
+                                              <>
+                                                <CheckCircle className="h-3 w-3" />
+                                                <span>Đã hoàn thành</span>
+                                              </>
+                                            ) : requirementTrackingState?.isTrackingRequirement &&
+                                              requirementTrackingState?.currentRequirementIndex ===
+                                                index ? (
+                                              <>
+                                                <Clock className="h-3 w-3 animate-pulse" />
+                                                <span>Đang học</span>
+                                              </>
+                                            ) : (
+                                              <>
+                                                <span>Học ngay</span>
+                                                <ExternalLink className="h-3 w-3" />
+                                              </>
+                                            )}
+                                          </button>
+
+                                          {/* Show progress for current tracking requirement */}
+                                          {requirementTrackingState?.isTrackingRequirement &&
+                                            requirementTrackingState?.currentRequirementIndex ===
+                                              index &&
+                                            requirementTrackingState?.requirementTimeNeeded >
+                                              0 && (
+                                              <div className="w-full min-w-[120px]">
+                                                <div className="flex items-center justify-between text-xs text-blue-600 mb-1">
+                                                  <span>Tiến độ:</span>
+                                                  <span className="font-semibold">
+                                                    {Math.min(
+                                                      Math.round(
+                                                        (requirementTrackingState.requirementTimeSpent /
+                                                          requirementTrackingState.requirementTimeNeeded) *
+                                                          100,
+                                                      ),
+                                                      100,
+                                                    )}
+                                                    %
+                                                  </span>
+                                                </div>
+                                                <div className="w-full bg-blue-100 rounded-full h-2 overflow-hidden">
+                                                  <div
+                                                    className="bg-blue-500 h-full rounded-full transition-all duration-1000 ease-linear"
+                                                    style={{
+                                                      width: `${Math.min((requirementTrackingState.requirementTimeSpent / requirementTrackingState.requirementTimeNeeded) * 100, 100)}%`,
+                                                    }}
+                                                  />
+                                                </div>
+                                                <div className="text-xs text-blue-600 mt-1 text-right">
+                                                  {Math.floor(
+                                                    requirementTrackingState.requirementTimeSpent /
+                                                      60,
+                                                  )}
+                                                  :
+                                                  {(
+                                                    requirementTrackingState.requirementTimeSpent %
+                                                    60
+                                                  )
+                                                    .toString()
+                                                    .padStart(2, "0")}{" "}
+                                                  /{" "}
+                                                  {Math.floor(
+                                                    requirementTrackingState.requirementTimeNeeded /
+                                                      60,
+                                                  )}
+                                                  :
+                                                  {(
+                                                    requirementTrackingState.requirementTimeNeeded %
+                                                    60
+                                                  )
+                                                    .toString()
+                                                    .padStart(2, "0")}
+                                                </div>
+                                              </div>
+                                            )}
+                                        </div>
                                       )}
                                   </div>
                                 </div>
@@ -1760,7 +1933,7 @@ export default function QuizSection({
                 ) || isStarting
               }
               size="lg"
-              className="px-8 bg-blue-600 hover:bg-blue-700"
+              className="px-8 bg-orange-600 hover:bg-orange-700"
             >
               {isStarting ? (
                 <>
