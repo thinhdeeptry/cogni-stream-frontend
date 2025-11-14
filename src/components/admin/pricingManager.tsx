@@ -917,7 +917,7 @@ export function AdminPricingManager({
           ) : null}
 
           {/* Approval Status Summary */}
-          {summaryStats && (
+          {/* {summaryStats && (
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h5 className="text-sm font-medium text-slate-700">
@@ -959,12 +959,12 @@ export function AdminPricingManager({
                   </p>
                   <p className="text-xs text-red-500">Bị từ chối</p>
                 </div>
-                {/* <div className="bg-green-50 p-3 rounded-lg text-center">
+                <div className="bg-green-50 p-3 rounded-lg text-center">
                   <p className="text-xl font-bold text-green-600">
                     {summaryStats.byApprovalStatus.active}
                   </p>
                   <p className="text-xs text-green-500">Đang áp dụng</p>
-                </div> */}
+                </div>
                 <div className="bg-indigo-50 p-3 rounded-lg text-center">
                   <p className="text-xl font-bold text-indigo-600">
                     {summaryStats.currentlyActive}
@@ -973,7 +973,7 @@ export function AdminPricingManager({
                 </div>
               </div>
             </div>
-          )}
+          )} */}
 
           {/* All Pricing Policies Table */}
           <div className="space-y-4">

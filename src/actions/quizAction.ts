@@ -376,7 +376,11 @@ export function canStartQuiz(
   status: QuizStatus,
   isComfirmRequirement?: boolean,
 ): boolean {
+  if (!status.nextAllowedAt || new Date(status.nextAllowedAt) <= new Date())
+    return true;
+
   if (isComfirmRequirement) return true;
+
   return (
     status.canAttempt &&
     (!status.nextAllowedAt || new Date(status.nextAllowedAt) <= new Date())

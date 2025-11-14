@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, Eye, EyeOff } from "lucide-react";
+import { Award, ChevronLeft, ChevronRight, Eye, EyeOff } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 
@@ -15,6 +15,11 @@ interface NavigationFooterProps {
   onNext: () => void;
   onToggleSidebar: () => void;
   isVisible: boolean;
+  // Certificate props
+  hasCertificate?: boolean;
+  certificateId?: string | null;
+  onCertificateClick?: () => void;
+  allItemsCompleted?: boolean;
 }
 
 export function NavigationFooter({
@@ -27,9 +32,12 @@ export function NavigationFooter({
   onNext,
   onToggleSidebar,
   isVisible,
+  hasCertificate = false,
+  certificateId = null,
+  onCertificateClick,
+  allItemsCompleted = false,
 }: NavigationFooterProps) {
   if (!isVisible) return null;
-
   return (
     <motion.div
       initial={{ y: 20, opacity: 0 }}
@@ -51,14 +59,25 @@ export function NavigationFooter({
           {currentIndex + 1} / {totalItems}
         </span>
 
-        <Button
-          onClick={onNext}
-          disabled={!canGoNext}
-          className="bg-orange-500 hover:bg-orange-600"
-        >
-          Tiếp theo
-          <ChevronRight className="h-4 w-4 ml-2" />
-        </Button>
+        {/* Show certificate button if course is completed */}
+        {allItemsCompleted ? (
+          <Button
+            onClick={onCertificateClick}
+            className="bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white transition-all duration-300"
+          >
+            <Award className="h-4 w-4 mr-2" />
+            {certificateId ? "Xem bằng" : "Nhận bằng"}
+          </Button>
+        ) : (
+          <Button
+            onClick={onNext}
+            disabled={!canGoNext}
+            className="bg-orange-500 hover:bg-orange-600"
+          >
+            Tiếp theo
+            <ChevronRight className="h-4 w-4 ml-2" />
+          </Button>
+        )}
       </div>
 
       {/* Sidebar toggle button */}

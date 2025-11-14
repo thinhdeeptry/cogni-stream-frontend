@@ -1,7 +1,13 @@
 "use client";
 
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { toast } from "@/hooks/use-toast";
 import { usePopupChatbot } from "@/hooks/usePopupChatbot";
@@ -34,6 +40,10 @@ import {
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 
+import {
+  type CertificateData,
+  issueCertificate,
+} from "@/actions/certificateActions";
 import { getCourseById } from "@/actions/courseAction";
 import { getLessonById } from "@/actions/courseAction";
 import {
@@ -43,6 +53,7 @@ import {
   markCourseAsCompleted,
 } from "@/actions/enrollmentActions";
 import {
+  type QuizStatus,
   completeUnlockRequirement,
   getQuizStatus,
   unlockQuiz,
@@ -107,6 +118,25 @@ export default function ClassLearningPage() {
   const [certificateId, setCertificateId] = useState<string | null>(null);
   const [isQuizActivelyTaking, setIsQuizActivelyTaking] = useState(false);
 
+  // Quiz statuses for filtering completed items
+  const [quizStatuses, setQuizStatuses] = useState<Map<string, QuizStatus>>(
+    new Map(),
+  );
+
+  // Requirement tracking states (moved from QuizSection)
+  const [currentRequirementIndex, setCurrentRequirementIndex] =
+    useState<number>(-1);
+  const [requirementTimeSpent, setRequirementTimeSpent] = useState<number>(0);
+  const [requirementTimeNeeded, setRequirementTimeNeeded] = useState<number>(0);
+  const [isTrackingRequirement, setIsTrackingRequirement] = useState(false);
+  const [completedRequirements, setCompletedRequirements] = useState<
+    Set<string>
+  >(new Set());
+  const [requirementQuizLessonId, setRequirementQuizLessonId] = useState<
+    string | null
+  >(null);
+  const requirementTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   // Modal states
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [pendingNavigation, setPendingNavigation] =
@@ -170,6 +200,35 @@ export default function ClassLearningPage() {
     setCurrentCourseId,
   } = useProgressStore();
 
+  // Filter completed items to exclude unpassed quizzes
+  const filteredCompletedItems = useMemo(() => {
+    if (!completedItems || !Array.isArray(completedItems)) return [];
+
+    return completedItems.filter((item: any) => {
+      // Find the corresponding syllabus item
+      const syllabusItem = syllabusData
+        .flatMap((group) => group.items)
+        .find((sItem) => sItem.id === item.id);
+
+      // If it's a quiz lesson, check if it's passed
+      if (
+        syllabusItem?.itemType === SyllabusItemType.LESSON &&
+        syllabusItem?.lesson?.type === LessonType.QUIZ &&
+        syllabusItem?.lesson?.id
+      ) {
+        const quizStatus = quizStatuses.get(syllabusItem.lesson.id);
+        if (quizStatus) {
+          return quizStatus.isPassed; // Only include if quiz is passed
+        }
+        // If quiz status not loaded yet, exclude from completed (conservative approach)
+        return false;
+      }
+
+      // For non-quiz items, include as normal
+      return true;
+    });
+  }, [completedItems, syllabusData, quizStatuses]);
+
   // Get all items in order for navigation
   const allItems = useMemo(() => {
     return syllabusData.flatMap((group) => group.items);
@@ -184,8 +243,9 @@ export default function ClassLearningPage() {
 
   // Helper function to check if an item is completed
   const isItemCompleted = (item: SyllabusItem) => {
-    if (!completedItems || !Array.isArray(completedItems)) return false;
-    return completedItems.some((p: any) => p.id === item.id);
+    if (!filteredCompletedItems || !Array.isArray(filteredCompletedItems))
+      return false;
+    return filteredCompletedItems.some((p: any) => p.id === item.id);
   };
 
   // Helper function to check if navigation to an item is allowed
@@ -205,6 +265,77 @@ export default function ClassLearningPage() {
 
     return true;
   };
+
+  // Helper function to check if all items are completed
+  const allItemsCompleted = useMemo(() => {
+    if (!allItems.length || !filteredCompletedItems.length) return false;
+    return allItems.every((item) => isItemCompleted(item));
+  }, [allItems, filteredCompletedItems]);
+
+  // Handler for issuing certificate
+  const handleIssueCertificate = useCallback(async () => {
+    if (isInstructorOrAdmin) {
+      console.log("[PreviewMode] Skipping certificate issuance.");
+      return;
+    }
+
+    if (!enrollmentId) {
+      toast({
+        title: "Lỗi",
+        description: "Không tìm thấy thông tin ghi danh",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      console.log("🏆 [Certificate] Starting certificate issuance...");
+
+      const certificateResult = await issueCertificate(enrollmentId);
+
+      if (certificateResult.success && certificateResult.data) {
+        console.log(
+          "🎉 [Certificate] Certificate issued successfully:",
+          certificateResult.data.id,
+        );
+
+        setHasCertificate(true);
+        setCertificateId(certificateResult.data.id);
+        toast({
+          title: "🎉 Chúc mừng!",
+          description: "Bạn đã nhận được chứng chỉ!",
+        });
+        router.push(`/certificate/${certificateResult.data.id}`);
+      } else {
+        console.warn(
+          "⚠️ [Certificate] Failed to issue certificate:",
+          certificateResult.message,
+        );
+        toast({
+          title: "Lỗi",
+          description: "Không thể cấp chứng chỉ. Vui lòng thử lại sau.",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      console.error("❌ [Certificate] Certificate issuance error:", error);
+      toast({
+        title: "Lỗi",
+        description: error.message || "Không thể cấp chứng chỉ",
+        variant: "destructive",
+      });
+    }
+  }, [enrollmentId, isInstructorOrAdmin, router]);
+
+  // Handler for certificate click (view existing certificate)
+  const handleCertificateClick = useCallback(() => {
+    if (certificateId) {
+      router.push(`/certificate/${certificateId}`);
+    } else {
+      // If no certificate exists, try to issue one
+      handleIssueCertificate();
+    }
+  }, [certificateId, router, handleIssueCertificate]);
 
   // Helper function to find the next available lesson
   const getNextAvailableItem = () => {
@@ -320,31 +451,85 @@ export default function ClassLearningPage() {
         return;
       }
 
+      console.log(
+        "🎓 [CourseCompletion] Starting course completion process...",
+      );
+
       const result = await markCourseAsCompleted(enrollmentId);
 
       if (result.success && result.data?.data) {
         const completedEnrollment = result.data.data;
+        console.log(
+          "✅ [CourseCompletion] Course marked as completed successfully",
+        );
 
+        // Check if certificate was already created by backend
         if (completedEnrollment.certificate) {
+          console.log(
+            "🏆 [Certificate] Certificate already exists from backend:",
+            completedEnrollment.certificate.id,
+          );
           setHasCertificate(true);
           setCertificateId(completedEnrollment.certificate.id);
           toast({
-            title: "Chúc mừng!",
+            title: "🎉 Chúc mừng!",
             description: "Bạn đã hoàn thành khóa học và nhận được chứng chỉ!",
           });
           router.push(`/certificate/${completedEnrollment.certificate.id}`);
         } else {
-          toast({
-            title: "Chúc mừng!",
-            description: "Bạn đã hoàn thành khóa học",
-          });
-          router.push(`/course/${params.courseId}`);
+          // Try to issue certificate manually if not created by backend
+          try {
+            console.log(
+              "🏆 [Certificate] Attempting to issue certificate manually...",
+            );
+            const certificateResult = await issueCertificate(enrollmentId);
+
+            if (certificateResult.success && certificateResult.data) {
+              console.log(
+                "🎉 [Certificate] Certificate issued successfully:",
+                certificateResult.data.id,
+              );
+
+              setHasCertificate(true);
+              setCertificateId(certificateResult.data.id);
+              toast({
+                title: "🎉 Chúc mừng!",
+                description:
+                  "Bạn đã hoàn thành khóa học và nhận được chứng chỉ!",
+              });
+              router.push(`/certificate/${certificateResult.data.id}`);
+            } else {
+              console.warn(
+                "⚠️ [Certificate] Failed to issue certificate:",
+                certificateResult.message,
+              );
+
+              // Still show success for course completion even if certificate fails
+              toast({
+                title: "🎉 Chúc mừng!",
+                description: "Bạn đã hoàn thành khóa học thành công!",
+              });
+              router.push(`/course/${params.courseId}`);
+            }
+          } catch (certError: any) {
+            console.error(
+              "❌ [Certificate] Certificate issuance error:",
+              certError,
+            );
+
+            // Still show success for course completion
+            toast({
+              title: "🎉 Chúc mừng!",
+              description: "Bạn đã hoàn thành khóa học thành công!",
+            });
+            router.push(`/course/${params.courseId}`);
+          }
         }
       } else {
         throw new Error(result.message || "Không thể hoàn thành khóa học");
       }
     } catch (err: any) {
-      console.error("Error completing course:", err);
+      console.error("❌ [CourseCompletion] Error completing course:", err);
       toast({
         title: "Lỗi",
         description: err.message || "Không thể cập nhật tiến độ học tập",
@@ -433,37 +618,10 @@ export default function ClassLearningPage() {
       return;
     }
 
-    if (!currentItem || !course || !enrollmentId || !currentLessonData) return;
-
-    const currentItemIndex = allItems.findIndex(
-      (item) => item.id === currentItem.id,
-    );
-    const isCurrentItemLast = currentItemIndex === allItems.length - 1;
-
-    if (!isCurrentItemLast) {
-      console.log(
-        "🎯 [ClassQuizCompletion] Not the final item, skipping course completion",
-      );
-      return;
-    }
-
-    const otherItemIds = allItems
-      .filter(
-        (item): item is NonNullable<typeof item> =>
-          item != null && item.id != null,
-      )
-      .map((item) => item.id)
-      .filter((id) => id !== currentItem.id);
-
-    const allOtherItemsCompleted = otherItemIds.every((id) =>
-      completedItems?.some((completedItem: any) => completedItem.id === id),
-    );
-
-    if (allOtherItemsCompleted) {
+    if (allItems.length === completedItems.length) {
       console.log(
         "🎉 [ClassQuizCompletion] All conditions met - completing course!",
       );
-
       setTimeout(async () => {
         try {
           await handleCourseCompletion();
@@ -653,6 +811,52 @@ export default function ClassLearningPage() {
     }
   };
 
+  // Load quiz statuses for filtering completed items
+  useEffect(() => {
+    if (syllabusData.length === 0 || isInstructorOrAdmin) return;
+
+    const loadQuizStatuses = async () => {
+      const quizLessons = syllabusData
+        .flatMap((group) => group.items)
+        .filter(
+          (item) =>
+            item.itemType === SyllabusItemType.LESSON &&
+            item.lesson?.type === LessonType.QUIZ &&
+            item.lesson?.id,
+        );
+
+      if (quizLessons.length === 0) return;
+
+      const newQuizStatuses = new Map<string, QuizStatus>();
+
+      // Load quiz statuses in parallel
+      const statusPromises = quizLessons.map(async (item) => {
+        if (!item.lesson?.id) return;
+
+        try {
+          const result = await getQuizStatus(
+            item.lesson.id,
+            isInstructorOrAdmin,
+          );
+          if (result.success && result.data) {
+            newQuizStatuses.set(item.lesson.id, result.data);
+          }
+        } catch (error) {
+          console.error(
+            `Failed to load quiz status for lesson ${item.lesson.id}:`,
+            error,
+          );
+        }
+      });
+
+      await Promise.all(statusPromises);
+      setQuizStatuses(newQuizStatuses);
+      console.log("Loaded quiz statuses:", newQuizStatuses);
+    };
+
+    loadQuizStatuses();
+  }, [syllabusData, isInstructorOrAdmin]);
+
   // Restore lesson from currentProgress
   useEffect(() => {
     if (syllabusData.length > 0 && !currentItem && params.classId) {
@@ -700,6 +904,7 @@ export default function ClassLearningPage() {
       setIsLoadingLesson(true);
       const lessonData = await getLessonById(lessonId);
       setCurrentLessonData(lessonData);
+      return lessonData; // Return data for use in QuizSection
     } catch (error) {
       console.error("Error fetching lesson:", error);
       toast({
@@ -707,6 +912,7 @@ export default function ClassLearningPage() {
         description: "Không thể tải nội dung bài học",
         variant: "destructive",
       });
+      return null;
     } finally {
       setIsLoadingLesson(false);
     }
@@ -768,6 +974,50 @@ export default function ClassLearningPage() {
     };
   }, [currentItem?.id, isEnrolled, isInstructorOrAdmin]);
 
+  // Requirement tracking effect - tracks time when viewing required lessons
+  useEffect(() => {
+    if (!isTrackingRequirement || !currentLessonData || isInstructorOrAdmin) {
+      return;
+    }
+
+    // Only track if we're viewing the lesson we need to complete
+    if (currentLessonData.id !== currentItem?.lesson?.id) {
+      return;
+    }
+
+    console.log(
+      "Starting requirement time tracking for lesson:",
+      currentLessonData.id,
+    );
+
+    // Start timer
+    requirementTimerRef.current = setInterval(() => {
+      setRequirementTimeSpent((prev) => {
+        const newTime = prev + 1;
+
+        // Check if requirement is completed
+        if (newTime >= requirementTimeNeeded) {
+          handleRequirementCompleted();
+          return requirementTimeNeeded;
+        }
+
+        return newTime;
+      });
+    }, 1000);
+
+    return () => {
+      if (requirementTimerRef.current) {
+        clearInterval(requirementTimerRef.current);
+      }
+    };
+  }, [
+    isTrackingRequirement,
+    currentLessonData,
+    requirementTimeNeeded,
+    currentItem,
+    isInstructorOrAdmin,
+  ]);
+
   // Handle page visibility to pause/resume tracking
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -826,9 +1076,15 @@ export default function ClassLearningPage() {
       return "";
     }
 
-    let transcriptSection = "No video transcript available";
+    const plainContent = currentLessonData?.content
+      ? extractPlainTextFromBlockNote(currentLessonData.content)
+      : "No written content available";
+
+    let transcriptSection = "";
+    let hasTranscript = false;
 
     if (timestampedTranscript.length > 0) {
+      hasTranscript = true;
       const hasValidTimestamps = timestampedTranscript.some(
         (item) => item.timestamp !== "0:00",
       );
@@ -844,18 +1100,27 @@ export default function ClassLearningPage() {
       }
     }
 
-    const plainContent = currentLessonData?.content
-      ? extractPlainTextFromBlockNote(currentLessonData.content)
-      : "No content available";
+    // Create context-aware reference text
+    let referenceContent = `Course: ${course?.title || "N/A"}
+Class: ${classInfo?.name || "N/A"}
+Lesson: ${currentLessonData?.title || "N/A"}
+Type: ${currentLessonData?.type || "N/A"}`;
 
-    return `
-    Course Title: ${course?.title} \n
-    Class Name: ${classInfo?.name} \n
-    Lesson Title: ${currentLessonData?.title} \n
-    Lesson Content: ${plainContent} \n
-    Lesson Type: ${currentLessonData?.type} \n
-    Lesson Video Transcript with Timestamps: \n${transcriptSection} \n
-    `;
+    if (currentLessonData?.videoUrl) {
+      referenceContent += `\nVideo URL: ${currentLessonData.videoUrl}`;
+    }
+
+    if (plainContent && plainContent !== "No written content available") {
+      referenceContent += `\n\nWritten Content:\n${plainContent}`;
+    }
+
+    if (hasTranscript) {
+      referenceContent += `\n\nVideo Transcript:\n${transcriptSection}`;
+    } else if (currentLessonData?.videoUrl) {
+      referenceContent += `\n\nVideo Status: Video available but transcript not accessible. The lesson has video content that students can watch.`;
+    }
+
+    return referenceContent;
   }, [
     currentItem?.itemType,
     currentLessonData,
@@ -888,17 +1153,148 @@ export default function ClassLearningPage() {
       syllabusData.find((g) => g.items.some((i) => i.id === currentItem.id))
         ?.day
     }`,
-    systemPrompt: `Bạn là trợ lý AI học tập cá nhân của CogniStream...`,
+    systemPrompt: `Bạn là trợ lý AI học tập thông minh của CogniStream. Tuân thủ các nguyên tắc sau:
+
+🎯 PERSONALITY & TONE:
+- Thân thiện, kiên nhẫn và khuyến khích
+- Giọng điệu như một mentor giàu kinh nghiệm
+- Tránh lặp lại câu trả lời, luôn đa dạng cách diễn đạt
+- Nhận biết được context và không trả lời máy móc
+
+💬 VIDEO CONTENT GUIDANCE:
+- Khi video KHÔNG có transcript: Dựa vào written content, lesson title và course context để trả lời
+- KHÔNG đoán mò hoặc biên soạn nội dung video
+- Thú nhận giới hạn và tập trung vào giá trị có thể mang lại từ thông tin có sẵn
+- Gợi ý học viên chia sẻ nội dung cụ thể để hỗ trợ tốt hơn
+- Sử dụng written content để tạo câu hỏi ôn tập và đề xuất hướng học tập
+
+📚 CONTENT STRATEGY:
+- Ơu tiên sử dụng written content làm nền tảng cho câu trả lời
+- Kết hợp lesson title và course context để đưa ra gợi ý phù hợp
+- Tạo câu hỏi suy ngẫm dựa trên nội dung có sẵn
+- Khuyến khích tư duy phản biện và ứng dụng thực tế
+
+🧠 CONVERSATION INTELLIGENCE:
+- Phân tích conversation history để hiểu learning journey
+- Nhận biết pattern: user thích học theo cách nào, gặp khó khăn gì
+- Tránh repeat thông tin, thay vào đó build upon previous answers
+- Response cho social cues như "thanks", "ok", "hiểu rồi" một cách tự nhiên`,
   });
 
-  // Handler to navigate to a required lesson to unlock quiz
-  const handleNavigateToLesson = (targetLessonId: string) => {
-    if (!targetLessonId) {
+  // Handle requirement completion
+  const handleRequirementCompleted = useCallback(async () => {
+    if (requirementTimerRef.current) {
+      clearInterval(requirementTimerRef.current);
+      requirementTimerRef.current = null;
+    }
+
+    if (!requirementQuizLessonId || currentRequirementIndex < 0) return;
+
+    try {
+      // Get quiz status to find the completed requirement
+      const { getQuizStatus } = await import("@/actions/quizAction");
+      const statusResult = await getQuizStatus(
+        requirementQuizLessonId,
+        isInstructorOrAdmin,
+      );
+
+      if (!statusResult.success || !statusResult.data?.unlockRequirements)
+        return;
+
+      const currentReq =
+        statusResult.data.unlockRequirements[currentRequirementIndex];
+      if (!currentReq) return;
+
+      // Mark requirement as completed
+      setCompletedRequirements((prev) => new Set([...prev, currentReq.id]));
+      setIsTrackingRequirement(false);
+
+      console.log("Requirement completed:", currentReq);
+
+      // Show success toast
       toast({
-        title: "❌ Lỗi",
-        description: "Không tìm thấy bài học cần học",
-        variant: "destructive",
+        title: `✅ Hoàn thành yêu cầu: ${currentReq.title || currentReq.description}`,
+        description: "Bạn đã học đủ thời gian yêu cầu!",
+        duration: 5000,
       });
+
+      // Check if there are more requirements
+      const nextIndex = currentRequirementIndex + 1;
+      if (nextIndex < statusResult.data.unlockRequirements.length) {
+        const nextReq = statusResult.data.unlockRequirements[nextIndex];
+
+        // Show toast with option to navigate to next requirement
+        toast({
+          title: `📚 Yêu cầu tiếp theo: ${nextReq.title || nextReq.description}`,
+          description: "Nhấn nút bên dưới để học tiếp",
+          duration: 0,
+          action: (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (nextReq.targetLesson?.id) {
+                  handleNavigateToRequirement(
+                    nextIndex,
+                    nextReq.targetLesson.id,
+                    requirementQuizLessonId,
+                  );
+                }
+              }}
+            >
+              Học tiếp
+            </Button>
+          ),
+        });
+      } else {
+        // All requirements completed - navigate back to quiz
+        const quizItem = allItems.find(
+          (item) =>
+            item.itemType === SyllabusItemType.LESSON &&
+            item.lesson?.id === requirementQuizLessonId,
+        );
+
+        toast({
+          title: "🎉 Hoàn thành tất cả yêu cầu!",
+          description: "Bạn có thể làm lại quiz ngay bây giờ",
+          duration: 5000,
+          action: (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (quizItem) {
+                  setCurrentItem(quizItem);
+                } else {
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }
+              }}
+            >
+              Quay lại Quiz
+            </Button>
+          ),
+        });
+      }
+    } catch (error) {
+      console.error("Error completing requirement:", error);
+    }
+  }, [
+    currentRequirementIndex,
+    requirementQuizLessonId,
+    isInstructorOrAdmin,
+    allItems,
+  ]);
+
+  // Handler to navigate to a required lesson to unlock quiz
+  const handleNavigateToLesson = (targetLessonId: string, silent = false) => {
+    if (!targetLessonId) {
+      if (!silent) {
+        toast({
+          title: "❌ Lỗi",
+          description: "Không tìm thấy bài học cần học",
+          variant: "destructive",
+        });
+      }
       return;
     }
 
@@ -917,22 +1313,78 @@ export default function ClassLearningPage() {
     }
 
     if (!targetItem) {
-      toast({
-        title: "❌ Không tìm thấy bài học",
-        description: "Bài học này không có trong lộ trình của lớp",
-        variant: "destructive",
-      });
+      if (!silent) {
+        toast({
+          title: "❌ Không tìm thấy bài học",
+          description: "Bài học này không có trong lộ trình của lớp",
+          variant: "destructive",
+        });
+      }
       return;
     }
 
     setCurrentItem(targetItem);
 
-    toast({
-      title: "🎯 Chuyển đến bài học",
-      description: `Đang mở bài học: ${targetItem.lesson?.title || "Bài học"}`,
-      duration: 3000,
-    });
+    if (!silent) {
+      toast({
+        title: "🎯 Chuyển đến bài học",
+        description: `Đang mở bài học: ${targetItem.lesson?.title || "Bài học"}`,
+        duration: 3000,
+      });
+    }
   };
+
+  // Handle navigation to a requirement lesson
+  const handleNavigateToRequirement = useCallback(
+    async (reqIndex: number, targetLessonId: string, quizLessonId: string) => {
+      try {
+        // Get lesson data to determine time needed
+        const lessonData = await fetchLessonData(targetLessonId);
+
+        // Set time needed (use estimatedDurationMinutes or default to 5 minutes)
+        const timeNeeded = (lessonData?.estimatedDurationMinutes || 5) * 60; // Convert to seconds
+
+        setCurrentRequirementIndex(reqIndex);
+        setRequirementTimeNeeded(timeNeeded);
+        setRequirementTimeSpent(0);
+        setIsTrackingRequirement(true);
+        setRequirementQuizLessonId(quizLessonId);
+
+        // Navigate to the lesson
+        handleNavigateToLesson(targetLessonId, true);
+
+        // Show toast after a small delay to ensure it appears after navigation
+        setTimeout(() => {
+          // Get requirement info for toast
+          const getRequirementInfo = async () => {
+            const { getQuizStatus } = await import("@/actions/quizAction");
+            const statusResult = await getQuizStatus(
+              quizLessonId,
+              isInstructorOrAdmin,
+            );
+            const requirement =
+              statusResult.data?.unlockRequirements?.[reqIndex];
+
+            toast({
+              title: `📖 Bắt đầu học: ${requirement?.title || requirement?.description || "Bài học"}`,
+              description: `Cần học tối thiểu ${Math.ceil(timeNeeded / 60)} phút`,
+              duration: 5000,
+            });
+          };
+
+          getRequirementInfo();
+        }, 100);
+      } catch (error) {
+        console.error("Error navigating to requirement:", error);
+        toast({
+          title: "Lỗi",
+          description: "Không thể chuyển đến bài học",
+          variant: "destructive",
+        });
+      }
+    },
+    [fetchLessonData, handleNavigateToLesson, isInstructorOrAdmin],
+  );
 
   // Loading state
   if (isLoading) {
@@ -1118,7 +1570,9 @@ export default function ClassLearningPage() {
                                       );
                                     }
                                   }}
-                                  onNavigateToLesson={handleNavigateToLesson}
+                                  onNavigateToLesson={(lessonId) =>
+                                    handleNavigateToLesson(lessonId, true)
+                                  }
                                   onNavigateToNextIncomplete={() => {
                                     const nextIncompleteItem = allItems.find(
                                       (item, index) =>
@@ -1151,6 +1605,18 @@ export default function ClassLearningPage() {
                                   onCourseCompletion={
                                     handleQuizCourseCompletion
                                   }
+                                  currentLessonData={currentLessonData}
+                                  onGetLessonData={fetchLessonData}
+                                  onNavigateToRequirement={
+                                    handleNavigateToRequirement
+                                  }
+                                  requirementTrackingState={{
+                                    isTrackingRequirement,
+                                    requirementTimeSpent,
+                                    requirementTimeNeeded,
+                                    currentRequirementIndex,
+                                    completedRequirements,
+                                  }}
                                 />
                               ) : (
                                 <div className="flex items-center justify-center p-8">
@@ -1159,7 +1625,8 @@ export default function ClassLearningPage() {
                               )}
                             </div>
                           ) : currentLessonData.type === LessonType.BLOG ||
-                            currentLessonData.type === LessonType.MIXED ? (
+                            currentLessonData.type === LessonType.MIXED ||
+                            currentLessonData.type === LessonType.VIDEO ? (
                             <div>
                               {(() => {
                                 let contentBlocks: any[] = [];
@@ -1276,6 +1743,11 @@ export default function ClassLearningPage() {
             isQuizActivelyTaking
           )
         }
+        // Certificate props
+        hasCertificate={hasCertificate}
+        certificateId={certificateId}
+        onCertificateClick={handleCertificateClick}
+        allItemsCompleted={allItemsCompleted}
       />
 
       {/* Sidebar */}
@@ -1293,7 +1765,7 @@ export default function ClassLearningPage() {
           syllabusData={syllabusData}
           isLoadingSyllabus={isLoadingSyllabus}
           currentItem={currentItem}
-          completedItems={completedItems}
+          completedItems={filteredCompletedItems}
           allItems={allItems}
           isItemCompleted={isItemCompleted}
           canNavigateToItem={canNavigateToItem}
@@ -1316,7 +1788,7 @@ export default function ClassLearningPage() {
       {/* Chatbot */}
       {currentItem?.itemType === SyllabusItemType.LESSON &&
         currentLessonData &&
-        currentLessonData.type !== LessonType.QUIZ &&
+        // currentLessonData.type !== LessonType.QUIZ &&
         isEnrolled && <ClassLessonChatbot />}
     </motion.div>
   );

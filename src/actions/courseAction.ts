@@ -550,12 +550,32 @@ export const createLesson = async (
     blockDuration?: number | null;
     requireUnlockAction?: boolean;
     unlockRequirements?: any[];
+    // Questions for quiz lessons - based on documentation
+    questions?: {
+      text: string;
+      type: string; // QuestionType
+      points?: number;
+      order?: number;
+      answers: {
+        text: string;
+        isCorrect: boolean;
+        points?: number;
+        acceptedAnswers?: string[];
+        caseSensitive?: boolean;
+        exactMatch?: boolean;
+      }[];
+    }[];
   },
 ) => {
   try {
+    const payload = { ...lessonData };
+    if (payload.title === null || payload.title === undefined) {
+      payload.title = "điều kiện mở khóa";
+    }
+
     const { data } = await courseApi.post(
       `/lessons/courses/${courseId}/chapters/${chapterId}`,
-      lessonData,
+      payload,
     );
     return {
       success: true,

@@ -247,9 +247,12 @@ export default function LessonDetail() {
         // Mobile: sidebar should be closed by default
         setIsSidebarOpen(false);
       } else {
-        // Desktop: sidebar should be open by default (unless it's a quiz)
-        if (lesson?.type !== LessonType.QUIZ) {
+        // Desktop: sidebar should be open by default (unless it's a quiz or quiz is actively being taken)
+        if (lesson?.type !== LessonType.QUIZ && !isQuizActivelyTaking) {
           setIsSidebarOpen(true);
+        } else if (lesson?.type === LessonType.QUIZ || isQuizActivelyTaking) {
+          // Force close sidebar when taking quiz for better focus
+          setIsSidebarOpen(false);
         }
       }
     };
@@ -259,7 +262,7 @@ export default function LessonDetail() {
 
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, [lesson?.type]);
+  }, [lesson?.type, isQuizActivelyTaking]);
 
   // Function to handle chapter expansion toggle
   const toggleChapter = (chapterId: string) => {
@@ -801,6 +804,16 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
   const handleQuizStateChange = useCallback((isActivelyTaking: boolean) => {
     setIsQuizActivelyTaking(isActivelyTaking);
   }, []);
+
+  // Auto close sidebar when quiz is actively being taken
+  useEffect(() => {
+    if (isQuizActivelyTaking) {
+      setIsSidebarOpen(false);
+    } else if (lesson?.type !== LessonType.QUIZ && window.innerWidth >= 768) {
+      // Reopen sidebar when quiz is finished (only on desktop)
+      setIsSidebarOpen(true);
+    }
+  }, [isQuizActivelyTaking, lesson?.type]);
   // New animation variants
   const fadeIn = {
     hidden: { opacity: 0 },
@@ -1256,7 +1269,9 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
       {isSidebarOpen && (
         <div
           className={`fixed inset-0 bg-black bg-opacity-50 z-30 ${
-            lesson?.type === LessonType.QUIZ ? "block" : "md:hidden"
+            lesson?.type === LessonType.QUIZ || isQuizActivelyTaking
+              ? "block"
+              : "md:hidden"
           }`}
           onClick={() => setIsSidebarOpen(false)}
         />
@@ -1264,7 +1279,7 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
 
       <div
         className={`w-full flex-1 flex flex-col min-h-screen relative px-2 sm:px-4 transition-all duration-300 ease-in-out ${
-          isSidebarOpen ? "md:pr-[350px]" : "md:pr-4"
+          isSidebarOpen && !isQuizActivelyTaking ? "md:pr-[350px]" : "md:pr-4"
         } md:pl-4`}
       >
         <motion.div
@@ -1343,7 +1358,7 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
         <LessonSidebar
           course={course}
           lesson={lesson}
-          isSidebarOpen={isSidebarOpen}
+          isSidebarOpen={isSidebarOpen && !isQuizActivelyTaking}
           setIsSidebarOpen={setIsSidebarOpen}
           expandedChapters={expandedChapters}
           toggleChapter={toggleChapter}
@@ -1357,6 +1372,7 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
           isEnrolled={isEnrolled}
           isInstructorOrAdmin={isInstructorOrAdmin}
           isButtonEnabled={isButtonEnabled}
+          isQuizActivelyTaking={isQuizActivelyTaking}
         />
       </div>
 

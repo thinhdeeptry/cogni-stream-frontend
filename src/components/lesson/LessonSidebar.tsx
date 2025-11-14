@@ -26,6 +26,7 @@ interface LessonSidebarProps {
   isEnrolled: boolean;
   isInstructorOrAdmin: boolean;
   isButtonEnabled: boolean;
+  isQuizActivelyTaking?: boolean;
 }
 
 export function LessonSidebar({
@@ -42,7 +43,12 @@ export function LessonSidebar({
   isEnrolled,
   isInstructorOrAdmin,
   isButtonEnabled,
+  isQuizActivelyTaking = false,
 }: LessonSidebarProps) {
+  // Don't render sidebar if quiz is actively being taken
+  if (isQuizActivelyTaking) {
+    return null;
+  }
   return (
     <>
       {/* Floating Toggle Button for Quiz on mobile when sidebar is closed */}
