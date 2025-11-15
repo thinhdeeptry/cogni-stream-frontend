@@ -57,6 +57,8 @@ export function StudentAttendanceInput({
   const [attendanceInfo, setAttendanceInfo] =
     useState<SyllabusAttendanceInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
   const [hasSubmitted, setHasSubmitted] = useState(() => {
     // Check if already submitted in this session
     if (typeof window !== "undefined") {
@@ -65,6 +67,7 @@ export function StudentAttendanceInput({
     return false;
   });
   const [hasActiveCode, setHasActiveCode] = useState(false); // Track if there's an active attendance code
+  const [currentAttendanceCode, setCurrentAttendanceCode] = useState<any>(null); // Store current attendance code with expiresAt
 
   // Fetch attendance info when component mounts
   useEffect(() => {
@@ -82,7 +85,7 @@ export function StudentAttendanceInput({
 
       // Check attendance status using real API
       const result = await checkAttendanceStatus(syllabusItemId, enrollmentId);
-
+      console.log("Attendance status result:", result);
       if (result.success && result.data) {
         const apiData = result.data;
 
@@ -103,8 +106,11 @@ export function StudentAttendanceInput({
         setAttendanceInfo(mappedData);
         setHasSubmitted(!!apiData.attendanceRecord);
 
-        // Check if there's an active attendance code
+        // Check if there's an active attendance code and store current code
         setHasActiveCode(apiData.canCheckIn || false);
+        // Current code là code mới nhất trong attendanceCodes array
+        const currentCode = apiData.syllabusItem?.attendanceCodes?.[0] || null;
+        setCurrentAttendanceCode(currentCode);
 
         // Sync with localStorage
         if (apiData.attendanceRecord && typeof window !== "undefined") {
@@ -141,6 +147,7 @@ export function StudentAttendanceInput({
   };
 
   const handleSubmitAttendance = async () => {
+    setErrorMessage(null);
     if (!attendanceCode.trim()) {
       toast.error("Vui lòng nhập mã điểm danh");
       return;
@@ -199,7 +206,11 @@ export function StudentAttendanceInput({
       await fetchAttendanceInfo();
     } catch (error: any) {
       console.error("Error submitting attendance:", error);
-      toast.error(error.message || "Không thể điểm danh. Vui lòng thử lại.");
+
+      const msg = error.message || "Không thể điểm danh. Vui lòng thử lại.";
+
+      toast.error(msg);
+      setErrorMessage("Điểm danh thất bại");
     } finally {
       setIsSubmitting(false);
     }
@@ -212,10 +223,11 @@ export function StudentAttendanceInput({
   };
 
   const getTimeRemaining = () => {
-    if (!attendanceInfo?.syllabusItem.attendanceEndTime) return null;
+    // Dùng expiresAt của attendance code thay vì attendanceEndTime của syllabus
+    if (!currentAttendanceCode?.expiresAt) return null;
 
     const now = new Date();
-    const endTime = new Date(attendanceInfo.syllabusItem.attendanceEndTime);
+    const endTime = new Date(currentAttendanceCode.expiresAt);
     const diffMs = endTime.getTime() - now.getTime();
 
     if (diffMs <= 0) return "Đã hết hạn";
@@ -230,11 +242,18 @@ export function StudentAttendanceInput({
   };
 
   const isAttendanceActive = () => {
-    if (!attendanceInfo?.syllabusItem.attendanceEndTime) return false;
+    // Dùng expiresAt của attendance code thay vì attendanceEndTime của syllabus
+    console.log(
+      "Current attendance code for active check:",
+      currentAttendanceCode,
+    );
+    if (!currentAttendanceCode?.expiresAt) return false;
     const now = new Date();
-    const endTime = new Date(attendanceInfo.syllabusItem.attendanceEndTime);
-    return now < endTime;
+    const endTime = new Date(currentAttendanceCode.expiresAt);
+    console.log("Attendance active check (code expiresAt):", now, endTime);
+    return now < endTime && currentAttendanceCode.isActive;
   };
+  console.log(attendanceInfo, hasSubmitted, hasActiveCode);
 
   if (isLoading) {
     return (
@@ -393,16 +412,15 @@ export function StudentAttendanceInput({
                 </div>
               </div>
 
-              <div className="text-xs text-gray-600 space-y-1">
-                <p>
-                  💡 Mẹo: Mã điểm danh thường có 6-8 ký tự và được giảng viên
-                  cung cấp trong lớp
-                </p>
-                <p>
-                  ⚠️ Lưu ý: Mỗi học viên chỉ được điểm danh một lần cho mỗi buổi
-                  học
-                </p>
-              </div>
+              {/* Error message */}
+              {errorMessage && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <div className="flex items-center gap-2 text-red-700">
+                    <AlertCircle className="h-4 w-4" />
+                    <span className="text-sm font-medium">{errorMessage}</span>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-center">
@@ -428,23 +446,6 @@ export function StudentAttendanceInput({
             </p>
           </div>
         )}
-
-        {/* Instructions */}
-        <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
-          <h4 className="font-medium text-gray-800 mb-2 flex items-center gap-2">
-            <Clock className="h-4 w-4" />
-            Hướng dẫn điểm danh
-          </h4>
-          <div className="text-sm text-gray-600 space-y-1">
-            <p>1. Tham gia buổi học theo link được cung cấp</p>
-            <p>2. Lắng nghe giảng viên công bố mã điểm danh</p>
-            <p>3. Nhập mã điểm danh vào ô trên và nhấn "Điểm danh"</p>
-            <p className="font-medium text-orange-600">
-              ⚠️ Lưu ý: Phải điểm danh thành công mới được phép tiếp tục buổi
-              học tiếp theo
-            </p>
-          </div>
-        </div>
       </CardContent>
     </Card>
   );

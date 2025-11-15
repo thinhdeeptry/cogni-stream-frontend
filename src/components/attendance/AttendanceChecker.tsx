@@ -54,6 +54,27 @@ export default function AttendanceChecker({
     checkCurrentAttendanceStatus();
   }, [syllabusItemId, enrollmentId]);
 
+  // Refresh when the page becomes visible or window gains focus
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        checkCurrentAttendanceStatus();
+      }
+    };
+
+    const handleFocus = () => {
+      checkCurrentAttendanceStatus();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [syllabusItemId, enrollmentId]);
+
   const checkCurrentAttendanceStatus = async () => {
     if (!attendanceEnabled) return;
 

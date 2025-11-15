@@ -14,10 +14,8 @@ import {
 } from "lucide-react";
 import ReactPlayer from "react-player";
 
-import {
-  AttendanceManager,
-  StudentAttendanceInput,
-} from "@/components/attendance";
+import { AttendanceManager } from "@/components/attendance/AttendanceManager";
+import { StudentAttendanceInput } from "@/components/attendance/StudentAttendanceInput";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";

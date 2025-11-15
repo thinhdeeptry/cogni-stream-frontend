@@ -62,6 +62,27 @@ export default function StudentAttendanceCard({
     checkCurrentStatus();
   }, [syllabusItemId, enrollmentId]);
 
+  // Refresh when the page becomes visible or window gains focus
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        checkCurrentStatus();
+      }
+    };
+
+    const handleFocus = () => {
+      checkCurrentStatus();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [syllabusItemId, enrollmentId]);
+
   const checkCurrentStatus = async () => {
     setIsChecking(true);
     try {
