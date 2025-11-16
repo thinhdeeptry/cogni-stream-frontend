@@ -1,6 +1,5 @@
 export { ClassHeader } from "./ClassHeader";
 export { TimeTrackingCard } from "./TimeTrackingCard";
-export { LessonCompletionCard } from "./LessonCompletionCard";
 export {
   LessonContentRenderer,
   extractPlainTextFromBlockNote,

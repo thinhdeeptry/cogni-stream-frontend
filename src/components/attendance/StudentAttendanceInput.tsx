@@ -296,49 +296,6 @@ export function StudentAttendanceInput({
             Bạn đã hoàn thành điểm danh cho {sessionTopic}
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <h4 className="font-medium text-green-800 mb-1">
-                  Thông tin điểm danh
-                </h4>
-                <div className="space-y-1 text-sm text-green-700">
-                  <p>
-                    Trạng thái:
-                    <Badge className="ml-2 bg-green-100 text-green-800">
-                      {record.status === AttendanceStatus.PRESENT
-                        ? "Có mặt"
-                        : record.status === AttendanceStatus.LATE
-                          ? "Muộn"
-                          : "Vắng mặt"}
-                    </Badge>
-                  </p>
-                  <p>
-                    Thời gian:{" "}
-                    {new Date(record.checkedInAt).toLocaleString("vi-VN")}
-                  </p>
-                  {record.isLate && (
-                    <p className="text-yellow-700">⚠️ Bạn đã điểm danh muộn</p>
-                  )}
-                </div>
-              </div>
-              <UserCheck className="h-12 w-12 text-green-600" />
-            </div>
-          </div>
-
-          {/* Success message with next steps */}
-          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <div className="flex items-center gap-2 text-blue-700 mb-2">
-              <CheckCircle className="h-5 w-5" />
-              <h4 className="font-medium">Bạn có thể tiếp tục học!</h4>
-            </div>
-            <p className="text-sm text-blue-600">
-              💡 Sử dụng nút "Tiếp theo" ở cuối trang để chuyển sang buổi học
-              tiếp theo.
-            </p>
-          </div>
-        </CardContent>
       </Card>
     );
   }
@@ -356,7 +313,7 @@ export function StudentAttendanceInput({
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Time remaining info */}
-        {isAttendanceActive() && (
+        {/* {isAttendanceActive() && (
           <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
             <div className="flex items-center gap-2 text-blue-700">
               <Timer className="h-4 w-4" />
@@ -365,7 +322,7 @@ export function StudentAttendanceInput({
               </span>
             </div>
           </div>
-        )}
+        )} */}
 
         {/* Attendance input */}
         {isAttendanceActive() ? (
