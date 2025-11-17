@@ -100,6 +100,7 @@ export default function CourseDetail() {
   const [course, setCourse] = useState<Course | null>(null);
   const { user } = useUserStore();
   const [isLoading, setIsLoading] = useState(false);
+  const [isEnrolling, setIsEnrolling] = useState(false); // Separate state for enrollment loading
   const [error, setError] = useState<string | null>(null);
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [firstLessonId, setFirstLessonId] = useState<string | null>(null);
@@ -409,7 +410,7 @@ export default function CourseDetail() {
       }
     }
 
-    setIsLoading(true); // Bắt đầu loading
+    setIsEnrolling(true); // Bắt đầu enrollment loading instead of isLoading
 
     // Kiểm tra xem có phải khóa miễn phí không - convert về number để so sánh
     const currentPriceNumber = Number(pricing.currentPrice);
@@ -458,7 +459,7 @@ export default function CourseDetail() {
         toast.error("Có lỗi xảy ra khi đăng ký khóa học");
         console.error("Error enrolling in free course:", error);
       } finally {
-        setIsLoading(false);
+        setIsEnrolling(false);
       }
       return;
     } else {
@@ -498,7 +499,7 @@ export default function CourseDetail() {
         toast.error("Có lỗi xảy ra khi tạo đơn thanh toán");
         console.error("Error creating payment:", error);
       } finally {
-        setIsLoading(false);
+        setIsEnrolling(false);
       }
     }
   };
@@ -1227,13 +1228,13 @@ export default function CourseDetail() {
                       size="lg"
                       onClick={handleEnrollClick}
                       disabled={
-                        isLoading ||
+                        isEnrolling ||
                         isCheckingPayment ||
                         (course.courseType === CourseType.LIVE &&
                           !selectedClassId)
                       }
                     >
-                      {isLoading || isCheckingPayment ? (
+                      {isEnrolling || isCheckingPayment ? (
                         <div className="flex items-center justify-center">
                           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                           <span>
@@ -1419,12 +1420,12 @@ export default function CourseDetail() {
               size="lg"
               onClick={handleEnrollClick}
               disabled={
-                isLoading ||
+                isEnrolling ||
                 isCheckingPayment ||
                 (course.courseType === CourseType.LIVE && !selectedClassId)
               }
             >
-              {isLoading || isCheckingPayment ? (
+              {isEnrolling || isCheckingPayment ? (
                 <div className="flex items-center justify-center">
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                   <span>

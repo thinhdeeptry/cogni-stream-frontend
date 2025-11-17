@@ -53,6 +53,11 @@ import {
   markCourseAsCompleted,
 } from "@/actions/enrollmentActions";
 import {
+  type ProgressStatus,
+  createStudentProgress,
+  updateProgress,
+} from "@/actions/progressActions";
+import {
   type QuizStatus,
   completeUnlockRequirement,
   getQuizStatus,
@@ -67,7 +72,7 @@ import { getYoutubeTranscript } from "@/actions/youtubeTranscript.action";
 import { useProgressStore } from "@/stores/useProgressStore";
 import useUserStore from "@/stores/useUserStore";
 
-import { AttendanceManager } from "@/components/attendance";
+// import { AttendanceManager } from "@/components/attendance";
 import CourseSidebar from "@/components/course/CourseSidebar";
 import QuizSection from "@/components/quiz/QuizSection";
 import { Badge } from "@/components/ui/badge";
@@ -80,7 +85,6 @@ import {
   ClassHeader,
   ConfirmationModal,
   InstructorPreviewBanner,
-  LessonCompletionCard,
   LessonContentRenderer,
   LiveSessionCard,
   NavigationFooter,
@@ -117,6 +121,10 @@ export default function ClassLearningPage() {
   const [hasCertificate, setHasCertificate] = useState<boolean>(false);
   const [certificateId, setCertificateId] = useState<string | null>(null);
   const [isQuizActivelyTaking, setIsQuizActivelyTaking] = useState(false);
+  const [timeCompleteNotified, setTimeCompleteNotified] = useState(false);
+  const [currentItemTimeTracked, setCurrentItemTimeTracked] = useState<
+    Set<string>
+  >(new Set());
 
   // Quiz statuses for filtering completed items
   const [quizStatuses, setQuizStatuses] = useState<Map<string, QuizStatus>>(
@@ -158,6 +166,13 @@ export default function ClassLearningPage() {
     requiredMinutes: getCurrentItemRequiredMinutes(),
     onTimeComplete: () => {
       console.log("Time tracking completed for item:", currentItem?.id);
+      if (currentItem?.id && !timeCompleteNotified) {
+        setTimeCompleteNotified(true);
+        setCurrentItemTimeTracked((prev) => new Set(prev).add(currentItem.id));
+
+        // Auto-create syllabus progress and update enrollment when time requirement is met
+        handleLessonTimeCompletion();
+      }
     },
   });
 
@@ -173,6 +188,29 @@ export default function ClassLearningPage() {
 
     return 5;
   }
+
+  // Helper function to check if current item time requirement is met
+  const isCurrentItemTimeComplete = () => {
+    if (!currentItem || isInstructorOrAdmin) return true;
+
+    // Skip time tracking for quiz lessons and live sessions
+    if (
+      currentItem.itemType === SyllabusItemType.LESSON &&
+      currentItem.lesson?.type === LessonType.QUIZ
+    ) {
+      return true;
+    }
+    if (currentItem.itemType === SyllabusItemType.LIVE_SESSION) {
+      return true; // Live sessions use attendance instead
+    }
+
+    // Check if already completed or time tracking completed
+    return (
+      isItemCompleted(currentItem) ||
+      timeTracking.isTimeComplete ||
+      currentItemTimeTracked.has(currentItem.id)
+    );
+  };
 
   // Hooks
   const params = useParams();
@@ -248,6 +286,13 @@ export default function ClassLearningPage() {
     return filteredCompletedItems.some((p: any) => p.id === item.id);
   };
 
+  // Helper function to check if a live session attendance is completed
+  const isLiveSessionAttendanceCompleted = (item: SyllabusItem) => {
+    if (item.itemType !== SyllabusItemType.LIVE_SESSION) return true; // Not a live session, no attendance needed
+    if (isInstructorOrAdmin) return true; // Instructors can always proceed
+    return attendanceCompleted.has(item.id);
+  };
+
   // Helper function to check if navigation to an item is allowed
   const canNavigateToItem = (targetItem: SyllabusItem) => {
     if (isInstructorOrAdmin) return true;
@@ -255,16 +300,53 @@ export default function ClassLearningPage() {
     const currentIndex = currentItemIndex;
 
     if (targetIndex <= currentIndex) return true;
-    if (targetIndex === currentIndex + 1) return true;
+    if (targetIndex === currentIndex + 1) {
+      // For the next item, check if current item requirements are met
+      if (currentItem) {
+        // If current item is live session, check attendance
+        if (currentItem.itemType === SyllabusItemType.LIVE_SESSION) {
+          return isLiveSessionAttendanceCompleted(currentItem);
+        }
+        // For lesson items, check both completion and time tracking
+        if (currentItem.itemType === SyllabusItemType.LESSON) {
+          // Skip time requirement for quiz lessons
+          if (currentItem.lesson?.type === LessonType.QUIZ) {
+            return isItemCompleted(currentItem);
+          }
+          // For other lesson types, check time completion
+          return isCurrentItemTimeComplete();
+        }
+        // For other items, check completion status
+        return isItemCompleted(currentItem) || isInstructorOrAdmin;
+      }
+      return true;
+    }
 
     for (let i = currentIndex + 1; i < targetIndex; i++) {
-      if (!isItemCompleted(allItems[i])) {
+      const item = allItems[i];
+      // Check completion, attendance (for live sessions), and time tracking (for lessons)
+      if (!isItemCompleted(item) || !isLiveSessionAttendanceCompleted(item)) {
         return false;
+      }
+      // Additional time tracking check for lesson items
+      if (
+        item.itemType === SyllabusItemType.LESSON &&
+        item.lesson?.type !== LessonType.QUIZ
+      ) {
+        const itemTimeTracked = currentItemTimeTracked.has(item.id);
+        if (!itemTimeTracked && !isItemCompleted(item)) {
+          return false;
+        }
       }
     }
 
     return true;
   };
+
+  // State to track attendance status for live sessions
+  const [attendanceCompleted, setAttendanceCompleted] = useState<Set<string>>(
+    new Set(),
+  );
 
   // Helper function to check if all items are completed
   const allItemsCompleted = useMemo(() => {
@@ -289,43 +371,81 @@ export default function ClassLearningPage() {
     }
 
     try {
-      console.log("🏆 [Certificate] Starting certificate issuance...");
+      console.log("[Certificate] Starting certificate issuance...");
+
+      // Refresh session trước khi gọi API
+      // await session?.update();
 
       const certificateResult = await issueCertificate(enrollmentId);
+      console.log(certificateResult);
 
       if (certificateResult.success && certificateResult.data) {
         console.log(
-          "🎉 [Certificate] Certificate issued successfully:",
+          "[Certificate] Certificate issued successfully:",
           certificateResult.data.id,
         );
 
         setHasCertificate(true);
         setCertificateId(certificateResult.data.id);
         toast({
-          title: "🎉 Chúc mừng!",
+          title: "Chúc mừng!",
           description: "Bạn đã nhận được chứng chỉ!",
         });
         router.push(`/certificate/${certificateResult.data.id}`);
       } else {
         console.warn(
-          "⚠️ [Certificate] Failed to issue certificate:",
+          "[Certificate] Failed to issue certificate:",
           certificateResult.message,
         );
-        toast({
-          title: "Lỗi",
-          description: "Không thể cấp chứng chỉ. Vui lòng thử lại sau.",
-          variant: "destructive",
-        });
+
+        // Nếu lỗi liên quan đến authentication, gợi ý đăng nhập lại
+        // if (certificateResult.message?.includes("Access Token") ||
+        //     certificateResult.message?.includes("hết hạn") ||
+        //     certificateResult.message?.includes("không hợp lệ")) {
+        //   toast({
+        //     title: "Phiên đăng nhập hết hạn",
+        //     description: "Vui lòng đăng nhập lại để nhận chứng chỉ.",
+        //     variant: "destructive",
+        //     action: (
+        //       <Button
+        //         variant="outline"
+        //         size="sm"
+        //         onClick={() => {
+        //           window.location.reload();
+        //         }}
+        //       >
+        //         Tải lại trang
+        //       </Button>
+        //     ),
+        //   });
+        // } else {
+        //   toast({
+        //     title: "Lỗi",
+        //     description: certificateResult.message || "Không thể cấp chứng chỉ. Vui lòng thử lại sau.",
+        //     variant: "destructive",
+        //   });
+        // }
       }
     } catch (error: any) {
       console.error("❌ [Certificate] Certificate issuance error:", error);
-      toast({
-        title: "Lỗi",
-        description: error.message || "Không thể cấp chứng chỉ",
-        variant: "destructive",
-      });
+
+      // Xử lý lỗi network hoặc lỗi khác
+      if (error.code === "NETWORK_ERROR") {
+        toast({
+          title: "Lỗi kết nối",
+          description:
+            "Không thể kết nối đến server. Vui lòng kiểm tra kết nối internet.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Lỗi",
+          description: error.message || "Không thể cấp chứng chỉ",
+          variant: "destructive",
+        });
+      }
     }
-  }, [enrollmentId, isInstructorOrAdmin, router]);
+  }, [enrollmentId, isInstructorOrAdmin, router, session]);
 
   // Handler for certificate click (view existing certificate)
   const handleCertificateClick = useCallback(() => {
@@ -344,12 +464,14 @@ export default function ClassLearningPage() {
         ? allItems[currentItemIndex + 1]
         : null;
     }
-    for (let i = currentItemIndex + 1; i < allItems.length; i++) {
-      if (canNavigateToItem(allItems[i])) {
-        return allItems[i];
-      }
+
+    // Check if we can move to the immediate next item
+    const nextItem = allItems[currentItemIndex + 1];
+    if (nextItem && canNavigateToItem(nextItem)) {
+      return nextItem;
     }
-    return null;
+
+    return null; // Cannot proceed to next item
   };
 
   // Navigation functions
@@ -365,20 +487,94 @@ export default function ClassLearningPage() {
     }
   };
 
-  // Enhanced goToNext with lesson completion handling
-  const handleGoToNext = () => {
+  // Enhanced goToNext with lesson completion and attendance handling
+  const handleGoToNext = async () => {
     const nextItem = allItems[currentItemIndex + 1];
     if (!nextItem) return;
 
     if (!isInstructorOrAdmin) {
-      if (
-        currentItem?.itemType === SyllabusItemType.LESSON &&
-        currentItem.lesson?.type !== LessonType.QUIZ &&
-        !isItemCompleted(currentItem)
-      ) {
-        setPendingNavigation(nextItem);
-        setIsConfirmModalOpen(true);
-        return;
+      // For live sessions, check attendance status
+      if (currentItem?.itemType === SyllabusItemType.LIVE_SESSION) {
+        if (!isLiveSessionAttendanceCompleted(currentItem)) {
+          toast({
+            title: "⚠️ Chưa thể tiếp tục",
+            description:
+              "Bạn cần hoàn thành điểm danh cho buổi học này trước khi tiếp tục.",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+      // For lessons, handle completion and progress creation
+      else if (currentItem?.itemType === SyllabusItemType.LESSON) {
+        // For quiz lessons, must be completed (passed)
+        if (currentItem.lesson?.type === LessonType.QUIZ) {
+          if (!isItemCompleted(currentItem)) {
+            toast({
+              title: "⚠️ Chưa thể tiếp tục",
+              description: "Bạn cần hoàn thành quiz để tiếp tục.",
+              variant: "destructive",
+            });
+            return;
+          }
+        }
+        // For video/blog lessons, check time tracking and create progress
+        else {
+          const hasCompletedProgress = isItemCompleted(currentItem);
+          const hasCompletedTimeTracking =
+            timeTracking.isTimeComplete ||
+            currentItemTimeTracked.has(currentItem.id);
+
+          if (!hasCompletedProgress && !hasCompletedTimeTracking) {
+            toast({
+              title: "⚠️ Chưa thể tiếp tục",
+              description: "Bạn cần hoàn thành bài học để tiếp tục.",
+              variant: "destructive",
+            });
+            return;
+          }
+
+          // If time tracking is complete but no progress created yet, create it
+          if (
+            hasCompletedTimeTracking &&
+            !hasCompletedProgress &&
+            enrollmentId
+          ) {
+            try {
+              await createStudentProgress({
+                enrollmentId: enrollmentId,
+                syllabusItemId: currentItem.id,
+                status: "ATTENDED" as ProgressStatus,
+              });
+
+              // Update enrollment progress
+              const completionPercentage = Math.min(
+                ((currentItemIndex + 1) / allItems.length) * 100,
+                100,
+              );
+
+              await updateProgress(enrollmentId, {
+                progress: completionPercentage,
+                currentProgressId: currentProgress?.id || "",
+                nextSyllabusItemId: nextItem?.id,
+                isLessonCompleted: true,
+              });
+
+              // Handle lesson completion for unlock requirements
+              if (currentItem.lesson?.id) {
+                await handleLessonCompletion(currentItem.lesson.id);
+              }
+            } catch (error) {
+              console.error("Error creating progress:", error);
+              toast({
+                title: "Lỗi",
+                description: "Không thể cập nhật tiến trình học tập.",
+                variant: "destructive",
+              });
+              return;
+            }
+          }
+        }
       }
     }
 
@@ -451,28 +647,26 @@ export default function ClassLearningPage() {
         return;
       }
 
-      console.log(
-        "🎓 [CourseCompletion] Starting course completion process...",
-      );
+      console.log("[CourseCompletion] Starting course completion process...");
 
       const result = await markCourseAsCompleted(enrollmentId);
 
       if (result.success && result.data?.data) {
         const completedEnrollment = result.data.data;
         console.log(
-          "✅ [CourseCompletion] Course marked as completed successfully",
+          "[CourseCompletion] Course marked as completed successfully",
         );
 
         // Check if certificate was already created by backend
         if (completedEnrollment.certificate) {
           console.log(
-            "🏆 [Certificate] Certificate already exists from backend:",
+            "[Certificate] Certificate already exists from backend:",
             completedEnrollment.certificate.id,
           );
           setHasCertificate(true);
           setCertificateId(completedEnrollment.certificate.id);
           toast({
-            title: "🎉 Chúc mừng!",
+            title: "Chúc mừng!",
             description: "Bạn đã hoàn thành khóa học và nhận được chứng chỉ!",
           });
           router.push(`/certificate/${completedEnrollment.certificate.id}`);
@@ -480,27 +674,27 @@ export default function ClassLearningPage() {
           // Try to issue certificate manually if not created by backend
           try {
             console.log(
-              "🏆 [Certificate] Attempting to issue certificate manually...",
+              "[Certificate] Attempting to issue certificate manually...",
             );
             const certificateResult = await issueCertificate(enrollmentId);
 
             if (certificateResult.success && certificateResult.data) {
               console.log(
-                "🎉 [Certificate] Certificate issued successfully:",
+                "[Certificate] Certificate issued successfully:",
                 certificateResult.data.id,
               );
 
               setHasCertificate(true);
               setCertificateId(certificateResult.data.id);
               toast({
-                title: "🎉 Chúc mừng!",
+                title: "Chúc mừng!",
                 description:
                   "Bạn đã hoàn thành khóa học và nhận được chứng chỉ!",
               });
               router.push(`/certificate/${certificateResult.data.id}`);
             } else {
               console.warn(
-                "⚠️ [Certificate] Failed to issue certificate:",
+                "[Certificate] Failed to issue certificate:",
                 certificateResult.message,
               );
 
@@ -618,6 +812,34 @@ export default function ClassLearningPage() {
       return;
     }
 
+    // Create progress for passed quiz
+    if (currentItem && enrollmentId) {
+      console.log("Creating progress for passed quiz:", currentItem.id);
+      try {
+        await createStudentProgress({
+          enrollmentId: enrollmentId,
+          syllabusItemId: currentItem.id,
+          status: "ATTENDED" as ProgressStatus,
+        });
+
+        // Update enrollment progress
+        const completionPercentage = Math.min(
+          ((currentItemIndex + 1) / allItems.length) * 100,
+          100,
+        );
+        const nextItem = allItems[currentItemIndex + 1];
+
+        await updateProgress(enrollmentId, {
+          progress: completionPercentage,
+          currentProgressId: currentProgress?.id || "",
+          nextSyllabusItemId: nextItem?.id,
+          isLessonCompleted: true,
+        });
+      } catch (error) {
+        console.error("Error creating progress for quiz:", error);
+      }
+    }
+
     if (allItems.length === completedItems.length) {
       console.log(
         "🎉 [ClassQuizCompletion] All conditions met - completing course!",
@@ -642,16 +864,82 @@ export default function ClassLearningPage() {
     allItems,
     completedItems,
     handleCourseCompletion,
+    isInstructorOrAdmin,
+    currentItemIndex,
+    currentProgress,
   ]);
 
-  // Handler for completing a live session
+  // Handler for successful attendance (for live sessions)
+  const handleAttendanceSuccess = async () => {
+    if (isInstructorOrAdmin || !currentItem || !enrollmentId) return;
+
+    try {
+      // Mark attendance as completed for this live session
+      setAttendanceCompleted((prev) => new Set(prev).add(currentItem.id));
+
+      // Create syllabus progress for attended live session
+      console.log(
+        "Creating progress for attended live session:",
+        currentItem.id,
+      );
+      await createStudentProgress({
+        enrollmentId: enrollmentId,
+        syllabusItemId: currentItem.id,
+        status: "ATTENDED" as ProgressStatus,
+      });
+
+      // Update enrollment progress
+      const completionPercentage = Math.min(
+        ((currentItemIndex + 1) / allItems.length) * 100,
+        100,
+      );
+      const nextItem = allItems[currentItemIndex + 1];
+
+      try {
+        await updateProgress(enrollmentId, {
+          progress: completionPercentage,
+          currentProgressId: currentProgress?.id || "",
+          nextSyllabusItemId: nextItem?.id,
+          isLessonCompleted: true,
+        });
+      } catch (progressError) {
+        console.error("Error updating progress:", progressError);
+      }
+
+      const isLastItem = currentItemIndex === allItems.length - 1;
+
+      if (isLastItem) {
+        // If this was the last item, complete the course
+        await handleCourseCompletion();
+      } else {
+        // Show success message but don't auto-navigate
+        toast({
+          title: "✅ Điểm danh thành công!",
+          description: "Tiến trình học tập đã được cập nhật.",
+        });
+      }
+    } catch (error) {
+      console.error("Error handling attendance success:", error);
+      toast({
+        title: "Lỗi",
+        description: "Không thể cập nhật tiến trình học tập.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Handler for completing a live session (manual completion for instructors)
   const handleCompleteLiveSession = async () => {
     if (!enrollmentId || !currentItem) return;
     const nextItem = allItems[currentItemIndex + 1];
     const isLastItem = currentItemIndex === allItems.length - 1;
 
     try {
-      await createSyllabusProgress(currentItem?.id);
+      await createStudentProgress({
+        enrollmentId: enrollmentId,
+        syllabusItemId: currentItem.id,
+        status: "ATTENDED" as ProgressStatus,
+      });
 
       if (isLastItem) {
         await handleCourseCompletion();
@@ -670,6 +958,61 @@ export default function ClassLearningPage() {
         description: "Không thể cập nhật tiến trình.",
         variant: "destructive",
       });
+    }
+  };
+
+  // Handler for completing video/blog lessons when time tracking is done
+  const handleLessonTimeCompletion = async () => {
+    if (isInstructorOrAdmin || !currentItem || !enrollmentId) return;
+
+    // Only for video/blog lessons that have completed time tracking
+    if (
+      currentItem.itemType === SyllabusItemType.LESSON &&
+      currentItem.lesson?.type !== LessonType.QUIZ &&
+      timeTracking.isTimeComplete
+    ) {
+      try {
+        console.log(
+          "Creating progress for time-completed lesson:",
+          currentItem.id,
+        );
+        await createStudentProgress({
+          enrollmentId: enrollmentId,
+          syllabusItemId: currentItem.id,
+          status: "ATTENDED" as ProgressStatus,
+        });
+
+        // Update enrollment progress
+        const completionPercentage = Math.min(
+          ((currentItemIndex + 1) / allItems.length) * 100,
+          100,
+        );
+        const nextItem = allItems[currentItemIndex + 1];
+
+        await updateProgress(enrollmentId, {
+          progress: completionPercentage,
+          currentProgressId: currentProgress?.id || "",
+          nextSyllabusItemId: nextItem?.id,
+          isLessonCompleted: true,
+        });
+
+        toast({
+          title: "✅ Hoàn thành bài học",
+          description: "Tiến trình đã được cập nhật.",
+        });
+
+        const isLastItem = currentItemIndex === allItems.length - 1;
+        if (isLastItem) {
+          await handleCourseCompletion();
+        }
+      } catch (error) {
+        console.error("Error completing lesson:", error);
+        toast({
+          title: "Lỗi",
+          description: "Không thể cập nhật tiến trình bài học.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -693,6 +1036,35 @@ export default function ClassLearningPage() {
       description: "Link buổi học đã được mở trong tab mới",
     });
   };
+
+  // Load time tracking completed items from localStorage
+  useEffect(() => {
+    if (typeof window !== "undefined" && params.classId) {
+      const saved = localStorage.getItem(`time-tracked-${params.classId}`);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          setCurrentItemTimeTracked(new Set(parsed));
+        } catch (error) {
+          console.error("Error loading time tracking data:", error);
+        }
+      }
+    }
+  }, [params.classId]);
+
+  // Save time tracking completed items to localStorage
+  useEffect(() => {
+    if (
+      typeof window !== "undefined" &&
+      params.classId &&
+      currentItemTimeTracked.size > 0
+    ) {
+      localStorage.setItem(
+        `time-tracked-${params.classId}`,
+        JSON.stringify([...currentItemTimeTracked]),
+      );
+    }
+  }, [currentItemTimeTracked, params.classId]);
 
   // Fetch initial data
   useEffect(() => {
@@ -896,6 +1268,9 @@ export default function ClassLearningPage() {
     ) {
       setIsSidebarOpen(false);
     }
+
+    // Reset time complete notification when switching items
+    setTimeCompleteNotified(false);
   }, [currentItem]);
 
   // Fetch lesson data when lesson item is selected
@@ -960,19 +1335,55 @@ export default function ClassLearningPage() {
     fetchTranscript();
   }, [currentLessonData?.videoUrl]);
 
-  // Time tracking effects
+  // Time tracking effects - skip for live sessions since they use attendance
   useEffect(() => {
     if (currentItem && isEnrolled && !isInstructorOrAdmin) {
-      timeTracking.reset();
-      timeTracking.start();
+      // Skip time tracking for live sessions - they use attendance instead
+      if (currentItem.itemType === SyllabusItemType.LIVE_SESSION) {
+        return;
+      }
+
+      // Skip time tracking for quiz lessons
+      if (
+        currentItem.itemType === SyllabusItemType.LESSON &&
+        currentItem.lesson?.type === LessonType.QUIZ
+      ) {
+        return;
+      }
+
+      // Start tracking for video/blog lessons if not already completed
+      if (
+        !isItemCompleted(currentItem) &&
+        !currentItemTimeTracked.has(currentItem.id)
+      ) {
+        timeTracking.reset();
+        timeTracking.start();
+      } else if (
+        currentItemTimeTracked.has(currentItem.id) ||
+        timeTracking.isTimeComplete
+      ) {
+        // Stop tracking if already completed time requirement
+        if (timeTracking.isActive) {
+          timeTracking.pause();
+        }
+      }
     }
 
     return () => {
-      if (timeTracking.isActive) {
+      if (
+        timeTracking.isActive &&
+        currentItem?.itemType === SyllabusItemType.LESSON &&
+        currentItem.lesson?.type !== LessonType.QUIZ
+      ) {
         timeTracking.pause();
       }
     };
-  }, [currentItem?.id, isEnrolled, isInstructorOrAdmin]);
+  }, [
+    currentItem?.id,
+    isEnrolled,
+    isInstructorOrAdmin,
+    currentItemTimeTracked,
+  ]);
 
   // Requirement tracking effect - tracks time when viewing required lessons
   useEffect(() => {
@@ -1018,15 +1429,31 @@ export default function ClassLearningPage() {
     isInstructorOrAdmin,
   ]);
 
-  // Handle page visibility to pause/resume tracking
+  // Handle page visibility to pause/resume tracking - skip for live sessions and quiz
   useEffect(() => {
     const handleVisibilityChange = () => {
+      // Skip time tracking for live sessions and quiz lessons
+      if (
+        currentItem?.itemType === SyllabusItemType.LIVE_SESSION ||
+        (currentItem?.itemType === SyllabusItemType.LESSON &&
+          currentItem.lesson?.type === LessonType.QUIZ)
+      ) {
+        return;
+      }
+
       if (document.hidden) {
         if (timeTracking.isActive) {
           timeTracking.pause();
         }
       } else {
-        if (currentItem && isEnrolled && !timeTracking.isActive) {
+        if (
+          currentItem &&
+          isEnrolled &&
+          !timeTracking.isActive &&
+          !isItemCompleted(currentItem) &&
+          !currentItemTimeTracked.has(currentItem.id) &&
+          !timeTracking.isTimeComplete
+        ) {
           timeTracking.resume();
         }
       }
@@ -1036,7 +1463,7 @@ export default function ClassLearningPage() {
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [timeTracking.isActive, currentItem, isEnrolled]);
+  }, [timeTracking.isActive, currentItem, isEnrolled, currentItemTimeTracked]);
 
   // Effect to handle lesson navigation from URL parameters
   useEffect(() => {
@@ -1527,23 +1954,6 @@ Type: ${currentLessonData?.type || "N/A"}`;
                           />
                         )}
 
-                        {/* Lesson Completion Card */}
-                        {currentLessonData.type !== LessonType.QUIZ &&
-                          isEnrolled &&
-                          !isInstructorOrAdmin && (
-                            <LessonCompletionCard
-                              isCompleted={isItemCompleted(currentItem)}
-                              onComplete={async () => {
-                                if (currentItem?.lesson?.id) {
-                                  await handleLessonCompletion(
-                                    currentItem.lesson.id,
-                                  );
-                                  await handleGoToNext();
-                                }
-                              }}
-                            />
-                          )}
-
                         {/* Lesson Content */}
                         <motion.div
                           className="prose prose-lg max-w-none"
@@ -1568,6 +1978,8 @@ Type: ${currentLessonData?.type || "N/A"}`;
                                       console.log(
                                         "Quiz completed successfully",
                                       );
+                                      // Create progress for passed quiz and check course completion
+                                      handleQuizCourseCompletion();
                                     }
                                   }}
                                   onNavigateToLesson={(lessonId) =>
@@ -1706,6 +2118,9 @@ Type: ${currentLessonData?.type || "N/A"}`;
                     isLast={currentItemIndex === allItems.length - 1}
                     hasCertificate={hasCertificate}
                     certificateId={certificateId || undefined}
+                    enrollmentId={enrollmentId || undefined}
+                    isInstructorOrAdmin={isInstructorOrAdmin}
+                    userRole={user?.role === "ADMIN" ? "ADMIN" : "INSTRUCTOR"}
                     onJoinSession={handleJoinLiveSession}
                     onCompleteSession={handleCompleteLiveSession}
                     onViewCertificate={() => {
@@ -1713,6 +2128,7 @@ Type: ${currentLessonData?.type || "N/A"}`;
                         router.push(`/certificate/${certificateId}`);
                       }
                     }}
+                    onAttendanceSuccess={handleAttendanceSuccess}
                   />
                 )}
               </div>
@@ -1731,7 +2147,34 @@ Type: ${currentLessonData?.type || "N/A"}`;
         currentIndex={currentItemIndex}
         totalItems={allItems.length}
         canGoPrevious={currentItemIndex > 0}
-        canGoNext={currentItemIndex < allItems.length - 1}
+        canGoNext={(() => {
+          const nextItem = allItems[currentItemIndex + 1];
+          if (!nextItem) return false; // No next item
+          if (isInstructorOrAdmin) return true; // Instructors can always proceed
+
+          // For live sessions, check attendance completion
+          if (currentItem?.itemType === SyllabusItemType.LIVE_SESSION) {
+            return isLiveSessionAttendanceCompleted(currentItem);
+          }
+
+          // For lesson items, check completion based on type
+          if (currentItem?.itemType === SyllabusItemType.LESSON) {
+            // Quiz lessons: check if completed (passed)
+            if (currentItem.lesson?.type === LessonType.QUIZ) {
+              return isItemCompleted(currentItem);
+            }
+            // Video/Blog lessons: MUST complete time tracking OR have completed progress
+            const hasCompletedProgress = isItemCompleted(currentItem);
+            const hasCompletedTimeTracking =
+              timeTracking.isTimeComplete ||
+              currentItemTimeTracked.has(currentItem.id);
+
+            return hasCompletedProgress || hasCompletedTimeTracking;
+          }
+
+          // For other items, allow navigation
+          return true;
+        })()}
         isSidebarOpen={isSidebarOpen}
         onPrevious={goToPrevious}
         onNext={handleGoToNext}
@@ -1748,6 +2191,38 @@ Type: ${currentLessonData?.type || "N/A"}`;
         certificateId={certificateId}
         onCertificateClick={handleCertificateClick}
         allItemsCompleted={allItemsCompleted}
+        // Attendance props
+        disabledReason={(() => {
+          const nextItem = allItems[currentItemIndex + 1];
+          if (!nextItem || isInstructorOrAdmin) return undefined;
+
+          if (currentItem?.itemType === SyllabusItemType.LIVE_SESSION) {
+            if (!isLiveSessionAttendanceCompleted(currentItem)) {
+              return "Cần hoàn thành điểm danh để tiếp tục";
+            }
+          }
+
+          if (currentItem?.itemType === SyllabusItemType.LESSON) {
+            // For quiz lessons, check completion
+            if (currentItem.lesson?.type === LessonType.QUIZ) {
+              if (!isItemCompleted(currentItem)) {
+                return "Cần hoàn thành quiz để tiếp tục";
+              }
+            } else {
+              // For video/blog lessons, check time tracking AND completion
+              const hasCompletedProgress = isItemCompleted(currentItem);
+              const hasCompletedTimeTracking =
+                timeTracking.isTimeComplete ||
+                currentItemTimeTracked.has(currentItem.id);
+
+              if (!hasCompletedProgress && !hasCompletedTimeTracking) {
+                return "Cần hoàn thành bài học để tiếp tục";
+              }
+            }
+          }
+
+          return undefined;
+        })()}
       />
 
       {/* Sidebar */}

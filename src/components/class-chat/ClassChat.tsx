@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 
+import { createGoogleDriveImageProps } from "@/utils/googleDriveUtils";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -562,15 +564,9 @@ export default function ClassChat({
                             {message.messageType === "IMAGE" &&
                               message.fileUrl && (
                                 <img
-                                  src={message.fileUrl}
-                                  alt={message.fileName}
-                                  className="max-w-full rounded-lg"
-                                />
-                              )}
-                            {message.messageType === "IMAGE" &&
-                              message.fileUrl && (
-                                <img
-                                  src={message.fileUrl}
+                                  {...createGoogleDriveImageProps(
+                                    message.fileUrl,
+                                  )}
                                   alt={message.fileName || "Image"}
                                   className="max-w-full rounded-lg cursor-pointer hover:opacity-90"
                                   onClick={() =>

@@ -9,12 +9,14 @@ interface LessonCompletionCardProps {
   isCompleted: boolean;
   onComplete: () => void;
   isLoading?: boolean;
+  timeTrackingComplete?: boolean;
 }
 
 export function LessonCompletionCard({
   isCompleted,
   onComplete,
   isLoading = false,
+  timeTrackingComplete = false,
 }: LessonCompletionCardProps) {
   if (isCompleted) {
     return (
@@ -32,6 +34,8 @@ export function LessonCompletionCard({
     );
   }
 
+  const canComplete = timeTrackingComplete;
+
   return (
     <motion.div
       className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg"
@@ -40,22 +44,20 @@ export function LessonCompletionCard({
       transition={{ delay: 0.4 }}
     >
       <div className="flex items-center justify-between">
-        <div>
-          <h3 className="font-semibold text-green-800 mb-1">
-            Hoàn thành bài học
-          </h3>
-          <p className="text-sm text-green-600">
-            Đánh dấu bài học này là đã hoàn thành để tiếp tục học
-          </p>
-        </div>
-        <Button
-          onClick={onComplete}
-          disabled={isLoading}
-          className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2"
-        >
-          <Check className="h-4 w-4" />
-          {isLoading ? "Đang xử lý..." : "Hoàn thành"}
-        </Button>
+        {!canComplete ? (
+          <div className="text-sm text-orange-700">
+            📖 Đang học bài... Bạn cần xem đủ nội dung để hoàn thành.
+          </div>
+        ) : (
+          <Button
+            onClick={onComplete}
+            disabled={isLoading}
+            className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2"
+          >
+            <Check className="h-4 w-4" />
+            {isLoading ? "Đang xử lý..." : "Hoàn thành"}
+          </Button>
+        )}
       </div>
     </motion.div>
   );

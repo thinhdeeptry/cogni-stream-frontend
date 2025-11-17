@@ -14,7 +14,8 @@ import {
 } from "lucide-react";
 import ReactPlayer from "react-player";
 
-import { AttendanceManager } from "@/components/attendance";
+import { AttendanceManager } from "@/components/attendance/AttendanceManager";
+import { StudentAttendanceInput } from "@/components/attendance/StudentAttendanceInput";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -38,9 +39,13 @@ interface LiveSessionCardProps {
   isLast: boolean;
   hasCertificate: boolean;
   certificateId?: string;
+  enrollmentId?: string; // For student attendance
+  isInstructorOrAdmin?: boolean; // To show different UI
+  userRole?: "INSTRUCTOR" | "ADMIN"; // Thêm userRole prop
   onJoinSession: () => void;
   onCompleteSession: () => void;
   onViewCertificate: () => void;
+  onAttendanceSuccess?: () => void; // Callback for successful attendance
 }
 
 export function LiveSessionCard({
@@ -52,9 +57,13 @@ export function LiveSessionCard({
   isLast,
   hasCertificate,
   certificateId,
+  enrollmentId,
+  isInstructorOrAdmin = false,
+  userRole = "INSTRUCTOR",
   onJoinSession,
   onCompleteSession,
   onViewCertificate,
+  onAttendanceSuccess,
 }: LiveSessionCardProps) {
   const [isVideoLoading, setIsVideoLoading] = useState(true);
 
@@ -246,36 +255,65 @@ export function LiveSessionCard({
               </div>
             </div>
           ) : (
-            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="font-semibold text-blue-800 mb-1">
-                    Hoàn thành buổi học
-                  </h4>
-                  <p className="text-sm text-blue-600">
-                    Đánh dấu buổi học này là đã hoàn thành
-                    {isLast && " để nhận chứng chỉ"}
-                  </p>
+            // Show manual completion only for instructors
+            isInstructorOrAdmin && (
+              <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-semibold text-blue-800 mb-1">
+                      Hoàn thành buổi học (Preview Mode)
+                    </h4>
+                    <p className="text-sm text-blue-600">
+                      Đánh dấu buổi học này là đã hoàn thành
+                      {isLast && " để nhận chứng chỉ"}
+                    </p>
+                  </div>
+                  <Button
+                    onClick={onCompleteSession}
+                    className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
+                  >
+                    <CheckCircle className="h-4 w-4" />
+                    Hoàn thành
+                  </Button>
                 </div>
-                <Button
-                  onClick={onCompleteSession}
-                  className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
-                >
-                  <CheckCircle className="h-4 w-4" />
-                  Hoàn thành
-                </Button>
               </div>
-            </div>
+            )
           )}
 
-          {/* Attendance Manager */}
+          {/* Attendance System */}
           <div className="mt-6">
-            <AttendanceManager
-              syllabusItemId={syllabusItemId}
-              instructorId={instructorId}
-              isLiveSession={true}
-              sessionTopic={classSession.topic}
-            />
+            {isInstructorOrAdmin ? (
+              // Instructor view - AttendanceManager with modal for creating/managing codes
+              <AttendanceManager
+                syllabusItemId={syllabusItemId}
+                instructorId={instructorId}
+                isLiveSession={true}
+                sessionTopic={classSession.topic}
+                userRole={userRole}
+              />
+            ) : enrollmentId ? (
+              // Student view - StudentAttendanceInput for submitting codes
+              <div className="space-y-3">
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-center gap-2 text-blue-700">
+                    <Clock className="h-4 w-4" />
+                    <p className="text-sm font-medium">
+                      📝 Buổi học này sử dụng điểm danh thay vì theo dõi thời
+                      gian
+                    </p>
+                  </div>
+                  <p className="text-xs text-blue-600 mt-1">
+                    Hãy nhập mã điểm danh để hoàn thành buổi học
+                  </p>
+                </div>
+                <StudentAttendanceInput
+                  syllabusItemId={syllabusItemId}
+                  enrollmentId={enrollmentId}
+                  sessionTopic={classSession.topic}
+                  onAttendanceSuccess={onAttendanceSuccess}
+                />
+              </div>
+            ) : null}
           </div>
         </div>
       </CardContent>

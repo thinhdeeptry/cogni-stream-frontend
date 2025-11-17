@@ -30,6 +30,8 @@ import {
   getMessages,
 } from "@/actions/classChatActions";
 
+import { createGoogleDriveImageProps } from "@/utils/googleDriveUtils";
+
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -493,8 +495,8 @@ const ClassChat: React.FC<ClassChatProps> = ({ classId, isOpen, onClose }) => {
                     <div className="mb-2 break-words">{message.content}</div>
                   )}
                   <img
-                    src={message.fileUrl}
-                    alt={message.fileName}
+                    {...createGoogleDriveImageProps(message.fileUrl)}
+                    alt={message.fileName || "Image"}
                     className="max-w-full h-auto rounded cursor-pointer"
                     onClick={() => window.open(message.fileUrl, "_blank")}
                   />
@@ -685,12 +687,16 @@ const ClassChat: React.FC<ClassChatProps> = ({ classId, isOpen, onClose }) => {
                           variant={
                             member.role === "INSTRUCTOR"
                               ? "default"
-                              : "secondary"
+                              : member.role === "ADMIN"
+                                ? "default"
+                                : "secondary"
                           }
                         >
                           {member.role === "INSTRUCTOR"
                             ? "Giảng viên"
-                            : "Học viên"}
+                            : member.role === "ADMIN"
+                              ? "Giảng viên"
+                              : "Học viên"}
                         </Badge>
                       </div>
                     ))}

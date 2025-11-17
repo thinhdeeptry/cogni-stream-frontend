@@ -71,6 +71,7 @@ export default function LessonDetail() {
   const [isButtonEnabled, setIsButtonEnabled] = useState(false);
   const [completedLessonIds, setCompletedLessonIds] = useState<string[]>([]);
   const [isQuizActivelyTaking, setIsQuizActivelyTaking] = useState(false); // Track if user is actively taking quiz
+  const [isQuizCompleted, setIsQuizCompleted] = useState(false); // Track if current quiz lesson is completed
 
   // console.log("🔍 Component render - Current states:", {
   //   isButtonEnabled,
@@ -197,21 +198,23 @@ export default function LessonDetail() {
     const isCurrentLessonCompleted =
       completedLessonIds.includes(currentLessonId);
 
-    // If lesson is already completed, enable button immediately
-    // Otherwise, wait for time tracking completion
-    const shouldEnable =
-      isCurrentLessonCompleted || timeTracking.isTimeComplete;
-    setIsButtonEnabled(shouldEnable);
+    // For quiz lessons, use quiz completion status instead of time tracking
+    if (lesson?.type === LessonType.QUIZ) {
+      setIsButtonEnabled(isCurrentLessonCompleted || isQuizCompleted);
+    } else {
+      // For non-quiz lessons, use time tracking completion
+      const shouldEnable =
+        isCurrentLessonCompleted || timeTracking.isTimeComplete;
+      setIsButtonEnabled(shouldEnable);
 
-    // Update time complete notification status
-    if (timeTracking.isTimeComplete && !timeCompleteNotified) {
-      setTimeCompleteNotified(true);
+      // Update time complete notification status
+      if (timeTracking.isTimeComplete && !timeCompleteNotified) {
+        setTimeCompleteNotified(true);
+      }
     }
 
     // Force re-render để đảm bảo UI update
-    if (shouldEnable !== isButtonEnabled) {
-      setForceRender((prev) => prev + 1);
-    }
+    setForceRender((prev) => prev + 1);
   }, [
     timeTracking.isTimeComplete,
     timeTracking.elapsedSeconds,
@@ -220,6 +223,8 @@ export default function LessonDetail() {
     isButtonEnabled,
     timeCompleteNotified,
     lesson?.estimatedDurationMinutes,
+    lesson?.type,
+    isQuizCompleted,
   ]);
 
   const [expandedChapters, setExpandedChapters] = useState<
@@ -460,6 +465,7 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
         // Reset states when lesson changes
         setTimeCompleteNotified(false);
         setForceRender(0);
+        setIsQuizCompleted(false); // Reset quiz completion status
 
         // Auto close sidebar on mobile when lesson changes
         if (window.innerWidth < 768) {
@@ -693,7 +699,7 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
   // New state for video loading
   const [isVideoLoading, setIsVideoLoading] = useState(true);
 
-  // Auto start time tracking when lesson loads and user is enrolled
+  // Auto start time tracking when lesson loads and user is enrolled (skip for quiz lessons)
   useEffect(() => {
     const currentLessonId = params.lessonId as string;
     const isCurrentLessonCompleted =
@@ -707,9 +713,19 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
     //   "ID bài học": currentLessonId,
     //   "Tracking đang active": timeTracking.isActive ? "✅" : "❌",
     //   "Thời gian đã track": `${Math.floor(timeTracking.elapsedSeconds / 60)}:${(timeTracking.elapsedSeconds % 60).toString().padStart(2, "0")}`,
+    //   "Loại bài học": lesson?.type,
     // });
 
-    // Start/Resume tracking if lesson is not completed yet (regardless of free preview status for enrolled users)
+    // Skip time tracking for quiz lessons
+    if (lesson?.type === LessonType.QUIZ) {
+      console.log("Bài quiz - không cần time tracking");
+      if (timeTracking.isActive) {
+        timeTracking.pause();
+      }
+      return;
+    }
+
+    // Start/Resume tracking if lesson is not completed yet (for non-quiz lessons)
     if (lesson && isEnrolled && !isCurrentLessonCompleted) {
       // Nếu chưa tracking và chưa hoàn thành thời gian required
       if (!timeTracking.isActive && !timeTracking.isTimeComplete) {
@@ -736,8 +752,8 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
 
     return () => {
       // Chỉ pause tracking khi component unmount, KHÔNG reset
-      if (timeTracking.isActive) {
-        console.log("");
+      if (timeTracking.isActive && lesson?.type !== LessonType.QUIZ) {
+        console.log("Pause tracking khi unmount (không phải quiz)");
         timeTracking.pause();
       }
     };
@@ -750,12 +766,17 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
     timeCompleteNotified,
   ]);
 
-  // Handle page visibility to pause/resume tracking
+  // Handle page visibility to pause/resume tracking (skip for quiz lessons)
   useEffect(() => {
     const handleVisibilityChange = () => {
       const currentLessonId = params.lessonId as string;
       const isCurrentLessonCompleted =
         completedLessonIds.includes(currentLessonId);
+
+      // Skip time tracking management for quiz lessons
+      if (lesson?.type === LessonType.QUIZ) {
+        return;
+      }
 
       if (document.hidden) {
         // Tạm dừng tracking khi không nhìn thấy trang
@@ -1305,6 +1326,7 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
               isInstructorOrAdmin={isInstructorOrAdmin}
               courseId={params.courseId as string}
               onQuizCompleted={(success: boolean) => {
+                setIsQuizCompleted(success);
                 if (success && lesson?.id) {
                   handleLessonCompletion();
                 }

@@ -20,6 +20,8 @@ interface NavigationFooterProps {
   certificateId?: string | null;
   onCertificateClick?: () => void;
   allItemsCompleted?: boolean;
+  // Attendance props
+  disabledReason?: string; // Reason why next button is disabled
 }
 
 export function NavigationFooter({
@@ -36,6 +38,7 @@ export function NavigationFooter({
   certificateId = null,
   onCertificateClick,
   allItemsCompleted = false,
+  disabledReason,
 }: NavigationFooterProps) {
   if (!isVisible) return null;
   return (
@@ -72,11 +75,22 @@ export function NavigationFooter({
           <Button
             onClick={onNext}
             disabled={!canGoNext}
-            className="bg-orange-500 hover:bg-orange-600"
+            className="bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed"
+            title={!canGoNext && disabledReason ? disabledReason : undefined}
           >
             Tiếp theo
             <ChevronRight className="h-4 w-4 ml-2" />
           </Button>
+        )}
+
+        {/* Show disabled reason below button if provided */}
+        {!canGoNext && disabledReason && !allItemsCompleted && (
+          <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2">
+            <div className="bg-gray-800 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
+              {disabledReason}
+            </div>
+            <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+          </div>
         )}
       </div>
 

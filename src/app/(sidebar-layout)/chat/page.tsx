@@ -8,12 +8,17 @@ import { motion } from "framer-motion";
 import {
   ArrowLeft,
   ChevronLeft,
+  ChevronRight,
   Clock,
+  Edit2,
   Image,
   Menu,
   MessageCircle,
+  Reply,
   Search,
   Send,
+  Settings,
+  Trash2,
   Users,
   X,
 } from "lucide-react";
@@ -30,13 +35,30 @@ import { getEnrollmentsByUser } from "@/actions/enrollmentActions";
 
 import useUserStore from "@/stores/useUserStore";
 
+import { createGoogleDriveImageProps } from "@/utils/googleDriveUtils";
+
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
 
 interface ClassChatItem {
   id: string;
@@ -67,14 +89,25 @@ export default function ChatMainPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [currentChatInfo, setCurrentChatInfo] = useState<{
     totalMembers: number;
   }>({ totalMembers: 0 });
+  const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
+  const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(
+    null,
+  );
+  const [editContent, setEditContent] = useState("");
+  const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
 
   const router = useRouter();
   const { data: session } = useSession();
   const { user } = useUserStore();
   const { socket, isConnected } = useSocket();
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Ref for file input
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Ref for auto-scrolling to bottom
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -84,8 +117,10 @@ export default function ChatMainPage() {
     const handleResize = () => {
       if (window.innerWidth >= 1024) {
         setIsSidebarOpen(true);
+        // Keep collapsed state on desktop
       } else {
         setIsSidebarOpen(false);
+        setIsSidebarCollapsed(false); // Reset collapsed on mobile
       }
     };
 
@@ -136,15 +171,49 @@ export default function ChatMainPage() {
       );
     };
 
+    const handleUserTyping = ({
+      userId,
+      isTyping,
+    }: {
+      userId: string;
+      isTyping: boolean;
+    }) => {
+      if (userId === user?.id) return; // Ignore own typing
+
+      setTypingUsers((prev) => {
+        const newSet = new Set(prev);
+        if (isTyping) {
+          newSet.add(userId);
+        } else {
+          newSet.delete(userId);
+        }
+        return newSet;
+      });
+    };
+
+    const handleSocketError = (error: { message: string }) => {
+      console.error("Socket error:", error);
+      setSendError(error.message || "Lỗi kết nối");
+    };
+
     socket.on("new-message", handleNewMessage);
     socket.on("message-edited", handleMessageEdited);
     socket.on("message-deleted", handleMessageDeleted);
+    socket.on("user-typing", handleUserTyping);
+    socket.on("error", handleSocketError);
 
     return () => {
       socket.off("new-message", handleNewMessage);
       socket.off("message-edited", handleMessageEdited);
       socket.off("message-deleted", handleMessageDeleted);
+      socket.off("user-typing", handleUserTyping);
+      socket.off("error", handleSocketError);
       socket.emit("leave-class", { classId: selectedClass.id });
+
+      // Clear typing timeout
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
     };
   }, [socket, isConnected, selectedClass]);
 
@@ -404,6 +473,24 @@ export default function ChatMainPage() {
     fetchMessages();
   }, [selectedClass, user?.id]);
 
+  // Handle typing indicator
+  const handleTyping = () => {
+    if (!socket || !selectedClass) return;
+
+    // Send typing start
+    socket.emit("typing-start", { classId: selectedClass.id });
+
+    // Clear existing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
+    // Set timeout to stop typing after 3 seconds
+    typingTimeoutRef.current = setTimeout(() => {
+      socket.emit("typing-stop", { classId: selectedClass.id });
+    }, 3000);
+  };
+
   // Send message
   const handleSendMessage = async () => {
     if (
@@ -460,12 +547,21 @@ export default function ChatMainPage() {
 
       // Send message via socket
       console.log("Emitting message via socket:", messageData);
-      socket.emit("send-message", messageData);
+      socket.emit("send-message", {
+        ...messageData,
+        replyToId: replyTo?.id,
+      });
 
       // Clear form
       setNewMessage("");
       setSelectedImage(null);
       setImagePreview(null);
+      setReplyTo(null);
+
+      // Stop typing indicator
+      if (socket && selectedClass) {
+        socket.emit("typing-stop", { classId: selectedClass.id });
+      }
 
       console.log("Message sent successfully");
     } catch (error) {
@@ -489,16 +585,18 @@ export default function ChatMainPage() {
 
     // Validate file type
     if (!file.type.startsWith("image/")) {
-      alert("Vui lòng chọn file ảnh");
+      setSendError("Vui lòng chọn file ảnh (PNG, JPG, JPEG, GIF)");
       return;
     }
 
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      alert("Kích thước ảnh không được vượt quá 5MB");
+    // Validate file size (max 3MB to match class chat)
+    if (file.size > 3 * 1024 * 1024) {
+      setSendError("Kích thước ảnh không được vượt quá 3MB");
       return;
     }
 
+    // Clear any previous errors
+    setSendError(null);
     setSelectedImage(file);
 
     // Create preview
@@ -506,11 +604,11 @@ export default function ChatMainPage() {
     reader.onload = (e) => {
       const result = e.target?.result as string;
       setImagePreview(result);
-      console.log("Image preview created");
+      console.log("Image preview created successfully");
     };
     reader.onerror = (error) => {
       console.error("Error creating preview:", error);
-      alert("Lỗi khi tạo preview ảnh");
+      setSendError("Lỗi khi tạo preview ảnh");
     };
     reader.readAsDataURL(file);
   };
@@ -519,7 +617,42 @@ export default function ChatMainPage() {
   const clearSelectedImage = () => {
     setSelectedImage(null);
     setImagePreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
     console.log("Cleared selected image");
+  };
+
+  // Handle message editing
+  const handleEditMessage = async () => {
+    if (!editingMessage || !editContent.trim() || !socket) return;
+
+    try {
+      // Send edit request via socket
+      socket.emit("edit-message", {
+        messageId: editingMessage.id,
+        content: editContent,
+      });
+
+      setEditingMessage(null);
+      setEditContent("");
+    } catch (error: any) {
+      console.error("Error editing message:", error);
+      setSendError("Lỗi khi sửa tin nhắn. Vui lòng thử lại.");
+    }
+  };
+
+  // Handle message deletion
+  const handleDeleteMessage = async (messageId: string) => {
+    if (!socket) return;
+
+    try {
+      // Send delete request via socket
+      socket.emit("delete-message", { messageId });
+    } catch (error: any) {
+      console.error("Error deleting message:", error);
+      setSendError("Lỗi khi xóa tin nhắn. Vui lòng thử lại.");
+    }
   };
 
   // Filter classes based on search
@@ -536,11 +669,22 @@ export default function ChatMainPage() {
     const diffTime = now.getTime() - date.getTime();
     const diffHours = Math.floor(diffTime / (1000 * 60 * 60));
     const diffMinutes = Math.floor(diffTime / (1000 * 60));
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
     if (diffMinutes < 1) return "Vừa xong";
     if (diffMinutes < 60) return `${diffMinutes}p`;
     if (diffHours < 24) return `${diffHours}h`;
+    if (diffDays < 7) return `${diffDays} ngày trước`;
     return date.toLocaleDateString("vi-VN");
+  };
+
+  // Format file size
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return "0 Bytes";
+    const k = 1024;
+    const sizes = ["Bytes", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
   if (isLoading) {
@@ -586,144 +730,175 @@ export default function ChatMainPage() {
         className={`
         ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}
         fixed lg:relative z-50 lg:z-0
-        w-80 h-full bg-white border-r flex flex-col
-        transition-transform duration-300 ease-in-out
+        ${isSidebarCollapsed ? "w-0 overflow-hidden" : "w-80"} h-full bg-white border-r flex flex-col
+        transition-all duration-300 ease-in-out
         lg:translate-x-0
       `}
       >
         {/* Header */}
-        <div className="p-4 border-b">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" onClick={() => router.back()}>
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-              <h1 className="text-lg font-bold flex items-center gap-2">
-                <MessageCircle className="h-5 w-5 text-blue-600" />
-                Chat
-              </h1>
+        {!isSidebarCollapsed && (
+          <div className="p-4 border-b">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" onClick={() => router.back()}>
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
+                <h1 className="text-lg font-bold flex items-center gap-2">
+                  <MessageCircle className="h-5 w-5 text-blue-600" />
+                  Chat
+                </h1>
+              </div>
+              <div className="flex items-center gap-2">
+                {/* Collapse button for desktop */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="hidden lg:flex"
+                  onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                  title={"Thu gọn sidebar"}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                {/* Close button for mobile */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="lg:hidden"
+                  onClick={() => setIsSidebarOpen(false)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
-            {/* Close button for mobile */}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="lg:hidden"
-              onClick={() => setIsSidebarOpen(false)}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
 
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input
-              placeholder="Tìm kiếm lớp học..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Tìm kiếm lớp học..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Class List */}
-        <ScrollArea className="flex-1">
-          <div className="p-2">
-            {filteredClasses.length === 0 ? (
-              <div className="text-center py-8">
-                <MessageCircle className="h-12 w-12 mx-auto mb-3 text-gray-400" />
-                <p className="text-gray-500">
-                  {searchTerm
-                    ? "Không tìm thấy lớp học nào"
-                    : "Bạn chưa tham gia lớp học nào"}
-                </p>
-                <p className="text-gray-400 text-sm mt-1">
-                  {searchTerm
-                    ? "Thử từ khóa khác"
-                    : "Đăng ký tham gia các lớp học LIVE để sử dụng chat"}
-                </p>
-              </div>
-            ) : (
-              filteredClasses.map((classItem) => (
-                <motion.div
-                  key={classItem.id}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <Card
-                    className={`mb-2 cursor-pointer transition-all ${
-                      selectedClass?.id === classItem.id
-                        ? "bg-blue-50 border-blue-200"
-                        : "hover:bg-gray-50"
-                    }`}
-                    onClick={() => {
-                      setSelectedClass(classItem);
-                      // Close sidebar on mobile when selecting a class
-                      if (window.innerWidth < 1024) {
-                        setIsSidebarOpen(false);
-                      }
-                    }}
+        {!isSidebarCollapsed && (
+          <ScrollArea className="flex-1">
+            <div className="p-2">
+              {filteredClasses.length === 0 ? (
+                <div className="text-center py-8">
+                  <MessageCircle className="h-12 w-12 mx-auto mb-3 text-gray-400" />
+                  <p className="text-gray-500">
+                    {searchTerm
+                      ? "Không tìm thấy lớp học nào"
+                      : "Bạn chưa tham gia lớp học nào"}
+                  </p>
+                  <p className="text-gray-400 text-sm mt-1">
+                    {searchTerm
+                      ? "Thử từ khóa khác"
+                      : "Đăng ký tham gia các lớp học LIVE để sử dụng chat"}
+                  </p>
+                </div>
+              ) : (
+                filteredClasses.map((classItem) => (
+                  <motion.div
+                    key={classItem.id}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                   >
-                    <CardContent className="p-3">
-                      <div className="flex items-center space-x-3">
-                        <div className="relative">
-                          <Avatar className="h-12 w-12">
-                            <AvatarFallback className="bg-blue-100 text-blue-600">
-                              {classItem.name.charAt(0)}
-                            </AvatarFallback>
-                          </Avatar>
-                          {classItem.unreadCount > 0 && (
-                            <Badge
-                              variant="destructive"
-                              className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
-                            >
-                              {classItem.unreadCount > 9
-                                ? "9+"
-                                : classItem.unreadCount}
-                            </Badge>
-                          )}
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between">
-                            <h3 className="font-medium truncate text-sm">
-                              {classItem.name}
-                            </h3>
-                            {classItem.lastMessage && (
-                              <span className="text-xs text-gray-500">
-                                {formatTime(classItem.lastMessage.sentAt)}
-                              </span>
+                    <Card
+                      className={`mb-2 cursor-pointer transition-all ${
+                        selectedClass?.id === classItem.id
+                          ? "bg-blue-50 border-blue-200"
+                          : "hover:bg-gray-50"
+                      }`}
+                      onClick={() => {
+                        setSelectedClass(classItem);
+                        // Close sidebar on mobile when selecting a class
+                        if (window.innerWidth < 1024) {
+                          setIsSidebarOpen(false);
+                        }
+                      }}
+                    >
+                      <CardContent className="p-3">
+                        <div className="flex items-center space-x-3">
+                          <div className="relative">
+                            <Avatar className="h-12 w-12">
+                              <AvatarFallback className="bg-blue-100 text-blue-600">
+                                {classItem.name.charAt(0)}
+                              </AvatarFallback>
+                            </Avatar>
+                            {classItem.unreadCount > 0 && (
+                              <Badge
+                                variant="destructive"
+                                className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
+                              >
+                                {classItem.unreadCount > 9
+                                  ? "9+"
+                                  : classItem.unreadCount}
+                              </Badge>
                             )}
                           </div>
 
-                          <p className="text-xs text-gray-600 truncate mb-1">
-                            {classItem.courseName}
-                          </p>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <h3 className="font-medium truncate text-sm">
+                                {classItem.name}
+                              </h3>
+                              {classItem.lastMessage && (
+                                <span className="text-xs text-gray-500">
+                                  {formatTime(classItem.lastMessage.sentAt)}
+                                </span>
+                              )}
+                            </div>
 
-                          {classItem.lastMessage ? (
-                            <p className="text-sm text-gray-500 truncate">
-                              {classItem.lastMessage.senderName}:{" "}
-                              {classItem.lastMessage.content}
+                            <p className="text-xs text-gray-600 truncate mb-1">
+                              {classItem.courseName}
                             </p>
-                          ) : (
-                            <p className="text-sm text-gray-400 flex items-center gap-1">
-                              <Users className="h-3 w-3" />
-                              {classItem.totalMembers} thành viên
-                            </p>
-                          )}
+
+                            {classItem.lastMessage ? (
+                              <p className="text-sm text-gray-500 truncate">
+                                {classItem.lastMessage.senderName}:{" "}
+                                {classItem.lastMessage.content}
+                              </p>
+                            ) : (
+                              <p className="text-sm text-gray-400 flex items-center gap-1">
+                                <Users className="h-3 w-3" />
+                                {classItem.totalMembers} thành viên
+                              </p>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              ))
-            )}
-          </div>
-        </ScrollArea>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                ))
+              )}
+            </div>
+          </ScrollArea>
+        )}
       </div>
 
+      {/* Expand button when sidebar is collapsed */}
+      {isSidebarCollapsed && (
+        <div className="fixed top-4 left-4 z-50 lg:block hidden">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsSidebarCollapsed(false)}
+            title="Mở rộng sidebar"
+            className="bg-white shadow-md hover:shadow-lg"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
+
       {/* Chat Area */}
-      <div className="flex-1 flex flex-col lg:ml-0">
+      <div className="flex-1 flex flex-col">
         {/* Mobile Header with Menu Button */}
         <div className="lg:hidden p-4 bg-white border-b flex items-center gap-3">
           <Button
@@ -758,12 +933,24 @@ export default function ChatMainPage() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                  onClick={() => {
+                    if (window.innerWidth >= 1024) {
+                      setIsSidebarCollapsed(!isSidebarCollapsed);
+                    } else {
+                      setIsSidebarOpen(!isSidebarOpen);
+                    }
+                  }}
                   title={
-                    isSidebarOpen ? "Ẩn danh sách lớp" : "Hiện danh sách lớp"
+                    window.innerWidth >= 1024
+                      ? "Thu gọn sidebar"
+                      : isSidebarOpen
+                        ? "Ẩn danh sách lớp"
+                        : "Hiện danh sách lớp"
                   }
                 >
-                  {isSidebarOpen ? (
+                  {window.innerWidth >= 1024 ? (
+                    <ChevronLeft className="h-4 w-4" />
+                  ) : isSidebarOpen ? (
                     <ChevronLeft className="h-4 w-4" />
                   ) : (
                     <Menu className="h-4 w-4" />
@@ -833,70 +1020,217 @@ export default function ChatMainPage() {
                   {messages.map((message) => {
                     const isOwnMessage = message.sender.id === user?.id;
 
+                    // Handle deleted messages
+                    if (message.isDeleted) {
+                      return (
+                        <div
+                          key={message.id}
+                          className="flex justify-center my-2"
+                        >
+                          <span className="text-sm text-gray-500 italic">
+                            Tin nhắn đã bị xóa
+                          </span>
+                        </div>
+                      );
+                    }
+
                     return (
                       <div
                         key={message.id}
-                        className={`flex space-x-3 ${isOwnMessage ? "justify-end" : ""}`}
+                        className={`group flex ${isOwnMessage ? "justify-end" : "justify-start"} mb-4`}
                       >
-                        {!isOwnMessage && (
-                          <Avatar className="h-8 w-8">
-                            <AvatarImage src={message.sender.image} />
-                            <AvatarFallback>
-                              {message.sender.name.charAt(0)}
-                            </AvatarFallback>
-                          </Avatar>
-                        )}
                         <div
-                          className={`flex-1 ${isOwnMessage ? "flex justify-end" : ""}`}
+                          className={`flex ${isOwnMessage ? "flex-row-reverse" : "flex-row"} items-start space-x-2 max-w-[70%]`}
                         >
                           {!isOwnMessage && (
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="font-medium text-sm">
-                                {message.sender.name}
-                              </span>
-                              <span className="text-xs text-gray-500">
-                                {formatTime(message.sentAt)}
-                              </span>
-                            </div>
+                            <Avatar className="w-8 h-8">
+                              <AvatarImage
+                                src={message.sender.image}
+                                alt={message.sender.name}
+                              />
+                              <AvatarFallback>
+                                {message.sender.name.charAt(0)}
+                              </AvatarFallback>
+                            </Avatar>
                           )}
-                          <div
-                            className={`rounded-lg p-3 max-w-md ${
-                              isOwnMessage
-                                ? "bg-blue-500 text-white ml-auto"
-                                : "bg-gray-100"
-                            }`}
-                          >
-                            {message.messageType === "IMAGE" &&
-                            message.fileUrl ? (
-                              <div>
-                                <img
-                                  src={message.fileUrl}
-                                  alt={message.fileName || "Hình ảnh"}
-                                  className="max-w-full h-auto rounded-lg mb-2 cursor-pointer"
-                                  onClick={() =>
-                                    window.open(message.fileUrl, "_blank")
-                                  }
-                                />
-                                {message.content && (
-                                  <p className="text-sm">{message.content}</p>
+
+                          <div className={`${isOwnMessage ? "mr-2" : "ml-2"}`}>
+                            {!isOwnMessage && (
+                              <div className="flex items-center space-x-2 mb-1">
+                                <span className="text-sm font-medium">
+                                  {message.sender.name}
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                  {formatTime(message.sentAt)}
+                                </span>
+                              </div>
+                            )}
+
+                            {/* Reply reference */}
+                            {message.replyTo && (
+                              <div className="bg-gray-100 border-l-4 border-blue-500 p-2 mb-2 rounded">
+                                <div className="text-xs text-gray-600 font-medium">
+                                  Trả lời {message.replyTo.sender.name}
+                                </div>
+                                <div className="text-sm text-gray-700 truncate">
+                                  {message.replyTo.messageType === "TEXT"
+                                    ? message.replyTo.content
+                                    : `[${message.replyTo.fileName || "File"}]`}
+                                </div>
+                              </div>
+                            )}
+
+                            <div
+                              className={`rounded-lg p-3 ${
+                                isOwnMessage
+                                  ? "bg-blue-500 text-white"
+                                  : "bg-gray-100 text-gray-900"
+                              }`}
+                            >
+                              {/* Message content */}
+                              {message.messageType === "TEXT" && (
+                                <div className="break-words">
+                                  {message.content}
+                                </div>
+                              )}
+
+                              {message.messageType === "IMAGE" &&
+                                message.fileUrl && (
+                                  <div>
+                                    {message.content && (
+                                      <div className="mb-2 break-words">
+                                        {message.content}
+                                      </div>
+                                    )}
+                                    <Dialog>
+                                      <DialogTrigger asChild>
+                                        <img
+                                          {...createGoogleDriveImageProps(
+                                            message.fileUrl,
+                                          )}
+                                          alt={message.fileName || "Image"}
+                                          className="max-w-full h-auto rounded cursor-pointer hover:opacity-80 transition-opacity"
+                                          title="Click để xem ảnh kích thước đầy đủ"
+                                        />
+                                      </DialogTrigger>
+                                      <DialogContent className="max-w-4xl w-auto">
+                                        <DialogHeader>
+                                          <DialogTitle>
+                                            {message.fileName || "Hình ảnh"}
+                                          </DialogTitle>
+                                          <DialogDescription>
+                                            Gửi bởi {message.sender.name} lúc{" "}
+                                            {formatTime(message.sentAt)}
+                                          </DialogDescription>
+                                        </DialogHeader>
+                                        <div className="flex justify-center">
+                                          <img
+                                            {...createGoogleDriveImageProps(
+                                              message.fileUrl,
+                                            )}
+                                            alt={message.fileName || "Image"}
+                                            className="max-w-full max-h-[70vh] h-auto rounded"
+                                          />
+                                        </div>
+                                      </DialogContent>
+                                    </Dialog>
+                                  </div>
                                 )}
+
+                              {/* Message timing and edit status */}
+                              <div
+                                className={`flex items-center justify-between mt-2 ${
+                                  isOwnMessage
+                                    ? "text-blue-100"
+                                    : "text-gray-500"
+                                }`}
+                              >
+                                <span className="text-xs">
+                                  {isOwnMessage && formatTime(message.sentAt)}
+                                  {message.isEdited && (
+                                    <span className="ml-1">(đã chỉnh sửa)</span>
+                                  )}
+                                </span>
+
+                                {/* Message actions */}
+                                <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => setReplyTo(message)}
+                                    className="p-1 h-6 w-6"
+                                    title="Trả lời"
+                                  >
+                                    <Reply className="w-3 h-3" />
+                                  </Button>
+
+                                  {isOwnMessage &&
+                                    message.messageType === "TEXT" && (
+                                      <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                          <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            className="p-1 h-6 w-6"
+                                          >
+                                            <Settings className="w-3 h-3" />
+                                          </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent>
+                                          <DropdownMenuItem
+                                            onClick={() => {
+                                              setEditingMessage(message);
+                                              setEditContent(
+                                                message.content || "",
+                                              );
+                                            }}
+                                          >
+                                            <Edit2 className="w-4 h-4 mr-2" />
+                                            Chỉnh sửa
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem
+                                            onClick={() =>
+                                              handleDeleteMessage(message.id)
+                                            }
+                                            className="text-red-600"
+                                          >
+                                            <Trash2 className="w-4 h-4 mr-2" />
+                                            Xóa
+                                          </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                      </DropdownMenu>
+                                    )}
+                                </div>
                               </div>
-                            ) : (
-                              <p className="text-sm">
-                                {message.content ||
-                                  "Tin nhắn không có nội dung"}
-                              </p>
-                            )}
-                            {isOwnMessage && (
-                              <div className="text-xs text-blue-100 mt-1 text-right">
-                                {formatTime(message.sentAt)}
-                              </div>
-                            )}
+                            </div>
                           </div>
                         </div>
                       </div>
                     );
                   })}
+
+                  {/* Typing indicator */}
+                  {typingUsers.size > 0 && (
+                    <div className="flex items-center space-x-2 mb-4 px-4">
+                      <div className="flex space-x-1">
+                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                        <div
+                          className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                          style={{ animationDelay: "0.1s" }}
+                        ></div>
+                        <div
+                          className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                          style={{ animationDelay: "0.2s" }}
+                        ></div>
+                      </div>
+                      <span className="text-sm text-gray-500">
+                        {typingUsers.size === 1
+                          ? "Ai đó đang nhập..."
+                          : `${typingUsers.size} người đang nhập...`}
+                      </span>
+                    </div>
+                  )}
+
                   {/* Auto-scroll anchor */}
                   <div ref={messagesEndRef} />
                 </div>
@@ -905,22 +1239,95 @@ export default function ChatMainPage() {
 
             {/* Message Input */}
             <div className="p-4 border-t bg-white">
+              {/* Reply preview */}
+              {replyTo && (
+                <div className="p-2 bg-gray-50 border-t border-b mb-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="text-sm text-gray-600">
+                        Trả lời {replyTo.sender.name}
+                      </div>
+                      <div className="text-sm text-gray-800 truncate">
+                        {replyTo.messageType === "TEXT"
+                          ? replyTo.content
+                          : `[${replyTo.fileName || "File"}]`}
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setReplyTo(null)}
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Edit message dialog */}
+              <Dialog
+                open={!!editingMessage}
+                onOpenChange={() => {
+                  setEditingMessage(null);
+                  setEditContent("");
+                }}
+              >
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Chỉnh sửa tin nhắn</DialogTitle>
+                    <DialogDescription>
+                      Thay đổi nội dung tin nhắn của bạn
+                    </DialogDescription>
+                  </DialogHeader>
+                  <Textarea
+                    value={editContent}
+                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                      setEditContent(e.target.value)
+                    }
+                    placeholder="Nhập nội dung tin nhắn..."
+                    rows={3}
+                  />
+                  <div className="flex justify-end space-x-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setEditingMessage(null);
+                        setEditContent("");
+                      }}
+                    >
+                      Hủy
+                    </Button>
+                    <Button onClick={handleEditMessage}>Cập nhật</Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
               {/* Image Preview */}
               {imagePreview && (
-                <div className="mb-3 relative inline-block">
+                <div className="mb-3 relative inline-block bg-gray-50 p-2 rounded-lg border">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-700">
+                        {selectedImage?.name}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {selectedImage && formatFileSize(selectedImage.size)}
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 text-gray-500 hover:text-red-600"
+                      onClick={clearSelectedImage}
+                      title="Xóa ảnh"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
                   <img
                     src={imagePreview}
                     alt="Preview"
-                    className="max-w-40 h-auto rounded-lg border"
+                    className="max-w-48 max-h-32 rounded border object-cover"
                   />
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0"
-                    onClick={clearSelectedImage}
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
                 </div>
               )}
 
@@ -933,25 +1340,24 @@ export default function ChatMainPage() {
 
               <div className="flex items-center space-x-2">
                 {/* Image Upload Button */}
-                <div className="relative">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageSelect}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    disabled={sending || !isConnected || isCreatingChatRoom}
-                    key={selectedImage ? "has-image" : "no-image"} // Reset input when image is cleared
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={sending || !isConnected || isCreatingChatRoom}
-                    className="relative"
-                    title="Chọn ảnh để gửi"
-                  >
-                    <Image className="h-4 w-4" />
-                  </Button>
-                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageSelect}
+                  className="hidden"
+                  disabled={sending || !isConnected || isCreatingChatRoom}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={sending || !isConnected || isCreatingChatRoom}
+                  onClick={() => fileInputRef.current?.click()}
+                  title="Chọn ảnh để gửi (PNG, JPG, GIF - tối đa 3MB)"
+                  className="hover:bg-blue-50 hover:border-blue-300"
+                >
+                  <Image className="h-4 w-4" />
+                </Button>
 
                 <Input
                   placeholder={
@@ -966,6 +1372,7 @@ export default function ChatMainPage() {
                   value={newMessage}
                   onChange={(e) => {
                     setNewMessage(e.target.value);
+                    handleTyping();
                     if (sendError) setSendError(null); // Clear error when user starts typing
                   }}
                   onKeyDown={(e) => {
