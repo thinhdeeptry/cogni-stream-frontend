@@ -64,7 +64,7 @@ export function AvatarUpload({ onSuccess }: AvatarUploadProps) {
       formData.append("bucket", "avatars");
       const storageApiUrl =
         process.env.NEXT_PUBLIC_STORAGE_API_URL ||
-        "https://storage.cognistream.io.vn";
+        "https://be.cognistream.id.vn";
       // Upload to storage service
       const response = await fetch(`${storageApiUrl}/api/v1/storage/upload`, {
         method: "POST",
