@@ -10,6 +10,7 @@ import {
   BookOpen,
   Calendar,
   CheckSquare,
+  CreditCard,
   DollarSign,
   GraduationCap,
   Home,
@@ -100,6 +101,13 @@ const getMenuItems = (userRole: string) => {
         icon: CheckSquare,
         color: "text-emerald-600",
         bgColor: "bg-emerald-50",
+      },
+      {
+        title: "Chi trả",
+        url: "/admin/payments",
+        icon: CreditCard,
+        color: "text-purple-600",
+        bgColor: "bg-purple-50",
       },
       {
         title: "Phí nền tảng",
