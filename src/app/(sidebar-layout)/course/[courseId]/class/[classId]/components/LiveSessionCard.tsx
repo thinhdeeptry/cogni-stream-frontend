@@ -94,9 +94,9 @@ export function LiveSessionCard({
         <div className="flex items-center gap-3 mb-4">
           <Video className="h-6 w-6 text-red-500" />
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">
+            {/* <h2 className="text-xl font-semibold text-gray-900">
               {classSession.topic}
-            </h2>
+            </h2> */}
             <div className="flex items-center gap-4 text-sm text-gray-600">
               <div className="flex items-center gap-1">
                 <Calendar className="h-4 w-4" />
