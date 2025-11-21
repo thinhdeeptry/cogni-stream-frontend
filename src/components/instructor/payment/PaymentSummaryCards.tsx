@@ -14,11 +14,9 @@ export default function PaymentSummaryCards({
   summary,
   isLoading,
 }: PaymentSummaryCardsProps) {
-  // Calculate available balance
+  // Calculate available balance - chỉ check totalRevenue - totalPaidOut
   const availableBalance = summary
-    ? (summary.teacher.totalRevenue || 0) -
-      (summary.teacher.totalPaidOut || 0) -
-      (summary.teacher.pendingPayout || 0)
+    ? (summary.teacher.totalRevenue || 0) - (summary.teacher.totalPaidOut || 0)
     : 0;
 
   if (isLoading) {

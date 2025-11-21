@@ -281,6 +281,7 @@ export const createPaymentRecord = async (
   data: CreatePaymentRecordDto,
 ): Promise<PaymentRecord> => {
   try {
+    console.log("Gọi ở payment trên", data);
     const paymentApi = await AxiosFactory.getApiInstance("payment");
     const response = await paymentApi.post("/payments/records", data);
     return response.data;
@@ -344,6 +345,7 @@ export const getMyPaymentSummary = async (): Promise<TeacherPaymentSummary> => {
   try {
     const paymentApi = await AxiosFactory.getApiInstance("payment");
     const response = await paymentApi.get(`/payments/teacher/current/summary`);
+    console.log("Data về thanh toán hiện tại: ", response.data);
     return response.data;
   } catch (error: any) {
     console.error("Error fetching my payment summary:", error);
@@ -510,10 +512,13 @@ export const setDefaultPayoutMethod = async (
 
 // Tạo payout record (yêu cầu rút tiền chờ admin duyệt)
 export const createPayoutRecord = async (data: {
+  payoutMethodId: string;
   amount: number;
   description: string;
 }): Promise<PaymentRecord> => {
   try {
+    console.log("Gọi ở payment");
+
     const paymentApi = await AxiosFactory.getApiInstance("payment");
     const response = await paymentApi.post("/payout/records", data);
     return response.data;

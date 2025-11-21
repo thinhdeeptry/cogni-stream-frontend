@@ -39,6 +39,7 @@ export interface UpdatePayoutMethodDto {
 }
 
 export interface CreatePayoutRecordDto {
+  payoutMethodId: string;
   amount: number;
   description: string;
 }
@@ -163,6 +164,7 @@ export const createPayoutRecord = async (
   data: CreatePayoutRecordDto,
 ): Promise<any> => {
   try {
+    console.log("Gọi ở payout");
     const payoutApi = await AxiosFactory.getApiInstance("payout");
     const response = await payoutApi.post("/records", data);
     return response.data;

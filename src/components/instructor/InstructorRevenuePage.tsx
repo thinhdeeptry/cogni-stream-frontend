@@ -247,6 +247,7 @@ export default function InstructorRevenuePage() {
     description: string;
   }) => {
     try {
+      console.log("Creating payment request with data:", data);
       setIsCreatingPayment(true);
       await createPaymentRecord(data);
       toast({
@@ -272,6 +273,7 @@ export default function InstructorRevenuePage() {
   };
 
   const handleCreatePayoutRecord = async (data: {
+    payoutMethodId: string;
     amount: number;
     description: string;
   }) => {
