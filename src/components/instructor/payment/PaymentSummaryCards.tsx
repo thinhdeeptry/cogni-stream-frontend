@@ -14,6 +14,13 @@ export default function PaymentSummaryCards({
   summary,
   isLoading,
 }: PaymentSummaryCardsProps) {
+  // Calculate available balance
+  const availableBalance = summary
+    ? (summary.teacher.totalRevenue || 0) -
+      (summary.teacher.totalPaidOut || 0) -
+      (summary.teacher.pendingPayout || 0)
+    : 0;
+
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -87,12 +94,13 @@ export default function PaymentSummaryCards({
         <CardContent className="p-6">
           <div className="flex items-center justify-between">
             <div className="flex-1">
-              <p className="text-sm font-medium text-slate-600">
-                Số lần thanh toán
+              <p className="text-sm font-medium text-slate-600">Có thể rút</p>
+              <p
+                className={`text-2xl font-bold ${availableBalance > 0 ? "text-blue-600" : "text-gray-500"}`}
+              >
+                {formatCurrency(Math.max(0, availableBalance))}
               </p>
-              <p className="text-2xl font-bold text-blue-600">
-                {summary?.paymentHistory?.totalPayments || 0}
-              </p>
+              <p className="text-xs text-slate-500">Số dư khả dụng</p>
             </div>
           </div>
         </CardContent>

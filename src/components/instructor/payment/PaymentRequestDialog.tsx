@@ -56,11 +56,27 @@ export default function PaymentRequestDialog({
     const amount = parseFloat(paymentAmount);
     if (isNaN(amount) || amount <= 0) return;
 
+    // Check if amount exceeds available balance
+    const availableBalance =
+      (summary?.teacher?.totalRevenue || 0) -
+      (summary?.teacher?.totalPaidOut || 0) -
+      (summary?.teacher?.pendingPayout || 0);
+
+    if (amount > availableBalance) {
+      alert(
+        `Số tiền vượt quá số dư khả dụng: ${formatCurrency(availableBalance)}`,
+      );
+      return;
+    }
+
     const defaultPayoutMethod = Array.isArray(payoutMethods)
       ? payoutMethods.find((method) => method.isDefault)
       : null;
 
-    if (!defaultPayoutMethod) return;
+    if (!defaultPayoutMethod) {
+      alert("Vui lòng thêm phương thức thanh toán trước khi tạo yêu cầu");
+      return;
+    }
 
     await onCreatePaymentRequest({
       payoutMethodId: defaultPayoutMethod.id,
@@ -78,6 +94,19 @@ export default function PaymentRequestDialog({
     const amount = parseFloat(payoutAmount);
     if (isNaN(amount) || amount <= 0) return;
 
+    // Check if amount exceeds available balance
+    const availableBalance =
+      (summary?.teacher?.totalRevenue || 0) -
+      (summary?.teacher?.totalPaidOut || 0) -
+      (summary?.teacher?.pendingPayout || 0);
+
+    if (amount > availableBalance) {
+      alert(
+        `Số tiền vượt quá số dư khả dụng: ${formatCurrency(availableBalance)}`,
+      );
+      return;
+    }
+
     await onCreatePayoutRecord({
       amount,
       description:
@@ -89,8 +118,12 @@ export default function PaymentRequestDialog({
     setShowPayoutDialog(false);
   };
 
-  const pendingAmount = summary?.teacher?.pendingPayout || 0;
-  const hasBalance = pendingAmount > 0;
+  // Calculate available balance
+  const availableBalance =
+    (summary?.teacher?.totalRevenue || 0) -
+    (summary?.teacher?.totalPaidOut || 0) -
+    (summary?.teacher?.pendingPayout || 0);
+  const hasBalance = availableBalance > 0;
 
   return (
     <>

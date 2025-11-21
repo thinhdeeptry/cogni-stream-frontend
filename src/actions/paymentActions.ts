@@ -385,6 +385,27 @@ export const getTeacherPaymentSummary = async (
   }
 };
 
+// Cancel payment record
+export const cancelPaymentRecord = async (
+  id: string,
+  reason?: string,
+): Promise<PaymentRecord> => {
+  try {
+    const paymentApi = await AxiosFactory.getApiInstance("payment");
+    const response = await paymentApi.patch(`/payments/records/${id}/cancel`, {
+      reason,
+    });
+    return response.data;
+  } catch (error: any) {
+    console.error("Error cancelling payment record:", error);
+    throw new Error(
+      error.response?.data?.message ||
+        error.message ||
+        "Lỗi hủy yêu cầu thanh toán",
+    );
+  }
+};
+
 // ============================================
 // PAYOUT METHOD FUNCTIONS
 // ============================================

@@ -495,6 +495,12 @@ export default function InstructorRevenuePage() {
             currentPage={currentPaymentPage}
             totalPages={totalPaymentPages}
             onPageChange={setCurrentPaymentPage}
+            onRefresh={async () => {
+              await Promise.all([
+                fetchPaymentSummary(),
+                fetchPaymentRecords(currentPaymentPage),
+              ]);
+            }}
           />
         </TabsContent>
 
@@ -504,6 +510,7 @@ export default function InstructorRevenuePage() {
             isLoading={isLoadingPayoutMethods}
             onCreateMethod={handleCreatePayoutMethod}
             isCreating={isCreatingPayoutMethod}
+            onRefresh={fetchPayoutMethods}
           />
         </TabsContent>
       </Tabs>
