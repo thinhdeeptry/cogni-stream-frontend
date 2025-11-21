@@ -88,7 +88,7 @@ export async function checkEnrollmentStatus(
       // `/enrollments/check/${courseId}?${queryParams.toString()}`,
       `/enrollments/check/${courseId}?${queryParams.toString()}`,
     );
-
+    console.log("kết quả kiểm tra enroll status: ", res.data);
     return {
       success: true,
       isEnrolled: res?.data?.data === true,

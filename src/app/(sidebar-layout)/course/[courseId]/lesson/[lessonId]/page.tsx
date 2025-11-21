@@ -133,13 +133,13 @@ export default function LessonDetail() {
     const elapsedMinutes = Math.floor(timeTracking.elapsedSeconds / 60);
     const remainingSeconds = timeTracking.elapsedSeconds % 60;
 
-    // console.log("Chi tiết thời gian:", {
-    //   "Yêu cầu": requiredMinutes,
-    //   "Đã học": `${elapsedMinutes}p${remainingSeconds}s(${timeTracking.elapsedSeconds}total)`,
-    //   "Tiến độ": `${timeTracking.progress.toFixed(1)}%`,
-    //   "Đã hoàn thành": timeTracking.isTimeComplete ? "ok" : "no",
-    //   "Đang tracking": timeTracking.isActive ? "ok" : "no",
-    // });
+    console.log("Chi tiết thời gian:", {
+      "Yêu cầu": requiredMinutes,
+      "Đã học": `${elapsedMinutes}p${remainingSeconds}s(${timeTracking.elapsedSeconds}total)`,
+      "Tiến độ": `${timeTracking.progress.toFixed(1)}%`,
+      "Đã hoàn thành": timeTracking.isTimeComplete ? "ok" : "no",
+      "Đang tracking": timeTracking.isActive ? "ok" : "no",
+    });
   }, [
     timeTracking.isTimeComplete,
     timeTracking.elapsedSeconds,
@@ -296,7 +296,7 @@ export default function LessonDetail() {
           const result = await checkEnrollmentStatus(
             session.user.id,
             course.id,
-            undefined, // No classId for self-paced courses
+            undefined,
           );
           console.log("res: ", result);
           // Kiểm tra cả success và isEnrolled
