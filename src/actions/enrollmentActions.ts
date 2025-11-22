@@ -295,6 +295,7 @@ export async function getEnrollmentByCourse(courseId: string) {
   try {
     const api = await AxiosFactory.getApiInstance("enrollment");
     const res = await api.get(`/enrollments/find/${courseId}`);
+    console.log("Kết quả fetch enrollment by course: ", res.data);
     return { success: true, data: res.data };
   } catch (error: any) {
     return {

@@ -14,6 +14,7 @@ export default function PaymentSummaryCards({
   summary,
   isLoading,
 }: PaymentSummaryCardsProps) {
+  console.log("PaymentSummaryCards summary:", summary);
   // Calculate available balance - chỉ check totalRevenue - totalPaidOut
   const availableBalance = summary
     ? (summary.teacher.totalRevenue || 0) - (summary.teacher.totalPaidOut || 0)

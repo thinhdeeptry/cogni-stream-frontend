@@ -145,6 +145,7 @@ export default function InstructorRevenuePage() {
     try {
       const summary = await getMyPaymentSummary();
       setPaymentSummary(summary);
+      console.log("Fetched payment summary:", summary);
     } catch (error) {
       console.error("Error fetching payment summary:", error);
       // Set default empty data for new teachers
