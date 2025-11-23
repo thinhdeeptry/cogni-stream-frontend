@@ -1,5 +1,6 @@
-import { useState } from "react";
+import React, { useState } from "react";
 
+import { toast } from "@/hooks/use-toast";
 import { Plus, Wallet } from "lucide-react";
 
 import {
@@ -21,6 +22,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
 interface PaymentRequestDialogProps {
@@ -32,6 +40,7 @@ interface PaymentRequestDialogProps {
     description: string;
   }) => Promise<void>;
   onCreatePayoutRecord: (data: {
+    payoutMethodId: string;
     amount: number;
     description: string;
   }) => Promise<void>;
@@ -45,52 +54,74 @@ export default function PaymentRequestDialog({
   onCreatePayoutRecord,
   isCreating,
 }: PaymentRequestDialogProps) {
-  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
-  const [showPayoutDialog, setShowPayoutDialog] = useState(false);
-  const [paymentAmount, setPaymentAmount] = useState("");
-  const [paymentDescription, setPaymentDescription] = useState("");
-  const [payoutAmount, setPayoutAmount] = useState("");
-  const [payoutDescription, setPayoutDescription] = useState("");
+  const [showDialog, setShowDialog] = useState(false);
+  const [amount, setAmount] = useState("");
+  const [description, setDescription] = useState("");
+  const [selectedPayoutMethodId, setSelectedPayoutMethodId] = useState("");
 
-  const handleCreatePaymentRequest = async () => {
-    const amount = parseFloat(paymentAmount);
-    if (isNaN(amount) || amount <= 0) return;
+  const handleCreateRequest = async () => {
+    const requestAmount = parseFloat(amount);
+    if (isNaN(requestAmount) || requestAmount <= 0) {
+      toast({
+        title: "Lỗi",
+        description: "Vui lòng nhập số tiền hợp lệ (> 0)",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    const defaultPayoutMethod = Array.isArray(payoutMethods)
-      ? payoutMethods.find((method) => method.isDefault)
-      : null;
+    // Check if amount exceeds available balance
+    const availableBalance =
+      (summary?.teacher?.totalRevenue || 0) -
+      (summary?.teacher?.totalPaidOut || 0);
 
-    if (!defaultPayoutMethod) return;
+    if (requestAmount > availableBalance) {
+      toast({
+        title: "Lỗi",
+        description: `Số tiền vượt quá số dư khả dụng: ${formatCurrency(availableBalance)}`,
+        variant: "destructive",
+      });
+      return;
+    }
 
+    // Check if payout method is selected
+    if (!selectedPayoutMethodId) {
+      toast({
+        title: "Lỗi",
+        description: "Vui lòng chọn phương thức thanh toán",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Use createPaymentRequest with selected payout method
     await onCreatePaymentRequest({
-      payoutMethodId: defaultPayoutMethod.id,
-      amount,
+      payoutMethodId: selectedPayoutMethodId,
+      amount: requestAmount,
       description:
-        paymentDescription || `Yêu cầu thanh toán ${formatCurrency(amount)}`,
+        description || `Yêu cầu thanh toán ${formatCurrency(requestAmount)}`,
     });
 
-    setPaymentAmount("");
-    setPaymentDescription("");
-    setShowPaymentDialog(false);
+    setAmount("");
+    setDescription("");
+    setSelectedPayoutMethodId("");
+    setShowDialog(false);
   };
 
-  const handleCreatePayoutRecord = async () => {
-    const amount = parseFloat(payoutAmount);
-    if (isNaN(amount) || amount <= 0) return;
-
-    await onCreatePayoutRecord({
-      amount,
-      description:
-        payoutDescription || `Yêu cầu rút tiền ${formatCurrency(amount)}`,
-    });
-
-    setPayoutAmount("");
-    setPayoutDescription("");
-    setShowPayoutDialog(false);
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    // Chỉ cho phép số và dấu chấm
+    if (value === "" || /^\d*\.?\d*$/.test(value)) {
+      setAmount(value);
+    }
   };
 
-  const pendingAmount = summary?.teacher?.pendingPayout || 0;
-  const hasBalance = pendingAmount > 0;
+  // Calculate available balance - chỉ check totalRevenue - totalPaidOut
+  const availableBalance =
+    (summary?.teacher?.totalRevenue || 0) -
+    (summary?.teacher?.totalPaidOut || 0);
+  const hasBalance = availableBalance > 0;
+  const hasPayoutMethods = payoutMethods && payoutMethods.length > 0;
 
   return (
     <>
@@ -106,158 +137,125 @@ export default function PaymentRequestDialog({
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-slate-600 mb-2">
-                  Bạn có {formatCurrency(pendingAmount)} có thể rút ra
+                  Bạn có {formatCurrency(availableBalance)} có thể rút ra
                 </p>
-                <p className="text-xs text-slate-500">
-                  Yêu cầu thanh toán sẽ được xử lý trong 1-3 ngày làm việc
-                </p>
+                {!hasPayoutMethods ? (
+                  <p className="text-xs text-amber-600 font-medium">
+                    ⚠️ Vui lòng thêm phương thức thanh toán trước
+                  </p>
+                ) : (
+                  <p className="text-xs text-slate-500">
+                    Yêu cầu thanh toán sẽ được xử lý trong 1-3 ngày làm việc
+                  </p>
+                )}
               </div>
-              <div className="flex gap-2">
-                {/* Payment Request Button */}
-                <Dialog
-                  open={showPaymentDialog}
-                  onOpenChange={setShowPaymentDialog}
-                >
-                  <DialogTrigger asChild>
+              <Dialog open={showDialog} onOpenChange={setShowDialog}>
+                <DialogTrigger asChild>
+                  <Button
+                    className="flex items-center gap-2"
+                    disabled={!hasPayoutMethods}
+                  >
+                    <Plus className="h-4 w-4" />
+                    Tạo yêu cầu thanh toán
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[425px]">
+                  <DialogHeader>
+                    <DialogTitle>Tạo yêu cầu thanh toán</DialogTitle>
+                    <DialogDescription>
+                      Nhập số tiền bạn muốn rút. Tối đa:{" "}
+                      {formatCurrency(availableBalance)}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="payoutMethod" className="text-right">
+                        Phương thức *
+                      </Label>
+                      <Select
+                        value={selectedPayoutMethodId}
+                        onValueChange={setSelectedPayoutMethodId}
+                      >
+                        <SelectTrigger className="col-span-3">
+                          <SelectValue placeholder="Chọn phương thức thanh toán" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {payoutMethods.length === 0 ? (
+                            <SelectItem value="" disabled>
+                              Chưa có phương thức thanh toán
+                            </SelectItem>
+                          ) : (
+                            payoutMethods.map((method) => (
+                              <SelectItem key={method.id} value={method.id}>
+                                {method.accountHolderName} - {method.bankName} -{" "}
+                                {method.accountNumber}
+                                {method.isDefault && (
+                                  <span className="text-blue-500 ml-1">
+                                    (Mặc định)
+                                  </span>
+                                )}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="amount" className="text-right">
+                        Số tiền *
+                      </Label>
+                      <Input
+                        id="amount"
+                        type="text"
+                        placeholder="0"
+                        value={amount}
+                        onChange={handleAmountChange}
+                        className="col-span-3"
+                      />
+                      {amount && parseFloat(amount) > 0 && (
+                        <div className="col-start-2 col-span-3 text-sm text-slate-600">
+                          {formatCurrency(parseFloat(amount) || 0)}
+                        </div>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="description" className="text-right">
+                        Mô tả
+                      </Label>
+                      <Textarea
+                        id="description"
+                        placeholder="Mô tả yêu cầu thanh toán (tùy chọn)"
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        className="col-span-3"
+                        rows={3}
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
                     <Button
+                      type="button"
                       variant="outline"
-                      className="flex items-center gap-2"
+                      onClick={() => setShowDialog(false)}
                     >
-                      <Plus className="h-4 w-4" />
-                      Yêu cầu thanh toán
+                      Hủy
                     </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-[425px]">
-                    <DialogHeader>
-                      <DialogTitle>Tạo yêu cầu thanh toán</DialogTitle>
-                      <DialogDescription>
-                        Nhập số tiền bạn muốn rút. Tối đa:{" "}
-                        {formatCurrency(pendingAmount)}
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="payment-amount" className="text-right">
-                          Số tiền
-                        </Label>
-                        <Input
-                          id="payment-amount"
-                          type="number"
-                          placeholder="0"
-                          value={paymentAmount}
-                          onChange={(e) => setPaymentAmount(e.target.value)}
-                          className="col-span-3"
-                          max={pendingAmount}
-                        />
-                      </div>
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Label
-                          htmlFor="payment-description"
-                          className="text-right"
-                        >
-                          Mô tả
-                        </Label>
-                        <Textarea
-                          id="payment-description"
-                          placeholder="Mô tả yêu cầu thanh toán (tùy chọn)"
-                          value={paymentDescription}
-                          onChange={(e) =>
-                            setPaymentDescription(e.target.value)
-                          }
-                          className="col-span-3"
-                          rows={3}
-                        />
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => setShowPaymentDialog(false)}
-                      >
-                        Hủy
-                      </Button>
-                      <Button
-                        type="submit"
-                        onClick={handleCreatePaymentRequest}
-                        disabled={isCreating}
-                      >
-                        {isCreating ? "Đang tạo..." : "Tạo yêu cầu"}
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-
-                {/* Payout Record Button */}
-                <Dialog
-                  open={showPayoutDialog}
-                  onOpenChange={setShowPayoutDialog}
-                >
-                  <DialogTrigger asChild>
-                    <Button className="flex items-center gap-2">
-                      <Plus className="h-4 w-4" />
-                      Tạo Payout Record
+                    <Button
+                      type="submit"
+                      onClick={handleCreateRequest}
+                      disabled={
+                        isCreating ||
+                        !amount ||
+                        parseFloat(amount) <= 0 ||
+                        !selectedPayoutMethodId ||
+                        payoutMethods.length === 0
+                      }
+                    >
+                      {isCreating ? "Đang tạo..." : "Tạo yêu cầu"}
                     </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-[425px]">
-                    <DialogHeader>
-                      <DialogTitle>Tạo Payout Record</DialogTitle>
-                      <DialogDescription>
-                        Tạo yêu cầu rút tiền để chờ admin duyệt. Tối đa:{" "}
-                        {formatCurrency(pendingAmount)}
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="payout-amount" className="text-right">
-                          Số tiền
-                        </Label>
-                        <Input
-                          id="payout-amount"
-                          type="number"
-                          placeholder="0"
-                          value={payoutAmount}
-                          onChange={(e) => setPayoutAmount(e.target.value)}
-                          className="col-span-3"
-                          max={pendingAmount}
-                        />
-                      </div>
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Label
-                          htmlFor="payout-description"
-                          className="text-right"
-                        >
-                          Mô tả
-                        </Label>
-                        <Textarea
-                          id="payout-description"
-                          placeholder="Mô tả yêu cầu rút tiền (tùy chọn)"
-                          value={payoutDescription}
-                          onChange={(e) => setPayoutDescription(e.target.value)}
-                          className="col-span-3"
-                          rows={3}
-                        />
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => setShowPayoutDialog(false)}
-                      >
-                        Hủy
-                      </Button>
-                      <Button
-                        type="submit"
-                        onClick={handleCreatePayoutRecord}
-                        disabled={isCreating}
-                      >
-                        {isCreating ? "Đang tạo..." : "Tạo Payout Record"}
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              </div>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
           </CardContent>
         </Card>

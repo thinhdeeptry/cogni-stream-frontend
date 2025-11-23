@@ -33,6 +33,25 @@ export interface PaymentReturnResponse {
 }
 
 // ============================================
+// PAYOUT METHOD TYPES
+// ============================================
+
+export interface PayoutMethod {
+  id: string;
+  teacherId: string;
+  methodType: "BANK_ACCOUNT" | "E_WALLET";
+  accountHolderName: string;
+  accountNumber: string; // This will be masked from backend
+  bankName: string;
+  bankBranch?: string;
+  bankCode?: string;
+  isDefault: boolean;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ============================================
 // PAYMENT RECORD TYPES
 // ============================================
 
@@ -69,20 +88,6 @@ export interface PaymentRecord {
     name: string;
     email: string;
   };
-}
-
-export interface PayoutMethod {
-  id: string;
-  methodType: "BANK_ACCOUNT" | "E_WALLET";
-  accountHolderName: string;
-  accountNumber: string; // Masked account number
-  bankName: string;
-  bankBranch?: string;
-  bankCode?: string;
-  isDefault: boolean;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
 }
 
 export interface TeacherPaymentSummary {
@@ -122,27 +127,6 @@ export interface PaymentRecordQueryParams {
   toDate?: string;
   page?: number;
   limit?: number;
-}
-
-export interface CreatePayoutMethodDto {
-  teacherId: string;
-  methodType: "BANK_ACCOUNT" | "E_WALLET";
-  accountHolderName: string;
-  accountNumber: string;
-  bankName: string;
-  bankBranch?: string;
-  bankCode?: string;
-  isDefault?: boolean;
-}
-
-export interface UpdatePayoutMethodDto {
-  accountHolderName?: string;
-  accountNumber?: string;
-  bankName?: string;
-  bankBranch?: string;
-  bankCode?: string;
-  isDefault?: boolean;
-  isActive?: boolean;
 }
 
 export interface PaginatedResponse<T> {
@@ -297,6 +281,7 @@ export const createPaymentRecord = async (
   data: CreatePaymentRecordDto,
 ): Promise<PaymentRecord> => {
   try {
+    console.log("Gọi ở payment trên", data);
     const paymentApi = await AxiosFactory.getApiInstance("payment");
     const response = await paymentApi.post("/payments/records", data);
     return response.data;
@@ -327,6 +312,18 @@ export const getPaymentRecords = async (
     return response.data;
   } catch (error: any) {
     console.error("Error fetching payment records:", error);
+    // For new teachers without payment records, return empty paginated response
+    if (error.response?.status === 404) {
+      return {
+        data: [],
+        pagination: {
+          currentPage: 1,
+          totalPages: 1,
+          totalItems: 0,
+          itemsPerPage: params.limit || 10,
+        },
+      };
+    }
     throw error;
   }
 };
@@ -347,11 +344,29 @@ export const getPaymentRecord = async (id: string): Promise<PaymentRecord> => {
 export const getMyPaymentSummary = async (): Promise<TeacherPaymentSummary> => {
   try {
     const paymentApi = await AxiosFactory.getApiInstance("payment");
-    // Giả sử có endpoint để lấy teacherId của user hiện tại
     const response = await paymentApi.get(`/payments/teacher/current/summary`);
+    console.log("Data về thanh toán hiện tại: ", response.data);
     return response.data;
   } catch (error: any) {
     console.error("Error fetching my payment summary:", error);
+    // For new teachers without data, return default summary instead of throwing
+    if (error.response?.status === 404 || error.response?.status === 500) {
+      return {
+        teacher: {
+          id: "",
+          name: "Giảng viên mới",
+          email: "teacher@example.com",
+          totalRevenue: 0,
+          totalPaidOut: 0,
+          pendingPayout: 0,
+        },
+        paymentHistory: {
+          totalPayments: 0,
+          totalAmountPaid: 0,
+          recentPayments: [],
+        },
+      };
+    }
     throw error;
   }
 };
@@ -372,56 +387,148 @@ export const getTeacherPaymentSummary = async (
   }
 };
 
-// ============================================
-// PAYOUT METHOD FUNCTIONS (placeholder cho tương lai)
-// ============================================
-
-// Lấy danh sách payout methods của giảng viên hiện tại
-export const getMyPayoutMethods = async (): Promise<PayoutMethod[]> => {
+// Cancel payment record
+export const cancelPaymentRecord = async (
+  id: string,
+  reason?: string,
+): Promise<PaymentRecord> => {
   try {
     const paymentApi = await AxiosFactory.getApiInstance("payment");
-    const response = await paymentApi.get("/payments/payout-methods");
-
-    // Ensure response data is always an array
-    const data = response.data;
-    if (!Array.isArray(data)) {
-      console.warn("Payout methods API response is not an array:", data);
-      return [];
-    }
-
-    return data;
+    const response = await paymentApi.patch(`/payments/records/${id}/cancel`, {
+      reason,
+    });
+    return response.data;
   } catch (error: any) {
-    console.error("Error fetching my payout methods:", error);
-    throw error;
+    console.error("Error cancelling payment record:", error);
+    throw new Error(
+      error.response?.data?.message ||
+        error.message ||
+        "Lỗi hủy yêu cầu thanh toán",
+    );
   }
 };
 
-// Tạo payout method mới cho giảng viên hiện tại
-export const createMyPayoutMethod = async (
-  data: Omit<CreatePayoutMethodDto, "teacherId">,
-): Promise<PayoutMethod> => {
+// ============================================
+// PAYOUT METHOD FUNCTIONS
+// ============================================
+
+// Tạo payout method mới
+export const createMyPayoutMethod = async (data: {
+  methodType: "BANK_ACCOUNT";
+  accountHolderName: string;
+  accountNumber: string;
+  bankName: string;
+  bankBranch?: string;
+  bankCode?: string;
+  isDefault?: boolean;
+}): Promise<PayoutMethod> => {
   try {
     const paymentApi = await AxiosFactory.getApiInstance("payment");
-    const response = await paymentApi.post("/payments/payout-methods", data);
+    const response = await paymentApi.post("/payout/methods", data);
     return response.data;
   } catch (error: any) {
     console.error("Error creating payout method:", error);
-    throw error;
+    throw new Error(
+      error.response?.data?.message ||
+        error.message ||
+        "Lỗi tạo phương thức thanh toán",
+    );
+  }
+};
+
+// Lấy danh sách payout methods của teacher hiện tại
+export const getMyPayoutMethods = async (): Promise<PayoutMethod[]> => {
+  try {
+    const paymentApi = await AxiosFactory.getApiInstance("payment");
+    const response = await paymentApi.get("/payout/methods");
+    return Array.isArray(response.data) ? response.data : [];
+  } catch (error: any) {
+    console.error("Error fetching payout methods:", error);
+    // Return empty array instead of throwing for better UX with new teachers
+    return [];
+  }
+};
+
+// Cập nhật payout method
+export const updatePayoutMethod = async (
+  id: string,
+  data: {
+    accountHolderName?: string;
+    accountNumber?: string;
+    bankName?: string;
+    bankBranch?: string;
+    bankCode?: string;
+    isDefault?: boolean;
+  },
+): Promise<PayoutMethod> => {
+  try {
+    const paymentApi = await AxiosFactory.getApiInstance("payment");
+    const response = await paymentApi.put(`/payout/methods/${id}`, data);
+    return response.data;
+  } catch (error: any) {
+    console.error("Error updating payout method:", error);
+    throw new Error(
+      error.response?.data?.message ||
+        error.message ||
+        "Lỗi cập nhật phương thức thanh toán",
+    );
+  }
+};
+
+// Xóa payout method
+export const deletePayoutMethod = async (id: string): Promise<void> => {
+  try {
+    const paymentApi = await AxiosFactory.getApiInstance("payment");
+    await paymentApi.delete(`/payout/methods/${id}`);
+  } catch (error: any) {
+    console.error("Error deleting payout method:", error);
+    throw new Error(
+      error.response?.data?.message ||
+        error.message ||
+        "Lỗi xóa phương thức thanh toán",
+    );
+  }
+};
+
+// Set payout method as default
+export const setDefaultPayoutMethod = async (
+  id: string,
+): Promise<PayoutMethod> => {
+  try {
+    const paymentApi = await AxiosFactory.getApiInstance("payment");
+    const response = await paymentApi.patch(
+      `/payout/methods/${id}/set-default`,
+    );
+    return response.data;
+  } catch (error: any) {
+    console.error("Error setting default payout method:", error);
+    throw new Error(
+      error.response?.data?.message ||
+        error.message ||
+        "Lỗi thiết lập phương thức thanh toán mặc định",
+    );
   }
 };
 
 // Tạo payout record (yêu cầu rút tiền chờ admin duyệt)
 export const createPayoutRecord = async (data: {
+  payoutMethodId: string;
   amount: number;
   description: string;
-}): Promise<any> => {
+}): Promise<PaymentRecord> => {
   try {
+    console.log("Gọi ở payment");
+
     const paymentApi = await AxiosFactory.getApiInstance("payment");
-    const response = await paymentApi.post("/payments/payout-records", data);
+    const response = await paymentApi.post("/payout/records", data);
     return response.data;
   } catch (error: any) {
     console.error("Error creating payout record:", error);
-    throw error;
+    throw new Error(
+      error.response?.data?.message ||
+        error.message ||
+        "Lỗi tạo yêu cầu rút tiền",
+    );
   }
 };
 

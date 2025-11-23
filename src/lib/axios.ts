@@ -19,6 +19,7 @@ type ServiceName =
   | "courses"
   | "enrollment"
   | "payment"
+  | "payout"
   | "assessment"
   | "notification"
   | "report"
@@ -40,6 +41,7 @@ const paths: Record<ServiceName, string> = {
   courses: "",
   enrollment: "enrollments",
   payment: "payments",
+  payout: "payout",
   assessment: "",
   notification: "notification",
   report: "report",

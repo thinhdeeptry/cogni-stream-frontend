@@ -113,11 +113,12 @@ export default function InstructorRevenuePage() {
       await Promise.all([fetchPaymentSummary(), fetchPaymentRecords(1)]);
     } catch (error) {
       console.error("Error fetching payment data:", error);
+      // Set default empty data for new teachers
       setPaymentSummary({
         teacher: {
           id: "",
-          name: "Unknown Teacher",
-          email: "unknown@example.com",
+          name: "Giảng viên mới",
+          email: "teacher@example.com",
           totalRevenue: 0,
           totalPaidOut: 0,
           pendingPayout: 0,
@@ -129,6 +130,12 @@ export default function InstructorRevenuePage() {
         },
       });
       setPaymentRecords([]);
+      toast({
+        title: "Thông tin",
+        description:
+          "Chưa có dữ liệu thanh toán. Đây có thể là tài khoản giảng viên mới.",
+        variant: "default",
+      });
     } finally {
       setIsLoadingPayments(false);
     }
@@ -138,13 +145,15 @@ export default function InstructorRevenuePage() {
     try {
       const summary = await getMyPaymentSummary();
       setPaymentSummary(summary);
+      console.log("Fetched payment summary:", summary);
     } catch (error) {
       console.error("Error fetching payment summary:", error);
+      // Set default empty data for new teachers
       setPaymentSummary({
         teacher: {
           id: "",
-          name: "Unknown Teacher",
-          email: "unknown@example.com",
+          name: "Giảng viên mới",
+          email: "teacher@example.com",
           totalRevenue: 0,
           totalPaidOut: 0,
           pendingPayout: 0,
@@ -173,9 +182,11 @@ export default function InstructorRevenuePage() {
       await fetchPaymentSummary();
     } catch (error) {
       console.error("Error fetching payment records:", error);
+      // Set empty data for new teachers
       setPaymentRecords([]);
       setTotalPaymentPages(1);
       setCurrentPaymentPage(1);
+      // Don't show error toast for empty data - it's normal for new teachers
     } finally {
       setIsLoadingPayments(false);
     }
@@ -196,6 +207,7 @@ export default function InstructorRevenuePage() {
       setPayoutMethods(Array.isArray(methods) ? methods : []);
     } catch (error) {
       console.error("Error fetching payout methods:", error);
+      // Set empty array for new teachers - this is normal
       setPayoutMethods([]);
     } finally {
       setIsLoadingPayoutMethods(false);
@@ -217,13 +229,12 @@ export default function InstructorRevenuePage() {
         title: "Thành công",
         description: "Đã thêm phương thức thanh toán mới",
       });
-      fetchPayoutMethods();
+      await fetchPayoutMethods(); // Refresh the list
     } catch (error: any) {
+      console.error("Error creating payout method:", error);
       toast({
         title: "Lỗi",
-        description:
-          error.response?.data?.message ||
-          "Không thể tạo phương thức thanh toán",
+        description: error.message || "Không thể tạo phương thức thanh toán",
         variant: "destructive",
       });
     } finally {
@@ -237,6 +248,7 @@ export default function InstructorRevenuePage() {
     description: string;
   }) => {
     try {
+      console.log("Creating payment request with data:", data);
       setIsCreatingPayment(true);
       await createPaymentRecord(data);
       toast({
@@ -262,6 +274,7 @@ export default function InstructorRevenuePage() {
   };
 
   const handleCreatePayoutRecord = async (data: {
+    payoutMethodId: string;
     amount: number;
     description: string;
   }) => {
@@ -485,6 +498,12 @@ export default function InstructorRevenuePage() {
             currentPage={currentPaymentPage}
             totalPages={totalPaymentPages}
             onPageChange={setCurrentPaymentPage}
+            onRefresh={async () => {
+              await Promise.all([
+                fetchPaymentSummary(),
+                fetchPaymentRecords(currentPaymentPage),
+              ]);
+            }}
           />
         </TabsContent>
 
@@ -494,6 +513,7 @@ export default function InstructorRevenuePage() {
             isLoading={isLoadingPayoutMethods}
             onCreateMethod={handleCreatePayoutMethod}
             isCreating={isCreatingPayoutMethod}
+            onRefresh={fetchPayoutMethods}
           />
         </TabsContent>
       </Tabs>

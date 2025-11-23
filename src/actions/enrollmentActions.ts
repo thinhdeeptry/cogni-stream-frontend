@@ -88,7 +88,7 @@ export async function checkEnrollmentStatus(
       // `/enrollments/check/${courseId}?${queryParams.toString()}`,
       `/enrollments/check/${courseId}?${queryParams.toString()}`,
     );
-
+    console.log("kết quả kiểm tra enroll status: ", res.data);
     return {
       success: true,
       isEnrolled: res?.data?.data === true,
@@ -295,6 +295,7 @@ export async function getEnrollmentByCourse(courseId: string) {
   try {
     const api = await AxiosFactory.getApiInstance("enrollment");
     const res = await api.get(`/enrollments/find/${courseId}`);
+    console.log("Kết quả fetch enrollment by course: ", res.data);
     return { success: true, data: res.data };
   } catch (error: any) {
     return {

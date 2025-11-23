@@ -117,29 +117,28 @@ export default function LessonDetail() {
       setTimeCompleteNotified(true);
       setForceRender((prev) => prev + 1); // Force re-render
     } else {
-      // console.log("⏭️ [TimeComplete] Đã thông báo rồi - bỏ qua");
     }
   }, [lesson?.estimatedDurationMinutes, timeCompleteNotified, params.lessonId]);
 
   // Time tracking state - Moved after params declaration
   const timeTracking = useTimeTracking({
     itemId: lesson ? `lesson-${params.lessonId}` : "",
-    requiredMinutes: lesson?.estimatedDurationMinutes || 5,
+    requiredMinutes: lesson?.estimatedDurationMinutes,
     onTimeComplete: handleTimeComplete,
   });
   // Debug time tracking state
   useEffect(() => {
-    const requiredMinutes = lesson?.estimatedDurationMinutes || 5;
+    const requiredMinutes = lesson?.estimatedDurationMinutes;
     const elapsedMinutes = Math.floor(timeTracking.elapsedSeconds / 60);
-    const remainingSeconds = timeTracking.elapsedSeconds % 60;
+    const remainingSeconds = timeTracking.elapsedSeconds;
 
-    // console.log("Chi tiết thời gian:", {
-    //   "Yêu cầu": requiredMinutes,
-    //   "Đã học": `${elapsedMinutes}p${remainingSeconds}s(${timeTracking.elapsedSeconds}total)`,
-    //   "Tiến độ": `${timeTracking.progress.toFixed(1)}%`,
-    //   "Đã hoàn thành": timeTracking.isTimeComplete ? "ok" : "no",
-    //   "Đang tracking": timeTracking.isActive ? "ok" : "no",
-    // });
+    console.log("Chi tiết thời gian:", {
+      "Yêu cầu": requiredMinutes,
+      "Đã học": `${elapsedMinutes}p${remainingSeconds}s(${timeTracking.elapsedSeconds}total)`,
+      "Tiến độ": `${timeTracking.progress.toFixed(1)}%`,
+      "Đã hoàn thành": timeTracking.isTimeComplete ? "ok" : "no",
+      "Đang tracking": timeTracking.isActive ? "ok" : "no",
+    });
   }, [
     timeTracking.isTimeComplete,
     timeTracking.elapsedSeconds,
@@ -296,7 +295,7 @@ export default function LessonDetail() {
           const result = await checkEnrollmentStatus(
             session.user.id,
             course.id,
-            undefined, // No classId for self-paced courses
+            undefined,
           );
           console.log("res: ", result);
           // Kiểm tra cả success và isEnrolled
@@ -533,6 +532,23 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
   // Add new useEffect for fetching enrollment ID
   useEffect(() => {
     const fetchEnrollmentId = async () => {
+      console.log("🔍 fetchEnrollmentId useEffect called with:", {
+        userId: session?.user?.id,
+        courseId: course?.id,
+        isInstructorOrAdmin,
+        userRole: user?.role,
+        instructorId: course?.instructorId,
+        hasSession: !!session,
+        hasCourse: !!course,
+        hasUser: !!user,
+      });
+
+      // Đảm bảo có đầy đủ dữ liệu trước khi xử lý
+      if (!session?.user?.id || !course?.id || !user) {
+        console.log("⏳ Waiting for session, course, or user data...");
+        return;
+      }
+
       if (session?.user?.id && course?.id) {
         // If user is instructor or admin, skip enrollment and progress tracking
         if (isInstructorOrAdmin) {
@@ -555,16 +571,6 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
           useProgressStore.getState().clearProgress(); // Reset all progress data
           setCurrentCourseId(course.id);
 
-          // Nếu đang xem bài học preview mà chưa enrolled, không cần fetch enrollment
-          // const checkEnroll = await checkEnrollmentStatus
-
-          // if (isCurrentLessonPreview && isEnrolled) {
-          //   console.log(
-          //     "Viewing preview lesson without enrollment - skipping enrollment API call",
-          //   );
-          //   return;
-          // }
-
           // const enrollmentApi = await AxiosFactory.getApiInstance("enrollment");
           const response = await getEnrollmentByCourse(course.id);
           if (response.data?.data.id) {
@@ -572,10 +578,12 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
             setProgressEnrollmentId(response.data.data.id);
             console.log("Fetched enrollment ID:", response.data.data.id);
             // Kiểm tra xem có certificate không
-            if (response.data.data.certificate) {
+            if (response.data.data.isHasCertificate) {
+              console.log("Khóa có cung cấp chứng chỉ:", response.data.data);
               setHasCertificate(true);
-              setCertificateId(response.data.data.certificate.id);
+              setCertificateId(response.data.data.certificate?.id || null);
             } else {
+              console.log("Khóa không có chứng chỉ: ", response.data.data);
               setHasCertificate(false);
               setCertificateId(null);
             }
@@ -680,6 +688,13 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
             console.error("Error fetching enrollment ID:", err);
           }
         }
+      } else {
+        console.log("🚫 fetchEnrollmentId conditions not met:", {
+          hasUserId: !!session?.user?.id,
+          hasCourseId: !!course?.id,
+          userId: session?.user?.id,
+          courseId: course?.id,
+        });
       }
     };
 
@@ -687,6 +702,7 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
   }, [
     course,
     session?.user?.id,
+    user, // Add user to dependencies
     params.lessonId,
     isEnrolled,
     fetchInitialProgress,
@@ -726,7 +742,7 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
     }
 
     // Start/Resume tracking if lesson is not completed yet (for non-quiz lessons)
-    if (lesson && isEnrolled && !isCurrentLessonCompleted) {
+    if (lesson && !isCurrentLessonCompleted) {
       // Nếu chưa tracking và chưa hoàn thành thời gian required
       if (!timeTracking.isActive && !timeTracking.isTimeComplete) {
         console.log("Bắt đầu/tiếp tục tracking cho bài chưa hoàn thành");
@@ -745,7 +761,6 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
     } else {
       console.log("Không đủ điều kiện để bắt đầu tracking - Lý do:", {
         "Không có lesson": !lesson,
-        "Chưa enrolled": !isEnrolled,
         "Bài đã hoàn thành": isCurrentLessonCompleted,
       });
     }
@@ -1012,10 +1027,67 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
     }
   };
 
+  // Handle updating certificate status from navigation bar
+  const handleUpdateCertificate = useCallback(
+    (newHasCertificate: boolean, newCertificateId: string | null) => {
+      console.log("Updating certificate state:", {
+        newHasCertificate,
+        newCertificateId,
+      });
+      setHasCertificate(newHasCertificate);
+      setCertificateId(newCertificateId);
+      setForceRender((prev) => prev + 1); // Force re-render to update UI
+    },
+    [],
+  );
+
   const handleCourseCompletion = async () => {
     try {
+      console.log("🎯 handleCourseCompletion Debug Info:", {
+        enrollmentId,
+        userId: session?.user?.id,
+        courseId: course?.id,
+        userRole: user?.role,
+        isInstructorOrAdmin,
+        instructorId: course?.instructorId,
+        "User is instructor": user?.id === course?.instructorId,
+        "User is admin": user?.role === "ADMIN",
+      });
+
+      console.log("Action khi ấn btn hoàn thành khóa học: ", enrollmentId);
       if (!enrollmentId) {
         console.log("No enrollmentId available");
+
+        // If user is instructor/admin but trying to complete course, they shouldn't be able to
+        if (isInstructorOrAdmin) {
+          toast.error(
+            "Giảng viên/Admin không thể hoàn thành khóa học của chính mình",
+          );
+          return;
+        }
+
+        // If user is a student but no enrollmentId, try to fetch it again
+        console.log("🔄 Attempting to fetch enrollmentId again...");
+        try {
+          if (course?.id) {
+            const enrollmentResponse = await getEnrollmentByCourse(course.id);
+            if (
+              enrollmentResponse.success &&
+              enrollmentResponse.data?.data?.enrollment.id
+            ) {
+              const fetchedEnrollmentId =
+                enrollmentResponse.data.data.enrollment.id;
+              console.log(
+                "✅ Successfully refetched enrollmentId:",
+                fetchedEnrollmentId,
+              );
+              setEnrollmentId(fetchedEnrollmentId);
+            }
+          }
+        } catch (refetchError) {
+          console.error("❌ Failed to refetch enrollmentId:", refetchError);
+        }
+
         toast.error("Không tìm thấy thông tin ghi danh");
         return;
       }
@@ -1372,6 +1444,7 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
           isQuizActivelyTaking={isQuizActivelyTaking}
           onLessonCompletion={handleLessonCompletion}
           onCourseCompletion={handleCourseCompletion}
+          handleCourseCompletion={handleCourseCompletion}
           onSidebarToggle={() => setIsSidebarOpen(!isSidebarOpen)}
           router={router}
         />

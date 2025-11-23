@@ -1,13 +1,28 @@
-import { Calendar, Wallet } from "lucide-react";
+import { useState } from "react";
+
+import { toast } from "@/hooks/use-toast";
+import { AlertCircle, Calendar, Wallet, X } from "lucide-react";
 
 import {
   PaymentRecord,
+  cancelPaymentRecord,
   formatCurrency,
   formatDate,
   getStatusBadgeColor,
   getStatusLabel,
 } from "@/actions/paymentActions";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,6 +41,7 @@ interface PaymentRecordsTableProps {
   currentPage: number;
   totalPages: number;
   onPageChange: (page: number) => void;
+  onRefresh?: () => Promise<void>;
 }
 
 export default function PaymentRecordsTable({
@@ -34,7 +50,29 @@ export default function PaymentRecordsTable({
   currentPage,
   totalPages,
   onPageChange,
+  onRefresh,
 }: PaymentRecordsTableProps) {
+  const [isCancelling, setIsCancelling] = useState<string | null>(null);
+
+  const handleCancelPayment = async (recordId: string) => {
+    try {
+      setIsCancelling(recordId);
+      await cancelPaymentRecord(recordId, "Hủy bởi giảng viên");
+      toast({
+        title: "Thành công",
+        description: "Đã hủy yêu cầu thanh toán",
+      });
+      onRefresh?.(); // Refresh the data
+    } catch (error: any) {
+      toast({
+        title: "Lỗi",
+        description: error.message || "Không thể hủy yêu cầu thanh toán",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCancelling(null);
+    }
+  };
   return (
     <Card>
       <CardHeader>
@@ -79,9 +117,10 @@ export default function PaymentRecordsTable({
                   <TableHead>Mô tả</TableHead>
                   <TableHead>Số tiền</TableHead>
                   <TableHead>Trạng thái</TableHead>
+                  <TableHead>Ghi chú</TableHead>
                   <TableHead>Phương thức</TableHead>
                   <TableHead>Ngày tạo</TableHead>
-                  <TableHead>Ngày thanh toán</TableHead>
+                  <TableHead>Thao tác</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -92,9 +131,9 @@ export default function PaymentRecordsTable({
                         <p className="font-medium text-slate-900">
                           {record.description}
                         </p>
-                        {record.notes && (
-                          <p className="text-sm text-slate-500">
-                            {record.notes}
+                        {record.transactionId && (
+                          <p className="text-xs text-slate-400">
+                            ID: {record.transactionId}
                           </p>
                         )}
                       </div>
@@ -106,6 +145,20 @@ export default function PaymentRecordsTable({
                       <Badge className={getStatusBadgeColor(record.status)}>
                         {getStatusLabel(record.status)}
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {record.notes ? (
+                        <div className="max-w-xs">
+                          <p
+                            className="text-sm text-slate-600 truncate"
+                            title={record.notes}
+                          >
+                            {record.notes}
+                          </p>
+                        </div>
+                      ) : (
+                        <span className="text-slate-400">-</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <div className="text-sm">
@@ -120,8 +173,54 @@ export default function PaymentRecordsTable({
                     <TableCell className="text-sm text-slate-500">
                       {formatDate(record.createdAt)}
                     </TableCell>
-                    <TableCell className="text-sm text-slate-500">
-                      {record.paidAt ? formatDate(record.paidAt) : "-"}
+                    <TableCell>
+                      {record.status === "PENDING" ? (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-red-600 hover:text-red-700"
+                              disabled={isCancelling === record.id}
+                            >
+                              <X className="h-4 w-4 mr-1" />
+                              {isCancelling === record.id
+                                ? "Đang hủy..."
+                                : "Hủy"}
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle className="flex items-center gap-2">
+                                <AlertCircle className="h-5 w-5 text-red-500" />
+                                Xác nhận hủy yêu cầu thanh toán
+                              </AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Bạn có chắc chắn muốn hủy yêu cầu thanh toán{" "}
+                                <span className="font-semibold">
+                                  {formatCurrency(record.amount)}
+                                </span>
+                                ?
+                                <br />
+                                Hành động này không thể hoàn tác.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Không</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleCancelPayment(record.id)}
+                                className="bg-red-600 hover:bg-red-700"
+                              >
+                                Có, hủy yêu cầu
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      ) : (
+                        <span className="text-sm text-slate-400">
+                          {record.paidAt ? formatDate(record.paidAt) : "-"}
+                        </span>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
