@@ -280,7 +280,7 @@ const HeaderDetailModal: React.FC<{
                   </Badge>
                 </p>
                 <p>
-                  <strong>Số details:</strong> {header._count?.details || 0}
+                  <strong>Số details:</strong> {header?.details?.length || 0}
                 </p>
               </div>
             </div>
@@ -581,7 +581,7 @@ export default function CommissionPage() {
       </div>
     );
   }
-
+  console.log("headers", headers);
   return (
     <div className="w-full space-y-4 sm:space-y-6 p-4 sm:p-6 bg-slate-50">
       {/* Header */}
@@ -701,7 +701,7 @@ export default function CommissionPage() {
                         {header.startDate && (
                           <div className="text-xs text-slate-500 mt-1">
                             Từ:{" "}
-                            {new Date(header.startDate).toLocaleDateString(
+                            {new Date(header.updatedAt).toLocaleDateString(
                               "vi-VN",
                             )}
                           </div>
@@ -712,7 +712,7 @@ export default function CommissionPage() {
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Badge variant="outline">
-                          {header._count?.details || 0} details
+                          {header.details?.length || 0} details
                         </Badge>
                         {(header._count?.details || 0) > 0 && (
                           <Link
