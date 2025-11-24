@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/tooltip";
 
 interface LessonNavigationBarProps {
+  enrollmentId: any;
   lesson: any;
   course: any;
   previousLesson: any;
@@ -58,6 +59,7 @@ interface LessonNavigationBarProps {
 }
 
 export function LessonNavigationBar({
+  enrollmentId,
   lesson,
   course,
   previousLesson,
@@ -87,10 +89,14 @@ export function LessonNavigationBar({
     hasCertificate,
     "certificateId:",
     certificateId,
+    "nextLesson:",
+    nextLesson,
+    "isButtonEnabled:",
+    isButtonEnabled,
   );
   console.log("isButtonEnabled:", isButtonEnabled);
   const isLastLesson = currentLessonIndex === allLessons.length - 1;
-  const [enrollmentId, setEnrollmentId] = useState<string>("id");
+  // const [enrollmentId, setEnrollmentId] = useState<string>("id");
   const handleLessonCompletionWithCertCheck = async () => {
     try {
       // Cập nhật certificate status trước khi complete lesson
@@ -100,8 +106,10 @@ export function LessonNavigationBar({
         ? true
         : false;
       const newCertificateId = response.data?.data?.certificate?.id || null;
-      setEnrollmentId(response.data?.data?.enrollment.id || null);
+      // setEnrollmentId(response.data?.data?.enrollment.id || null);
+      enrollmentId = response.data?.data?.enrollment.id || null;
       console.log("Certificate status after lesson completion:", {
+        enrollmentId: response.data?.data?.enrollment.id,
         hasCertificate: newHasCertificate,
         certificateId: newCertificateId,
       });
@@ -130,6 +138,7 @@ export function LessonNavigationBar({
       router.push(`/certificate/${response.data?.data?.certificate?.id}`);
     }
   };
+  console.log("nextLesson", nextLesson);
   return (
     <motion.div
       initial={{ y: 20, opacity: 0 }}
@@ -160,6 +169,7 @@ export function LessonNavigationBar({
         )}
 
         {/* Next/Complete Button Logic */}
+
         {nextLesson ? (
           isButtonEnabled ? (
             <AlertDialog>

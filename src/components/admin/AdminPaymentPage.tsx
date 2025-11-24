@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { toast } from "@/hooks/use-toast";
-import { CheckCircle, Clock, Eye, XCircle } from "lucide-react";
+import { CheckCircle, Clock, Eye, RefreshCcw, XCircle } from "lucide-react";
 
 import {
   PaginatedResponse,
@@ -228,8 +228,15 @@ export default function AdminPaymentPage() {
       </div>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Danh sách yêu cầu thanh toán</CardTitle>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => fetchPaymentRecords(currentPage)}
+          >
+            <RefreshCcw className="h-4 w-4 mx-8" />
+          </Button>
         </CardHeader>
         <CardContent>
           {paymentRecords.length === 0 ? (
@@ -286,6 +293,7 @@ export default function AdminPaymentPage() {
                         <Button
                           variant="outline"
                           size="sm"
+                          disabled={record.status === "COMPLETED"}
                           onClick={() => openApprovalDialog(record)}
                         >
                           <Eye className="h-4 w-4" />
@@ -372,12 +380,19 @@ export default function AdminPaymentPage() {
             <Button
               variant="destructive"
               onClick={handleReject}
-              disabled={isProcessing || !failureReason}
+              disabled={
+                isProcessing ||
+                !failureReason ||
+                selectedRecord?.status === "COMPLETED"
+              }
             >
               <XCircle className="h-4 w-4 mr-2" />
               Từ chối
             </Button>
-            <Button onClick={handleApprove} disabled={isProcessing}>
+            <Button
+              onClick={handleApprove}
+              disabled={isProcessing || selectedRecord?.status === "COMPLETED"}
+            >
               <CheckCircle className="h-4 w-4 mr-2" />
               Duyệt
             </Button>

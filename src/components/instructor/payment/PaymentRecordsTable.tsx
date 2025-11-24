@@ -218,6 +218,7 @@ export default function PaymentRecordsTable({
                         </AlertDialog>
                       ) : (
                         <span className="text-sm text-slate-400">
+                          Đã duyệt:{" "}
                           {record.paidAt ? formatDate(record.paidAt) : "-"}
                         </span>
                       )}
