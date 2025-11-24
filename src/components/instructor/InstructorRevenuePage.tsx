@@ -175,7 +175,8 @@ export default function InstructorRevenuePage() {
         limit: 10,
       });
       setPaymentRecords(response.data);
-      setTotalPaymentPages(response.pagination.totalPages);
+      if (response.pagination?.totalPages)
+        setTotalPaymentPages(response.pagination.totalPages);
       setCurrentPaymentPage(response.pagination.currentPage);
 
       // Reload payment summary để đồng bộ dữ liệu

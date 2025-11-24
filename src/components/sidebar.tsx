@@ -138,11 +138,11 @@ const getMenuItems = (userRole: string) => {
         bgColor: "bg-emerald-50",
       },
       {
-        title: "Báo cáo",
-        url: "/admin/reports",
+        title: "Thống kê",
+        url: "/admin/statistics",
         icon: BarChart,
-        color: "text-gray-600",
-        bgColor: "bg-rose-50",
+        color: "text-purple-600",
+        bgColor: "bg-purple-50",
       },
     );
   }
