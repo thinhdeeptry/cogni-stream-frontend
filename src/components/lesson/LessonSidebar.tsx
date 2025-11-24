@@ -148,14 +148,59 @@ export function LessonSidebar({
                           (lessonItem) => lessonItem?.id === chapterLesson.id,
                         );
 
-                        const canAccessLesson =
-                          isInstructorOrAdmin ||
-                          !isEnrolled ||
-                          chapterLesson.isFreePreview ||
-                          isLessonCompleted ||
-                          chapterLesson.id === params.lessonId ||
-                          (lessonIndex === currentLessonIndex + 1 &&
-                            isButtonEnabled);
+                        // Improved Logic accessibility lesson:
+                        // 1. Instructor/Admin: access all
+                        // 2. Enrolled users:
+                        //    - First lesson (index 0): always accessible
+                        //    - Completed lessons: always accessible
+                        //    - Current lesson: always accessible
+                        //    - Next lessons: only if ALL previous lessons are completed
+
+                        let canAccessLesson = isInstructorOrAdmin;
+
+                        if (!canAccessLesson && isEnrolled) {
+                          // Check if this is the first lesson
+                          if (lessonIndex === 0) {
+                            canAccessLesson = true;
+                          }
+                          // Check if lesson is completed
+                          else if (isLessonCompleted) {
+                            canAccessLesson = true;
+                          }
+                          // Check if this is current lesson
+                          else if (chapterLesson.id === params.lessonId) {
+                            canAccessLesson = true;
+                          }
+                          // For other lessons, check if all previous lessons are completed
+                          else {
+                            const previousLessons = allLessons.slice(
+                              0,
+                              lessonIndex,
+                            );
+                            const allPreviousCompleted = previousLessons.every(
+                              (prevLesson) =>
+                                prevLesson?.id &&
+                                completedLessonIds.includes(prevLesson.id),
+                            );
+                            canAccessLesson = allPreviousCompleted;
+                          }
+                        }
+
+                        // Debug log for lesson accessibility
+                        console.log(
+                          `🔍 [LessonAccess] Lesson "${chapterLesson.title}" (${chapterLesson.id}):`,
+                          {
+                            lessonIndex,
+                            currentLessonIndex,
+                            isCompleted: isLessonCompleted,
+                            isCurrentLesson:
+                              chapterLesson.id === params.lessonId,
+                            canAccess: canAccessLesson,
+                            isFirstLesson: lessonIndex === 0,
+                            completedLessonIds: completedLessonIds,
+                            allLessons: allLessons.length,
+                          },
+                        );
 
                         const linkContent = (
                           <div className="flex items-center gap-2 min-h-[32px]">
@@ -165,7 +210,7 @@ export function LessonSidebar({
                                   <Check className="w-3 h-3 text-white" />
                                 </div>
                               ) : chapterLesson.id === params.lessonId ? (
-                                <div className="w-5 h-5 bg-gray-400 rounded-full flex items-center justify-center">
+                                <div className="w-5 h-5 bg-orange-500 rounded-full flex items-center justify-center">
                                   <Clock className="w-3 h-3 text-white" />
                                 </div>
                               ) : (
@@ -176,29 +221,15 @@ export function LessonSidebar({
                               <span
                                 className={`block truncate text-[15px] ${
                                   chapterLesson.id === params.lessonId
-                                    ? "font-medium"
+                                    ? "font-medium text-orange-600"
                                     : ""
-                                } ${!canAccessLesson ? "text-gray-400" : ""}`}
+                                } ${!canAccessLesson ? "text-gray-400 cursor-not-allowed" : "text-gray-700"}`}
                               >
                                 {chapterLesson.title}
                               </span>
                             </div>
                             <div className="flex items-center gap-1">
-                              {chapterLesson.id === lastLessonId && (
-                                <span className="flex-shrink-0 text-xs px-1 py-0.5 rounded bg-orange-100 text-orange-600">
-                                  Đang học
-                                </span>
-                              )}
-                              {chapterLesson.isFreePreview && (
-                                <span className="flex-shrink-0 text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded">
-                                  Miễn phí
-                                </span>
-                              )}
-                              {!canAccessLesson && (
-                                <span className="flex-shrink-0 text-xs bg-gray-200 text-gray-500 px-2 py-1 rounded">
-                                  Đã khóa
-                                </span>
-                              )}
+                              {/* Hiển thị đơn giản - chỉ cần icon tích xanh cho bài hoàn thành */}
                             </div>
                           </div>
                         );
@@ -228,7 +259,7 @@ export function LessonSidebar({
                                 ? "bg-orange-100"
                                 : "bg-gray-50"
                             } cursor-not-allowed opacity-60`}
-                            title="Bạn cần hoàn thành bài học hiện tại trước khi tiếp tục"
+                            title={`Bài học bị khóa. Hãy hoàn thành tất cả các bài học trước đó để mở khóa. (Vị trí: ${lessonIndex + 1}/${allLessons.length})`}
                           >
                             {linkContent}
                           </div>

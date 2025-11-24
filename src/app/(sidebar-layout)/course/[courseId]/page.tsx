@@ -523,14 +523,20 @@ export default function CourseDetail() {
     // Handle SELF_PACED courses - navigate to lesson
     console.log("lastStudiedLessonId: ", lastStudiedLessonId);
     console.log("firstLessonId: ", firstLessonId);
+
+    // Luôn điều hướng đến lesson cuối cùng trong progress (lesson có progress cao nhất)
+    // hoặc lesson đầu tiên nếu chưa có progress
     if (lastStudiedLessonId) {
       router.push(`/course/${course.id}/lesson/${lastStudiedLessonId}`);
-      console.log("Đã có học bài ");
+      console.log(
+        "Điều hướng đến bài học cuối cùng trong progress: ",
+        lastStudiedLessonId,
+      );
     }
     // Otherwise, start from the first lesson
     else if (firstLessonId) {
       router.push(`/course/${course.id}/lesson/${firstLessonId}`);
-      console.log("Chưa học bài nào");
+      console.log("Bắt đầu từ bài học đầu tiên");
     }
   };
 
@@ -899,17 +905,17 @@ export default function CourseDetail() {
                             <motion.li key={lesson.id} variants={itemVariant}>
                               <Link
                                 href={
-                                  isEnrolled || lesson.isFreePreview
+                                  isEnrolled
                                     ? `/course/${course.id}/lesson/${lesson.id}`
                                     : "#"
                                 }
                                 className={`flex items-center justify-between p-3 hover:bg-slate-50 rounded-lg transition-all duration-200 ${
-                                  isEnrolled || lesson.isFreePreview
+                                  isEnrolled
                                     ? "cursor-pointer"
                                     : "cursor-not-allowed opacity-50"
                                 }`}
                                 onClick={(e) => {
-                                  if (!isEnrolled && !lesson.isFreePreview) {
+                                  if (!isEnrolled) {
                                     e.preventDefault();
                                     toast.error(
                                       "Vui lòng đăng ký khóa học để xem bài học này",
@@ -923,14 +929,6 @@ export default function CourseDetail() {
                                     {lesson.title}
                                   </span>
                                 </div>
-                                {lesson.isFreePreview && (
-                                  <Badge
-                                    variant="secondary"
-                                    className="bg-orange-100 text-orange-600 hover:bg-orange-200"
-                                  >
-                                    Preview
-                                  </Badge>
-                                )}
                               </Link>
                             </motion.li>
                           ))}

@@ -101,6 +101,7 @@ export default function LessonDetail() {
     fetchInitialProgress,
     fetchOverallProgress,
     updateLessonProgress,
+    syncCompletedLessons,
     setCurrentCourseId,
   } = useProgressStore();
 
@@ -126,18 +127,23 @@ export default function LessonDetail() {
     requiredMinutes: lesson?.estimatedDurationMinutes,
     onTimeComplete: handleTimeComplete,
   });
-  // Debug time tracking state
+  // Debug time tracking state - simplified
   useEffect(() => {
+    if (isInstructorOrAdmin) {
+      console.log("⏰ [Debug] Time tracking disabled for instructor/admin");
+      return;
+    }
+
     const requiredMinutes = lesson?.estimatedDurationMinutes;
     const elapsedMinutes = Math.floor(timeTracking.elapsedSeconds / 60);
-    const remainingSeconds = timeTracking.elapsedSeconds;
 
-    console.log("Chi tiết thời gian:", {
-      "Yêu cầu": requiredMinutes,
-      "Đã học": `${elapsedMinutes}p${remainingSeconds}s(${timeTracking.elapsedSeconds}total)`,
-      "Tiến độ": `${timeTracking.progress.toFixed(1)}%`,
-      "Đã hoàn thành": timeTracking.isTimeComplete ? "ok" : "no",
-      "Đang tracking": timeTracking.isActive ? "ok" : "no",
+    console.log("⏰ [Debug] Time tracking status:", {
+      "Required minutes": requiredMinutes,
+      "Elapsed minutes": elapsedMinutes,
+      Progress: `${timeTracking.progress.toFixed(1)}%`,
+      "Is complete": timeTracking.isTimeComplete,
+      "Is active": timeTracking.isActive,
+      "Lesson type": lesson?.type,
     });
   }, [
     timeTracking.isTimeComplete,
@@ -145,6 +151,8 @@ export default function LessonDetail() {
     timeTracking.isActive,
     timeTracking.progress,
     lesson?.estimatedDurationMinutes,
+    lesson?.type,
+    isInstructorOrAdmin,
   ]);
 
   // Force re-render when time tracking completes
@@ -156,6 +164,29 @@ export default function LessonDetail() {
 
   // Sync completed lessons from store
   useEffect(() => {
+    const totalLessons =
+      course?.chapters?.reduce(
+        (total, chapter) => total + (chapter.lessons?.length || 0),
+        0,
+      ) || 0;
+    console.log("🔄 [CompletedLessons] Syncing from store:", {
+      "Store completed IDs": storeCompletedLessonIds,
+      "Current local IDs": completedLessonIds,
+      "Course ID": course?.id,
+      "Current lesson ID": params.lessonId,
+      "Total lessons": totalLessons,
+      Chapters: course?.chapters?.map((c) => ({
+        id: c.id,
+        title: c.title,
+        lessonsCount: c.lessons?.length || 0,
+        lessons: c.lessons?.map((l) => ({
+          id: l?.id,
+          title: l?.title,
+          order: l?.order,
+        })),
+      })),
+    });
+
     if (storeCompletedLessonIds.length > 0) {
       setCompletedLessonIds(storeCompletedLessonIds);
       // Save to localStorage
@@ -166,9 +197,11 @@ export default function LessonDetail() {
         );
       }
       console.log(
-        "Synced completed lessons from store:",
+        "✅ [CompletedLessons] Successfully synced from store:",
         storeCompletedLessonIds,
       );
+    } else {
+      console.log("⚠️ [CompletedLessons] No completed lessons in store");
     }
   }, [storeCompletedLessonIds, course?.id]);
 
@@ -197,13 +230,73 @@ export default function LessonDetail() {
     const isCurrentLessonCompleted =
       completedLessonIds.includes(currentLessonId);
 
-    // For quiz lessons, use quiz completion status instead of time tracking
+    // Find current lesson index and calculate lesson access logic
+    const currentLessonIndex = allLessons.findIndex(
+      (lessonItem) => lessonItem?.id === currentLessonId,
+    );
+
+    // For instructor/admin - always enable buttons (no time tracking required)
+    if (isInstructorOrAdmin) {
+      console.log("🎯 [ButtonState] Instructor/Admin - always enabled");
+      setIsButtonEnabled(true);
+      setForceRender((prev) => prev + 1);
+      return;
+    }
+
+    // For students - apply access logic
+    const previousLessons = allLessons.slice(0, currentLessonIndex);
+    const allPreviousCompleted = previousLessons.every(
+      (prevLesson) =>
+        prevLesson?.id && completedLessonIds.includes(prevLesson.id),
+    );
+    const isFirstLesson = currentLessonIndex === 0;
+
+    // FIXED: Bài hiện tại được phép truy cập nếu:
+    // 1. Là bài đầu tiên
+    // 2. Tất cả bài trước đã hoàn thành
+    // 3. Bài hiện tại đã hoàn thành (đã trong completed list)
+    // 4. Bài hiện tại đã hoàn thành thời gian tracking (cho non-quiz)
+    // 5. Bài hiện tại đã hoàn thành quiz (cho quiz)
+    const canAccessCurrentLesson =
+      isFirstLesson ||
+      allPreviousCompleted ||
+      isCurrentLessonCompleted ||
+      (lesson?.type !== LessonType.QUIZ && timeTracking.isTimeComplete) ||
+      (lesson?.type === LessonType.QUIZ && isQuizCompleted);
+
+    console.log("🎯 [ButtonState] Student lesson accessibility check:", {
+      "Current lesson ID": currentLessonId,
+      "Current lesson index": currentLessonIndex,
+      "Current lesson title": lesson?.title,
+      "Is first lesson": isFirstLesson,
+      "Is current lesson completed": isCurrentLessonCompleted,
+      "Previous lessons count": previousLessons.length,
+      "All previous completed": allPreviousCompleted,
+      "Time complete": timeTracking.isTimeComplete,
+      "Quiz completed": isQuizCompleted,
+      "Can access current lesson": canAccessCurrentLesson,
+      "Lesson type": lesson?.type,
+    });
+
+    // For quiz lessons, use quiz completion status
     if (lesson?.type === LessonType.QUIZ) {
-      setIsButtonEnabled(isCurrentLessonCompleted || isQuizCompleted);
-    } else {
-      // For non-quiz lessons, use time tracking completion
+      // Quiz: Có thể access + (đã complete quiz HOẶC đã trong completed list)
       const shouldEnable =
-        isCurrentLessonCompleted || timeTracking.isTimeComplete;
+        canAccessCurrentLesson && (isCurrentLessonCompleted || isQuizCompleted);
+      console.log("🧩 [ButtonState] Quiz - Setting enabled:", shouldEnable);
+      setIsButtonEnabled(shouldEnable);
+    } else {
+      // Normal lesson: Có thể access + (đã complete time tracking HOẶC đã trong completed list)
+      console.log("canAccessCurrentLesson:", canAccessCurrentLesson);
+      console.log("isCurrentLessonCompleted:", isCurrentLessonCompleted);
+      console.log("timeTracking.isTimeComplete:", timeTracking.isTimeComplete);
+      const shouldEnable =
+        canAccessCurrentLesson &&
+        (isCurrentLessonCompleted || timeTracking.isTimeComplete);
+      console.log(
+        "📚 [ButtonState] Normal lesson - Setting enabled:",
+        shouldEnable,
+      );
       setIsButtonEnabled(shouldEnable);
 
       // Update time complete notification status
@@ -212,18 +305,16 @@ export default function LessonDetail() {
       }
     }
 
-    // Force re-render để đảm bảo UI update
+    // Force re-render
     setForceRender((prev) => prev + 1);
   }, [
     timeTracking.isTimeComplete,
-    timeTracking.elapsedSeconds,
     completedLessonIds,
     params.lessonId,
-    isButtonEnabled,
-    timeCompleteNotified,
-    lesson?.estimatedDurationMinutes,
     lesson?.type,
     isQuizCompleted,
+    allLessons,
+    isInstructorOrAdmin,
   ]);
 
   const [expandedChapters, setExpandedChapters] = useState<
@@ -559,24 +650,20 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
         }
 
         try {
-          // Kiểm tra xem lesson hiện tại có phải là preview không
-          const allCourseLessons =
-            course.chapters?.flatMap((chapter) => chapter.lessons || []) || [];
-          const currentLesson = allCourseLessons.find(
-            (lesson) => lesson?.id === params.lessonId,
-          );
-          const isCurrentLessonPreview = currentLesson?.isFreePreview || false;
-
           // Luôn cập nhật currentCourseId trong progress store
           useProgressStore.getState().clearProgress(); // Reset all progress data
           setCurrentCourseId(course.id);
 
           // const enrollmentApi = await AxiosFactory.getApiInstance("enrollment");
           const response = await getEnrollmentByCourse(course.id);
-          if (response.data?.data.id) {
-            setEnrollmentId(response.data.data.id);
-            setProgressEnrollmentId(response.data.data.id);
-            console.log("Fetched enrollment ID:", response.data.data.id);
+          console.log("Test lấy data couse enroll", response);
+          if (response.data?.data.enrollment.id) {
+            setEnrollmentId(response.data.data.enrollment.id);
+            setProgressEnrollmentId(response.data.data.enrollment.id);
+            console.log(
+              "Fetched enrollment ID:",
+              response.data.data.enrollment.id,
+            );
             // Kiểm tra xem có certificate không
             if (response.data.data.isHasCertificate) {
               console.log("Khóa có cung cấp chứng chỉ:", response.data.data);
@@ -589,58 +676,39 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
             }
 
             // Fetch initial progress
+            console.log(
+              "📊 [FetchEnrollment] About to fetch initial progress...",
+            );
             await fetchInitialProgress();
 
             // Try to get completed lessons from progress store first
             const currentStore = useProgressStore.getState();
             let completedIds = currentStore.completedLessonIds || [];
 
-            // If store doesn't have completedLessonIds, try API call as fallback
+            console.log(
+              "📋 [FetchEnrollment] Progress store state after fetchInitialProgress:",
+              {
+                progress: currentStore.progress,
+                completedLessonIds: currentStore.completedLessonIds,
+                currentProgress: currentStore.currentProgress,
+                error: currentStore.error,
+              },
+            );
+
+            // If store doesn't have completedLessonIds, sync from backend
             if (completedIds.length === 0) {
-              try {
-                console.log(
-                  "Calling completed items API for enrollment:",
-                  response.data.data.id,
-                );
-                const completedItemsResponse = await getCompletedItems(
-                  response.data.data.id,
-                );
-
-                console.log(
-                  "Completed items API response:",
-                  completedItemsResponse,
-                );
-
-                if (
-                  completedItemsResponse.success &&
-                  completedItemsResponse.data?.data?.completedItems
-                ) {
-                  completedIds = completedItemsResponse.data.data.completedItems
-                    .filter((item: any) => item.lessonId || item.lesson?.id)
-                    .map((item: any) => item.lessonId || item.lesson?.id)
-                    .filter(Boolean);
-
-                  console.log(
-                    "Fetched completed lesson IDs from backend API:",
-                    completedIds,
-                  );
-                } else {
-                  console.log(
-                    "No completedItems in API response or request failed:",
-                    completedItemsResponse.message,
-                  );
-                }
-              } catch (completedError: any) {
-                console.log(
-                  "Could not fetch completed items from API:",
-                  completedError.message || completedError,
-                );
-                console.log("Will use progress-based fallback logic...");
-              }
-            } else {
               console.log(
-                "Using completed lessons from progress store:",
-                completedIds,
+                "🔄 [FetchEnrollment] No completed IDs in store, syncing from backend...",
+              );
+              await syncCompletedLessons();
+              const updatedStore = useProgressStore.getState();
+              completedIds = updatedStore.completedLessonIds || [];
+              console.log(
+                "📋 [FetchEnrollment] Store state after syncCompletedLessons:",
+                {
+                  completedLessonIds: updatedStore.completedLessonIds,
+                  error: updatedStore.error,
+                },
               );
             }
 
@@ -650,7 +718,9 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
               course?.chapters &&
               currentStore.progress > 0
             ) {
-              console.log("Using progress percentage fallback logic");
+              console.log(
+                "🔧 [FetchEnrollment] Using progress percentage fallback logic",
+              );
               const allCourseLessons = course.chapters.flatMap(
                 (chapter) => chapter.lessons || [],
               );
@@ -666,17 +736,31 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
                 .map((lesson) => lesson.id)
                 .filter(Boolean);
 
-              console.log("Generated completed lesson IDs from progress:", {
-                progressPercentage,
-                totalLessons,
-                completedLessonsCount,
-                completedIds,
-              });
+              console.log(
+                "📊 [FetchEnrollment] Generated completed lesson IDs from progress:",
+                {
+                  progressPercentage,
+                  totalLessons,
+                  completedLessonsCount,
+                  completedIds,
+                },
+              );
             }
 
+            console.log(
+              "🎯 [FetchEnrollment] Final completed IDs to set:",
+              completedIds,
+            );
             setCompletedLessonIds(completedIds);
 
+            console.log(
+              "📈 [FetchEnrollment] About to fetch overall progress...",
+            );
             await fetchOverallProgress();
+
+            console.log(
+              "✅ [FetchEnrollment] Enrollment fetch process completed successfully",
+            );
           }
         } catch (err: any) {
           // Nếu lỗi 404, đây có thể là bài preview mà người dùng chưa đăng ký
@@ -707,6 +791,7 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
     isEnrolled,
     fetchInitialProgress,
     fetchOverallProgress,
+    syncCompletedLessons,
     setProgressEnrollmentId,
     setCurrentCourseId,
     isInstructorOrAdmin,
@@ -715,110 +800,87 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
   // New state for video loading
   const [isVideoLoading, setIsVideoLoading] = useState(true);
 
-  // Auto start time tracking when lesson loads and user is enrolled (skip for quiz lessons)
+  // Auto start time tracking when lesson loads - simplified logic
   useEffect(() => {
-    const currentLessonId = params.lessonId as string;
-    const isCurrentLessonCompleted =
-      completedLessonIds.includes(currentLessonId);
-
-    // console.log("⏰ [AutoStart] Kiểm tra điều kiện auto-start:", {
-    //   "Có lesson": !!lesson,
-    //   "Đã enrolled": isEnrolled,
-    //   "Là bài miễn phí": lesson?.isFreePreview ? "✅" : "❌",
-    //   "Bài học đã hoàn thành": isCurrentLessonCompleted ? "✅" : "❌",
-    //   "ID bài học": currentLessonId,
-    //   "Tracking đang active": timeTracking.isActive ? "✅" : "❌",
-    //   "Thời gian đã track": `${Math.floor(timeTracking.elapsedSeconds / 60)}:${(timeTracking.elapsedSeconds % 60).toString().padStart(2, "0")}`,
-    //   "Loại bài học": lesson?.type,
-    // });
+    console.log("⏰ [TimeTracking] Time tracking useEffect triggered:", {
+      "Lesson type": lesson?.type,
+      "Is instructor/admin": isInstructorOrAdmin,
+      "Time tracking active": timeTracking.isActive,
+      "Time complete": timeTracking.isTimeComplete,
+      "Elapsed seconds": timeTracking.elapsedSeconds,
+    });
 
     // Skip time tracking for quiz lessons
     if (lesson?.type === LessonType.QUIZ) {
-      console.log("Bài quiz - không cần time tracking");
+      console.log("⏰ [TimeTracking] Quiz lesson - skip time tracking");
       if (timeTracking.isActive) {
         timeTracking.pause();
       }
       return;
     }
 
-    // Start/Resume tracking if lesson is not completed yet (for non-quiz lessons)
-    if (lesson && !isCurrentLessonCompleted) {
-      // Nếu chưa tracking và chưa hoàn thành thời gian required
-      if (!timeTracking.isActive && !timeTracking.isTimeComplete) {
-        console.log("Bắt đầu/tiếp tục tracking cho bài chưa hoàn thành");
-        timeTracking.start();
-      } else if (timeTracking.isTimeComplete && !timeCompleteNotified) {
-        console.log("Thời gian đã đủ nhưng chưa thông báo - update state");
-        setTimeCompleteNotified(true);
-        setForceRender((prev) => prev + 1);
-      }
-    } else if (isCurrentLessonCompleted) {
-      console.log("Bài đã hoàn thành - không cần tracking");
-      // Stop tracking if it's currently active
+    // Skip time tracking for instructor/admin
+    if (isInstructorOrAdmin) {
+      console.log("⏰ [TimeTracking] Instructor/Admin - skip time tracking");
       if (timeTracking.isActive) {
         timeTracking.pause();
       }
-    } else {
-      console.log("Không đủ điều kiện để bắt đầu tracking - Lý do:", {
-        "Không có lesson": !lesson,
-        "Bài đã hoàn thành": isCurrentLessonCompleted,
-      });
+      return;
+    }
+
+    // Only track time if lesson exists and is not quiz
+    if (lesson) {
+      // Auto start tracking for regular users
+      if (!timeTracking.isActive && !timeTracking.isTimeComplete) {
+        console.log("⏰ [TimeTracking] Auto-starting time tracking");
+        timeTracking.start();
+      } else if (timeTracking.isTimeComplete && !timeCompleteNotified) {
+        console.log(
+          "⏰ [TimeTracking] Time completed - updating notification state",
+        );
+        setTimeCompleteNotified(true);
+        setForceRender((prev) => prev + 1);
+      }
     }
 
     return () => {
-      // Chỉ pause tracking khi component unmount, KHÔNG reset
-      if (timeTracking.isActive && lesson?.type !== LessonType.QUIZ) {
-        console.log("Pause tracking khi unmount (không phải quiz)");
+      // Pause tracking when component unmounts (but don't reset)
+      if (
+        timeTracking.isActive &&
+        lesson?.type !== LessonType.QUIZ &&
+        !isInstructorOrAdmin
+      ) {
+        console.log("⏰ [TimeTracking] Pausing tracking on unmount");
         timeTracking.pause();
       }
     };
   }, [
     lesson,
-    isEnrolled,
-    completedLessonIds,
-    params.lessonId,
+    lesson?.type,
+    isInstructorOrAdmin,
     timeTracking.isTimeComplete,
     timeCompleteNotified,
   ]);
 
-  // Handle page visibility to pause/resume tracking (skip for quiz lessons)
+  // Handle page visibility to pause/resume tracking - simplified
   useEffect(() => {
     const handleVisibilityChange = () => {
-      const currentLessonId = params.lessonId as string;
-      const isCurrentLessonCompleted =
-        completedLessonIds.includes(currentLessonId);
-
-      // Skip time tracking management for quiz lessons
-      if (lesson?.type === LessonType.QUIZ) {
+      // Skip for quiz lessons and instructor/admin
+      if (lesson?.type === LessonType.QUIZ || isInstructorOrAdmin) {
         return;
       }
 
       if (document.hidden) {
-        // Tạm dừng tracking khi không nhìn thấy trang
+        // Pause tracking when page is hidden
         if (timeTracking.isActive) {
-          console.log("Tạm dừng tracking - trang ẩn");
+          console.log("⏰ [Visibility] Pausing tracking - page hidden");
           timeTracking.pause();
         }
       } else {
-        // Tiếp tục tracking khi trang hiển thị lại
-        // Chỉ resume nếu lesson chưa hoàn thành và user đã enrolled
-        if (
-          lesson &&
-          isEnrolled &&
-          !isCurrentLessonCompleted &&
-          !timeTracking.isActive &&
-          !timeTracking.isTimeComplete
-        ) {
-          console.log("Tiếp tục tracking - trang hiển thị lại");
+        // Resume tracking when page is visible (only if not time complete)
+        if (lesson && !timeTracking.isActive && !timeTracking.isTimeComplete) {
+          console.log("⏰ [Visibility] Resuming tracking - page visible");
           timeTracking.resume();
-        } else {
-          console.log("Không tiếp tục tracking - Lý do:", {
-            "Không có lesson": !lesson,
-            "Chưa enrolled": !isEnrolled,
-            "Bài đã hoàn thành": isCurrentLessonCompleted,
-            "Tracking đã active": timeTracking.isActive,
-            "Thời gian đã đủ": timeTracking.isTimeComplete,
-          });
         }
       }
     };
@@ -828,12 +890,11 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [
+    lesson,
+    lesson?.type,
+    isInstructorOrAdmin,
     timeTracking.isActive,
     timeTracking.isTimeComplete,
-    lesson,
-    isEnrolled,
-    completedLessonIds,
-    params.lessonId,
   ]);
 
   // Handle quiz state changes
@@ -883,11 +944,34 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
   // Handle lesson completion and navigation to next lesson
   const handleLessonCompletion = async () => {
     if (!lesson || !nextLesson) {
+      console.log(
+        "⚠️ [LessonCompletion] Cannot complete - missing lesson or nextLesson:",
+        {
+          hasLesson: !!lesson,
+          hasNextLesson: !!nextLesson,
+          currentLessonId: params.lessonId,
+        },
+      );
       return;
     }
 
+    console.log("🎯 [LessonCompletion] Starting lesson completion process:", {
+      "Current lesson": lesson.title,
+      "Next lesson": nextLesson.title,
+      "Enrollment ID": enrollmentId,
+      "Completed lessons before": completedLessonIds,
+      "Progress store state": {
+        progress: useProgressStore.getState().progress,
+        overallProgress: useProgressStore.getState().overallProgress,
+        completedLessonIds: useProgressStore.getState().completedLessonIds,
+      },
+    });
+
     // If not enrolled, just navigate without updating progress
     if (!enrollmentId) {
+      console.log(
+        "ℹ️ [LessonCompletion] Not enrolled, navigating without progress update",
+      );
       toast.info("Chuyển sang bài học tiếp theo");
       router.push(`/course/${course ? course.id : ""}/lesson/${nextLesson.id}`);
       return;
@@ -919,75 +1003,73 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
         ((nextLessonIndex + 1) / totalLessons) * 100,
       );
 
-      // Lấy currentProgressId từ store hoặc tạo mới nếu chưa có
+      //QUAN TRỌNG: Đảm bảo có progress cho bài học hiện tại trước khi completion
+      const currentLessonProgressId = params.lessonId as string;
       const currentProgressState = useProgressStore.getState();
       let currentProgressId = currentProgressState.currentProgress?.id;
 
-      console.log("Progress state check:", {
-        currentProgress: currentProgressState.currentProgress,
+      // Kiểm tra xem đã có progress cho bài học hiện tại chưa
+      const hasProgressForCurrentLesson =
+        currentProgressState.completedLessonIds?.includes(
+          currentLessonProgressId,
+        );
+
+      console.log("🔍 [ProgressCheck] Before completion:", {
+        currentLessonId: currentLessonProgressId,
         currentProgressId,
-        enrollmentId,
-        newProgressPercentage,
-        nextLesson: nextLesson.title,
-        nextLessonId: nextLesson.id,
+        hasProgressForCurrentLesson,
+        completedLessonIds: currentProgressState.completedLessonIds,
+        currentProgress: currentProgressState.currentProgress,
       });
 
-      // Nếu chưa có currentProgressId, thử tạo progress record mới
-      if (!currentProgressId) {
+      // Nếu chưa có progress cho bài hiện tại, tạo mới
+      if (!currentProgressId || !hasProgressForCurrentLesson) {
         console.log(
-          "No currentProgressId found, trying to create initial progress...",
+          "🆕 [CreateProgress] Creating progress for current lesson...",
         );
         try {
-          // Thử tạo progress cho lesson hiện tại trước
           const createData = {
             enrollmentId,
-            lessonId: params.lessonId as string,
+            lessonId: currentLessonProgressId,
             status: "ATTENDED" as const,
           };
 
-          console.log("Creating progress with data:", createData);
+          console.log("📝 [CreateProgress] Creating with data:", createData);
           const createResult = await createStudentProgress(createData);
 
-          console.log("Create progress result:", createResult);
-
           if (!createResult.success) {
-            throw new Error(createResult.message);
+            throw new Error(
+              createResult.message || "Failed to create progress",
+            );
           }
 
-          // Refresh state sau khi tạo
+          console.log(
+            "✅ [CreateProgress] Created successfully:",
+            createResult,
+          );
+
+          // Refresh store state sau khi tạo
           await useProgressStore.getState().fetchInitialProgress();
           const updatedState = useProgressStore.getState();
           currentProgressId = updatedState.currentProgress?.id;
 
-          console.log(
-            "After creating progress, currentProgressId:",
+          console.log("🔄 [StateRefresh] Updated state:", {
             currentProgressId,
-          );
+            completedLessonIds: updatedState.completedLessonIds,
+          });
 
           if (!currentProgressId) {
-            console.error("Still no currentProgressId after creating progress");
-            console.error("Debug info:", {
-              enrollmentId,
-              lessonId: params.lessonId,
-              currentProgressState: currentProgressState.currentProgress,
-              hasEnrollmentId: !!enrollmentId,
-              error: currentProgressState.error,
-            });
+            console.error(
+              "❌ [Error] No currentProgressId after creating progress",
+            );
             toast.error(
-              "Không thể khởi tạo tiến trình học tập. Vui lòng refresh trang và thử lại.",
+              "Không thể khởi tạo tiến trình học tập. Vui lòng thử lại.",
             );
             return;
           }
         } catch (error: any) {
-          console.error("Error creating progress:", error);
-          console.error("Debug info:", {
-            enrollmentId,
-            lessonId: params.lessonId,
-            error: error,
-          });
-          toast.error(
-            "Không thể tạo thông tin tiến trình. Vui lòng kiểm tra kết nối và thử lại.",
-          );
+          console.error("❌ [CreateProgress] Error:", error);
+          toast.error("Không thể tạo thông tin tiến trình. Vui lòng thử lại.");
           return;
         }
       }
@@ -1013,6 +1095,9 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
               JSON.stringify(newCompleted),
             );
           }
+          // Also update the progress store
+          const currentStore = useProgressStore.getState();
+          currentStore.completedLessonIds = newCompleted;
           return newCompleted;
         }
         return prev;
@@ -1429,6 +1514,7 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
 
         {/* Lesson Navigation Bar Component */}
         <LessonNavigationBar
+          enrollmentId={enrollmentId}
           lesson={lesson}
           course={course}
           previousLesson={previousLesson}
