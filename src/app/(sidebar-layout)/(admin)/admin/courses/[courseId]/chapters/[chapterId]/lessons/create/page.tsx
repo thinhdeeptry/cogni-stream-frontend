@@ -427,7 +427,7 @@ export default function CreateLessonPage({
                   <Input
                     id="estimatedDurationMinutes"
                     type="number"
-                    min="1"
+                    min="0"
                     max="9999"
                     value={estimatedDurationMinutes || ""}
                     onChange={(e) =>

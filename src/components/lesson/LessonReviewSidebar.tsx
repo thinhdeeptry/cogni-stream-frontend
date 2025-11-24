@@ -133,7 +133,7 @@ export default function LessonReviewSidebar({
         {/* <div className="w-full h-screen overflow-hidden fixed top-0 right-0">
       <div className="p-4 space-y-6 h-full overflow-y-auto"> */}
         {/* Header Card */}
-        <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+        {/* <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
               <Eye className="h-4 w-4 text-blue-500" />
@@ -143,7 +143,7 @@ export default function LessonReviewSidebar({
               Tổng quan về nội dung bài học
             </p>
           </CardHeader>
-        </Card>
+        </Card> */}
 
         {/* Completion Status */}
         <Card
