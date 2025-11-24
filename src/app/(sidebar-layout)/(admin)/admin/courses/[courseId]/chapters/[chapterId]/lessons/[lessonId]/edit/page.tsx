@@ -530,7 +530,7 @@ export default function EditLessonPage({
                         <FormControl>
                           <Input
                             type="number"
-                            min="1"
+                            min="0"
                             max="9999"
                             value={field.value || ""}
                             onChange={(e) =>

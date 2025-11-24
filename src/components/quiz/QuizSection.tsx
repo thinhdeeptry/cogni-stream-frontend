@@ -81,6 +81,7 @@ interface QuizSectionProps {
   isEnrolled: boolean;
   classId?: string; // For navigation to specific lessons in class
   courseId?: string; // For navigation
+  isComplete?: boolean; // Whether the quiz has been completed
   onQuizCompleted?: (success: boolean) => void; // Callback when quiz is completed successfully
   onNavigateToLesson?: (lessonId: string) => void; // Callback to navigate to required lesson
   onNavigateToNextIncomplete?: () => void; // Callback to navigate to next incomplete syllabus item (class page provides)
@@ -114,6 +115,7 @@ export default function QuizSection({
   onGetLessonData,
   onNavigateToRequirement,
   requirementTrackingState,
+  isComplete = false,
 }: QuizSectionProps) {
   const router = useRouter();
   const [status, setStatus] = useState<QuizStatus | null>(null);
@@ -1207,6 +1209,7 @@ export default function QuizSection({
               <div className="flex gap-3 justify-center relative z-10">
                 {result.passed ? (
                   // Nút "Tiếp tục học" khi đã đạt
+
                   <Button
                     onClick={() => {
                       console.log(
@@ -1237,7 +1240,7 @@ export default function QuizSection({
                     }}
                     className="bg-green-600 hover:bg-green-700 flex items-center gap-2 relative z-20"
                   >
-                    <span>Tiếp tục học</span>
+                    <span>{isComplete ? "Nhận bằng" : "Bắt đầu học"}</span>
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 ) : (

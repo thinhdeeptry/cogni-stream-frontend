@@ -1973,6 +1973,7 @@ Type: ${currentLessonData?.type || "N/A"}`;
                                   classId={params.classId as string}
                                   courseId={params.courseId as string}
                                   isInstructorOrAdmin={isInstructorOrAdmin}
+                                  isComplete={isItemCompleted(currentItem)}
                                   onQuizCompleted={(success: boolean) => {
                                     if (success) {
                                       console.log(
@@ -2011,6 +2012,11 @@ Type: ${currentLessonData?.type || "N/A"}`;
                                           "Bạn đã hoàn thành tất cả nội dung của lớp học",
                                         duration: 5000,
                                       });
+                                      if (certificateId) {
+                                        router.push(
+                                          `/certificate/${certificateId}`,
+                                        );
+                                      }
                                     }
                                   }}
                                   onQuizStateChange={handleQuizStateChange}
