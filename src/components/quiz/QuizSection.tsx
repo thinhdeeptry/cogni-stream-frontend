@@ -1337,12 +1337,12 @@ export default function QuizSection({
       className="space-y-6 -mt-10"
     >
       <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
-        <CardHeader>
+        {/* <CardHeader>
           <CardTitle className="flex items-center gap-2 text-blue-900">
             <Play className="h-5 w-5 text-blue-600" />
             Quiz: {lessonTitle}
           </CardTitle>
-        </CardHeader>
+        </CardHeader> */}
         <CardContent className="space-y-6">
           {/* Quiz Overview Stats */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -1930,7 +1930,7 @@ export default function QuizSection({
           )}
 
           {/* Action Buttons */}
-          <div className="flex gap-4 justify-center">
+          <div className="flex gap-4 justify-center mb-2">
             <Button
               onClick={handleStartQuiz}
               disabled={

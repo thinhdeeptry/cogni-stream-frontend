@@ -9,21 +9,6 @@ export function SessionHandler() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
-  useEffect(() => {
-    // Listen for session expiry events
-    const handleSessionExpired = () => {
-      console.log("Session expired event detected");
-      router.push("/auth/login?message=session-expired");
-    };
-
-    // Listen for global events that might indicate session issues
-    window.addEventListener("session-expired", handleSessionExpired);
-
-    return () => {
-      window.removeEventListener("session-expired", handleSessionExpired);
-    };
-  }, [router]);
-
   // Monitor session status changes
   useEffect(() => {
     if (status === "unauthenticated" && typeof window !== "undefined") {
