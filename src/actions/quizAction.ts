@@ -400,13 +400,18 @@ export function calculateScorePercentage(
 /**
  * Mở khóa quiz sau khi hoàn thành unlock requirements
  */
-export async function unlockQuiz(lessonId: string): Promise<{
+export async function unlockQuiz(
+  lessonId: string,
+  classId: string,
+): Promise<{
   success: boolean;
   data?: any;
   message: string;
 }> {
   try {
-    const { data } = await quizApi.post(`/quizzes/lesson/${lessonId}/unlock`);
+    const { data } = await quizApi.post(
+      `/quizzes/${classId}/lesson/${lessonId}/unlock`,
+    );
     return {
       success: true,
       data: data,

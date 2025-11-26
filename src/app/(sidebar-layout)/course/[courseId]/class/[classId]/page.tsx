@@ -1637,7 +1637,7 @@ Type: ${currentLessonData?.type || "N/A"}`;
       setIsTrackingRequirement(false);
 
       console.log("Requirement completed:", currentReq);
-
+      await handleLessonCompletion(currentReq.targetLesson.id);
       // Show success toast
       toast({
         title: `✅ Hoàn thành yêu cầu: ${currentReq.title || currentReq.description}`,
@@ -1649,7 +1649,6 @@ Type: ${currentLessonData?.type || "N/A"}`;
       const nextIndex = currentRequirementIndex + 1;
       if (nextIndex < statusResult.data.unlockRequirements.length) {
         const nextReq = statusResult.data.unlockRequirements[nextIndex];
-
         // Show toast with option to navigate to next requirement
         toast({
           title: `📚 Yêu cầu tiếp theo: ${nextReq.title || nextReq.description}`,
@@ -1680,7 +1679,6 @@ Type: ${currentLessonData?.type || "N/A"}`;
             item.itemType === SyllabusItemType.LESSON &&
             item.lesson?.id === requirementQuizLessonId,
         );
-
         toast({
           title: "🎉 Hoàn thành tất cả yêu cầu!",
           description: "Bạn có thể làm lại quiz ngay bây giờ",
@@ -2147,7 +2145,6 @@ Type: ${currentLessonData?.type || "N/A"}`;
           </motion.div>
         </div>
       </motion.div>
-
       {/* Navigation Footer */}
       <NavigationFooter
         currentIndex={currentItemIndex}
@@ -2230,7 +2227,6 @@ Type: ${currentLessonData?.type || "N/A"}`;
           return undefined;
         })()}
       />
-
       {/* Sidebar */}
       {!(
         currentLessonData &&
