@@ -17,12 +17,12 @@ jobs:
           debug: true
           script: |
             # 1. Vào thư mục Frontend để lấy code mới
-            cd ${{ secrets.FRONTEND_PATH }}
-            git fetch origin dev
-            git reset --hard origin/dev
+            cd ${{ secrets.PROJECT_PATH }}
+            git fetch origin main
+            git reset --hard origin/main
             
             # 2. Di chuyển sang thư mục Backend (nơi chứa docker-compose.yml)
-            cd ${{ secrets.BACKEND_PATH }}
+            cd ${{ secrets.PROJECT_PATH_BACKEND }}
             
             # 3. Ra lệnh Build lại service Frontend
             # Docker compose sẽ nhìn sang folder frontend (nhờ config ../) để lấy code mới vừa pull
