@@ -4,6 +4,7 @@ import { toast } from "@/hooks/use-toast";
 import { Plus, Wallet } from "lucide-react";
 
 import {
+  PaymentRecord,
   PayoutMethod,
   TeacherPaymentSummary,
   formatCurrency,
@@ -34,6 +35,7 @@ import { Textarea } from "@/components/ui/textarea";
 interface PaymentRequestDialogProps {
   summary: TeacherPaymentSummary;
   payoutMethods: PayoutMethod[];
+  paymentRecords: PaymentRecord[]; // Thêm để kiểm tra điều kiện
   onCreatePaymentRequest: (data: {
     payoutMethodId: string;
     amount: number;
@@ -50,6 +52,7 @@ interface PaymentRequestDialogProps {
 export default function PaymentRequestDialog({
   summary,
   payoutMethods,
+  paymentRecords,
   onCreatePaymentRequest,
   onCreatePayoutRecord,
   isCreating,
@@ -123,6 +126,69 @@ export default function PaymentRequestDialog({
   const hasBalance = availableBalance > 0;
   const hasPayoutMethods = payoutMethods && payoutMethods.length > 0;
 
+  // Check điều kiện tạo yêu cầu rút tiền
+  const checkCanCreateRequest = () => {
+    if (!paymentRecords || paymentRecords.length === 0) {
+      return { canCreate: true, reason: "" };
+    }
+
+    // Sắp xếp theo thời gian tạo (mới nhất trước)
+    const sortedRecords = [...paymentRecords].sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+
+    const latestRecord = sortedRecords[0];
+
+    // Kiểm tra có request đang chờ duyệt không
+    const hasPendingRequest = paymentRecords.some(
+      (record) => record.status === "PENDING" || record.status === "PROCESSING",
+    );
+
+    if (hasPendingRequest) {
+      return {
+        canCreate: false,
+        reason:
+          "Bạn có yêu cầu rút tiền đang chờ duyệt. Vui lòng đợi admin xử lý.",
+      };
+    }
+
+    // Nếu request cuối bị hủy, cho phép tạo mới
+    if (
+      latestRecord.status === "CANCELLED" ||
+      latestRecord.status === "FAILED"
+    ) {
+      return { canCreate: true, reason: "" };
+    }
+
+    // Nếu request cuối thành công, kiểm tra 24h
+    if (latestRecord.status === "COMPLETED") {
+      const completedTime = new Date(
+        latestRecord.paidAt || latestRecord.updatedAt,
+      );
+      const now = new Date();
+      const hoursDiff =
+        (now.getTime() - completedTime.getTime()) / (1000 * 60 * 60);
+
+      if (hoursDiff < 24) {
+        const remainingHours = Math.ceil(24 - hoursDiff);
+        return {
+          canCreate: false,
+          reason: `Bạn cần đợi ${remainingHours} giờ nữa từ lần rút tiền thành công gần nhất.`,
+        };
+      }
+    }
+
+    return { canCreate: true, reason: "" };
+  };
+
+  const { canCreate, reason: restrictionReason } = checkCanCreateRequest();
+
+  // Hàm rút hết số tiền
+  const handleWithdrawAll = () => {
+    setAmount(availableBalance.toString());
+  };
+
   return (
     <>
       {hasBalance ? (
@@ -143,6 +209,10 @@ export default function PaymentRequestDialog({
                   <p className="text-xs text-amber-600 font-medium">
                     ⚠️ Vui lòng thêm phương thức thanh toán trước
                   </p>
+                ) : !canCreate ? (
+                  <p className="text-xs text-amber-600 font-medium">
+                    ⚠️ {restrictionReason}
+                  </p>
                 ) : (
                   <p className="text-xs text-slate-500">
                     Yêu cầu thanh toán sẽ được xử lý trong 1-3 ngày làm việc
@@ -153,7 +223,7 @@ export default function PaymentRequestDialog({
                 <DialogTrigger asChild>
                   <Button
                     className="flex items-center gap-2"
-                    disabled={!hasPayoutMethods}
+                    disabled={!hasPayoutMethods || !canCreate}
                   >
                     <Plus className="h-4 w-4" />
                     Tạo yêu cầu thanh toán
@@ -204,19 +274,32 @@ export default function PaymentRequestDialog({
                       <Label htmlFor="amount" className="text-right">
                         Số tiền *
                       </Label>
-                      <Input
-                        id="amount"
-                        type="text"
-                        placeholder="0"
-                        value={amount}
-                        onChange={handleAmountChange}
-                        className="col-span-3"
-                      />
-                      {amount && parseFloat(amount) > 0 && (
-                        <div className="col-start-2 col-span-3 text-sm text-slate-600">
-                          {formatCurrency(parseFloat(amount) || 0)}
+                      <div className="col-span-3 space-y-2">
+                        <div className="flex gap-2">
+                          <Input
+                            id="amount"
+                            type="text"
+                            placeholder="0"
+                            value={amount}
+                            onChange={handleAmountChange}
+                            className="flex-1"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={handleWithdrawAll}
+                            className="whitespace-nowrap"
+                          >
+                            Rút hết
+                          </Button>
                         </div>
-                      )}
+                        {amount && parseFloat(amount) > 0 && (
+                          <div className="text-sm text-slate-600">
+                            {formatCurrency(parseFloat(amount) || 0)}
+                          </div>
+                        )}
+                      </div>
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
                       <Label htmlFor="description" className="text-right">

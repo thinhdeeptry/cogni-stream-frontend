@@ -51,6 +51,13 @@ export default function AdminPaymentPage() {
   const [failureReason, setFailureReason] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // Generate transaction ID
+  const generateTransactionId = () => {
+    const timestamp = new Date().getTime();
+    const random = Math.floor(Math.random() * 10000);
+    return `TX${timestamp}${random.toString().padStart(4, "0")}`;
+  };
+
   useEffect(() => {
     fetchPaymentRecords(1);
   }, []);
@@ -108,6 +115,9 @@ export default function AdminPaymentPage() {
     try {
       setIsProcessing(true);
 
+      // Generate transaction ID automatically
+      const generatedTransactionId = generateTransactionId();
+
       // Use the payment actions instead of direct fetch
       const { AxiosFactory } = await import("@/lib/axios");
       const paymentApi = await AxiosFactory.getApiInstance("payment");
@@ -115,18 +125,19 @@ export default function AdminPaymentPage() {
       await paymentApi.patch(
         `/payments/records/${selectedRecord.id}/complete`,
         {
-          transactionId,
+          transactionId: generatedTransactionId,
         },
       );
 
       toast({
         title: "Thành công",
-        description: "Đã duyệt thanh toán thành công",
+        description: `Đã duyệt thanh toán thành công với mã GD: ${generatedTransactionId}`,
       });
       fetchPaymentRecords(currentPage);
       setShowApprovalDialog(false);
       setSelectedRecord(null);
       setTransactionId("");
+      setFailureReason("");
     } catch (error: any) {
       toast({
         title: "Lỗi",
@@ -168,6 +179,7 @@ export default function AdminPaymentPage() {
       setShowApprovalDialog(false);
       setSelectedRecord(null);
       setFailureReason("");
+      setTransactionId("");
     } catch (error: any) {
       toast({
         title: "Lỗi",
@@ -182,6 +194,8 @@ export default function AdminPaymentPage() {
 
   const openApprovalDialog = (record: PaymentRecord) => {
     setSelectedRecord(record);
+    setTransactionId("");
+    setFailureReason("");
     setShowApprovalDialog(true);
   };
 
@@ -293,7 +307,10 @@ export default function AdminPaymentPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          disabled={record.status === "COMPLETED"}
+                          disabled={
+                            record.status === "COMPLETED" ||
+                            record.status === "FAILED"
+                          }
                           onClick={() => openApprovalDialog(record)}
                         >
                           <Eye className="h-4 w-4" />
@@ -345,19 +362,16 @@ export default function AdminPaymentPage() {
                 )}
               </div>
 
-              <div>
-                <Label htmlFor="transactionId">Mã giao dịch (khi duyệt)</Label>
-                <Input
-                  id="transactionId"
-                  value={transactionId}
-                  onChange={(e) => setTransactionId(e.target.value)}
-                  placeholder="TX123456789"
-                />
+              <div className="p-3 bg-blue-50 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  <strong>Lưu ý:</strong> Mã giao dịch sẽ được tự động tạo khi
+                  duyệt thanh toán.
+                </p>
               </div>
 
               <div>
                 <Label htmlFor="failureReason">
-                  Lý do từ chối (khi từ chối)
+                  Lý do từ chối (nếu từ chối)
                 </Label>
                 <Textarea
                   id="failureReason"
@@ -383,7 +397,8 @@ export default function AdminPaymentPage() {
               disabled={
                 isProcessing ||
                 !failureReason ||
-                selectedRecord?.status === "COMPLETED"
+                selectedRecord?.status === "COMPLETED" ||
+                selectedRecord?.status === "FAILED"
               }
             >
               <XCircle className="h-4 w-4 mr-2" />
@@ -391,7 +406,12 @@ export default function AdminPaymentPage() {
             </Button>
             <Button
               onClick={handleApprove}
-              disabled={isProcessing || selectedRecord?.status === "COMPLETED"}
+              disabled={
+                isProcessing ||
+                !!failureReason ||
+                selectedRecord?.status === "COMPLETED" ||
+                selectedRecord?.status === "FAILED"
+              }
             >
               <CheckCircle className="h-4 w-4 mr-2" />
               Duyệt

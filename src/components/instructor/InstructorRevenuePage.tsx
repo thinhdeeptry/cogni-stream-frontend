@@ -80,6 +80,7 @@ export default function InstructorRevenuePage() {
   useEffect(() => {
     if (activeTab === "payments") {
       fetchPaymentData();
+      fetchPaymentRecords(1); // Đảm bảo fetch payment records cho validation
     } else if (activeTab === "payout-methods") {
       fetchPayoutMethods();
     }
@@ -487,6 +488,7 @@ export default function InstructorRevenuePage() {
             <PaymentRequestDialog
               summary={paymentSummary}
               payoutMethods={payoutMethods}
+              paymentRecords={paymentRecords}
               onCreatePaymentRequest={handleCreatePaymentRequest}
               onCreatePayoutRecord={handleCreatePayoutRecord}
               isCreating={isCreatingPayment}
