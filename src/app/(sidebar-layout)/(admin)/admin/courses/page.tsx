@@ -121,6 +121,7 @@ export default function AdminCoursesPage() {
       try {
         setLoadingPrices((prev) => ({ ...prev, [course.id]: true }));
         const pricing = await getCourseCurrentPrice(course.id);
+        console.log("Pricing infodd:", pricing);
         setCoursePricing((prev) => ({ ...prev, [course.id]: pricing }));
       } catch (error) {
         console.error(`Error fetching pricing for course ${course.id}:`, error);
@@ -149,8 +150,12 @@ export default function AdminCoursesPage() {
     if (isLoading) {
       return <div className="h-4 w-16 bg-gray-200 animate-pulse rounded"></div>;
     }
-
-    if (!pricing || !pricing.currentPrice || pricing.currentPrice === 0) {
+    console.log("Pricing info:", pricing);
+    if (
+      !pricing ||
+      !pricing.currentPrice ||
+      pricing.currentPrice.toString() === "0"
+    ) {
       return <span className="text-green-600 font-medium">Miễn phí</span>;
     }
 
