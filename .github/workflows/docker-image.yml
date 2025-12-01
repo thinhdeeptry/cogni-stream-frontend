@@ -15,6 +15,7 @@ jobs:
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
           debug: true
+          command_timeout: 30m
           script: |
             # 1. Vào thư mục Frontend để lấy code mới
             cd ${{ secrets.PROJECT_PATH }}
