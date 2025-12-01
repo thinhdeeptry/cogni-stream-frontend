@@ -269,7 +269,7 @@ function HomeContent() {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-end">
               <div>
                 <h2 className="text-2xl sm:text-3xl font-semibold text-gray-800 group hover:cursor-default">
-                  Khóa học nổi bật
+                  Khóa học nổi bậtt
                   <div className="h-1 w-1/4 mt-1 group-hover:w-full bg-blue-500 transition-all duration-300"></div>
                 </h2>
                 <p className="text-gray-600 mt-2">
