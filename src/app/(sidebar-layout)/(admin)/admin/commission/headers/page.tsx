@@ -284,7 +284,7 @@ const HeaderDetailModal: React.FC<{
                   </Badge>
                 </p>
                 <p>
-                  <strong>Số details:</strong> {header._count?.details || 0}
+                  <strong>Số details:</strong> {header.details?.length || 0}
                 </p>
               </div>
             </div>

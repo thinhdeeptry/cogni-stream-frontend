@@ -267,7 +267,12 @@ export default function InstructorRegistrationDetailPage() {
               </Label>
               <div className="mt-2">
                 <a
-                  href={data.curriculum_vitae_link}
+                  href={
+                    data.curriculum_vitae_link.startsWith("http://") ||
+                    data.curriculum_vitae_link.startsWith("https://")
+                      ? data.curriculum_vitae_link
+                      : `https://${data.curriculum_vitae_link}`
+                  }
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
@@ -393,10 +398,16 @@ export default function InstructorRegistrationDetailPage() {
                   const isLinkedIn = link.includes("linkedin.com");
                   const isImageFile = /\.(jpg|jpeg|png|gif|webp)$/i.test(link);
 
+                  // Ensure URL has protocol to prevent relative path issues
+                  const normalizedLink =
+                    link.startsWith("http://") || link.startsWith("https://")
+                      ? link
+                      : `https://${link}`;
+
                   return (
                     <a
                       key={index}
-                      href={link}
+                      href={normalizedLink}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors"

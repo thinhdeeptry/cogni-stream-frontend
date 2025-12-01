@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+
 import {
   Bar,
   BarChart as RechartsBarChart,
@@ -30,6 +32,10 @@ export function BarChart({
   title,
   subtitle,
 }: BarChartProps) {
+  useEffect(() => {
+    // Debug: Log data to verify it's being received correctly
+    console.log("data:", valueFormatter);
+  }, [valueFormatter]);
   return (
     <div
       className="flex flex-col w-full h-full"
@@ -41,7 +47,7 @@ export function BarChart({
     >
       {title && <h3 className="text-lg font-medium">{title}</h3>}
       {subtitle && (
-        <p className="text-sm text-muted-foreground mb-4">{subtitle}</p>
+        <p className="text-sm text-muted-foreground mb-400">{subtitle}</p>
       )}
 
       <ResponsiveContainer width="100%" height="100%" className={className}>
@@ -53,10 +59,19 @@ export function BarChart({
             dataKey={index}
             tickLine={false}
             axisLine={{ stroke: "hsl(var(--muted-foreground) / 0.2)" }}
-            tick={{ fontSize: 12, fill: "hsl(var(--foreground))" }}
+            tick={{ fontSize: 11, fill: "hsl(var(--foreground))" }}
             tickMargin={12}
-            height={40}
+            height={50}
             interval={0}
+            angle={-45}
+            textAnchor="end"
+            tickFormatter={(value) => {
+              // Truncate long values for X-axis display
+              if (typeof value === "string" && value.length > 15) {
+                return value.substring(0, 12) + "...";
+              }
+              return value;
+            }}
           />
           <YAxis
             tickLine={false}

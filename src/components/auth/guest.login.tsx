@@ -143,7 +143,7 @@ function LoginFormContent() {
                   <FormItem>
                     <FormControl>
                       <Input
-                        placeholder="Enter Email"
+                        placeholder="Email"
                         className="rounded-full h-12 px-4 border-input"
                         {...field}
                       />
@@ -161,7 +161,7 @@ function LoginFormContent() {
                       <div className="relative">
                         <Input
                           type={showPassword ? "text" : "password"}
-                          placeholder="Passcode"
+                          placeholder="Mật khẩu"
                           className="rounded-full h-12 px-4 border-input pr-10"
                           {...field}
                         />

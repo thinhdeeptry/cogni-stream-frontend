@@ -8,6 +8,12 @@ import { authApi } from "@/lib/api/authApi";
 
 // actions/login.ts
 
+// actions/login.ts
+
+// actions/login.ts
+
+// actions/login.ts
+
 // Refresh user profile
 export async function refreshUserProfile() {
   try {
@@ -153,8 +159,8 @@ export async function loginUser(email: string, password: string) {
     return {
       error: true,
       success: false,
-      message: "Đã xảy ra lỗi không xác định. Vui lòng thử lại sau.",
-      status: 500,
+      message: "Email hoặc mật khẩu không chính xác.",
+      status: 400,
     };
   }
 }

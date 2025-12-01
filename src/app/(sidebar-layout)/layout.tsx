@@ -13,11 +13,11 @@ export default function RootLayout({
     <div>
       <SidebarProvider>
         <AppSidebar />
-        <SidebarTrigger className="mt-2 ml-2 " />
+        {/* Hidden SidebarTrigger on mobile to prevent layout issues */}
+        <SidebarTrigger className="mt-2 ml-2 hidden md:block" />
         <main className="flex flex-col w-full h-screen overflow-y-auto overflow-x-hidden">
           <UserHeader />
           <Toaster />
-          <SessionHandler />
           {children}
         </main>
       </SidebarProvider>

@@ -7,6 +7,7 @@ import type { Metadata } from "next";
 import { SessionProvider } from "next-auth/react";
 
 import AuthSync from "@/components/auth/auth.sync";
+import { Toaster } from "@/components/ui/toaster";
 
 import "./globals.css";
 
@@ -74,6 +75,7 @@ export default function RootLayout({
           <ClientProvider>
             <AuthSync />
             {children}
+            <Toaster />
           </ClientProvider>
         </SessionProvider>
       </body>

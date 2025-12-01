@@ -29,7 +29,7 @@ export default function CertificatePage() {
         // }
 
         const result = await getCertificate(certificateId);
-
+        console.log("Fetched certificate result:", result);
         if (result.success && result.data) {
           setCertificate(result.data);
         } else {

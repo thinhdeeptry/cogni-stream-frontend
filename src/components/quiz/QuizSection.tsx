@@ -1,8 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
+import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import type { Question } from "@/types/assessment/quiz-types";
 import confetti from "canvas-confetti";
@@ -28,7 +29,6 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import { toast } from "sonner";
 
 import {
   type QuizAttempt,
@@ -66,6 +66,14 @@ import { Progress } from "@/components/ui/progress";
 
 import { Confetti } from "../ui/confetti";
 
+interface RequirementTrackingState {
+  isTrackingRequirement: boolean;
+  requirementTimeSpent: number;
+  requirementTimeNeeded: number;
+  currentRequirementIndex: number;
+  completedRequirements: Set<string>;
+}
+
 interface QuizSectionProps {
   lessonId: string;
   enrollmentId: string;
@@ -73,12 +81,21 @@ interface QuizSectionProps {
   isEnrolled: boolean;
   classId?: string; // For navigation to specific lessons in class
   courseId?: string; // For navigation
+  isComplete?: boolean; // Whether the quiz has been completed
   onQuizCompleted?: (success: boolean) => void; // Callback when quiz is completed successfully
   onNavigateToLesson?: (lessonId: string) => void; // Callback to navigate to required lesson
   onNavigateToNextIncomplete?: () => void; // Callback to navigate to next incomplete syllabus item (class page provides)
   isInstructorOrAdmin?: boolean; // Preview mode for instructor/admin - bypasses time restrictions
   onQuizStateChange?: (isActivelyTaking: boolean) => void; // Callback when quiz active state changes
   onCourseCompletion?: () => void; // Callback when course is completed after final quiz
+  currentLessonData?: any; // Current lesson data being viewed (for time tracking)
+  onGetLessonData?: (lessonId: string) => Promise<any>; // Callback to get lesson data
+  onNavigateToRequirement?: (
+    reqIndex: number,
+    targetLessonId: string,
+    quizLessonId: string,
+  ) => void; // Callback to navigate to requirement lesson
+  requirementTrackingState?: RequirementTrackingState; // State from parent for requirement tracking
 }
 
 export default function QuizSection({
@@ -94,6 +111,11 @@ export default function QuizSection({
   isInstructorOrAdmin = false,
   onQuizStateChange,
   onCourseCompletion,
+  currentLessonData,
+  onGetLessonData,
+  onNavigateToRequirement,
+  requirementTrackingState,
+  isComplete = false,
 }: QuizSectionProps) {
   const router = useRouter();
   const [status, setStatus] = useState<QuizStatus | null>(null);
@@ -132,9 +154,7 @@ export default function QuizSection({
   );
 
   useEffect(() => {
-    if (!isEnrolled) return;
-    console.log("Fetching quiz data for lessonId:", lessonId);
-
+    if (!isEnrolled || !lessonId) return;
     fetchQuizData();
   }, [lessonId, isEnrolled]);
 
@@ -183,6 +203,9 @@ export default function QuizSection({
   useEffect(() => {
     if (!status?.lesson.blockDuration || !status?.blockedUntil) return;
 
+    // Use ref to track if we already refreshed to prevent multiple calls
+    let hasRefreshed = false;
+
     const updateCountdown = () => {
       const now = new Date().getTime();
       const blockEnd = new Date(status.blockedUntil!).getTime();
@@ -190,8 +213,11 @@ export default function QuizSection({
 
       if (timeLeft <= 0) {
         setBlockCountdown(null);
-        // Refresh quiz status when block expires
-        fetchQuizData();
+        // Only refresh once when block expires to prevent infinite loop
+        if (!hasRefreshed) {
+          hasRefreshed = true;
+          fetchQuizData();
+        }
       } else {
         setBlockCountdown(timeLeft);
       }
@@ -205,6 +231,26 @@ export default function QuizSection({
 
     return () => clearInterval(interval);
   }, [status?.blockedUntil, status?.lesson.blockDuration]);
+
+  // Handle navigation to a requirement lesson - now uses parent callback
+  const handleNavigateToRequirement = useCallback(
+    (reqIndex: number) => {
+      if (!status?.unlockRequirements || !onNavigateToRequirement) {
+        console.log(
+          "Cannot navigate to requirement - missing data or callbacks",
+        );
+        return;
+      }
+
+      const requirement = status.unlockRequirements[reqIndex];
+      console.log("Navigating to requirement:", requirement);
+      if (!requirement?.targetLesson?.id) return;
+
+      // Use parent callback which handles all the logic
+      onNavigateToRequirement(reqIndex, requirement.targetLesson.id, lessonId);
+    },
+    [status, onNavigateToRequirement, lessonId],
+  );
 
   const fetchQuizData = async () => {
     try {
@@ -224,7 +270,11 @@ export default function QuizSection({
       }
     } catch (error) {
       console.error("Error fetching quiz data:", error);
-      toast.error("Không thể tải thông tin quiz");
+      toast({
+        title: "Lỗi",
+        description: "Không thể tải thông tin quiz",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -251,11 +301,19 @@ export default function QuizSection({
         setTotalQuestions(result.data.total);
         console.log("Fetched all questions:", questions);
       } else {
-        toast.error(result.message);
+        toast({
+          title: "Lỗi",
+          description: result.message,
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Error fetching questions:", error);
-      toast.error("Không thể tải câu hỏi");
+      toast({
+        title: "Lỗi",
+        description: "Không thể tải câu hỏi",
+        variant: "destructive",
+      });
     } finally {
       setIsLoadingQuestions(false);
     }
@@ -266,7 +324,11 @@ export default function QuizSection({
       !status ||
       !canStartQuiz(status, status.unlockRequirementsSummary.allCompleted)
     ) {
-      toast.error("Không thể bắt đầu quiz lúc này");
+      toast({
+        title: "Lỗi",
+        description: "Không thể bắt đầu quiz lúc này",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -293,13 +355,24 @@ export default function QuizSection({
         }
 
         await fetchAllQuestions();
-        toast.success("Bắt đầu quiz thành công!");
+        toast({
+          title: "Thành công",
+          description: "Bắt đầu quiz thành công!",
+        });
       } else {
-        toast.error(result.message);
+        toast({
+          title: "Lỗi",
+          description: result.message,
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Error starting quiz:", error);
-      toast.error("Không thể bắt đầu quiz");
+      toast({
+        title: "Lỗi",
+        description: "Không thể bắt đầu quiz",
+        variant: "destructive",
+      });
     } finally {
       setIsStarting(false);
     }
@@ -318,7 +391,10 @@ export default function QuizSection({
     if (!currentAttempt || isSubmitting) return;
 
     setIsSubmitting(true);
-    toast.info("⏰ Hết thời gian! Tự động nộp bài...");
+    toast({
+      title: "⏰ Hết thời gian!",
+      description: "Tự động nộp bài...",
+    });
     await handleSubmitQuiz();
   };
 
@@ -369,7 +445,10 @@ export default function QuizSection({
       );
 
       if (result.success && result.data) {
-        toast.success("Nộp bài quiz thành công!");
+        toast({
+          title: "Thành công",
+          description: "Nộp bài quiz thành công!",
+        });
         console.log("Quiz submission result:", result.data);
         setResult(result.data);
         setCurrentAttempt(null);
@@ -377,18 +456,24 @@ export default function QuizSection({
         await fetchQuizData();
 
         if (result.data.passed) {
-          toast.success(
-            `Chúc mừng! Bạn đã đạt ${result.data.score}% và vượt qua quiz!`,
-          );
+          toast({
+            title: "Chúc mừng!",
+            description: `Bạn đã đạt ${result.data.score}% và vượt qua quiz!`,
+          });
 
           // Call callback when quiz is completed successfully
           if (onQuizCompleted) {
             onQuizCompleted(true);
           }
+
+          if (onCourseCompletion) {
+            onCourseCompletion();
+          }
         } else {
-          toast.warning(
-            `Bạn đạt ${result.data.score}%. ${result.data.canRetry ? "Hãy cố gắng lần sau!" : "Bạn đã hết lượt thử."}`,
-          );
+          toast({
+            title: "Chưa đạt",
+            description: `Bạn đạt ${result.data.score}%. ${result.data.canRetry ? "Hãy cố gắng lần sau!" : "Bạn đã hết lượt thử."}`,
+          });
 
           // Call callback even when not passed to update progress
           if (onQuizCompleted) {
@@ -396,11 +481,19 @@ export default function QuizSection({
           }
         }
       } else {
-        toast.error(result.message);
+        toast({
+          title: "Lỗi",
+          description: result.message,
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Error submitting quiz:", error);
-      toast.error("Không thể nộp bài quiz");
+      toast({
+        title: "Lỗi",
+        description: "Không thể nộp bài quiz",
+        variant: "destructive",
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -601,9 +694,9 @@ export default function QuizSection({
     const answeredCount = Object.keys(answers).length;
 
     return (
-      <div className="flex gap-6 relative">
+      <div className="flex-1 flex justify-center w-full gap-6 relative">
         {/* Main Quiz Content */}
-        <div className="flex-1 space-y-6">
+        <div className="space-y-6 w-3/4">
           {/* Quiz Header */}
           <Card className="border-primary bg-gradient-to-r from-blue-50 to-indigo-50">
             <CardHeader className="pb-4">
@@ -731,7 +824,7 @@ export default function QuizSection({
                         : "border-gray-200",
                     )}
                   >
-                    <CardContent className="p-6">
+                    <CardContent className="p-2">
                       <div className="space-y-4">
                         <div className="flex items-start gap-3">
                           <Badge
@@ -766,7 +859,7 @@ export default function QuizSection({
                                       key={answer.id}
                                       className={cn(
                                         "relative group transition-all duration-200 cursor-pointer",
-                                        "border rounded-lg p-4 hover:border-blue-300 hover:bg-blue-50/50",
+                                        "border rounded-lg p-2 hover:border-blue-300 hover:bg-blue-50/50",
                                         isSelected
                                           ? "border-blue-500 bg-blue-50 shadow-md"
                                           : "border-gray-200 bg-white hover:shadow-sm",
@@ -1023,22 +1116,25 @@ export default function QuizSection({
             </CardContent>
           </Card>
         </div>
-
         {/* Quiz Sidebar */}
-        <QuizSidebar
-          questions={allQuestions}
-          answers={answers}
-          flaggedQuestions={flaggedQuestions}
-          currentPage={currentPage}
-          questionsPerPage={questionsPerPage}
-          timeRemaining={timeRemaining}
-          isOpen={sidebarOpen || window.innerWidth >= 1024}
-          onClose={() => setSidebarOpen(false)}
-          onQuestionClick={goToQuestion}
-          onToggleFlag={handleToggleFlag}
-          onSubmitQuiz={handleSubmitQuiz}
-          isSubmitting={isSubmitting}
-        />
+        <div className="md:block w-1/4 lg:w-1/4 pl-6 hidden">
+          <div className="fixed">
+            <QuizSidebar
+              questions={allQuestions}
+              answers={answers}
+              flaggedQuestions={flaggedQuestions}
+              currentPage={currentPage}
+              questionsPerPage={questionsPerPage}
+              timeRemaining={timeRemaining}
+              isOpen={sidebarOpen || window.innerWidth >= 1024}
+              onClose={() => setSidebarOpen(false)}
+              onQuestionClick={goToQuestion}
+              onToggleFlag={handleToggleFlag}
+              onSubmitQuiz={handleSubmitQuiz}
+              isSubmitting={isSubmitting}
+            />
+          </div>
+        </div>
 
         {timeRemaining !== null &&
           timeRemaining <= 300 &&
@@ -1108,14 +1204,15 @@ export default function QuizSection({
                 <p className="text-lg">
                   Điểm số: <span className="font-bold">{result.score}%</span>
                 </p>
-                <p className="text-sm text-muted-foreground">
+                {/* <p className="text-sm text-muted-foreground">
                   Thời gian làm bài: {result.timeSpent} phút
-                </p>
+                </p> */}
               </div>
 
               <div className="flex gap-3 justify-center relative z-10">
                 {result.passed ? (
                   // Nút "Tiếp tục học" khi đã đạt
+
                   <Button
                     onClick={() => {
                       console.log(
@@ -1146,7 +1243,7 @@ export default function QuizSection({
                     }}
                     className="bg-green-600 hover:bg-green-700 flex items-center gap-2 relative z-20"
                   >
-                    <span>Tiếp tục học</span>
+                    <span>{isComplete ? "Nhận bằng" : "Bắt đầu học"}</span>
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 ) : (
@@ -1173,11 +1270,11 @@ export default function QuizSection({
                       fetchQuizData();
                     }}
                     // Disable button only if not admin/instructor and cannot attempt
-                    disabled={
-                      !isInstructorOrAdmin && status && !status.canAttempt
-                        ? true
-                        : undefined
-                    }
+                    // disabled={
+                    //   !isInstructorOrAdmin && status && !status.canAttempt
+                    //     ? true
+                    //     : undefined
+                    // }
                     className="bg-orange-600 hover:bg-orange-700 flex items-center gap-2 relative z-20 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <RefreshCw className="h-4 w-4" />
@@ -1186,7 +1283,7 @@ export default function QuizSection({
                 )}
 
                 {/* Nút quay về khóa học */}
-                <Button
+                {/* <Button
                   variant="outline"
                   onClick={(e) => {
                     console.log(
@@ -1203,7 +1300,7 @@ export default function QuizSection({
                   className="flex items-center gap-2 relative z-20"
                 >
                   <span>Quay về khóa học</span>
-                </Button>
+                </Button> */}
               </div>
 
               {/* {!result.passed && (
@@ -1240,15 +1337,15 @@ export default function QuizSection({
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="space-y-6 -mt-10"
+      className="space-y-6 -mt-10 mb-4"
     >
       <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
-        <CardHeader>
+        {/* <CardHeader>
           <CardTitle className="flex items-center gap-2 text-blue-900">
             <Play className="h-5 w-5 text-blue-600" />
             Quiz: {lessonTitle}
           </CardTitle>
-        </CardHeader>
+        </CardHeader> */}
         <CardContent className="space-y-6">
           {/* Quiz Overview Stats */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -1297,7 +1394,7 @@ export default function QuizSection({
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                 {/* Time Limit */}
-                <div className="flex justify-between items-center py-2 border-b border-blue-100">
+                {/* <div className="flex justify-between items-center py-2 border-b border-blue-100">
                   <span className="text-gray-600 flex items-center gap-2">
                     <Clock className="h-4 w-4" />
                     Thời gian làm bài:
@@ -1305,7 +1402,7 @@ export default function QuizSection({
                   <span className="font-medium text-blue-800">
                     {formatTimeLimit(status.timeLimit)}
                   </span>
-                </div>
+                </div> */}
 
                 {/* Retry Delay */}
                 {status.retryDelay && (
@@ -1389,7 +1486,7 @@ export default function QuizSection({
                     {status.passPercent}% để đạt)
                   </span>
                 </div>
-                <button
+                {/* {all(<button
                   onClick={() => {
                     // Navigate back to the class or course to access next lesson
                     const backPath = classId
@@ -1401,7 +1498,7 @@ export default function QuizSection({
                 >
                   <span>Tiếp tục học</span>
                   <ChevronRight className="h-4 w-4" />
-                </button>
+                </button>)} */}
               </div>
             )}
 
@@ -1471,7 +1568,7 @@ export default function QuizSection({
                                     </div>
 
                                     <div className="flex-1 min-w-0">
-                                      <h4 className="font-medium text-blue-900 mb-1">
+                                      <h4 className="font-medium text-blue-900">
                                         {requirement.title ||
                                           requirement.description ||
                                           "Yêu cầu học tập"}
@@ -1512,17 +1609,97 @@ export default function QuizSection({
                                     {/* Navigation button for lessons */}
                                     {requirement.targetLesson?.id &&
                                       onNavigateToLesson && (
-                                        <button
-                                          onClick={() =>
-                                            onNavigateToLesson(
-                                              requirement.targetLesson.id,
-                                            )
-                                          }
-                                          className="flex-shrink-0 inline-flex items-center gap-1 px-3 py-2 bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-600 transition-colors"
-                                        >
-                                          <span>Học ngay</span>
-                                          <ExternalLink className="h-3 w-3" />
-                                        </button>
+                                        <div className="flex-shrink-0 flex flex-col gap-2 items-end">
+                                          <button
+                                            onClick={() =>
+                                              handleNavigateToRequirement(index)
+                                            }
+                                            disabled={
+                                              requirement.isCompleted || false
+                                            }
+                                            className={`inline-flex items-center gap-1 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                                              requirement.isCompleted
+                                                ? "bg-green-100 text-green-700 cursor-not-allowed"
+                                                : "bg-orange-400 text-white hover:bg-orange-600"
+                                            }`}
+                                          >
+                                            {requirement.isCompleted ? (
+                                              <>
+                                                <CheckCircle className="h-3 w-3" />
+                                                <span>Đã hoàn thành</span>
+                                              </>
+                                            ) : requirementTrackingState?.isTrackingRequirement &&
+                                              requirementTrackingState?.currentRequirementIndex ===
+                                                index ? (
+                                              <>
+                                                <Clock className="h-3 w-3 animate-pulse" />
+                                                <span>Đang học</span>
+                                              </>
+                                            ) : (
+                                              <>
+                                                <span>Học ngay</span>
+                                                <ExternalLink className="h-3 w-3" />
+                                              </>
+                                            )}
+                                          </button>
+
+                                          {/* Show progress for current tracking requirement */}
+                                          {requirementTrackingState?.isTrackingRequirement &&
+                                            requirementTrackingState?.currentRequirementIndex ===
+                                              index &&
+                                            requirementTrackingState?.requirementTimeNeeded >
+                                              0 && (
+                                              <div className="w-full min-w-[120px]">
+                                                <div className="flex items-center justify-between text-xs text-blue-600 mb-1">
+                                                  <span>Tiến độ:</span>
+                                                  <span className="font-semibold">
+                                                    {Math.min(
+                                                      Math.round(
+                                                        (requirementTrackingState.requirementTimeSpent /
+                                                          requirementTrackingState.requirementTimeNeeded) *
+                                                          100,
+                                                      ),
+                                                      100,
+                                                    )}
+                                                    %
+                                                  </span>
+                                                </div>
+                                                <div className="w-full bg-blue-100 rounded-full h-2 overflow-hidden">
+                                                  <div
+                                                    className="bg-blue-500 h-full rounded-full transition-all duration-1000 ease-linear"
+                                                    style={{
+                                                      width: `${Math.min((requirementTrackingState.requirementTimeSpent / requirementTrackingState.requirementTimeNeeded) * 100, 100)}%`,
+                                                    }}
+                                                  />
+                                                </div>
+                                                <div className="text-xs text-blue-600 mt-1 text-right">
+                                                  {Math.floor(
+                                                    requirementTrackingState.requirementTimeSpent /
+                                                      60,
+                                                  )}
+                                                  :
+                                                  {(
+                                                    requirementTrackingState.requirementTimeSpent %
+                                                    60
+                                                  )
+                                                    .toString()
+                                                    .padStart(2, "0")}{" "}
+                                                  /{" "}
+                                                  {Math.floor(
+                                                    requirementTrackingState.requirementTimeNeeded /
+                                                      60,
+                                                  )}
+                                                  :
+                                                  {(
+                                                    requirementTrackingState.requirementTimeNeeded %
+                                                    60
+                                                  )
+                                                    .toString()
+                                                    .padStart(2, "0")}
+                                                </div>
+                                              </div>
+                                            )}
+                                        </div>
                                       )}
                                   </div>
                                 </div>
@@ -1750,7 +1927,7 @@ export default function QuizSection({
           )}
 
           {/* Action Buttons */}
-          <div className="flex gap-4 justify-center">
+          <div className="flex gap-4 justify-center mb-4">
             <Button
               onClick={handleStartQuiz}
               disabled={
@@ -1760,7 +1937,7 @@ export default function QuizSection({
                 ) || isStarting
               }
               size="lg"
-              className="px-8 bg-blue-600 hover:bg-blue-700"
+              className="px-8 bg-orange-600 hover:bg-orange-700 "
             >
               {isStarting ? (
                 <>

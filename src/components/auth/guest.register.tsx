@@ -27,15 +27,37 @@ import { ShineBorder } from "../magicui/shine-border";
 import GoogleLoginButton from "./google-login-button";
 
 const formSchema = z.object({
-  name: z.string().min(2, {
-    message: "Họ tên phải có ít nhất 2 ký tự.",
-  }),
-  email: z.string().email({
-    message: "Email không hợp lệ.",
-  }),
-  password: z.string().min(6, {
-    message: "Mật khẩu phải có ít nhất 6 ký tự.",
-  }),
+  name: z
+    .string()
+    .min(2, {
+      message: "Họ tên phải có ít nhất 2 ký tự.",
+    })
+    .max(100, {
+      message: "Họ tên không được vượt quá 100 ký tự.",
+    })
+    .regex(/^[\p{L}\p{M}\s'.-]+$/u, {
+      message:
+        "Họ tên chỉ được chứa chữ cái, khoảng trắng và các ký tự đặc biệt như dấu nháy, gạch ngang, chấm.",
+    }),
+  email: z
+    .string()
+    .email({
+      message: "Email không hợp lệ.",
+    })
+    .max(254, {
+      message: "Email không được vượt quá 254 ký tự.",
+    })
+    .regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, {
+      message: "Định dạng email không hợp lệ.",
+    }),
+  password: z
+    .string()
+    .min(6, {
+      message: "Mật khẩu phải có ít nhất 6 ký tự.",
+    })
+    .max(128, {
+      message: "Mật khẩu không được vượt quá 128 ký tự.",
+    }),
 });
 
 export default function RegisterForm() {
@@ -111,6 +133,7 @@ export default function RegisterForm() {
                     <FormControl>
                       <Input
                         placeholder="Họ tên"
+                        maxLength={100}
                         className="rounded-full h-12 px-4 border-white/50 bg-white/50 backdrop-blur-sm focus:bg-white/70 transition-all"
                         {...field}
                       />
@@ -126,8 +149,9 @@ export default function RegisterForm() {
                   <FormItem>
                     <FormControl>
                       <Input
-                        placeholder="nhập Email"
+                        placeholder="Email"
                         type="email"
+                        maxLength={254}
                         className="rounded-full h-12 px-4 border-input"
                         {...field}
                       />
@@ -146,6 +170,7 @@ export default function RegisterForm() {
                         <Input
                           type={showPassword ? "text" : "password"}
                           placeholder="Mật khẩu"
+                          maxLength={128}
                           className="rounded-full h-12 px-4 border-input pr-10"
                           {...field}
                         />

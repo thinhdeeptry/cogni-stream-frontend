@@ -79,12 +79,12 @@ export const CourseSidebar: React.FC<CourseSidebarProps> = ({
 }) => {
   const router = useRouter();
   // Memoized helper functions to prevent re-creation on every render
-  const isItemCompletedById = useCallback(
-    (itemId: string): boolean => {
-      return completedItems?.some((completed) => completed.id === itemId);
-    },
-    [completedItems],
-  );
+  // const isItemCompletedById = useCallback(
+  //   (itemId: string): boolean => {
+  //     return completedItems?.some((completed) => completed.id === itemId);
+  //   },
+  //   [completedItems],
+  // );
 
   const getCompletedItemData = useCallback(
     (itemId: string): CompletedItem | null => {
@@ -168,7 +168,7 @@ export const CourseSidebar: React.FC<CourseSidebarProps> = ({
       initial={{ x: "100%" }}
       animate={{ x: isOpen ? 0 : "100%" }}
       transition={{ type: "spring", damping: 25, stiffness: 200 }}
-      className="fixed right-0 top-0 h-screen w-full sm:w-[400px] md:w-[450px] lg:w-[400px] xl:w-[450px] bg-white border-l shadow-2xl z-50 lg:z-30"
+      className="fixed right-0 top-0 h-screen w-full sm:w-[230px] md:w-[250px] lg:w-[350px] xl:w-[400px] bg-white border-l shadow-2xl z-50 lg:z-30"
       style={{ height: "calc(100vh - 73px)", top: "73px" }}
     >
       <div className="h-full flex flex-col">
@@ -192,23 +192,6 @@ export const CourseSidebar: React.FC<CourseSidebarProps> = ({
               <X className="h-4 w-4" />
             </Button>
           </div>
-
-          {/* Chat Section */}
-          {classInfo?.id && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                // Navigate to main chat page
-                router.push(`/chat`);
-              }}
-              className="w-full justify-start gap-2 h-10 border-blue-200 hover:border-blue-300 hover:bg-blue-50 text-blue-700"
-            >
-              <MessageCircle className="h-4 w-4 text-blue-600" />
-              <span className="flex-1 text-left font-medium">Chat</span>
-              {/* TODO: Add unread count badge here */}
-            </Button>
-          )}
         </div>
 
         {/* Syllabus Content */}
@@ -296,44 +279,6 @@ export const CourseSidebar: React.FC<CourseSidebarProps> = ({
                 />
               </div>
             )}
-
-            {/* Recent Progress Summary */}
-            {completedItems && completedItems.length > 0 && (
-              <div className="mb-4 p-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-100">
-                <div className="flex items-center gap-2 mb-2">
-                  <CheckCircle className="h-4 w-4 text-green-600" />
-                  <span className="text-xs font-semibold text-green-800">
-                    Tiến độ gần đây
-                  </span>
-                </div>
-                <div className="text-xs text-green-700">
-                  {(() => {
-                    const sortedCompleted = [...completedItems].sort(
-                      (a, b) =>
-                        new Date(b.completedAt).getTime() -
-                        new Date(a.completedAt).getTime(),
-                    );
-                    const latestCompleted = sortedCompleted[0];
-                    if (latestCompleted) {
-                      const timeAgo = Math.floor(
-                        (Date.now() -
-                          new Date(latestCompleted.completedAt).getTime()) /
-                          (1000 * 60 * 60),
-                      );
-                      return `Hoàn thành "${latestCompleted.title}" ${
-                        timeAgo < 1
-                          ? "vừa xong"
-                          : timeAgo < 24
-                            ? `${timeAgo} giờ trước`
-                            : `${Math.floor(timeAgo / 24)} ngày trước`
-                      }`;
-                    }
-                    return "";
-                  })()}
-                </div>
-              </div>
-            )}
-
             {isLoadingSyllabus ? (
               <div className="space-y-4">
                 {Array.from({ length: 5 }).map((_, i: number) => (
@@ -371,8 +316,7 @@ export const CourseSidebar: React.FC<CourseSidebarProps> = ({
                           (item: SyllabusItem, itemIndex: number) => {
                             const itemStatus = getItemStatus(item); // ← Giờ đây safe
                             const canAccess =
-                              isItemCompletedById(item.id) ||
-                              canNavigateToItem(item);
+                              isItemCompleted(item) || canNavigateToItem(item);
                             const {
                               isCompleted,
                               isCurrent,

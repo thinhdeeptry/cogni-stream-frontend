@@ -52,22 +52,30 @@ export function LessonHeader({
       {/* Course Navigation Breadcrumb */}
       <motion.div
         variants={slideUp}
-        className="flex items-center text-sm text-gray-500 px-0 pt-4"
+        className="flex flex-col md:flex-row md:items-center text-sm text-gray-500 px-0 pt-4 gap-1 md:gap-0"
       >
-        <Link href="/" className="hover:text-orange-500 transition-colors">
-          Khóa học
-        </Link>
-        <ChevronRight className="h-4 w-4 mx-2" />
-        <Link
-          href={course ? `/course/${course.id}` : "#"}
-          className="hover:text-orange-500 transition-colors"
-        >
-          {course?.title}
-        </Link>
-        <ChevronRight className="h-4 w-4 mx-2" />
-        <span className="text-gray-700 font-medium truncate">
-          {lesson?.title}
-        </span>
+        {/* Course path - always on top */}
+        <div className="flex items-center">
+          <Link href="/" className="hover:text-orange-500 transition-colors">
+            Khóa học
+          </Link>
+          <ChevronRight className="h-4 w-4 mx-2" />
+          <Link
+            href={course ? `/course/${course.id}` : "#"}
+            className="hover:text-orange-500 transition-colors"
+          >
+            {course?.title}
+          </Link>
+          <ChevronRight className="h-4 w-4 mx-2 hidden md:block" />
+        </div>
+
+        {/* Lesson title - mobile: new line, desktop: same line */}
+        <div className="flex items-center md:ml-0">
+          <ChevronRight className="h-4 w-4 mr-2 md:hidden" />
+          <span className="text-gray-700 font-medium truncate">
+            {lesson?.title}
+          </span>
+        </div>
       </motion.div>
     </>
   );

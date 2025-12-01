@@ -18,6 +18,10 @@ export interface CourseFilters {
   level?: string;
   createdAt?: Date;
   isPublished?: boolean;
+  status?: string; // PENDING_APPROVAL, APPROVED, REJECTED, PUBLISHED
+  courseType?: string; // SELF_PACED, LIVE
+  sortBy?: string; // Sắp xếp theo trường nào
+  sortOrder?: "asc" | "desc"; // Thứ tự sắp xếp
   skipPagination?: boolean; // Option to skip pagination and return all courses
 }
 
@@ -173,6 +177,12 @@ export const getAllCoursesManagement = async (
     if (filters.level) params.append("level", filters.level);
     if (filters.createdAt)
       params.append("createdAt", filters.createdAt.toISOString());
+    if (filters.status) params.append("status", filters.status);
+    if (filters.courseType) params.append("courseType", filters.courseType);
+
+    // Add sorting parameters
+    if (filters.sortBy) params.append("sortBy", filters.sortBy);
+    if (filters.sortOrder) params.append("sortOrder", filters.sortOrder);
 
     // Always include isPublished parameter if specified
     if (filters.isPublished !== undefined) {
@@ -550,12 +560,32 @@ export const createLesson = async (
     blockDuration?: number | null;
     requireUnlockAction?: boolean;
     unlockRequirements?: any[];
+    // Questions for quiz lessons - based on documentation
+    questions?: {
+      text: string;
+      type: string; // QuestionType
+      points?: number;
+      order?: number;
+      answers: {
+        text: string;
+        isCorrect: boolean;
+        points?: number;
+        acceptedAnswers?: string[];
+        caseSensitive?: boolean;
+        exactMatch?: boolean;
+      }[];
+    }[];
   },
 ) => {
   try {
+    const payload = { ...lessonData };
+    if (payload.title === null || payload.title === undefined) {
+      payload.title = "điều kiện mở khóa";
+    }
+
     const { data } = await courseApi.post(
       `/lessons/courses/${courseId}/chapters/${chapterId}`,
-      lessonData,
+      payload,
     );
     return {
       success: true,

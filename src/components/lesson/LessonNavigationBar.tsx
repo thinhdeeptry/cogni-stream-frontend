@@ -1,11 +1,17 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 
 import { formatTime } from "@/hooks/useTimeTracking";
 import { LessonType } from "@/types/course/types";
 import { motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, Menu } from "lucide-react";
+
+import {
+  getEnrollmentByCourse,
+  markCourseAsCompleted,
+} from "@/actions/enrollmentActions";
 
 import {
   AlertDialog,
@@ -27,6 +33,7 @@ import {
 } from "@/components/ui/tooltip";
 
 interface LessonNavigationBarProps {
+  enrollmentId: any;
   lesson: any;
   course: any;
   previousLesson: any;
@@ -42,11 +49,17 @@ interface LessonNavigationBarProps {
   isQuizActivelyTaking: boolean;
   onLessonCompletion: () => void;
   onCourseCompletion: () => void;
+  handleCourseCompletion: () => void;
   onSidebarToggle: () => void;
   router: any;
+  onUpdateCertificate?: (
+    hasCertificate: boolean,
+    certificateId: string | null,
+  ) => void;
 }
 
 export function LessonNavigationBar({
+  enrollmentId,
   lesson,
   course,
   previousLesson,
@@ -62,16 +75,70 @@ export function LessonNavigationBar({
   isQuizActivelyTaking,
   onLessonCompletion,
   onCourseCompletion,
+  handleCourseCompletion,
   onSidebarToggle,
   router,
+  onUpdateCertificate,
 }: LessonNavigationBarProps) {
   // Don't show navigation during active quiz
   if (lesson.type === LessonType.QUIZ && isQuizActivelyTaking) {
     return null;
   }
-
+  console.log(
+    "hasCertificate:",
+    hasCertificate,
+    "certificateId:",
+    certificateId,
+    "nextLesson:",
+    nextLesson,
+    "isButtonEnabled:",
+    isButtonEnabled,
+  );
+  console.log("isButtonEnabled:", isButtonEnabled);
   const isLastLesson = currentLessonIndex === allLessons.length - 1;
+  // const [enrollmentId, setEnrollmentId] = useState<string>("id");
+  const handleLessonCompletionWithCertCheck = async () => {
+    try {
+      // Cập nhật certificate status trước khi complete lesson
+      const response = await getEnrollmentByCourse(course.id);
+      console.log("CHỗ này nè, response enrollment:", response);
+      const newHasCertificate = response.data?.data?.isHasCertificate
+        ? true
+        : false;
+      const newCertificateId = response.data?.data?.certificate?.id || null;
+      // setEnrollmentId(response.data?.data?.enrollment.id || null);
+      enrollmentId = response.data?.data?.enrollment.id || null;
+      console.log("Certificate status after lesson completion:", {
+        enrollmentId: response.data?.data?.enrollment.id,
+        hasCertificate: newHasCertificate,
+        certificateId: newCertificateId,
+      });
 
+      // Cập nhật state của component cha
+      if (onUpdateCertificate) {
+        onUpdateCertificate(newHasCertificate, newCertificateId);
+      }
+
+      // Gọi lesson completion
+      await onLessonCompletion();
+    } catch (error) {
+      console.error("Error updating certificate status:", error);
+      // Vẫn tiếp tục với lesson completion nếu có lỗi
+      await onLessonCompletion();
+    }
+  };
+
+  const handleViewCertificate = async () => {
+    if (certificateId) {
+      router.push(`/certificate/${certificateId}`);
+    }
+    const response = await markCourseAsCompleted(enrollmentId);
+    console.log("Course completion response:", response);
+    if (response.data?.data?.certificate?.id) {
+      router.push(`/certificate/${response.data?.data?.certificate?.id}`);
+    }
+  };
+  console.log("nextLesson", nextLesson);
   return (
     <motion.div
       initial={{ y: 20, opacity: 0 }}
@@ -102,6 +169,7 @@ export function LessonNavigationBar({
         )}
 
         {/* Next/Complete Button Logic */}
+
         {nextLesson ? (
           isButtonEnabled ? (
             <AlertDialog>
@@ -126,6 +194,7 @@ export function LessonNavigationBar({
                     </AlertDialogTitle>
                     <AlertDialogDescription className="text-center text-gray-600 mt-2">
                       {isEnrolled &&
+                      lesson.type !== LessonType.QUIZ &&
                       timeTracking.isTimeComplete &&
                       lesson.estimatedDurationMinutes ? (
                         <>
@@ -135,6 +204,8 @@ export function LessonNavigationBar({
                           Hãy đảm bảo rằng bạn đã nắm vững kiến thức trước khi
                           chuyển sang bài tiếp theo.
                         </>
+                      ) : lesson.type === LessonType.QUIZ ? (
+                        "Bạn đã hoàn thành quiz này chưa? Hãy đảm bảo rằng bạn đã đạt điểm yêu cầu để chuyển sang bài tiếp theo."
                       ) : (
                         "Bạn đã hoàn thành bài học này chưa? Hãy đảm bảo rằng bạn đã nắm vững kiến thức trước khi chuyển sang bài tiếp theo."
                       )}
@@ -145,7 +216,7 @@ export function LessonNavigationBar({
                       Chưa, tôi cần học lại
                     </AlertDialogCancel>
                     <AlertDialogAction
-                      onClick={onLessonCompletion}
+                      onClick={handleLessonCompletionWithCertCheck}
                       className="w-full bg-gradient-to-r from-orange-500 to-red-500 text-white hover:from-orange-600 hover:to-red-600"
                     >
                       Đã hoàn thành, học tiếp
@@ -181,7 +252,7 @@ export function LessonNavigationBar({
           hasCertificate ? (
             <Button
               className="w-40 bg-gradient-to-r from-purple-500 to-indigo-500 text-white hover:from-purple-600 hover:to-indigo-600 transition-all duration-300 group"
-              onClick={() => router.push(`/certificate/${certificateId}`)}
+              onClick={handleViewCertificate}
             >
               Xem bằng{" "}
               <ChevronRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
@@ -218,7 +289,7 @@ export function LessonNavigationBar({
                       Ở lại trang này
                     </AlertDialogCancel>
                     <AlertDialogAction
-                      onClick={onCourseCompletion}
+                      onClick={handleCourseCompletion}
                       className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600"
                     >
                       Hoàn thành khóa học

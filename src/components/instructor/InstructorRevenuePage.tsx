@@ -3,41 +3,43 @@
 import { useEffect, useState } from "react";
 
 import { toast } from "@/hooks/use-toast";
-import {
-  BookOpen,
-  Calendar,
-  Clock,
-  DollarSign,
-  Download,
-  Eye,
-  RefreshCw,
-  TrendingUp,
-  Users,
-} from "lucide-react";
+import { Download, RefreshCw } from "lucide-react";
 
+// Import payment actions
+import {
+  PaymentRecord,
+  PayoutMethod,
+  TeacherPaymentSummary,
+  createMyPayoutMethod,
+  createPaymentRecord,
+  createPayoutRecord,
+  getMyPaymentSummary,
+  getMyPayoutMethods,
+  getPaymentRecords,
+} from "@/actions/paymentActions";
 // Import revenue actions
 import {
   PaginatedResponse,
   RevenueShare,
   RevenueShareSummary,
-  formatCurrency,
   getMyRevenue,
   getMySummary,
 } from "@/actions/revenueShareActions";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+import PaymentRecordsTable from "./payment/PaymentRecordsTable";
+import PaymentRequestDialog from "./payment/PaymentRequestDialog";
+import PaymentSummaryCards from "./payment/PaymentSummaryCards";
+import PayoutMethods from "./payment/PayoutMethods";
+import RevenueShareBreakdown from "./revenue/RevenueShareBreakdown";
+// Import separated components
+import RevenueSummaryCards from "./revenue/RevenueSummaryCards";
+import TransactionHistory from "./revenue/TransactionHistory";
 
 export default function InstructorRevenuePage() {
+  // Revenue states
   const [revenueSummary, setRevenueSummary] =
     useState<RevenueShareSummary | null>(null);
   const [revenueShares, setRevenueShares] = useState<RevenueShare[]>([]);
@@ -46,9 +48,25 @@ export default function InstructorRevenuePage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [selectedPeriod, setSelectedPeriod] = useState<
-    "week" | "month" | "quarter" | "year"
-  >("month");
+
+  // Payment states
+  const [paymentSummary, setPaymentSummary] =
+    useState<TeacherPaymentSummary | null>(null);
+  const [paymentRecords, setPaymentRecords] = useState<PaymentRecord[]>([]);
+  const [isLoadingPayments, setIsLoadingPayments] = useState(false);
+  const [currentPaymentPage, setCurrentPaymentPage] = useState(1);
+  const [totalPaymentPages, setTotalPaymentPages] = useState(1);
+
+  // Payment Request Dialog states
+  const [isCreatingPayment, setIsCreatingPayment] = useState(false);
+
+  // Payout Methods states
+  const [payoutMethods, setPayoutMethods] = useState<PayoutMethod[]>([]);
+  const [isLoadingPayoutMethods, setIsLoadingPayoutMethods] = useState(false);
+  const [isCreatingPayoutMethod, setIsCreatingPayoutMethod] = useState(false);
+
+  // Active tab
+  const [activeTab, setActiveTab] = useState("revenue");
 
   // Fetch data on component mount
   useEffect(() => {
@@ -58,6 +76,20 @@ export default function InstructorRevenuePage() {
   useEffect(() => {
     fetchRevenueShares(currentPage);
   }, [currentPage]);
+
+  useEffect(() => {
+    if (activeTab === "payments") {
+      fetchPaymentData();
+    } else if (activeTab === "payout-methods") {
+      fetchPayoutMethods();
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab === "payments") {
+      fetchPaymentRecords(currentPaymentPage);
+    }
+  }, [currentPaymentPage]);
 
   const fetchInitialData = async () => {
     try {
@@ -72,6 +104,203 @@ export default function InstructorRevenuePage() {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchPaymentData = async () => {
+    try {
+      setIsLoadingPayments(true);
+      await Promise.all([fetchPaymentSummary(), fetchPaymentRecords(1)]);
+    } catch (error) {
+      console.error("Error fetching payment data:", error);
+      // Set default empty data for new teachers
+      setPaymentSummary({
+        teacher: {
+          id: "",
+          name: "Giảng viên mới",
+          email: "teacher@example.com",
+          totalRevenue: 0,
+          totalPaidOut: 0,
+          pendingPayout: 0,
+        },
+        paymentHistory: {
+          totalPayments: 0,
+          totalAmountPaid: 0,
+          recentPayments: [],
+        },
+      });
+      setPaymentRecords([]);
+      toast({
+        title: "Thông tin",
+        description:
+          "Chưa có dữ liệu thanh toán. Đây có thể là tài khoản giảng viên mới.",
+        variant: "default",
+      });
+    } finally {
+      setIsLoadingPayments(false);
+    }
+  };
+
+  const fetchPaymentSummary = async () => {
+    try {
+      const summary = await getMyPaymentSummary();
+      setPaymentSummary(summary);
+      console.log("Fetched payment summary:", summary);
+    } catch (error) {
+      console.error("Error fetching payment summary:", error);
+      // Set default empty data for new teachers
+      setPaymentSummary({
+        teacher: {
+          id: "",
+          name: "Giảng viên mới",
+          email: "teacher@example.com",
+          totalRevenue: 0,
+          totalPaidOut: 0,
+          pendingPayout: 0,
+        },
+        paymentHistory: {
+          totalPayments: 0,
+          totalAmountPaid: 0,
+          recentPayments: [],
+        },
+      });
+    }
+  };
+
+  const fetchPaymentRecords = async (page: number) => {
+    try {
+      setIsLoadingPayments(true);
+      const response = await getPaymentRecords({
+        page,
+        limit: 10,
+      });
+      setPaymentRecords(response.data);
+      if (response.pagination?.totalPages)
+        setTotalPaymentPages(response.pagination.totalPages);
+      setCurrentPaymentPage(response.pagination.currentPage);
+
+      // Reload payment summary để đồng bộ dữ liệu
+      await fetchPaymentSummary();
+    } catch (error) {
+      console.error("Error fetching payment records:", error);
+      // Set empty data for new teachers
+      setPaymentRecords([]);
+      setTotalPaymentPages(1);
+      setCurrentPaymentPage(1);
+      // Don't show error toast for empty data - it's normal for new teachers
+    } finally {
+      setIsLoadingPayments(false);
+    }
+  };
+
+  const fetchPayoutMethods = async () => {
+    try {
+      setIsLoadingPayoutMethods(true);
+      const methods = await getMyPayoutMethods();
+      console.log(
+        "Fetched payout methods:",
+        methods,
+        "Type:",
+        typeof methods,
+        "Is array:",
+        Array.isArray(methods),
+      );
+      setPayoutMethods(Array.isArray(methods) ? methods : []);
+    } catch (error) {
+      console.error("Error fetching payout methods:", error);
+      // Set empty array for new teachers - this is normal
+      setPayoutMethods([]);
+    } finally {
+      setIsLoadingPayoutMethods(false);
+    }
+  };
+
+  const handleCreatePayoutMethod = async (data: {
+    methodType: "BANK_ACCOUNT";
+    accountHolderName: string;
+    accountNumber: string;
+    bankName: string;
+    bankBranch?: string;
+    isDefault?: boolean;
+  }) => {
+    try {
+      setIsCreatingPayoutMethod(true);
+      await createMyPayoutMethod(data);
+      toast({
+        title: "Thành công",
+        description: "Đã thêm phương thức thanh toán mới",
+      });
+      await fetchPayoutMethods(); // Refresh the list
+    } catch (error: any) {
+      console.error("Error creating payout method:", error);
+      toast({
+        title: "Lỗi",
+        description: error.message || "Không thể tạo phương thức thanh toán",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingPayoutMethod(false);
+    }
+  };
+
+  const handleCreatePaymentRequest = async (data: {
+    payoutMethodId: string;
+    amount: number;
+    description: string;
+  }) => {
+    try {
+      console.log("Creating payment request with data:", data);
+      setIsCreatingPayment(true);
+      await createPaymentRecord(data);
+      toast({
+        title: "Thành công",
+        description: "Yêu cầu thanh toán đã được tạo thành công",
+      });
+      // Reload cả payment data và records để hiển thị ngay
+      await Promise.all([
+        fetchPaymentSummary(),
+        fetchPaymentRecords(1), // Reset về trang 1 để thấy record mới
+      ]);
+      setCurrentPaymentPage(1);
+    } catch (error: any) {
+      toast({
+        title: "Lỗi",
+        description:
+          error.response?.data?.message || "Không thể tạo yêu cầu thanh toán",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingPayment(false);
+    }
+  };
+
+  const handleCreatePayoutRecord = async (data: {
+    payoutMethodId: string;
+    amount: number;
+    description: string;
+  }) => {
+    try {
+      setIsCreatingPayment(true);
+      await createPayoutRecord(data);
+      toast({
+        title: "Thành công",
+        description: "Payout record đã được tạo và chờ admin duyệt",
+      });
+      // Reload cả payment data và records để hiển thị ngay
+      await Promise.all([
+        fetchPaymentSummary(),
+        fetchPaymentRecords(1), // Reset về trang 1 để thấy record mới
+      ]);
+      setCurrentPaymentPage(1);
+    } catch (error: any) {
+      toast({
+        title: "Lỗi",
+        description:
+          error.response?.data?.message || "Không thể tạo payout record",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingPayment(false);
     }
   };
 
@@ -110,7 +339,11 @@ export default function InstructorRevenuePage() {
   const handleRefresh = async () => {
     try {
       setIsRefreshing(true);
-      await fetchInitialData();
+      if (activeTab === "revenue") {
+        await fetchInitialData();
+      } else {
+        await fetchPaymentData();
+      }
       toast({
         title: "Thành công",
         description: "Dữ liệu đã được cập nhật",
@@ -126,53 +359,10 @@ export default function InstructorRevenuePage() {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("vi-VN", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  const getProductTypeBadge = (type: "COURSE" | "CLASS") => {
-    return type === "COURSE" ? (
-      <Badge className="bg-blue-100 text-blue-800">Khóa học</Badge>
-    ) : (
-      <Badge className="bg-purple-100 text-purple-800">Lớp học</Badge>
-    );
-  };
-
-  const getStatusBadge = (status: string) => {
-    const colors = {
-      SUCCESS: "bg-green-100 text-green-800",
-      FAILED: "bg-red-100 text-red-800",
-      PENDING: "bg-yellow-100 text-yellow-800",
-    };
-
-    const labels = {
-      SUCCESS: "Thành công",
-      FAILED: "Thất bại",
-      PENDING: "Đang xử lý",
-    };
-
-    return (
-      <Badge
-        className={
-          colors[status as keyof typeof colors] || "bg-gray-100 text-gray-800"
-        }
-      >
-        {labels[status as keyof typeof labels] || status}
-      </Badge>
-    );
-  };
-
   if (isLoading) {
     return (
       <div className="max-w-7xl mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
         <div className="space-y-4 lg:space-y-0">
-          {/* Mobile Layout */}
           <div className="lg:hidden space-y-4">
             <div>
               <h1 className="text-xl font-bold text-slate-900">
@@ -183,8 +373,6 @@ export default function InstructorRevenuePage() {
               </p>
             </div>
           </div>
-
-          {/* Desktop Layout */}
           <div className="hidden lg:flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-slate-900">
@@ -196,35 +384,7 @@ export default function InstructorRevenuePage() {
             </div>
           </div>
         </div>
-
-        {/* Loading skeleton */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {Array.from({ length: 3 }).map((_, index) => (
-            <Card key={index}>
-              <CardContent className="p-6">
-                <div className="h-8 w-8 bg-gray-200 animate-pulse rounded mb-4"></div>
-                <div className="h-8 w-20 bg-gray-200 animate-pulse rounded mb-2"></div>
-                <div className="h-4 w-16 bg-gray-200 animate-pulse rounded"></div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        <Card>
-          <CardHeader>
-            <div className="h-6 w-48 bg-gray-200 animate-pulse rounded"></div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {Array.from({ length: 5 }).map((_, index) => (
-                <div
-                  key={index}
-                  className="h-16 bg-gray-100 animate-pulse rounded"
-                ></div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        <RevenueSummaryCards summary={null} isLoading={true} />
       </div>
     );
   }
@@ -233,14 +393,13 @@ export default function InstructorRevenuePage() {
     <div className="max-w-7xl mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
       {/* Header */}
       <div className="space-y-4 lg:space-y-0">
-        {/* Mobile Layout */}
         <div className="lg:hidden space-y-4">
           <div>
             <h1 className="text-xl font-bold text-slate-900">
               Doanh thu của tôi
             </h1>
             <p className="text-sm text-slate-600">
-              Theo dõi doanh thu và hoa hồng từ các khóa học
+              Theo dõi doanh thu và quản lý thanh toán
             </p>
           </div>
           <div className="flex flex-col gap-3">
@@ -250,29 +409,28 @@ export default function InstructorRevenuePage() {
               disabled={isRefreshing}
               className="flex items-center justify-center gap-2 w-full"
             >
-              {/* <RefreshCw
+              <RefreshCw
                 className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
-              /> */}
+              />
               Làm mới
             </Button>
             <Button
               variant="outline"
               className="flex items-center justify-center gap-2 w-full"
             >
-              {/* <Download className="h-4 w-4" /> */}
+              <Download className="h-4 w-4" />
               Xuất báo cáo
             </Button>
           </div>
         </div>
 
-        {/* Desktop Layout */}
         <div className="hidden lg:flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-slate-900">
               Doanh thu của tôi
             </h1>
             <p className="text-slate-600">
-              Theo dõi doanh thu và hoa hồng từ các khóa học
+              Theo dõi doanh thu và quản lý thanh toán
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -282,269 +440,84 @@ export default function InstructorRevenuePage() {
               disabled={isRefreshing}
               className="flex items-center gap-2"
             >
-              {/* <RefreshCw
+              <RefreshCw
                 className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
-              /> */}
+              />
               Làm mới
             </Button>
             <Button variant="outline" className="flex items-center gap-2">
-              {/* <Download className="h-4 w-4" /> */}
+              <Download className="h-4 w-4" />
               Xuất báo cáo
             </Button>
           </div>
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <div className="flex-1">
-                <p className="text-sm font-medium text-slate-600">
-                  Tổng doanh thu
-                </p>
-                <p className="text-2xl font-bold text-slate-900">
-                  {revenueSummary
-                    ? formatCurrency(revenueSummary.totalRevenue)
-                    : "0 ₫"}
-                </p>
-                <p className="text-xs text-slate-500 mt-1">
-                  {revenueSummary?.totalTransactions || 0} giao dịch
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="revenue">Doanh thu</TabsTrigger>
+          <TabsTrigger value="payments">Thanh toán</TabsTrigger>
+          <TabsTrigger value="payout-methods">
+            Phương thức thanh toán
+          </TabsTrigger>
+        </TabsList>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <div className="flex-1">
-                <p className="text-sm font-medium text-slate-600">
-                  Hoa hồng nhận được
-                </p>
-                <p className="text-2xl font-bold text-green-600">
-                  {revenueSummary
-                    ? formatCurrency(revenueSummary.totalInstructorAmount)
-                    : "0 ₫"}
-                </p>
-                <p className="text-xs text-slate-500 mt-1">
-                  Tỷ lệ TB:{" "}
-                  {revenueSummary?.averageCommissionRate.toFixed(1) || 0}%
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <TabsContent value="revenue" className="space-y-6">
+          <RevenueSummaryCards summary={revenueSummary} isLoading={isLoading} />
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <div className="flex-1">
-                <p className="text-sm font-medium text-slate-600">Khóa học</p>
-                <p className="text-2xl font-bold text-purple-600">
-                  {revenueSummary?.coursesCount || 0}
-                </p>
-                <p className="text-xs text-slate-500 mt-1">
-                  khóa học có doanh thu
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+          {revenueSummary && <RevenueShareBreakdown summary={revenueSummary} />}
 
-      {/* Revenue Share Breakdown */}
-      {revenueSummary && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              {/* <TrendingUp className="h-5 w-5" /> */}
-              Phân chia doanh thu
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Phân chia doanh thu</span>
-                <span className="text-sm text-slate-500">
-                  {(
-                    (revenueSummary.totalInstructorAmount /
-                      revenueSummary.totalRevenue) *
-                    100
-                  ).toFixed(1)}
-                  % cho tôi /{" "}
-                  {(
-                    (revenueSummary.totalPlatformAmount /
-                      revenueSummary.totalRevenue) *
-                    100
-                  ).toFixed(1)}
-                  % cho nền tảng
-                </span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-4">
-                <div className="flex h-4 rounded-full overflow-hidden">
-                  <div
-                    className="bg-green-500"
-                    style={{
-                      width: `${(revenueSummary.totalInstructorAmount / revenueSummary.totalRevenue) * 100}%`,
-                    }}
-                  ></div>
-                  <div
-                    className="bg-blue-500"
-                    style={{
-                      width: `${(revenueSummary.totalPlatformAmount / revenueSummary.totalRevenue) * 100}%`,
-                    }}
-                  ></div>
-                </div>
-              </div>
-              <div className="flex justify-between text-sm">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 bg-green-500 rounded"></div>
-                  <span>
-                    Hoa hồng của tôi:{" "}
-                    {formatCurrency(revenueSummary.totalInstructorAmount)}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 bg-blue-500 rounded"></div>
-                  <span>
-                    Phí nền tảng:{" "}
-                    {formatCurrency(revenueSummary.totalPlatformAmount)}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+          <TransactionHistory
+            revenueShares={revenueShares}
+            isLoading={isLoadingShares}
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+          />
+        </TabsContent>
 
-      {/* Transaction History */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            Lịch sử giao dịch
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoadingShares ? (
-            <div className="space-y-4">
-              {Array.from({ length: 5 }).map((_, index) => (
-                <div
-                  key={index}
-                  className="flex items-center space-x-4 p-4 border rounded-lg"
-                >
-                  <div className="h-10 w-10 bg-gray-200 animate-pulse rounded"></div>
-                  <div className="flex-1 space-y-2">
-                    <div className="h-4 w-48 bg-gray-200 animate-pulse rounded"></div>
-                    <div className="h-3 w-32 bg-gray-200 animate-pulse rounded"></div>
-                  </div>
-                  <div className="h-6 w-20 bg-gray-200 animate-pulse rounded"></div>
-                  <div className="h-8 w-24 bg-gray-200 animate-pulse rounded"></div>
-                </div>
-              ))}
-            </div>
-          ) : revenueShares.length === 0 ? (
-            <div className="text-center py-12">
-              <Calendar className="h-12 w-12 text-slate-300 mx-auto mb-4" />
-              <p className="text-slate-500 text-lg mb-2">
-                Chưa có giao dịch nào
-              </p>
-              <p className="text-slate-400">
-                Giao dịch sẽ xuất hiện khi học viên mua khóa học hoặc lớp học
-                của bạn
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Sản phẩm</TableHead>
-                    <TableHead>Loại</TableHead>
-                    <TableHead>Giá gốc</TableHead>
-                    <TableHead>Giá bán</TableHead>
-                    <TableHead>Hoa hồng</TableHead>
-                    <TableHead>Tỷ lệ</TableHead>
-                    <TableHead>Trạng thái</TableHead>
-                    <TableHead>Thời gian</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {revenueShares.map((share) => (
-                    <TableRow key={share.id} className="hover:bg-slate-50">
-                      <TableCell>
-                        <div>
-                          <p className="font-medium text-slate-900">
-                            {share.productTitle}
-                          </p>
-                          <p className="text-sm text-slate-500">
-                            ID: {share.productId}
-                          </p>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {getProductTypeBadge(share.productType)}
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {formatCurrency(share.originalPrice)}
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {formatCurrency(share.finalPrice)}
-                      </TableCell>
-                      <TableCell className="font-semibold text-green-600">
-                        {formatCurrency(share.instructorAmount)}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{share.instructorRate}%</Badge>
-                      </TableCell>
-                      <TableCell>
-                        {getStatusBadge(share.transaction.status)}
-                      </TableCell>
-                      <TableCell className="text-sm text-slate-500">
-                        {formatDate(share.createdAt)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+        <TabsContent value="payments" className="space-y-6">
+          <PaymentSummaryCards
+            summary={paymentSummary}
+            isLoading={isLoading || isLoadingPayments}
+          />
 
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between pt-4">
-                  <p className="text-sm text-slate-500">
-                    Trang {currentPage} / {totalPages}
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        setCurrentPage(Math.max(1, currentPage - 1))
-                      }
-                      disabled={currentPage === 1 || isLoadingShares}
-                    >
-                      Trước
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        setCurrentPage(Math.min(totalPages, currentPage + 1))
-                      }
-                      disabled={currentPage === totalPages || isLoadingShares}
-                    >
-                      Sau
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
+          {paymentSummary && (
+            <PaymentRequestDialog
+              summary={paymentSummary}
+              payoutMethods={payoutMethods}
+              onCreatePaymentRequest={handleCreatePaymentRequest}
+              onCreatePayoutRecord={handleCreatePayoutRecord}
+              isCreating={isCreatingPayment}
+            />
           )}
-        </CardContent>
-      </Card>
+
+          <PaymentRecordsTable
+            records={paymentRecords}
+            isLoading={isLoadingPayments}
+            currentPage={currentPaymentPage}
+            totalPages={totalPaymentPages}
+            onPageChange={setCurrentPaymentPage}
+            onRefresh={async () => {
+              await Promise.all([
+                fetchPaymentSummary(),
+                fetchPaymentRecords(currentPaymentPage),
+              ]);
+            }}
+          />
+        </TabsContent>
+
+        <TabsContent value="payout-methods" className="space-y-6">
+          <PayoutMethods
+            payoutMethods={payoutMethods}
+            isLoading={isLoadingPayoutMethods}
+            onCreateMethod={handleCreatePayoutMethod}
+            isCreating={isCreatingPayoutMethod}
+            onRefresh={fetchPayoutMethods}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

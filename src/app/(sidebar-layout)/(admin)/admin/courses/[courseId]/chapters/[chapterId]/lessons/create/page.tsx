@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import type React from "react";
-import { use, useState } from "react";
+import { use, useCallback, useState } from "react";
 
 import { useToast } from "@/hooks/use-toast";
 import type { Question } from "@/types/assessment/types";
@@ -74,6 +74,15 @@ export default function CreateLessonPage({
     isCreatingQuiz ? LessonType.QUIZ : LessonType.BLOG,
   );
 
+  // Update showQuestionManager when lesson type changes to QUIZ
+  const handleLessonTypeChange = (type: string) => {
+    setLessonType(type);
+    if (type === LessonType.QUIZ) {
+      setShowQuestionManager(true);
+      setShowQuizConfig(true);
+    }
+  };
+
   const [passPercent, setPassPercent] = useState<number>(80);
   const [timeLimit, setTimeLimit] = useState<number | null>(null);
   const [maxAttempts, setMaxAttempts] = useState<number | null>(null);
@@ -86,8 +95,14 @@ export default function CreateLessonPage({
   const [questions, setQuestions] = useState<Question[]>([]);
   const [showQuizConfig, setShowQuizConfig] = useState(false);
   const [showUnlockRequirements, setShowUnlockRequirements] = useState(false);
-  const [showQuestionManager, setShowQuestionManager] = useState(false);
+  const [showQuestionManager, setShowQuestionManager] =
+    useState(isCreatingQuiz);
   const { toast } = useToast();
+
+  // Handle questions change from QuestionManager (memoized to prevent infinite loops)
+  const handleQuestionsChange = useCallback((newQuestions: Question[]) => {
+    setQuestions(newQuestions);
+  }, []);
 
   // Configure BlockNote editor with image upload
   const editor = useCreateBlockNote({
@@ -157,6 +172,44 @@ export default function CreateLessonPage({
         type = LessonType.QUIZ;
       }
 
+      // Validation for quiz lessons
+      if (type === LessonType.QUIZ && questions.length === 0) {
+        toast({
+          title: "Lỗi",
+          description:
+            "Quiz lesson phải có ít nhất 1 câu hỏi. Vui lòng thêm câu hỏi trước khi lưu.",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Prepare questions data for quiz lessons
+      const questionsData =
+        type === LessonType.QUIZ && questions.length > 0
+          ? questions.map((question, index) => ({
+              text: question.text,
+              type: question.type.toString(), // Ensure string format for API
+              points: question.points || 1.0,
+              order: index,
+              answers: question.answers.map((answer) => ({
+                text: answer.text,
+                isCorrect: answer.isCorrect,
+                points: answer.points || (answer.isCorrect ? 1.0 : 0.0),
+                // Include essay/short answer specific fields
+                ...(answer.acceptedAnswers && {
+                  acceptedAnswers: answer.acceptedAnswers,
+                }),
+                ...(answer.caseSensitive !== undefined && {
+                  caseSensitive: answer.caseSensitive,
+                }),
+                ...(answer.exactMatch !== undefined && {
+                  exactMatch: answer.exactMatch,
+                }),
+              })),
+            }))
+          : undefined;
+
       const result = await createLesson(
         resolvedParams.courseId,
         resolvedParams.chapterId,
@@ -178,6 +231,9 @@ export default function CreateLessonPage({
           requireUnlockAction: type === LessonType.QUIZ ? true : undefined, // Always true for quiz
           unlockRequirements:
             type === LessonType.QUIZ ? unlockRequirements : undefined,
+
+          // Include questions for quiz lessons
+          questions: questionsData,
         },
       );
 
@@ -304,7 +360,7 @@ export default function CreateLessonPage({
                     </Label>
                     <Select
                       value={lessonType}
-                      onValueChange={(value) => setLessonType(value)}
+                      onValueChange={handleLessonTypeChange}
                     >
                       <SelectTrigger className="border-slate-200 focus:ring-orange-500 focus:border-orange-500 h-10">
                         <SelectValue placeholder="Chọn loại bài học" />
@@ -371,7 +427,7 @@ export default function CreateLessonPage({
                   <Input
                     id="estimatedDurationMinutes"
                     type="number"
-                    min="1"
+                    min="0"
                     max="9999"
                     value={estimatedDurationMinutes || ""}
                     onChange={(e) =>
@@ -756,19 +812,10 @@ export default function CreateLessonPage({
                             lessonId={undefined} // Will be set after lesson creation
                             courseId={resolvedParams.courseId}
                             chapterId={resolvedParams.chapterId}
-                            onQuestionsChange={setQuestions}
+                            onQuestionsChange={handleQuestionsChange}
+                            mode="create"
+                            initialQuestions={[]} // Start empty in create mode
                           />
-                          {questions.length === 0 && (
-                            <div className="text-center py-12 bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg border-2 border-dashed border-slate-300">
-                              <Brain className="h-12 w-12 text-slate-400 mx-auto mb-4" />
-                              <p className="text-slate-600 font-medium mb-2">
-                                Chưa có câu hỏi nào
-                              </p>
-                              <p className="text-sm text-slate-500">
-                                Hãy tạo bài học trước để thêm câu hỏi quiz
-                              </p>
-                            </div>
-                          )}
                         </div>
                       )}
                     </div>
@@ -978,6 +1025,8 @@ export default function CreateLessonPage({
           maxAttempts={maxAttempts}
           retryDelay={retryDelay}
           blockDuration={blockDuration}
+          unlockRequirements={unlockRequirements}
+          questions={questions}
         />
       </div>
     </div>

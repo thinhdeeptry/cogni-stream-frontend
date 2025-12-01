@@ -20,8 +20,8 @@ export const HomeJsonLd = ({ courses = [] }: HomeJsonLdProps) => {
       "@context": "https://schema.org",
       "@type": "Organization",
       name: "cognistream",
-      url: "https://cognistream.io.vn",
-      logo: "https://cognistream.io.vn/images/logo.png",
+      url: "https://cognistream.id.vn",
+      logo: "https://cognistream.id.vn/images/logo.png",
       sameAs: [
         "https://facebook.com/cognistream",
         "https://twitter.com/cognistream",
@@ -40,7 +40,7 @@ export const HomeJsonLd = ({ courses = [] }: HomeJsonLdProps) => {
     const websiteJsonLd = {
       "@context": "https://schema.org",
       "@type": "WebSite",
-      url: "https://cognistream.io.vn",
+      url: "https://cognistream.id.vn",
       name: "cognistream - Nền tảng học trực tuyến hàng đầu Việt Nam",
       description:
         "cognistream là nền tảng học trực tuyến với hàng nghìn khóa học chất lượng cao về lập trình, thiết kế, marketing và nhiều lĩnh vực khác.",
@@ -67,11 +67,11 @@ export const HomeJsonLd = ({ courses = [] }: HomeJsonLdProps) => {
                 url: course.url,
                 image:
                   course.image ||
-                  "https://cognistream.io.vn/images/default-course.jpg",
+                  "https://cognistream.id.vn/images/default-course.jpg",
                 provider: {
                   "@type": "Organization",
                   name: "cognistream",
-                  sameAs: "https://cognistream.io.vn",
+                  sameAs: "https://cognistream.id.vn",
                 },
               },
             })),

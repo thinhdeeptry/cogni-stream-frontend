@@ -100,6 +100,7 @@ export default function CourseDetail() {
   const [course, setCourse] = useState<Course | null>(null);
   const { user } = useUserStore();
   const [isLoading, setIsLoading] = useState(false);
+  const [isEnrolling, setIsEnrolling] = useState(false); // Separate state for enrollment loading
   const [error, setError] = useState<string | null>(null);
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [firstLessonId, setFirstLessonId] = useState<string | null>(null);
@@ -409,7 +410,7 @@ export default function CourseDetail() {
       }
     }
 
-    setIsLoading(true); // Bắt đầu loading
+    setIsEnrolling(true); // Bắt đầu enrollment loading instead of isLoading
 
     // Kiểm tra xem có phải khóa miễn phí không - convert về number để so sánh
     const currentPriceNumber = Number(pricing.currentPrice);
@@ -458,7 +459,7 @@ export default function CourseDetail() {
         toast.error("Có lỗi xảy ra khi đăng ký khóa học");
         console.error("Error enrolling in free course:", error);
       } finally {
-        setIsLoading(false);
+        setIsEnrolling(false);
       }
       return;
     } else {
@@ -498,7 +499,7 @@ export default function CourseDetail() {
         toast.error("Có lỗi xảy ra khi tạo đơn thanh toán");
         console.error("Error creating payment:", error);
       } finally {
-        setIsLoading(false);
+        setIsEnrolling(false);
       }
     }
   };
@@ -522,14 +523,20 @@ export default function CourseDetail() {
     // Handle SELF_PACED courses - navigate to lesson
     console.log("lastStudiedLessonId: ", lastStudiedLessonId);
     console.log("firstLessonId: ", firstLessonId);
+
+    // Luôn điều hướng đến lesson cuối cùng trong progress (lesson có progress cao nhất)
+    // hoặc lesson đầu tiên nếu chưa có progress
     if (lastStudiedLessonId) {
       router.push(`/course/${course.id}/lesson/${lastStudiedLessonId}`);
-      console.log("Đã có học bài ");
+      console.log(
+        "Điều hướng đến bài học cuối cùng trong progress: ",
+        lastStudiedLessonId,
+      );
     }
     // Otherwise, start from the first lesson
     else if (firstLessonId) {
       router.push(`/course/${course.id}/lesson/${firstLessonId}`);
-      console.log("Chưa học bài nào");
+      console.log("Bắt đầu từ bài học đầu tiên");
     }
   };
 
@@ -614,20 +621,20 @@ export default function CourseDetail() {
 
   return (
     <motion.div
-      className="w-full flex-1 flex gap-8 justify-center min-h-screen p-5 mb-16"
+      className="w-full flex-1 flex gap-8 justify-center min-h-screen p-5 mb-16 md:mb-16 pb-24 md:pb-6"
       initial="hidden"
       animate="visible"
       variants={fadeIn}
     >
       {/* Left Column */}
-      <div className="w-2/3 space-y-8 pb-6">
+      <div className="w-full md:w-2/3 space-y-8 pb-6">
         <motion.div
           className="bg-white rounded-lg shadow-sm p-6 transition-all hover:shadow-md"
           whileHover={{ y: -5 }}
           variants={itemVariant}
         >
           <h1 className="text-3xl font-semibold mb-4 text-gray-800 flex items-center gap-2">
-            <BookOpen className="h-8 w-8 text-orange-500" />
+            <BookOpen className="h-8 w-8 text-orange-500 hidden md:block" />
             {course.title}
           </h1>
           <p className="text-gray-600 leading-relaxed mb-6">
@@ -641,8 +648,8 @@ export default function CourseDetail() {
                 <Users className="h-5 w-5 text-orange-500" />
                 Giảng viên
               </h3>
-              <div className="flex items-start gap-4">
-                <div className="flex-shrink-0">
+              <div className="flex flex-col md:flex-row items-start gap-4">
+                <div className="flex-shrink-0 md:mx-0">
                   <Image
                     src={
                       course.instructor.user?.image || "/placeholder-avatar.jpg"
@@ -653,9 +660,9 @@ export default function CourseDetail() {
                     className="rounded-full object-cover border-2 border-orange-100"
                   />
                 </div>
-                <div className="flex-1">
+                <div className="flex-1 text-left">
                   <h4 className="font-semibold text-gray-800 text-lg mb-1">
-                    {course.instructor.headline || "Giảng viên"}
+                    {course.instructor.user?.name || "Giảng viên"}
                   </h4>
                   {course.instructor.specialization && (
                     <p className="text-orange-600 font-medium mb-2">
@@ -667,34 +674,34 @@ export default function CourseDetail() {
                       {course.instructor.bio}
                     </p>
                   )}
-                  {course.instructor.avgRating &&
-                    course.instructor.totalRatings && (
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-1">
-                          <div className="flex">
-                            {[...Array(5)].map((_, i) => (
-                              <Star
-                                key={i}
-                                className={cn(
-                                  "h-4 w-4",
-                                  i < Math.floor(course.instructor!.avgRating!)
-                                    ? "text-yellow-500 fill-current"
-                                    : "text-gray-300",
-                                )}
-                              />
-                            ))}
-                          </div>
-                          <span className="text-sm font-medium text-gray-700">
-                            {course.instructor.avgRating.toFixed(1)}
-                          </span>
-                        </div>
-                        <span className="text-sm text-gray-500">
-                          ({course.instructor.totalRatings} đánh giá giảng viên)
-                        </span>
-                      </div>
-                    )}
                 </div>
               </div>
+              {course.instructor.avgRating &&
+                course.instructor.totalRatings && (
+                  <div className="flex md:justify-start items-center gap-3 mt-4">
+                    <div className="flex items-center gap-1">
+                      <div className="flex">
+                        {[...Array(5)].map((_, i) => (
+                          <Star
+                            key={i}
+                            className={cn(
+                              "h-4 w-4",
+                              i < Math.floor(course.instructor!.avgRating!)
+                                ? "text-yellow-500 fill-current"
+                                : "text-gray-300",
+                            )}
+                          />
+                        ))}
+                      </div>
+                      <span className="text-sm font-medium text-gray-700">
+                        {course.instructor.avgRating.toFixed(1)}
+                      </span>
+                    </div>
+                    <span className="text-sm text-gray-500">
+                      ({course.instructor.totalRatings} đánh giá giảng viên)
+                    </span>
+                  </div>
+                )}
             </div>
           )}
 
@@ -709,9 +716,9 @@ export default function CourseDetail() {
             (course.totalRatings ?? 0) > 0 ? (
               <button
                 onClick={() => setIsRatingModalOpen(true)}
-                className="flex items-center gap-3 hover:bg-gray-50 p-3 rounded-md transition-colors border border-gray-200 hover:border-gray-300"
+                className="flex flex-col md:flex-row items-start md:items-center gap-3 hover:bg-gray-50 p-3 rounded-md transition-colors border border-gray-200 hover:border-gray-300"
               >
-                <div className="flex items-center gap-2">
+                <div className="flex w-full md:w-auto items-center gap-2">
                   <div className="flex">
                     {[...Array(5)].map((_, i) => (
                       <Star
@@ -733,17 +740,14 @@ export default function CourseDetail() {
                   <span className="text-sm font-medium text-gray-700">
                     {course.totalRatings} đánh giá
                   </span>
-                  {/* <span className="text-xs text-gray-500">
-                    Xem chi tiết và viết đánh giá
-                  </span> */}
                 </div>
               </button>
             ) : (
               <button
                 onClick={() => setIsRatingModalOpen(true)}
-                className="flex items-center gap-3 hover:bg-gray-50 p-3 rounded-md transition-colors border border-gray-200 hover:border-gray-300"
+                className="flex flex-col md:flex-row items-start md:items-center gap-3 hover:bg-gray-50 p-3 rounded-md transition-colors border border-gray-200 hover:border-gray-300"
               >
-                <div className="flex items-center gap-2">
+                <div className="flex w-full md:w-auto items-center gap-2">
                   <div className="flex">
                     {[...Array(5)].map((_, i) => (
                       <Star key={i} className="h-5 w-5 text-gray-300" />
@@ -778,7 +782,7 @@ export default function CourseDetail() {
               Bạn sẽ học được gì?
             </h2>
             <motion.ul
-              className="grid grid-cols-2 gap-4"
+              className="grid grid-cols-1 md:grid-cols-2 gap-4"
               variants={staggerContainer}
               initial="hidden"
               animate="visible"
@@ -901,17 +905,17 @@ export default function CourseDetail() {
                             <motion.li key={lesson.id} variants={itemVariant}>
                               <Link
                                 href={
-                                  isEnrolled || lesson.isFreePreview
+                                  isEnrolled
                                     ? `/course/${course.id}/lesson/${lesson.id}`
                                     : "#"
                                 }
                                 className={`flex items-center justify-between p-3 hover:bg-slate-50 rounded-lg transition-all duration-200 ${
-                                  isEnrolled || lesson.isFreePreview
+                                  isEnrolled
                                     ? "cursor-pointer"
                                     : "cursor-not-allowed opacity-50"
                                 }`}
                                 onClick={(e) => {
-                                  if (!isEnrolled && !lesson.isFreePreview) {
+                                  if (!isEnrolled) {
                                     e.preventDefault();
                                     toast.error(
                                       "Vui lòng đăng ký khóa học để xem bài học này",
@@ -925,14 +929,6 @@ export default function CourseDetail() {
                                     {lesson.title}
                                   </span>
                                 </div>
-                                {lesson.isFreePreview && (
-                                  <Badge
-                                    variant="secondary"
-                                    className="bg-orange-100 text-orange-600 hover:bg-orange-200"
-                                  >
-                                    Preview
-                                  </Badge>
-                                )}
                               </Link>
                             </motion.li>
                           ))}
@@ -979,7 +975,7 @@ export default function CourseDetail() {
       </div>
 
       {/* Right Column - Course Card */}
-      <div className="w-1/3">
+      <div className="hidden md:block w-1/3">
         <motion.div
           className="fixed top-20 right-8 w-[calc(30%-2rem)] z-10"
           initial={{ opacity: 0, y: 20 }}
@@ -1230,13 +1226,13 @@ export default function CourseDetail() {
                       size="lg"
                       onClick={handleEnrollClick}
                       disabled={
-                        isLoading ||
+                        isEnrolling ||
                         isCheckingPayment ||
                         (course.courseType === CourseType.LIVE &&
                           !selectedClassId)
                       }
                     >
-                      {isLoading || isCheckingPayment ? (
+                      {isEnrolling || isCheckingPayment ? (
                         <div className="flex items-center justify-center">
                           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                           <span>
@@ -1357,6 +1353,155 @@ export default function CourseDetail() {
             </CardContent>
           </Card>
         </motion.div>
+      </div>
+
+      {/* Mobile Bottom Action Bar */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 z-50 shadow-lg">
+        <div className="max-w-screen-sm mx-auto">
+          {/* Price Display for mobile */}
+          {!isEnrolled && !isInstructor && (
+            <div className="text-center mb-3">
+              {loadingPrice ? (
+                <div className="h-6 w-32 bg-gray-200 animate-pulse rounded mx-auto"></div>
+              ) : (
+                (() => {
+                  const currentPriceNumber = Number(pricing?.currentPrice);
+                  const isFree =
+                    !pricing?.currentPrice ||
+                    pricing?.currentPrice === null ||
+                    isNaN(currentPriceNumber) ||
+                    currentPriceNumber === 0;
+
+                  if (isFree) {
+                    return (
+                      <p className="text-green-600 text-xl font-semibold">
+                        Miễn phí
+                      </p>
+                    );
+                  }
+
+                  return (
+                    <div className="space-y-1">
+                      <p className="text-red-600 text-xl font-semibold">
+                        {Number(pricing?.currentPrice).toLocaleString()} VND
+                      </p>
+                      {pricing.hasPromotion && pricing.promotionName && (
+                        <p className="text-sm text-red-600 font-medium">
+                          🎉 {pricing.promotionName}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()
+              )}
+            </div>
+          )}
+
+          {/* Mobile Action Button */}
+          {isInstructor ? (
+            <Button
+              className="w-full bg-purple-600 hover:bg-purple-700 text-white transition-colors"
+              size="lg"
+              onClick={handleInstructorPreview}
+              disabled={
+                course.courseType === CourseType.LIVE &&
+                !selectedClassId &&
+                (!course.classes || course.classes.length === 0)
+              }
+            >
+              <Eye className="h-5 w-5 mr-2" />
+              Chế độ xem trước của Giảng viên
+            </Button>
+          ) : !isEnrolled ? (
+            <Button
+              className="w-full bg-orange-500 hover:bg-orange-600 text-white transition-colors"
+              size="lg"
+              onClick={handleEnrollClick}
+              disabled={
+                isEnrolling ||
+                isCheckingPayment ||
+                (course.courseType === CourseType.LIVE && !selectedClassId)
+              }
+            >
+              {isEnrolling || isCheckingPayment ? (
+                <div className="flex items-center justify-center">
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  <span>
+                    {isCheckingPayment
+                      ? "Đang kiểm tra thanh toán..."
+                      : "Đang xử lý..."}
+                  </span>
+                </div>
+              ) : (
+                <span>
+                  {course.courseType === CourseType.LIVE && !selectedClassId
+                    ? "Chọn lớp học để đăng ký"
+                    : (() => {
+                        const currentPriceNumber = Number(
+                          pricing?.currentPrice,
+                        );
+                        const isFree =
+                          !pricing?.currentPrice ||
+                          pricing?.currentPrice === null ||
+                          isNaN(currentPriceNumber) ||
+                          currentPriceNumber === 0;
+                        return isFree ? "Đăng ký ngay" : "Mua khóa học";
+                      })()}
+                </span>
+              )}
+            </Button>
+          ) : (
+            <Button
+              className="w-full bg-orange-500 hover:bg-orange-600 text-white transition-colors"
+              size="lg"
+              onClick={handleStartLearningClick}
+              disabled={
+                course.courseType === CourseType.LIVE && !selectedClassId
+              }
+            >
+              {course.courseType === CourseType.LIVE
+                ? selectedClassId
+                  ? "Vào lớp học"
+                  : "Chọn lớp để bắt đầu"
+                : lastStudiedLessonId
+                  ? "Tiếp tục học"
+                  : "Bắt đầu học"}
+            </Button>
+          )}
+
+          {/* Class selection hint for mobile */}
+          {course.courseType === CourseType.LIVE && (
+            <div className="mt-2 text-center">
+              {isInstructor ? (
+                <p className="text-xs text-purple-600">
+                  {selectedClassId
+                    ? `Xem trước lớp: ${getSelectedClass()?.name}`
+                    : course.classes && course.classes.length > 0
+                      ? "Chọn lớp để xem trước"
+                      : "Chưa có lớp học nào"}
+                </p>
+              ) : !isEnrolled ? (
+                !selectedClassId ? (
+                  <p className="text-xs text-orange-600">
+                    💡 Vui lòng chọn lớp học phù hợp trước khi đăng ký
+                  </p>
+                ) : (
+                  <p className="text-xs text-green-600">
+                    ✓ Đã chọn lớp: {getSelectedClass()?.name}
+                  </p>
+                )
+              ) : !selectedClassId ? (
+                <p className="text-xs text-orange-600">
+                  💡 Vui lòng chọn lớp học để vào học
+                </p>
+              ) : (
+                <p className="text-xs text-green-600">
+                  ✓ Sẵn sàng vào lớp: {getSelectedClass()?.name}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
       </div>
       {/* <Discussion threadId={threadId || ""} /> */}
 

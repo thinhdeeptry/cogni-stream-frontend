@@ -8,6 +8,7 @@ import {
   Course,
   CourseLevel,
   CoursePrice,
+  CourseStatus,
   CourseType,
 } from "@/types/course/types";
 import {
@@ -109,7 +110,10 @@ export default function AdminCoursesPage() {
     totalPages: 1,
   });
 
-  const [filters, setFilters] = useState<CourseFilters>({});
+  const [filters, setFilters] = useState<CourseFilters>({
+    sortBy: "status", // Mặc định sắp xếp theo status
+    sortOrder: "asc",
+  });
 
   // Function to fetch pricing for multiple courses
   const fetchCoursePricing = async (courseList: Course[]) => {
@@ -117,6 +121,7 @@ export default function AdminCoursesPage() {
       try {
         setLoadingPrices((prev) => ({ ...prev, [course.id]: true }));
         const pricing = await getCourseCurrentPrice(course.id);
+        console.log("Pricing infodd:", pricing);
         setCoursePricing((prev) => ({ ...prev, [course.id]: pricing }));
       } catch (error) {
         console.error(`Error fetching pricing for course ${course.id}:`, error);
@@ -145,8 +150,12 @@ export default function AdminCoursesPage() {
     if (isLoading) {
       return <div className="h-4 w-16 bg-gray-200 animate-pulse rounded"></div>;
     }
-
-    if (!pricing || !pricing.currentPrice || pricing.currentPrice === 0) {
+    console.log("Pricing info:", pricing);
+    if (
+      !pricing ||
+      !pricing.currentPrice ||
+      pricing.currentPrice.toString() === "0"
+    ) {
       return <span className="text-green-600 font-medium">Miễn phí</span>;
     }
 
@@ -192,10 +201,18 @@ export default function AdminCoursesPage() {
             ? undefined
             : courseFilters.categoryId,
         level: courseFilters.level === "" ? undefined : courseFilters.level,
+        status:
+          courseFilters.status === "all" ? undefined : courseFilters.status,
+        courseType:
+          courseFilters.courseType === "all"
+            ? undefined
+            : courseFilters.courseType,
         isPublished:
           courseFilters.isPublished === undefined
             ? undefined
             : courseFilters.isPublished,
+        sortBy: courseFilters.sortBy || "status",
+        sortOrder: courseFilters.sortOrder || "asc",
       };
 
       const response = await getAllCoursesManagement(
@@ -479,35 +496,63 @@ export default function AdminCoursesPage() {
                 </div>
 
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="isPublished" className="text-right">
+                  <Label htmlFor="status" className="text-right">
                     Trạng thái
                   </Label>
                   <Select
-                    value={
-                      filters.isPublished === undefined
-                        ? "all"
-                        : filters.isPublished
-                          ? "true"
-                          : "false"
+                    value={filters.status || "all"}
+                    onValueChange={(value) =>
+                      handleFilterChange(
+                        "status",
+                        value === "all" ? undefined : value,
+                      )
                     }
-                    onValueChange={(value) => {
-                      let filterValue;
-                      if (value === "all") {
-                        filterValue = undefined;
-                      } else if (value === "true") {
-                        filterValue = true;
-                      } else {
-                        filterValue = false;
-                      }
-                      handleFilterChange("isPublished", filterValue);
-                    }}
                   >
                     <SelectTrigger className="col-span-3">
                       <SelectValue placeholder="Tất cả trạng thái" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Tất cả trạng thái</SelectItem>
-                      <SelectItem value="true">Đã xuất bản</SelectItem>
+                      <SelectItem value={CourseStatus.PENDING_APPROVAL}>
+                        Chờ duyệt
+                      </SelectItem>
+                      <SelectItem value={CourseStatus.APPROVED}>
+                        Đã duyệt
+                      </SelectItem>
+                      <SelectItem value={CourseStatus.REJECTED}>
+                        Bị từ chối
+                      </SelectItem>
+                      <SelectItem value={CourseStatus.PUBLISHED}>
+                        Đã xuất bản
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="courseType" className="text-right">
+                    Loại khóa học
+                  </Label>
+                  <Select
+                    value={filters.courseType || "all"}
+                    onValueChange={(value) =>
+                      handleFilterChange(
+                        "courseType",
+                        value === "all" ? undefined : value,
+                      )
+                    }
+                  >
+                    <SelectTrigger className="col-span-3">
+                      <SelectValue placeholder="Tất cả loại" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tất cả loại</SelectItem>
+                      <SelectItem value={CourseType.SELF_PACED}>
+                        Tự học
+                      </SelectItem>
+                      <SelectItem value={CourseType.LIVE}>
+                        Trực tuyến
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -741,6 +786,8 @@ export default function AdminCoursesPage() {
               <TableHead className="text-slate-700">Loại</TableHead>
               <TableHead className="text-slate-700">Giá</TableHead>
               <TableHead className="text-slate-700">Trạng thái</TableHead>
+              <TableHead className="text-slate-700">Ngày tạo</TableHead>
+              <TableHead className="text-slate-700">Lý do từ chối</TableHead>
               <TableHead className="text-right text-slate-700">
                 Thao tác
               </TableHead>
@@ -750,7 +797,7 @@ export default function AdminCoursesPage() {
             {courses.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={6}
+                  colSpan={8}
                   className="text-center py-8 text-slate-500"
                 >
                   Chưa có khóa học nào
@@ -768,12 +815,12 @@ export default function AdminCoursesPage() {
                   <TableCell className="text-slate-700">
                     <span
                       className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        course.courseType === "LIVE"
+                        course.courseType === CourseType.LIVE
                           ? "bg-red-100 text-red-800"
                           : "bg-blue-100 text-blue-800"
                       }`}
                     >
-                      {course.courseType === "LIVE"
+                      {course.courseType === CourseType.LIVE
                         ? "📹 Trực tuyến"
                         : "🎥 Tự học"}
                     </span>
@@ -784,27 +831,52 @@ export default function AdminCoursesPage() {
                   <TableCell>
                     <span
                       className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        course.status === "PUBLISHED"
+                        course.status === CourseStatus.PUBLISHED
                           ? "bg-green-100 text-green-800"
-                          : course.status === "APPROVED"
+                          : course.status === CourseStatus.APPROVED
                             ? "bg-blue-100 text-blue-800"
-                            : course.status === "PENDING_APPROVAL"
+                            : course.status === CourseStatus.PENDING_APPROVAL
                               ? "bg-yellow-100 text-yellow-800"
-                              : course.status === "REJECTED"
+                              : course.status === CourseStatus.REJECTED
                                 ? "bg-red-100 text-red-800"
                                 : "bg-gray-100 text-gray-800"
                       }`}
                     >
-                      {course.status === "PUBLISHED"
+                      {course.status === CourseStatus.PUBLISHED
                         ? "Đã xuất bản"
-                        : course.status === "APPROVED"
+                        : course.status === CourseStatus.APPROVED
                           ? "Đã duyệt"
-                          : course.status === "PENDING_APPROVAL"
+                          : course.status === CourseStatus.PENDING_APPROVAL
                             ? "Chờ duyệt"
-                            : course.status === "REJECTED"
+                            : course.status === CourseStatus.REJECTED
                               ? "Bị từ chối"
                               : "Bản nháp"}
                     </span>
+                  </TableCell>
+                  <TableCell className="text-slate-700">
+                    <div className="text-sm">
+                      {new Date(course.createdAt).toLocaleDateString("vi-VN", {
+                        year: "numeric",
+                        month: "2-digit",
+                        day: "2-digit",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-slate-700">
+                    {course.rejectionReason ? (
+                      <div className="max-w-xs">
+                        <div
+                          className="text-sm text-red-600 truncate"
+                          title={course.rejectionReason}
+                        >
+                          {course.rejectionReason}
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="text-slate-400 text-sm">-</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">

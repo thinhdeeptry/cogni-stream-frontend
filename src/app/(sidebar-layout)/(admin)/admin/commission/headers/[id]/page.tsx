@@ -477,7 +477,7 @@ const DetailDetailModal: React.FC<{
                 <div className="flex items-center justify-between p-2 bg-slate-100 rounded">
                   <span className="text-sm text-slate-700">Tổng cộng</span>
                   <span className="font-bold">
-                    {detail.platformRate + detail.instructorRate}%
+                    {+detail.platformRate + +detail.instructorRate + "%"}{" "}
                   </span>
                 </div>
               </div>
