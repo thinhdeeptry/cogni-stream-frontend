@@ -81,6 +81,7 @@ interface QuizSectionProps {
   isEnrolled: boolean;
   classId?: string; // For navigation to specific lessons in class
   courseId?: string; // For navigation
+  isComplete?: boolean; // Whether the quiz has been completed
   onQuizCompleted?: (success: boolean) => void; // Callback when quiz is completed successfully
   onNavigateToLesson?: (lessonId: string) => void; // Callback to navigate to required lesson
   onNavigateToNextIncomplete?: () => void; // Callback to navigate to next incomplete syllabus item (class page provides)
@@ -114,6 +115,7 @@ export default function QuizSection({
   onGetLessonData,
   onNavigateToRequirement,
   requirementTrackingState,
+  isComplete = false,
 }: QuizSectionProps) {
   const router = useRouter();
   const [status, setStatus] = useState<QuizStatus | null>(null);
@@ -692,9 +694,9 @@ export default function QuizSection({
     const answeredCount = Object.keys(answers).length;
 
     return (
-      <div className="flex gap-6 relative">
+      <div className="flex-1 flex justify-center w-full gap-6 relative">
         {/* Main Quiz Content */}
-        <div className="flex-1 space-y-6">
+        <div className="space-y-6 w-3/4">
           {/* Quiz Header */}
           <Card className="border-primary bg-gradient-to-r from-blue-50 to-indigo-50">
             <CardHeader className="pb-4">
@@ -822,7 +824,7 @@ export default function QuizSection({
                         : "border-gray-200",
                     )}
                   >
-                    <CardContent className="p-6">
+                    <CardContent className="p-2">
                       <div className="space-y-4">
                         <div className="flex items-start gap-3">
                           <Badge
@@ -857,7 +859,7 @@ export default function QuizSection({
                                       key={answer.id}
                                       className={cn(
                                         "relative group transition-all duration-200 cursor-pointer",
-                                        "border rounded-lg p-4 hover:border-blue-300 hover:bg-blue-50/50",
+                                        "border rounded-lg p-2 hover:border-blue-300 hover:bg-blue-50/50",
                                         isSelected
                                           ? "border-blue-500 bg-blue-50 shadow-md"
                                           : "border-gray-200 bg-white hover:shadow-sm",
@@ -1114,22 +1116,25 @@ export default function QuizSection({
             </CardContent>
           </Card>
         </div>
-
         {/* Quiz Sidebar */}
-        <QuizSidebar
-          questions={allQuestions}
-          answers={answers}
-          flaggedQuestions={flaggedQuestions}
-          currentPage={currentPage}
-          questionsPerPage={questionsPerPage}
-          timeRemaining={timeRemaining}
-          isOpen={sidebarOpen || window.innerWidth >= 1024}
-          onClose={() => setSidebarOpen(false)}
-          onQuestionClick={goToQuestion}
-          onToggleFlag={handleToggleFlag}
-          onSubmitQuiz={handleSubmitQuiz}
-          isSubmitting={isSubmitting}
-        />
+        <div className="md:block w-1/4 lg:w-1/4 pl-6 hidden">
+          <div className="fixed">
+            <QuizSidebar
+              questions={allQuestions}
+              answers={answers}
+              flaggedQuestions={flaggedQuestions}
+              currentPage={currentPage}
+              questionsPerPage={questionsPerPage}
+              timeRemaining={timeRemaining}
+              isOpen={sidebarOpen || window.innerWidth >= 1024}
+              onClose={() => setSidebarOpen(false)}
+              onQuestionClick={goToQuestion}
+              onToggleFlag={handleToggleFlag}
+              onSubmitQuiz={handleSubmitQuiz}
+              isSubmitting={isSubmitting}
+            />
+          </div>
+        </div>
 
         {timeRemaining !== null &&
           timeRemaining <= 300 &&
@@ -1207,6 +1212,7 @@ export default function QuizSection({
               <div className="flex gap-3 justify-center relative z-10">
                 {result.passed ? (
                   // Nút "Tiếp tục học" khi đã đạt
+
                   <Button
                     onClick={() => {
                       console.log(
@@ -1237,7 +1243,7 @@ export default function QuizSection({
                     }}
                     className="bg-green-600 hover:bg-green-700 flex items-center gap-2 relative z-20"
                   >
-                    <span>Tiếp tục học</span>
+                    <span>{isComplete ? "Nhận bằng" : "Bắt đầu học"}</span>
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 ) : (
@@ -1331,15 +1337,15 @@ export default function QuizSection({
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="space-y-6 -mt-10"
+      className="space-y-6 -mt-10 mb-4"
     >
       <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
-        <CardHeader>
+        {/* <CardHeader>
           <CardTitle className="flex items-center gap-2 text-blue-900">
             <Play className="h-5 w-5 text-blue-600" />
             Quiz: {lessonTitle}
           </CardTitle>
-        </CardHeader>
+        </CardHeader> */}
         <CardContent className="space-y-6">
           {/* Quiz Overview Stats */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -1562,7 +1568,7 @@ export default function QuizSection({
                                     </div>
 
                                     <div className="flex-1 min-w-0">
-                                      <h4 className="font-medium text-blue-900 mb-1">
+                                      <h4 className="font-medium text-blue-900">
                                         {requirement.title ||
                                           requirement.description ||
                                           "Yêu cầu học tập"}
@@ -1609,21 +1615,15 @@ export default function QuizSection({
                                               handleNavigateToRequirement(index)
                                             }
                                             disabled={
-                                              requirementTrackingState?.completedRequirements.has(
-                                                requirement.id,
-                                              ) || false
+                                              requirement.isCompleted || false
                                             }
                                             className={`inline-flex items-center gap-1 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-                                              requirementTrackingState?.completedRequirements.has(
-                                                requirement.id,
-                                              )
+                                              requirement.isCompleted
                                                 ? "bg-green-100 text-green-700 cursor-not-allowed"
                                                 : "bg-orange-400 text-white hover:bg-orange-600"
                                             }`}
                                           >
-                                            {requirementTrackingState?.completedRequirements.has(
-                                              requirement.id,
-                                            ) ? (
+                                            {requirement.isCompleted ? (
                                               <>
                                                 <CheckCircle className="h-3 w-3" />
                                                 <span>Đã hoàn thành</span>
@@ -1927,7 +1927,7 @@ export default function QuizSection({
           )}
 
           {/* Action Buttons */}
-          <div className="flex gap-4 justify-center">
+          <div className="flex gap-4 justify-center mb-4">
             <Button
               onClick={handleStartQuiz}
               disabled={
@@ -1937,7 +1937,7 @@ export default function QuizSection({
                 ) || isStarting
               }
               size="lg"
-              className="px-8 bg-orange-600 hover:bg-orange-700"
+              className="px-8 bg-orange-600 hover:bg-orange-700 "
             >
               {isStarting ? (
                 <>

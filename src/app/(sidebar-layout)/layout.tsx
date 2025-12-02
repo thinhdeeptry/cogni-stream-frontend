@@ -18,7 +18,6 @@ export default function RootLayout({
         <main className="flex flex-col w-full h-screen overflow-y-auto overflow-x-hidden">
           <UserHeader />
           <Toaster />
-          <SessionHandler />
           {children}
         </main>
       </SidebarProvider>

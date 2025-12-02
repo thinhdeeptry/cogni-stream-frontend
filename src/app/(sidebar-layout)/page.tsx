@@ -97,7 +97,7 @@ function HomeContent() {
           if (course.classes && course.classes.length > 0) {
             // Filter only published classes
             const publishedClasses = course.classes.filter(
-              (classItem) => classItem.isPublished,
+              (classItem) => classItem.statusActive === "PUBLISHED",
             );
             publishedClasses.forEach((classItem) => {
               liveItems.push({

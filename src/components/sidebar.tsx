@@ -42,45 +42,38 @@ const getMenuItems = (userRole: string) => {
       icon: Home,
       color: "text-blue-500",
       bgColor: "bg-blue-50",
-      // },
-      // {
-      //   title: "Lộ trình",
-      //   url: "/roadmap",
-      //   icon: GraduationCap,
-      //   color: "text-green-500",
-      //   bgColor: "bg-green-50",
-      // },
-      // {
-      //   title: "Bài viết",
-      //   url: "/posts",
-      //   icon: BookOpen,
-      //   color: "text-amber-500",
-      //   bgColor: "bg-amber-50",
     },
-    {
-      title: "Chat",
-      url: "/chat",
-      icon: MessageCircle,
-      color: "text-blue-600",
-      bgColor: "bg-blue-50",
-    },
-    {
-      title: "Lịch của tôi",
-      url: "/schedule",
-      icon: Calendar,
-      color: "text-gray-600",
-      bgColor: "bg-purple-50",
-    },
+    // {
+    //   title: "Lộ trình",
+    //   url: "/roadmap",
+    //   icon: GraduationCap,
+    //   color: "text-green-500",
+    //   bgColor: "bg-green-50",
+    // },
+    // {
+    //   title: "Bài viết",
+    //   url: "/posts",
+    //   icon: BookOpen,
+    //   color: "text-amber-500",
+    //   bgColor: "bg-amber-50",
+    // },
+    // {
+    //   title: "Chat",
+    //   url: "/chat",
+    //   icon: MessageCircle,
+    //   color: "text-blue-600",
+    //   bgColor: "bg-blue-50",
+    // },
+    // {
+    //   title: "Lịch của tôi",
+    //   url: "/schedule",
+    //   icon: Calendar,
+    //   color: "text-gray-600",
+    //   bgColor: "bg-purple-50",
+    // },
   ];
 
   if (userRole !== "STUDENT") {
-    baseItems.push({
-      title: "Quản lý",
-      url: "/admin/courses",
-      icon: LayoutDashboard,
-      color: "text-gray-600",
-      bgColor: "bg-purple-50",
-    });
   }
 
   if (userRole === "INSTRUCTOR" || userRole === "ADMIN") {
@@ -94,14 +87,29 @@ const getMenuItems = (userRole: string) => {
   }
 
   if (userRole === "ADMIN") {
+    // Put Dashboard at the beginning
+    baseItems.unshift({
+      title: "Dashboard",
+      url: "/admin/statistics",
+      icon: BarChart,
+      color: "text-purple-600",
+      bgColor: "bg-purple-50",
+    });
+    baseItems.push({
+      title: "Quản lý",
+      url: "/admin/courses",
+      icon: LayoutDashboard,
+      color: "text-gray-600",
+      bgColor: "bg-purple-50",
+    });
     baseItems.push(
-      {
-        title: "Nội dung",
-        url: "/admin/approvals",
-        icon: CheckSquare,
-        color: "text-emerald-600",
-        bgColor: "bg-emerald-50",
-      },
+      // {
+      //   title: "Nội dung",
+      //   url: "/admin/approvals",
+      //   icon: CheckSquare,
+      //   color: "text-emerald-600",
+      //   bgColor: "bg-emerald-50",
+      // },
       {
         title: "Chi trả",
         url: "/admin/payments",
@@ -123,26 +131,19 @@ const getMenuItems = (userRole: string) => {
       //   color: "text-gray-600",
       //   bgColor: "bg-amber-50",
       // },
-      {
-        title: "Người dùng",
-        url: "/admin/users",
-        icon: Users,
-        color: "text-gray-600",
-        bgColor: "bg-indigo-50",
-      },
+      // {
+      //   title: "Người dùng",
+      //   url: "/admin/users",
+      //   icon: Users,
+      //   color: "text-gray-600",
+      //   bgColor: "bg-indigo-50",
+      // },
       {
         title: "Xét duyệt GV",
         url: "/registrations",
         icon: UserCheck,
         color: "text-gray-600",
         bgColor: "bg-emerald-50",
-      },
-      {
-        title: "Thống kê",
-        url: "/admin/statistics",
-        icon: BarChart,
-        color: "text-purple-600",
-        bgColor: "bg-purple-50",
       },
     );
   }

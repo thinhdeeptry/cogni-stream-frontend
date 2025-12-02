@@ -294,7 +294,7 @@ export function LiveSessionCard({
             ) : enrollmentId ? (
               // Student view - StudentAttendanceInput for submitting codes
               <div className="space-y-3">
-                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                {/* <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                   <div className="flex items-center gap-2 text-blue-700">
                     <Clock className="h-4 w-4" />
                     <p className="text-sm font-medium">
@@ -305,7 +305,7 @@ export function LiveSessionCard({
                   <p className="text-xs text-blue-600 mt-1">
                     Hãy nhập mã điểm danh để hoàn thành buổi học
                   </p>
-                </div>
+                </div> */}
                 <StudentAttendanceInput
                   syllabusItemId={syllabusItemId}
                   enrollmentId={enrollmentId}
