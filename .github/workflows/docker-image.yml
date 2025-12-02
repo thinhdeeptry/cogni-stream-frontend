@@ -1,0 +1,33 @@
+name: Deploy Frontend
+
+on:
+  push:
+    branches: [ "main" ] # Hoặc main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH Remote Commands
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          debug: true
+          command_timeout: 30m
+          script: |
+            # 1. Vào thư mục Frontend để lấy code mới
+            cd ${{ secrets.PROJECT_PATH }}
+            git fetch origin main
+            git reset --hard origin/main
+            
+            # 2. Di chuyển sang thư mục Backend (nơi chứa docker-compose.yml)
+            cd ${{ secrets.PROJECT_PATH_BACKEND }}
+            
+            # 3. Ra lệnh Build lại service Frontend
+            # Docker compose sẽ nhìn sang folder frontend (nhờ config ../) để lấy code mới vừa pull
+            docker-compose -p cogni-stream up -d --build cogni-stream-frontend
+            
+            # 4. Dọn dẹp
+            docker image prune -f
