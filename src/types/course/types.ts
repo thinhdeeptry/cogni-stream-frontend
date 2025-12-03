@@ -474,6 +474,8 @@ export interface SyllabusItem {
     id: string;
     title: string;
     type: LessonType;
+    content: string;
+    chapter: Chapter;
     estimatedDurationMinutes: number;
     isFreePreview: boolean;
     isPublished: boolean;

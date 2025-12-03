@@ -23,21 +23,7 @@ import {
   SyllabusItemType,
 } from "@/types/course/types";
 import { motion } from "framer-motion";
-import {
-  BookOpen,
-  Check,
-  CheckCircle,
-  ChevronLeft,
-  ChevronRight,
-  Eye,
-  EyeOff,
-  Info,
-  Loader2,
-  Pause,
-  Play,
-  Timer,
-  Users,
-} from "lucide-react";
+import { BookOpen, Info, Loader2, Users } from "lucide-react";
 import { useSession } from "next-auth/react";
 
 import {
@@ -256,6 +242,7 @@ export default function ClassLearningPage() {
       ) {
         const quizStatus = quizStatuses.get(syllabusItem.lesson.id);
         if (quizStatus) {
+          console.log("quiz chwa pass");
           return quizStatus.isPassed; // Only include if quiz is passed
         }
         // If quiz status not loaded yet, exclude from completed (conservative approach)
@@ -281,9 +268,15 @@ export default function ClassLearningPage() {
 
   // Helper function to check if an item is completed
   const isItemCompleted = (item: SyllabusItem) => {
-    if (!filteredCompletedItems || !Array.isArray(filteredCompletedItems))
+    if (!filteredCompletedItems || !Array.isArray(filteredCompletedItems)) {
+      console.log("filter item Completedddd", filteredCompletedItems);
       return false;
-    return filteredCompletedItems.some((p: any) => p.id === item.id);
+    }
+    const isCompleted = filteredCompletedItems.some(
+      (p: any) => p.id === item.id,
+    );
+    console.log("filter item Completed", isCompleted);
+    return isCompleted;
   };
 
   // Helper function to check if a live session attendance is completed
@@ -298,14 +291,13 @@ export default function ClassLearningPage() {
     if (isInstructorOrAdmin) return true;
     const targetIndex = allItems.findIndex((item) => item.id === targetItem.id);
     const currentIndex = currentItemIndex;
-
     if (targetIndex <= currentIndex) return true;
     if (targetIndex === currentIndex + 1) {
       // For the next item, check if current item requirements are met
       if (currentItem) {
         // If current item is live session, check attendance
         if (currentItem.itemType === SyllabusItemType.LIVE_SESSION) {
-          return isLiveSessionAttendanceCompleted(currentItem);
+          return isItemCompleted(currentItem);
         }
         // For lesson items, check both completion and time tracking
         if (currentItem.itemType === SyllabusItemType.LESSON) {
@@ -313,6 +305,7 @@ export default function ClassLearningPage() {
           if (currentItem.lesson?.type === LessonType.QUIZ) {
             return isItemCompleted(currentItem);
           }
+
           // For other lesson types, check time completion
           return isCurrentItemTimeComplete();
         }
@@ -495,7 +488,7 @@ export default function ClassLearningPage() {
     if (!isInstructorOrAdmin) {
       // For live sessions, check attendance status
       if (currentItem?.itemType === SyllabusItemType.LIVE_SESSION) {
-        if (!isLiveSessionAttendanceCompleted(currentItem)) {
+        if (!isItemCompleted(currentItem)) {
           toast({
             title: "⚠️ Chưa thể tiếp tục",
             description:
@@ -1556,6 +1549,75 @@ Type: ${currentLessonData?.type || "N/A"}`;
     timestampedTranscript,
   ]);
 
+  // Prepare syllabus structure for AI chatbot
+  const syllabusStructure = useMemo(() => {
+    if (!syllabusData || syllabusData.length === 0 || !currentItem)
+      return undefined;
+
+    // Extract all lessons with their details
+    const allLessons = syllabusData.flatMap((group, groupIndex) =>
+      group.items
+        .filter((item) => item.itemType === SyllabusItemType.LESSON)
+        .map((item, itemIndex) => ({
+          id: item.id,
+          title: item.lesson?.title || "",
+          type: (item.lesson?.type || "BLOG") as
+            | "QUIZ"
+            | "VIDEO"
+            | "BLOG"
+            | "MIXED",
+          content: item.lesson?.content || "",
+          chapterTitle: item.lesson?.chapter?.title || "",
+          order: groupIndex * 100 + itemIndex + 1, // Simple ordering
+          estimatedDurationMinutes: item.lesson?.estimatedDurationMinutes || 0,
+          isCompleted: isItemCompleted(item),
+          isCurrent: item.id === currentItem.id,
+        })),
+    );
+
+    // Extract all live sessions
+    const allSessions = syllabusData.flatMap((group, groupIndex) =>
+      group.items
+        .filter((item) => item.itemType === SyllabusItemType.LIVE_SESSION)
+        .map((item, itemIndex) => ({
+          id: item.id,
+          topic: item.classSession?.topic || "",
+          order: groupIndex * 100 + itemIndex + 1,
+          durationMinutes: item.classSession?.durationMinutes || 0,
+          isCompleted: isItemCompleted(item),
+        })),
+    );
+
+    // Calculate progress statistics
+    const totalLessons = allLessons.length;
+    const totalSessions = allSessions.length;
+    const completedLessons = allLessons.filter((l) => l.isCompleted).length;
+    const completedSessions = allSessions.filter((s) => s.isCompleted).length;
+
+    // Find current day index
+    const currentDayIndex = syllabusData.findIndex((g) =>
+      g.items.some((i) => i.id === currentItem.id),
+    );
+
+    return {
+      currentDay: currentDayIndex + 1,
+      totalDays: syllabusData.length,
+      // Progress statistics
+      completedSessions,
+      completedLessons,
+      sessionProgress:
+        totalSessions > 0
+          ? Math.round((completedSessions / totalSessions) * 100)
+          : 0,
+      lessonProgress:
+        totalLessons > 0
+          ? Math.round((completedLessons / totalLessons) * 100)
+          : 0,
+      lessons: allLessons,
+      liveSessions: allSessions,
+    };
+  }, [syllabusData, currentItem, filteredCompletedItems]);
+
   // Chatbot component
   const ClassLessonChatbot = usePopupChatbot({
     initialOpen: false,
@@ -1580,6 +1642,7 @@ Type: ${currentLessonData?.type || "N/A"}`;
       syllabusData.find((g) => g.items.some((i) => i.id === currentItem.id))
         ?.day
     }`,
+    syllabusStructure, // Add syllabus structure for AI learning path context
     systemPrompt: `Bạn là trợ lý AI học tập thông minh của CogniStream. Tuân thủ các nguyên tắc sau:
 
 🎯 PERSONALITY & TONE:
@@ -2157,7 +2220,7 @@ Type: ${currentLessonData?.type || "N/A"}`;
 
           // For live sessions, check attendance completion
           if (currentItem?.itemType === SyllabusItemType.LIVE_SESSION) {
-            return isLiveSessionAttendanceCompleted(currentItem);
+            return isItemCompleted(currentItem);
           }
 
           // For lesson items, check completion based on type

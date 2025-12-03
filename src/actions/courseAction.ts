@@ -1145,3 +1145,86 @@ export const moveLessonToChapter = async (
     };
   }
 };
+
+//============================================
+// STUDENT CONTEXT API FOR AI ENRICHMENT
+// ============================================
+
+/**
+ * Student Lesson Context Response Type
+ * Based on API documentation: README_STUDENT_CONTEXT_API.md
+ */
+export interface StudentLessonContext {
+  lessonId: string;
+  lessonTitle: string;
+  lessonType: "QUIZ" | "VIDEO" | "BLOG" | "MIXED";
+  studentId: string;
+  enrollmentId: string;
+  quizInfo?: {
+    highestScore: number | null;
+    isPassed: boolean;
+    totalAttempts: number;
+    canRetry: boolean;
+    attemptsRemaining: number | null;
+    isBlocked: boolean;
+    blockReason?: string;
+  };
+  unlockRequirements?: any[];
+  isUnlockRequirementFor?: any[];
+  progressInfo: {
+    hasStarted: boolean;
+    isCompleted: boolean;
+  };
+  lessonPosition: {
+    previousLesson?: { id: string; title: string };
+    nextLesson?: { id: string; title: string };
+    chapterInfo: {
+      id: string;
+      title: string;
+      lessonCount: number;
+      lessonPosition: number;
+    };
+  };
+  courseInfo: {
+    courseId: string;
+    courseTitle: string;
+    instructorName: string;
+    totalProgress: number;
+  };
+  aiContextSuggestions: {
+    learnerLevel: "BEGINNER" | "INTERMEDIATE" | "ADVANCED";
+    needsEncouragement: boolean;
+    strugglingAreas: string[];
+    strongAreas: string[];
+    recommendedActions: string[];
+    contextSummary: string;
+  };
+}
+
+/**
+ * Get student lesson context for AI enrichment
+ * @param lessonId - ID of the lesson to get context for
+ * @returns Student lesson context with progress, quiz info, and AI suggestions
+ */
+export const getStudentLessonContext = async (
+  lessonId: string,
+): Promise<{
+  success: boolean;
+  data?: StudentLessonContext;
+  message?: string;
+}> => {
+  try {
+    const { data } = await courseApi.get(
+      `/courses/lessons/${lessonId}/student-context`,
+    );
+    return { success: true, data };
+  } catch (error: any) {
+    console.error("Error fetching student lesson context:", error);
+    return {
+      success: false,
+      message:
+        error.response?.data?.message ||
+        "Kh�ng th? l?y th�ng tin ng? c?nh h?c t?p",
+    };
+  }
+};

@@ -78,6 +78,13 @@ const getMenuItems = (userRole: string) => {
 
   if (userRole === "INSTRUCTOR" || userRole === "ADMIN") {
     baseItems.push({
+      title: "Quản lý",
+      url: "/admin/courses",
+      icon: LayoutDashboard,
+      color: "text-gray-600",
+      bgColor: "bg-purple-50",
+    });
+    baseItems.push({
       title: "Doanh thu",
       url: "/instructor/revenue",
       icon: DollarSign,
@@ -93,13 +100,6 @@ const getMenuItems = (userRole: string) => {
       url: "/admin/statistics",
       icon: BarChart,
       color: "text-purple-600",
-      bgColor: "bg-purple-50",
-    });
-    baseItems.push({
-      title: "Quản lý",
-      url: "/admin/courses",
-      icon: LayoutDashboard,
-      color: "text-gray-600",
       bgColor: "bg-purple-50",
     });
     baseItems.push(

@@ -24,6 +24,50 @@ interface UsePopupChatbotOptions {
   lessonOrder?: number;
   totalLessons?: number;
   chapterName?: string;
+  // Student Lesson Context API - Enriched context for AI
+  studentLessonContext?: {
+    learnerLevel?: "BEGINNER" | "INTERMEDIATE" | "ADVANCED";
+    needsEncouragement?: boolean;
+    strugglingAreas?: string[];
+    strongAreas?: string[];
+    recommendedActions?: string[];
+    contextSummary?: string;
+    courseProgress?: number;
+    quizInfo?: {
+      highestScore?: number | null;
+      isPassed?: boolean;
+      totalAttempts?: number;
+      canRetry?: boolean;
+    };
+  };
+  // Syllabus Structure - Full learning path context
+  syllabusStructure?: {
+    currentDay: number;
+    totalDays: number;
+    // Progress statistics from backend
+    completedSessions: number;
+    completedLessons: number;
+    sessionProgress: number; // 0-100 percentage
+    lessonProgress: number; // 0-100 percentage
+    lessons: Array<{
+      id: string;
+      title: string;
+      type: "QUIZ" | "VIDEO" | "BLOG" | "MIXED";
+      content?: string;
+      chapterTitle?: string;
+      order: number;
+      estimatedDurationMinutes?: number;
+      isCompleted: boolean;
+      isCurrent: boolean;
+    }>;
+    liveSessions: Array<{
+      id: string;
+      topic: string;
+      order: number;
+      durationMinutes?: number;
+      isCompleted: boolean;
+    }>;
+  };
 }
 
 /**
@@ -65,6 +109,8 @@ export function usePopupChatbot(options: UsePopupChatbotOptions = {}) {
           lessonOrder={options.lessonOrder}
           totalLessons={options.totalLessons}
           chapterName={options.chapterName}
+          studentLessonContext={options.studentLessonContext}
+          syllabusStructure={options.syllabusStructure}
         />
       );
     };
@@ -88,6 +134,8 @@ export function usePopupChatbot(options: UsePopupChatbotOptions = {}) {
     options.lessonOrder,
     options.totalLessons,
     options.chapterName,
+    options.studentLessonContext,
+    options.syllabusStructure,
   ]);
 
   return MemoizedChatbot;

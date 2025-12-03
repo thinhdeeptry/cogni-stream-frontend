@@ -315,8 +315,7 @@ export const CourseSidebar: React.FC<CourseSidebarProps> = ({
                         {group.items.map(
                           (item: SyllabusItem, itemIndex: number) => {
                             const itemStatus = getItemStatus(item); // ← Giờ đây safe
-                            const canAccess =
-                              isItemCompleted(item) || canNavigateToItem(item);
+                            const canAccess = canNavigateToItem(item);
                             const {
                               isCompleted,
                               isCurrent,

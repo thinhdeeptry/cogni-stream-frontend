@@ -62,6 +62,50 @@ interface PopupChatbotProps {
   lessonOrder?: number;
   totalLessons?: number;
   chapterName?: string;
+  // Student Lesson Context API - Enriched context for AI
+  studentLessonContext?: {
+    learnerLevel?: "BEGINNER" | "INTERMEDIATE" | "ADVANCED";
+    needsEncouragement?: boolean;
+    strugglingAreas?: string[];
+    strongAreas?: string[];
+    recommendedActions?: string[];
+    contextSummary?: string;
+    courseProgress?: number;
+    quizInfo?: {
+      highestScore?: number | null;
+      isPassed?: boolean;
+      totalAttempts?: number;
+      canRetry?: boolean;
+    };
+  };
+  // Syllabus Structure - Full learning path context
+  syllabusStructure?: {
+    currentDay: number;
+    totalDays: number;
+    // Progress statistics from backend
+    completedSessions: number;
+    completedLessons: number;
+    sessionProgress: number; // 0-100 percentage
+    lessonProgress: number; // 0-100 percentage
+    lessons: Array<{
+      id: string;
+      title: string;
+      type: "QUIZ" | "VIDEO" | "BLOG" | "MIXED";
+      content?: string;
+      chapterTitle?: string;
+      order: number;
+      estimatedDurationMinutes?: number;
+      isCompleted: boolean;
+      isCurrent: boolean;
+    }>;
+    liveSessions: Array<{
+      id: string;
+      topic: string;
+      order: number;
+      durationMinutes?: number;
+      isCompleted: boolean;
+    }>;
+  };
 }
 
 // Suggested questions mặc định
@@ -181,6 +225,8 @@ export function PopupChatbot({
   lessonOrder,
   totalLessons,
   chapterName,
+  studentLessonContext,
+  syllabusStructure,
 }: PopupChatbotProps) {
   const [isOpen, setIsOpen] = useState(initialOpen);
   const [isFirstOpen, setIsFirstOpen] = useState(false);
@@ -224,6 +270,149 @@ export function PopupChatbot({
       prompt += `\n\n👤 USER CONTEXT:\nLuôn gọi người dùng bằng tên "${userName}" thay vì "bạn". Tạo connection cá nhân và nhớ preferences của ${userName} qua các cuộc hội thoại.`;
     }
 
+    // Add student context enrichment from API
+    if (studentLessonContext) {
+      prompt += `\n\n📊 THÔNG TIN HỌC VIÊN (từ Student Context API):`;
+
+      if (studentLessonContext.learnerLevel) {
+        const levelDesc = {
+          BEGINNER:
+            "Người mới bắt đầu - cần giải thích chi tiết, tránh thuật ngữ phức tạp",
+          INTERMEDIATE:
+            "Trung cấp - có thể sử dụng thuật ngữ chuyên môn với giải thích ngắn",
+          ADVANCED:
+            "Nâng cao - tập trung vào ứng dụng sâu và các trường hợp đặc biệt",
+        };
+        prompt += `\n- Trình độ: ${levelDesc[studentLessonContext.learnerLevel]}`;
+      }
+
+      if (studentLessonContext.courseProgress !== undefined) {
+        prompt += `\n- Tiến độ khóa học: ${studentLessonContext.courseProgress}%`;
+      }
+
+      if (studentLessonContext.contextSummary) {
+        prompt += `\n- Tình trạng: ${studentLessonContext.contextSummary}`;
+      }
+
+      if (studentLessonContext.needsEncouragement) {
+        prompt += `\n\n⚠️ HỖ TRỢ ĐẶC BIỆT: Học viên đang cần được khuyến khích và hỗ trợ tích cực. Hãy:\n- Động viên và nhấn mạnh những tiến bộ đã đạt được\n- Đưa ra lời khuyên cụ thể và khả thi\n- Tạo không khí tích cực và tin tưởng\n- Chia nhỏ vấn đề phức tạp thành các bước đơn giản`;
+      }
+
+      if (
+        studentLessonContext.strugglingAreas &&
+        studentLessonContext.strugglingAreas.length > 0
+      ) {
+        prompt += `\n\n❌ ĐIỂM YẾU cần chú ý:\n${studentLessonContext.strugglingAreas.map((area) => `- ${area}`).join("\n")}`;
+      }
+
+      if (
+        studentLessonContext.strongAreas &&
+        studentLessonContext.strongAreas.length > 0
+      ) {
+        prompt += `\n\n✅ ĐIỂM MẠNH có thể dựa vào:\n${studentLessonContext.strongAreas.map((area) => `- ${area}`).join("\n")}`;
+      }
+
+      if (
+        studentLessonContext.recommendedActions &&
+        studentLessonContext.recommendedActions.length > 0
+      ) {
+        prompt += `\n\n🎯 HÀNH ĐỘNG ĐỀ XUẤT:\n${studentLessonContext.recommendedActions.map((action) => `- ${action}`).join("\n")}`;
+      }
+
+      if (studentLessonContext.quizInfo) {
+        const { isPassed, totalAttempts, highestScore, canRetry } =
+          studentLessonContext.quizInfo;
+        if (totalAttempts !== undefined && totalAttempts > 0) {
+          prompt += `\n\n📝 THÔNG TIN QUIZ:\n- Đã làm: ${totalAttempts} lần${highestScore !== null ? `, điểm cao nhất: ${highestScore}` : ""}\n- Trạng thái: ${isPassed ? "✅ Đã đạt" : "⚠️ Chưa đạt"}${!isPassed && canRetry ? " (có thể làm lại)" : ""}`;
+        }
+      }
+    }
+
+    // Add syllabus structure - learning path context
+    if (syllabusStructure) {
+      const {
+        lessons,
+        liveSessions,
+        currentDay,
+        totalDays,
+        completedSessions = liveSessions.filter((s) => s.isCompleted).length,
+        completedLessons = lessons.filter((l) => l.isCompleted).length,
+        sessionProgress = liveSessions.length > 0
+          ? Math.round((completedSessions / liveSessions.length) * 100)
+          : 0,
+        lessonProgress = lessons.length > 0
+          ? Math.round((completedLessons / lessons.length) * 100)
+          : 0,
+      } = syllabusStructure;
+
+      const currentLessonIndex = lessons.findIndex((l) => l.isCurrent);
+      const upcomingLessons = lessons
+        .filter((l, idx) => idx > currentLessonIndex && !l.isCompleted)
+        .slice(0, 3);
+      const previousLessons = lessons
+        .filter((l, idx) => idx < currentLessonIndex)
+        .slice(-3);
+
+      prompt += `\n\n📚 LỘ TRÌNH HỌC TẬP:`;
+      prompt += `\n- Ngày học: ${currentDay}/${totalDays}`;
+      prompt += `\n- Tổng số: ${lessons.length} bài lessons, ${liveSessions.length} buổi học trực tuyến`;
+      prompt += `\n\n📊 TIẾN ĐỘ CHI TIẾT:`;
+      prompt += `\n- Lessons: ${completedLessons}/${lessons.length} bài (${lessonProgress}%)`;
+      prompt += `\n- Live Sessions: ${completedSessions}/${liveSessions.length} buổi (${sessionProgress}%)`;
+      prompt += `\n- Tổng thể: ${Math.round(((completedLessons + completedSessions) / (lessons.length + liveSessions.length)) * 100)}%`;
+      if (previousLessons.length > 0) {
+        prompt += `\n\n📖 CÁC BÀI ĐÃ HỌC (trước bài hiện tại):`;
+        previousLessons.forEach((lesson, idx) => {
+          prompt += `\n${idx + 1}. "${lesson.title}" - ${lesson.type}`;
+          if (lesson.chapterTitle) {
+            prompt += ` (${lesson.chapterTitle})`;
+          }
+          // Include content summary if available for context
+          if (lesson.content && lesson.content.length > 0) {
+            const contentPreview = lesson.content
+              .substring(0, 150)
+              .replace(/\n/g, " ");
+            prompt += `\n   Nội dung: ${contentPreview}${lesson.content.length > 150 ? "..." : ""}`;
+          }
+        });
+        prompt += `\n\n💡 Sử dụng: Có thể tham chiếu đến các bài này khi giải thích hoặc ôn tập.`;
+      }
+
+      if (upcomingLessons.length > 0) {
+        prompt += `\n\n🔜 CÁC BÀI SẮP HỌC (sau bài hiện tại):`;
+        upcomingLessons.forEach((lesson, idx) => {
+          prompt += `\n${idx + 1}. "${lesson.title}" - ${lesson.type}`;
+          if (lesson.chapterTitle) {
+            prompt += ` (${lesson.chapterTitle})`;
+          }
+          if (lesson.estimatedDurationMinutes) {
+            prompt += ` - ${lesson.estimatedDurationMinutes} phút`;
+          }
+        });
+        prompt += `\n\n💡 Sử dụng: Có thể gợi ý kiến thức cần chuẩn bị hoặc roadmap tiếp theo.`;
+      }
+
+      if (liveSessions.length > 0) {
+        const completedSessions = liveSessions.filter((s) => s.isCompleted);
+        prompt += `\n\n📹 BUỔI HỌC TRỰC TUYẾN:`;
+        prompt += `\n- Đã tham gia: ${completedSessions.length}/${liveSessions.length} buổi`;
+        liveSessions.forEach((session, idx) => {
+          prompt += `\n${idx + 1}. "${session.topic}" ${session.isCompleted ? "✅" : "⏳"}`;
+        });
+      }
+
+      // Add quiz milestones
+      const quizLessons = lessons.filter((l) => l.type === "QUIZ");
+      if (quizLessons.length > 0) {
+        const passedQuizzes = quizLessons.filter((q) => q.isCompleted);
+        prompt += `\n\n📝 CHECKPOINT QUIZ:`;
+        prompt += `\n- Đã vượt qua: ${passedQuizzes.length}/${quizLessons.length} quiz`;
+        quizLessons.forEach((quiz, idx) => {
+          prompt += `\n${idx + 1}. "${quiz.title}" ${quiz.isCompleted ? "✅ Đã pass" : quiz.isCurrent ? "📍 Hiện tại" : "⏳ Chưa làm"}`;
+        });
+      }
+    }
+
     // Add lesson context
     if (courseName || lessonName) {
       prompt += `\n\n📖 LEARNING CONTEXT:`;
@@ -260,7 +449,9 @@ export function PopupChatbot({
     lessonOrder,
     totalLessons,
     chapterName,
-    referenceText, // Add referenceText as dependency
+    referenceText,
+    studentLessonContext,
+    syllabusStructure, // Add syllabusStructure as dependency
   ]);
 
   const [messages, setMessages] = useState<
@@ -503,7 +694,7 @@ export function PopupChatbot({
           return smartSuggestions;
         }
 
-        // Fallback advanced questions for ongoing conversations
+        // Enhanced context-aware advanced questions
         const getAdvancedQuestions = () => {
           const isQuizLesson = referenceText?.includes(
             "QUIZ LESSON - SPECIAL INSTRUCTIONS",
@@ -513,43 +704,130 @@ export function PopupChatbot({
           );
           const hasReadingContent = referenceText?.includes("Reading Content:");
 
+          // Get learner level from student context
+          const learnerLevel =
+            studentLessonContext?.learnerLevel || "INTERMEDIATE";
+
+          // Get syllabus progress info
+          const lessonProgress = syllabusStructure?.lessonProgress || 0;
+          const hasUpcomingQuiz = syllabusStructure?.lessons
+            ?.slice(
+              syllabusStructure.lessons.findIndex((l) => l.isCurrent) + 1,
+              syllabusStructure.lessons.findIndex((l) => l.isCurrent) + 4,
+            )
+            ?.some((l) => l.type === "QUIZ");
+
+          // Quiz preparation questions
           if (isQuizLesson) {
-            return [
-              "Tôi cần ôn luyện thêm về phần nào?",
-              "Cách nhớ lâu các khái niệm quan trọng?",
-              "Chiến thuật làm bài hiệu quả nhất?",
-              "Kiểm tra độ hiểu biết của tôi",
-              "Gợi ý cách tự đánh giá kiến thức",
+            const baseQuestions = [
+              "Những khái niệm nào quan trọng nhất cho quiz này?",
+              "Tạo bộ câu hỏi ôn tập cho tôi",
+              "Chiến lược làm bài hiệu quả là gì?",
             ];
+
+            if (learnerLevel === "BEGINNER") {
+              return [
+                ...baseQuestions,
+                "Giải thích từng bước cách chuẩn bị quiz",
+                "Những điểm cơ bản cần nắm vững là gì?",
+              ];
+            } else if (learnerLevel === "ADVANCED") {
+              return [
+                ...baseQuestions,
+                "Những case đặc biệt hoặc edge cases cần chú ý?",
+                "Cách tối ưu thời gian làm bài?",
+              ];
+            }
+            return baseQuestions.concat([
+              "Phần nào tôi nên ôn kỹ hơn?",
+              "Tự đánh giá độ hiểu biết của tôi",
+            ]);
           }
 
+          // Video without transcript
           if (hasVideoNoTranscript) {
             return [
-              "Hướng dẫn ghi chú từ video này",
+              "Hướng dẫn ghi chú hiệu quả từ video này",
               "Những điểm mấu chốt cần ghi nhớ?",
-              "Cách kết nối với kiến thức đã học?",
-              "Bài tập thực hành cho phần này",
-              "Tôi hiểu đúng chưa về [concept]?",
+              "Tạo outline cho nội dung video",
+              learnerLevel === "BEGINNER"
+                ? "Giải thích đơn giản nhất về chủ đề này"
+                : "Phân tích sâu các khái niệm trong video",
+              hasUpcomingQuiz
+                ? "Nội dung nào sẽ có trong quiz sắp tới?"
+                : "Làm sao áp dụng kiến thức này?",
             ];
           }
 
+          // Reading content
           if (hasReadingContent) {
+            const progressBasedQuestion =
+              lessonProgress < 30
+                ? "Kiến thức này liên hệ với mục tiêu khóa học như thế nào?"
+                : lessonProgress < 70
+                  ? "Kết nối với các bài đã học trước đó"
+                  : "Tổng hợp toàn bộ kiến thức đã học";
+
             return [
-              "Tạo sơ đồ tư duy cho bài này",
-              "Câu hỏi tự kiểm tra hiểu biết",
-              "Ví dụ thực tế cho khái niệm này",
-              "Kết nối với kiến thức trước đó",
-              "Điểm nào dễ nhầm lẫn nhất?",
+              "Tóm tắt ý chính bằng mindmap",
+              learnerLevel === "BEGINNER"
+                ? "Giải thích bằng ngôn ngữ đơn giản và ví dụ cụ thể"
+                : "Phân tích chi tiết và ứng dụng thực tế",
+              progressBasedQuestion,
+              "Tạo flashcards để ghi nhớ",
+              hasUpcomingQuiz
+                ? "Quiz sắp tới sẽ hỏi những gì từ bài này?"
+                : "Bài tập thực hành để củng cố kiến thức",
             ];
           }
 
-          return [
-            "Cho tôi ví dụ thực tế về điều này",
-            "Làm sao để áp dụng vào công việc?",
-            "Có cách nào học nhớ lâu hơn không?",
-            "So sánh với những gì đã học trước",
-            "Tạo bài tập thực hành cho tôi",
-          ];
+          // Live session or general content
+          const isLiveSession =
+            !isQuizLesson && !hasVideoNoTranscript && !hasReadingContent;
+          if (isLiveSession) {
+            return [
+              "Tổng kết những gì đã học trong buổi này",
+              "Câu hỏi nào cần làm rõ thêm?",
+              "Chuẩn bị gì cho buổi học tiếp theo?",
+              "Kế hoạch thực hành sau buổi học",
+              "Ghi chú quan trọng từ session này",
+            ];
+          }
+
+          // Default advanced questions with context awareness
+          const defaultQuestions = [];
+
+          if (learnerLevel === "BEGINNER") {
+            defaultQuestions.push(
+              "Giải thích chi tiết với ví dụ đơn giản",
+              "Các thuật ngữ cần hiểu trong bài này",
+            );
+          } else if (learnerLevel === "ADVANCED") {
+            defaultQuestions.push(
+              "Phân tích case study phức tạp",
+              "So sánh với best practices trong ngành",
+            );
+          }
+
+          // Add progress-based questions
+          if (lessonProgress < 30) {
+            defaultQuestions.push("Tổng quan lộ trình và mục tiêu học tập");
+          } else if (lessonProgress > 70) {
+            defaultQuestions.push("Ôn tập tổng hợp toàn khóa học");
+          }
+
+          // Add quiz preparation if upcoming
+          if (hasUpcomingQuiz) {
+            defaultQuestions.push("Chuẩn bị gì cho quiz sắp tới?");
+          }
+
+          // Fill remaining slots
+          defaultQuestions.push(
+            "Ví dụ thực tế trong công việc",
+            "Bài tập để thực hành ngay",
+          );
+
+          return defaultQuestions.slice(0, 5);
         };
 
         return getAdvancedQuestions();
@@ -565,6 +843,8 @@ export function PopupChatbot({
     courseName,
     lessonName,
     referenceText,
+    studentLessonContext,
+    syllabusStructure,
   ]);
 
   // Chọn mảng suggested questions phù hợp
