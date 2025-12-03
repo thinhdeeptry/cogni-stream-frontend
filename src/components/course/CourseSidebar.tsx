@@ -195,7 +195,7 @@ export const CourseSidebar: React.FC<CourseSidebarProps> = ({
         </div>
 
         {/* Syllabus Content */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto pb-16">
           <div className="p-3">
             {/* Compact Progress Bar */}
             <div className="mb-4">
