@@ -60,18 +60,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-// Mock data for courses and categories (in real app, these would come from API)
-const mockCourses = [
-  { id: "course-1", title: "React Advanced" },
-  { id: "course-2", title: "Node.js Fundamentals" },
-  { id: "course-3", title: "Python for Data Science" },
-];
-
-const mockCategories = [
-  { id: "cat-1", name: "Lập trình Web" },
-  { id: "cat-2", name: "Data Science" },
-  { id: "cat-3", name: "Mobile Development" },
-];
+import { ApplicationScopeSelect } from "./components/ApplicationScopeSelect";
+import { useHeaderDetailsData } from "./hooks/useHeaderDetailsData";
 
 // Form types
 interface DetailFormData {
@@ -80,9 +70,7 @@ interface DetailFormData {
   categoryId?: string;
   platformRate: number;
   priority: number;
-}
-
-// Create/Edit Detail Modal Component
+} // Create/Edit Detail Modal Component
 interface DetailModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -90,6 +78,9 @@ interface DetailModalProps {
   mode: "create" | "edit";
   onSubmit: (data: DetailFormData) => void;
   headerId: string;
+  courses: any[];
+  categories: any[];
+  isLoadingData: boolean;
 }
 
 const DetailModal: React.FC<DetailModalProps> = ({
@@ -99,6 +90,9 @@ const DetailModal: React.FC<DetailModalProps> = ({
   mode,
   onSubmit,
   headerId,
+  courses,
+  categories,
+  isLoadingData,
 }) => {
   const [formData, setFormData] = useState<DetailFormData>({
     headerId: headerId,
@@ -193,81 +187,22 @@ const DetailModal: React.FC<DetailModalProps> = ({
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Application Type */}
-          <div className="space-y-2">
-            <Label>Phạm vi áp dụng *</Label>
-            <Select
-              value={applicationType}
-              onValueChange={(value: "general" | "course" | "category") =>
-                setApplicationType(value)
-              }
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="general">
-                  <div className="flex items-center gap-2">
-                    Tổng quát (Toàn hệ thống)
-                  </div>
-                </SelectItem>
-                <SelectItem value="course">
-                  <div className="flex items-center gap-2">Khóa học cụ thể</div>
-                </SelectItem>
-                <SelectItem value="category">
-                  <div className="flex items-center gap-2">Danh mục cụ thể</div>
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Course Selection (if course type) */}
-          {applicationType === "course" && (
-            <div className="space-y-2">
-              <Label htmlFor="courseId">Khóa học *</Label>
-              <Select
-                value={formData.courseId || ""}
-                onValueChange={(value) =>
-                  setFormData((prev) => ({ ...prev, courseId: value }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn khóa học..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {mockCourses.map((course) => (
-                    <SelectItem key={course.id} value={course.id}>
-                      {course.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {/* Category Selection (if category type) */}
-          {applicationType === "category" && (
-            <div className="space-y-2">
-              <Label htmlFor="categoryId">Danh mục *</Label>
-              <Select
-                value={formData.categoryId || ""}
-                onValueChange={(value) =>
-                  setFormData((prev) => ({ ...prev, categoryId: value }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn danh mục..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {mockCategories.map((category) => (
-                    <SelectItem key={category.id} value={category.id}>
-                      {category.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+          {/* Application Scope Selection Component */}
+          <ApplicationScopeSelect
+            applicationType={applicationType}
+            onApplicationTypeChange={setApplicationType}
+            courseId={formData.courseId}
+            onCourseChange={(value) =>
+              setFormData((prev) => ({ ...prev, courseId: value }))
+            }
+            categoryId={formData.categoryId}
+            onCategoryChange={(value) =>
+              setFormData((prev) => ({ ...prev, categoryId: value }))
+            }
+            courses={courses}
+            categories={categories}
+            isLoadingData={isLoadingData}
+          />
 
           {/* Platform Rate - Only this field is editable */}
           <div className="space-y-2">
@@ -620,6 +555,10 @@ export default function HeaderDetailsPage() {
     deleteDetail,
     isProcessing,
   } = useCommissionStore();
+
+  // Get real courses and categories data
+  const { courses, categories, isLoadingCourses, isLoadingCategories } =
+    useHeaderDetailsData();
 
   const [selectedDetail, setSelectedDetail] = useState<CommissionDetail | null>(
     null,
@@ -1222,6 +1161,9 @@ export default function HeaderDetailsPage() {
         mode="create"
         onSubmit={handleCreateDetail}
         headerId={headerId}
+        courses={courses}
+        categories={categories}
+        isLoadingData={isLoadingCourses || isLoadingCategories}
       />
 
       <DetailModal
@@ -1231,6 +1173,9 @@ export default function HeaderDetailsPage() {
         mode="edit"
         onSubmit={handleUpdateDetail}
         headerId={headerId}
+        courses={courses}
+        categories={categories}
+        isLoadingData={isLoadingCourses || isLoadingCategories}
       />
 
       <DetailDetailModal
