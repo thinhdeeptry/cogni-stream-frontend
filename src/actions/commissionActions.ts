@@ -477,3 +477,58 @@ export const formatCommissionInfo = (
     typeText,
   };
 };
+
+// ============================================
+// HELPER FUNCTIONS FOR COURSES AND CATEGORIES
+// ============================================
+
+// Interface cho course data
+export interface CourseOption {
+  id: string;
+  title: string;
+}
+
+// Interface cho category data
+export interface CategoryOption {
+  id: string;
+  name: string;
+}
+
+// Lấy danh sách courses cho dropdown
+export const getCoursesForCommission = async (): Promise<CourseOption[]> => {
+  try {
+    const { data } = await commissionApi.get("/courses", {
+      params: {
+        skipPagination: true, // Lấy tất cả courses
+        status: "APPROVED", // Chỉ lấy courses đã được approve
+      },
+    });
+
+    // Chuyển đổi dữ liệu courses thành format cần thiết
+    return data.data.map((course: any) => ({
+      id: course.id,
+      title: course.title,
+    }));
+  } catch (error) {
+    console.error("Error fetching courses for commission:", error);
+    throw error;
+  }
+};
+
+// Lấy danh sách categories cho dropdown
+export const getCategoriesForCommission = async (): Promise<
+  CategoryOption[]
+> => {
+  try {
+    const { data } = await commissionApi.get("/categories");
+
+    // Chuyển đổi dữ liệu categories thành format cần thiết
+    return data.map((category: any) => ({
+      id: category.id,
+      name: category.name,
+    }));
+  } catch (error) {
+    console.error("Error fetching categories for commission:", error);
+    throw error;
+  }
+};

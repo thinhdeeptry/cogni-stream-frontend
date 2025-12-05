@@ -75,7 +75,6 @@ export function AttendanceConfigModal({
   isLiveSession = false,
   userRole = "INSTRUCTOR",
 }: AttendanceConfigModalProps) {
-  const { data: session } = useSession();
   const [activeTab, setActiveTab] = useState("create");
   const [isLoading, setIsLoading] = useState(false);
   const [attendanceReport, setAttendanceReport] =
@@ -124,7 +123,7 @@ export function AttendanceConfigModal({
 
       // Get attendance stats
       const statsResult = await getAttendanceStats(syllabusItemId);
-
+      console.log("statsResult", statsResult);
       if (currentCodeResult.success && currentCodeResult.data) {
         setCurrentCode(currentCodeResult.data);
       } else {
@@ -149,7 +148,7 @@ export function AttendanceConfigModal({
               : undefined,
           },
           codes: [],
-          records: [],
+          report: [],
           stats: {
             totalStudents: 0,
             presentCount: 0,
@@ -326,7 +325,7 @@ export function AttendanceConfigModal({
     }
     return `${diffMinutes}m`;
   };
-
+  console.log("att report", attendanceReport);
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -627,8 +626,8 @@ export function AttendanceConfigModal({
 
                     {/* Attendance List */}
                     {attendanceReport &&
-                    attendanceReport.records &&
-                    attendanceReport.records.length > 0 ? (
+                    attendanceReport.report &&
+                    attendanceReport.report.length > 0 ? (
                       <div className="border border-gray-200 rounded-lg overflow-hidden">
                         <table className="w-full">
                           <thead className="bg-gray-50">
@@ -648,13 +647,13 @@ export function AttendanceConfigModal({
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-gray-200">
-                            {attendanceReport.records.map((record) => (
+                            {attendanceReport.report.map((record) => (
                               <tr key={record.id}>
                                 <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                                  {record.user?.name || "N/A"}
+                                  {record.student?.name || "N/A"}
                                 </td>
                                 <td className="px-4 py-3 text-sm text-gray-600">
-                                  {record.user?.email || "N/A"}
+                                  {record.student?.email || "N/A"}
                                 </td>
                                 <td className="px-4 py-3 text-sm">
                                   <Badge
@@ -675,11 +674,9 @@ export function AttendanceConfigModal({
                                 </td>
                                 <td className="px-4 py-3 text-sm text-gray-600">
                                   {format(
-                                    new Date(record.checkedInAt),
+                                    new Date(record.attendedAt),
                                     "HH:mm:ss dd/MM/yyyy",
-                                    {
-                                      locale: vi,
-                                    },
+                                    { locale: vi },
                                   )}
                                 </td>
                               </tr>

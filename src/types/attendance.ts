@@ -16,9 +16,9 @@ export interface AttendanceRecord {
   syllabusItemId: string;
   attendanceCodeId: string;
   status: AttendanceStatus;
-  checkedInAt: Date;
+  attendedAt: Date;
   isLate: boolean;
-  user?: {
+  student?: {
     id: string;
     name: string;
     email: string;
@@ -54,7 +54,7 @@ export interface AttendanceReport {
     };
   };
   codes: AttendanceCode[];
-  records: AttendanceRecord[];
+  report: AttendanceRecord[];
   stats: {
     totalStudents: number;
     presentCount: number;
