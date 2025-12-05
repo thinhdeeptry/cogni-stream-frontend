@@ -84,12 +84,12 @@ const OverviewCard = ({
       </CardHeader>
       <CardContent>
         <div className="text-2xl font-bold">{formatter(value)}</div>
-        {growthInfo && (
+        {/* {growthInfo && (
           <div className={`flex items-center text-xs ${growthInfo.color}`}>
             <growthInfo.icon className="h-3 w-3 mr-1" />
             <span>{growthInfo.value} so với kỳ trước</span>
           </div>
-        )}
+        )} */}
       </CardContent>
     </Card>
   );
