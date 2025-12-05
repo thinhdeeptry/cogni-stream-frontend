@@ -15,7 +15,7 @@ export default function RootLayout({
         <AppSidebar />
         {/* Hidden SidebarTrigger on mobile to prevent layout issues */}
         <SidebarTrigger className="mt-2 ml-2 hidden md:block" />
-        <main className="flex flex-col w-full h-screen overflow-y-auto overflow-x-hidden">
+        <main className="flex flex-col w-full h-screen overflow-y-auto overflow-x-hidden scrollbar-hide">
           <UserHeader />
           <Toaster />
           {children}

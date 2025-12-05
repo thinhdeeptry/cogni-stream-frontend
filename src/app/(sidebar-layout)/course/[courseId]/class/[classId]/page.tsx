@@ -1971,7 +1971,7 @@ LƯU Ý QUAN TRỌNG: Vai trò của bạn là TRỢ LÝ HỌC TẬP cho khóa h
 
   return (
     <motion.div
-      className="w-full flex-1 flex flex-col min-h-screen relative px-1"
+      className="w-full flex-1 flex flex-col min-h-screen relative px-1 overflow-y-auto scrollbar-hide"
       initial="hidden"
       animate="visible"
       variants={fadeIn}

@@ -168,12 +168,12 @@ export const CourseSidebar: React.FC<CourseSidebarProps> = ({
       initial={{ x: "100%" }}
       animate={{ x: isOpen ? 0 : "100%" }}
       transition={{ type: "spring", damping: 25, stiffness: 200 }}
-      className="fixed right-0 top-0 h-screen w-full sm:w-[230px] md:w-[250px] lg:w-[350px] xl:w-[400px] bg-white border-l shadow-2xl z-50 lg:z-30"
+      className="fixed right-0 top-0 h-screen w-full sm:w-[230px] md:w-[250px] lg:w-[350px] xl:w-[350px] bg-white border-l shadow-2xl z-50 lg:z-30 -mt-2"
       style={{ height: "calc(100vh - 73px)", top: "73px" }}
     >
       <div className="h-full flex flex-col">
         {/* Compact Header - With Chat Icon */}
-        <div className="flex-shrink-0 p-3 border-b border-gray-200">
+        <div className="flex-shrink-0 p-[10px] border-b border-gray-200">
           <div className="flex justify-between items-center mb-3">
             <div className="flex items-center gap-2">
               <div className="p-1.5 bg-orange-100 rounded-lg">
@@ -195,7 +195,7 @@ export const CourseSidebar: React.FC<CourseSidebarProps> = ({
         </div>
 
         {/* Syllabus Content */}
-        <div className="flex-1 overflow-y-auto pb-16">
+        <div className="flex-1 overflow-y-auto scrollbar-hide pb-16">
           <div className="p-3">
             {/* Compact Progress Bar */}
             <div className="mb-4">
@@ -210,7 +210,7 @@ export const CourseSidebar: React.FC<CourseSidebarProps> = ({
                       : `${completedItems.length}/${allItems.length}`}{" "}
                     bài
                   </span>
-                  {completedItems?.length > 0 && (
+                  {/* {completedItems?.length > 0 && (
                     <div className="flex items-center gap-1">
                       <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                       <span className="text-xs text-green-600 font-medium">
@@ -224,20 +224,20 @@ export const CourseSidebar: React.FC<CourseSidebarProps> = ({
                       {completedItems.filter(
                         (item) => item.itemType === "LIVE_SESSION",
                       ).length > 0 && (
-                        <>
-                          <div className="w-1 h-1 bg-gray-400 rounded-full mx-1"></div>
-                          <span className="text-xs text-red-600 font-medium">
-                            {
-                              completedItems.filter(
-                                (item) => item.itemType === "LIVE_SESSION",
-                              ).length
-                            }{" "}
-                            buổi học
-                          </span>
-                        </>
-                      )}
+                          <>
+                            <div className="w-1 h-1 bg-gray-400 rounded-full mx-1"></div>
+                            <span className="text-xs text-red-600 font-medium">
+                              {
+                                completedItems.filter(
+                                  (item) => item.itemType === "LIVE_SESSION",
+                                ).length
+                              }{" "}
+                              buổi học
+                            </span>
+                          </>
+                        )}
                     </div>
-                  )}
+                  )} */}
                 </div>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2.5">
@@ -477,23 +477,23 @@ export const CourseSidebar: React.FC<CourseSidebarProps> = ({
                                       </div>
 
                                       {/* Badges and info - more compact layout */}
-                                      <div className="flex flex-wrap items-center gap-1.5">
+                                      <div className="flex justify-around items-center gap-1.5">
                                         {/* Status badges */}
                                         {isCurrent && isCompleted && (
                                           <Badge className="text-xs bg-gradient-to-r from-purple-500 to-indigo-500 text-white px-2 py-0.5 animate-pulse">
-                                            🔄 Đang ôn tập
+                                            Đang ôn tập
                                           </Badge>
                                         )}
 
                                         {isCurrent && !isCompleted && (
                                           <Badge className="text-xs bg-orange-500 text-white px-2 py-0.5 animate-pulse">
-                                            📚 Đang học
+                                            Đang học
                                           </Badge>
                                         )}
 
                                         {!isCurrent && isCompleted && (
                                           <Badge className="text-xs bg-green-500 text-white px-2 py-0.5">
-                                            ✓ Hoàn thành
+                                            Hoàn thành
                                           </Badge>
                                         )}
 
@@ -505,14 +505,13 @@ export const CourseSidebar: React.FC<CourseSidebarProps> = ({
 
                                         {isLocked && (
                                           <Badge className="text-xs bg-gray-400 text-gray-600 px-2 py-0.5">
-                                            🔒 Chưa mở
+                                            Chưa mở
                                           </Badge>
                                         )}
 
                                         {/* Completion date */}
                                         {completedAt && (
                                           <Badge className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5">
-                                            📅{" "}
                                             {formatCompletedDate(completedAt)}
                                           </Badge>
                                         )}

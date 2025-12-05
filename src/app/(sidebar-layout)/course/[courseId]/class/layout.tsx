@@ -140,5 +140,5 @@ export default function ClassLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return children;
+  return <div className="">{children}</div>;
 }
