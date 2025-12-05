@@ -16,6 +16,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
+import { Console } from "console";
 import {
   ArrowUpDown,
   ChevronDown,
@@ -177,7 +178,7 @@ const columns: ColumnDef<IUser>[] = [
             <DropdownMenuSeparator />
             {/* <DropdownMenuItem>Xem chi tiết</DropdownMenuItem> */}
             <UpdateUserDialog user={user} />
-            <ChangePasswordDialog user={user} />
+            {/* <ChangePasswordDialog user={user} /> */}
             <DeleteUserDialog user={user} />
           </DropdownMenuContent>
         </DropdownMenu>
@@ -194,9 +195,9 @@ function AddNewUserDialog() {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
-    role: "user",
+    role: "STUDENT",
     accountType: "standard",
-    isActive: "true",
+    isActive: true, // Boolean thay vì string
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -208,7 +209,7 @@ function AddNewUserDialog() {
     if (name === "isActive") {
       setFormData((prev) => ({
         ...prev,
-        [name]: value === "active" ? "true" : "false",
+        [name]: value === "active", // Convert sang boolean
       }));
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
@@ -225,7 +226,7 @@ function AddNewUserDialog() {
         email: formData.email,
         password: "123456",
         role: formData.role,
-        isActive: formData.isActive === "true" ? "true" : "false",
+        isActive: formData.isActive, // Gửi trực tiếp boolean value
       });
       console.log("check response >>> ", response);
       if (response.error) {
@@ -300,8 +301,9 @@ function AddNewUserDialog() {
                   <SelectValue placeholder="Chọn vai trò" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="user">NGƯỜI DÙNG</SelectItem>
-                  <SelectItem value="admin">QUẢN TRỊ VIÊN</SelectItem>
+                  <SelectItem value="STUDENT">HỌC VIÊN</SelectItem>
+                  <SelectItem value="INSTRUCTOR">GIẢNG VIÊN</SelectItem>
+                  <SelectItem value="ADMIN">QUẢN TRỊ VIÊN</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -340,7 +342,7 @@ function UpdateUserDialog({ user }: { user: IUser }) {
   const [formData, setFormData] = useState({
     name: user.name,
     email: user.email,
-    role: user.role.toLowerCase(),
+    role: user.role, // Giữ nguyên uppercase vì SelectItem values là STUDENT, INSTRUCTOR, ADMIN
     accountType: user.accountType,
     isActive: user.isActive,
   });
@@ -354,6 +356,7 @@ function UpdateUserDialog({ user }: { user: IUser }) {
     if (name === "isActive") {
       setFormData((prev) => ({ ...prev, [name]: value === "active" }));
     } else {
+      // Cho tất cả các trường khác (role, accountType) chỉ cần set value trực tiếp
       setFormData((prev) => ({ ...prev, [name]: value }));
     }
   };
@@ -367,7 +370,7 @@ function UpdateUserDialog({ user }: { user: IUser }) {
         name: formData.name,
         email: formData.email,
         role: formData.role,
-        isActive: formData.isActive === true ? "true" : "false",
+        isActive: formData.isActive, // Gửi trực tiếp boolean value
       });
 
       if (response.error) {
@@ -439,8 +442,9 @@ function UpdateUserDialog({ user }: { user: IUser }) {
                   <SelectValue placeholder="Chọn vai trò" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="user">NGƯỜI DÙNG</SelectItem>
-                  <SelectItem value="admin">QUẢN TRỊ VIÊN</SelectItem>
+                  <SelectItem value="STUDENT">HỌC VIÊN</SelectItem>
+                  <SelectItem value="INSTRUCTOR">GIẢNG VIÊN</SelectItem>
+                  <SelectItem value="ADMIN">QUẢN TRỊ VIÊN</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -743,7 +747,6 @@ function DeleteUserDialog({ user }: { user: IUser }) {
 }
 
 export default function UsersPage() {
-  const { accessToken } = useUserStore();
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
@@ -764,13 +767,19 @@ export default function UsersPage() {
   ) => {
     try {
       setLoading(true);
+      console.log("fetchUsers", page, pageSize, search);
       const response = await getDashboardData(search, page, pageSize);
-
+      console.log("response", response);
       if (!response.error && response.data) {
-        setUsers(response.data.users || []);
-        setPagination(
-          response.data.pagination || { current: 1, pageSize, total: 0 },
-        );
+        // Users nằm trong response.data.data
+        setUsers(response.data.data || []);
+        // Pagination info nằm trong response.data.meta (total, page, limit, totalPages)
+        const meta = response.data.meta;
+        setPagination({
+          current: meta?.page || 1,
+          pageSize: meta?.limit || pageSize,
+          total: meta?.total || 0,
+        });
       } else {
         toast.error(response.message || "Failed to fetch users");
         setUsers([]);
@@ -954,7 +963,9 @@ export default function UsersPage() {
           <Select
             value={String(pagination.pageSize)}
             onValueChange={(value) => {
-              table.setPageSize(Number(value));
+              const newPageSize = Number(value);
+              // Reset về trang 1 khi thay đổi pageSize và fetch data mới
+              fetchUsers(1, newPageSize, searchTerm);
             }}
           >
             <SelectTrigger className="h-8 w-[70px]">
@@ -970,22 +981,46 @@ export default function UsersPage() {
           </Select>
         </div>
         <div className="flex items-center justify-center text-sm font-medium">
-          Trang {table.getState().pagination.pageIndex + 1} của{" "}
-          {Math.ceil(pagination.total / pagination.pageSize)}
+          Trang {pagination.current} của{" "}
+          {Math.ceil(pagination.total / pagination.pageSize) || 1}
         </div>
         <Button
           variant="outline"
           size="sm"
-          onClick={() => table.previousPage()}
-          disabled={!table.getCanPreviousPage()}
+          onClick={() => {
+            if (pagination.current > 1) {
+              fetchUsers(
+                pagination.current - 1,
+                pagination.pageSize,
+                searchTerm,
+              );
+            }
+          }}
+          disabled={pagination.current <= 1}
         >
           Trước
         </Button>
         <Button
           variant="outline"
           size="sm"
-          onClick={() => table.nextPage()}
-          disabled={!table.getCanNextPage()}
+          onClick={() => {
+            const totalPages = Math.ceil(
+              pagination.total / pagination.pageSize,
+            );
+            if (pagination.current < totalPages) {
+              console.log("pagination.current", pagination.current);
+              console.log("totalPages", totalPages);
+              fetchUsers(
+                pagination.current + 1,
+                pagination.pageSize,
+                searchTerm,
+              );
+            }
+          }}
+          disabled={
+            pagination.current >=
+            Math.ceil(pagination.total / pagination.pageSize)
+          }
         >
           Tiếp
         </Button>

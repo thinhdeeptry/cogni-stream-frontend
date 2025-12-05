@@ -28,7 +28,8 @@ const setClientCookie = (name: string, value: string, maxAge: number) => {
   document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/`;
 };
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL || "https://be.cognistream.id.vn";
 
 // Lớp gọi API cho Auth
 class AuthApi {
@@ -494,8 +495,8 @@ class AuthApi {
   async getData(
     accessToken: string,
     query: string = "",
-    current: number = 1,
-    pageSize: number = 10,
+    page: number = 1,
+    limit: number = 10,
   ) {
     try {
       // Kiểm tra token hết hạn hoặc không tồn tại
@@ -509,51 +510,18 @@ class AuthApi {
       // Xây dựng query params
       const params = new URLSearchParams();
       if (query) params.append("query", query);
-      params.append("current", current.toString());
-      params.append("pageSize", pageSize.toString());
-
-      const url = `${API_URL}/dashboard?${params.toString()}`;
+      params.append("page", page.toString());
+      params.append("limit", limit.toString());
+      console.log("check params >>> ", params.toString());
+      console.log("check API_URL >>> ", API_URL);
+      const url = `${API_URL}/users?${params.toString()}`;
 
       const response = await fetch(url, {
         method: "GET",
         headers: this.getHeaders(accessToken),
       });
-
+      console.log("check response >>> ", response);
       // Xử lý trường hợp token hết hạn (401)
-      if (response.status === 401) {
-        // Thử refresh token và gọi lại API
-        const tokenResponse = await this.refresh();
-        const newAccessToken = tokenResponse.accessToken;
-
-        // Gọi lại API với token mới
-        const retryResponse = await fetch(url, {
-          method: "GET",
-          headers: this.getHeaders(newAccessToken),
-        });
-
-        if (!retryResponse.ok) {
-          const errorData = await retryResponse.json();
-          return {
-            error: true,
-            statusCode: retryResponse.status,
-            message:
-              errorData.message || "Đã xảy ra lỗi khi lấy dữ liệu từ dashboard",
-            data: null,
-          };
-        }
-        const dataResult = await retryResponse.json();
-        const data = {
-          ...dataResult,
-          id: dataResult.user._id,
-        };
-        console.log("check fetch users>>> ", data);
-        return {
-          error: false,
-          statusCode: 200,
-          message: "Lấy dữ liệu thành công",
-          data: data,
-        };
-      }
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -568,19 +536,12 @@ class AuthApi {
 
       const dataResponse = await response.json();
       console.log("check fetch dataResponse>>> ", dataResponse);
-      const data = {
-        ...dataResponse,
-        users: dataResponse.users.map((user: any) => ({
-          ...user,
-          id: user._id,
-        })),
-      };
-      console.log("check fetch users>>> ", data);
+
       return {
         error: false,
         statusCode: 200,
         message: "Lấy dữ liệu thành công",
-        data: data,
+        data: dataResponse,
       };
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -598,7 +559,7 @@ class AuthApi {
   // User CRUD operations
   async getUserById(accessToken: string, userId: string) {
     try {
-      const response = await fetch(`${API_URL}/dashboard/${userId}`, {
+      const response = await fetch(`${API_URL}/users/${userId}`, {
         method: "GET",
         headers: this.getHeaders(accessToken),
       });
@@ -640,11 +601,11 @@ class AuthApi {
       password: string;
       name: string;
       role?: string;
-      isActive?: string;
+      isActive?: boolean; // API yêu cầu boolean, không phải string
     },
   ) {
     try {
-      const response = await fetch(`${API_URL}/dashboard`, {
+      const response = await fetch(`${API_URL}/users`, {
         method: "POST",
         headers: this.getHeaders(accessToken),
         body: JSON.stringify(userData),
@@ -691,12 +652,12 @@ class AuthApi {
       name?: string;
       email?: string;
       role?: string;
-      isActive?: string;
+      isActive?: boolean; // API yêu cầu boolean, không phải string
     },
   ) {
     try {
       console.log("check userData >>> ", userData, userId);
-      const response = await fetch(`${API_URL}/dashboard/${userId}`, {
+      const response = await fetch(`${API_URL}/users/${userId}`, {
         method: "PATCH",
         headers: this.getHeaders(accessToken),
         body: JSON.stringify(userData),
@@ -734,7 +695,7 @@ class AuthApi {
 
   async deleteUser(accessToken: string, userId: string) {
     try {
-      const response = await fetch(`${API_URL}/dashboard/${userId}`, {
+      const response = await fetch(`${API_URL}/users/${userId}`, {
         method: "DELETE",
         headers: this.getHeaders(accessToken),
       });
@@ -778,7 +739,7 @@ class AuthApi {
   ) {
     try {
       const response = await fetch(
-        `${API_URL}/dashboard/${userId}/change-password`,
+        `${API_URL}/users/${userId}/change-password`,
         {
           method: "POST",
           headers: this.getHeaders(accessToken),

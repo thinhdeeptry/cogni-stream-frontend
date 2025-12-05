@@ -14,6 +14,8 @@ import { authApi } from "@/lib/api/authApi";
 
 // actions/login.ts
 
+// actions/login.ts
+
 // Refresh user profile
 export async function refreshUserProfile() {
   try {
@@ -273,21 +275,16 @@ export async function RefreshOTPUser(id: string) {
 }
 export async function getDashboardData(
   query: string = "",
-  current: number = 1,
-  pageSize: number = 10,
+  page: number = 1,
+  limit: number = 10,
 ) {
   try {
     const session = await auth();
 
     const accessToken = session?.accessToken;
 
-    const result = await authApi.getData(
-      accessToken || "",
-      query,
-      current,
-      pageSize,
-    );
-    console.log("check result in action >>>", result.data);
+    const result = await authApi.getData(accessToken || "", query, page, limit);
+    console.log("check result in action >>>", result.data.data);
 
     if (result.error) {
       return {
