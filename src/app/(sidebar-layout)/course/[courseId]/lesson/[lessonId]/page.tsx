@@ -1260,6 +1260,12 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
   const handleQuizCourseCompletion = useCallback(async () => {
     if (!lesson || !course || !enrollmentId) return;
 
+    // Skip for instructor/admin preview mode
+    if (isInstructorOrAdmin) {
+      console.log("[PreviewMode] Skipping quiz-triggered course completion.");
+      return;
+    }
+
     const currentLessonId = params.lessonId as string;
     const isCurrentLessonLast = currentLessonIndex === allLessons.length - 1;
 
@@ -1271,6 +1277,58 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
       completedLessonsCount: completedLessonIds.length,
       allLessonsExceptCurrent: allLessons.length - 1,
     });
+
+    // Create progress for passed quiz
+    try {
+      console.log("Creating progress for passed quiz:", currentLessonId);
+      await createStudentProgress({
+        enrollmentId: enrollmentId,
+        lessonId: currentLessonId,
+        status: "ATTENDED" as const,
+      });
+
+      // Update enrollment progress
+      const completionPercentage = Math.min(
+        ((currentLessonIndex + 1) / allLessons.length) * 100,
+        100,
+      );
+      const nextLessonItem = allLessons[currentLessonIndex + 1];
+
+      // Ensure the current lesson is marked as completed locally
+      setCompletedLessonIds((prev) => {
+        if (!prev.includes(currentLessonId)) {
+          const newCompleted = [...prev, currentLessonId];
+          // Save to localStorage
+          if (typeof window !== "undefined" && course?.id) {
+            localStorage.setItem(
+              `completed-lessons-${course.id}`,
+              JSON.stringify(newCompleted),
+            );
+          }
+          // Also update the progress store
+          const currentStore = useProgressStore.getState();
+          currentStore.completedLessonIds = newCompleted;
+          return newCompleted;
+        }
+        return prev;
+      });
+
+      // Fetch current progress to get the progress ID
+      const currentProgressState = useProgressStore.getState();
+      const currentProgressId = currentProgressState.currentProgress?.id;
+
+      if (currentProgressId) {
+        await updateLessonProgress({
+          progress: completionPercentage,
+          currentProgressId,
+          nextLesson: nextLessonItem?.title,
+          nextLessonId: nextLessonItem?.id,
+          isLessonCompleted: true,
+        });
+      }
+    } catch (error) {
+      console.error("Error creating progress for quiz:", error);
+    }
 
     // Check if this is the last lesson in the course
     if (!isCurrentLessonLast) {
@@ -1323,6 +1381,8 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
     allLessons,
     completedLessonIds,
     handleCourseCompletion,
+    isInstructorOrAdmin,
+    updateLessonProgress,
   ]);
 
   if (isLoading) {
@@ -1485,7 +1545,9 @@ Reference text chứa thông tin về khóa học, bài học và nội dung. H�
               onQuizCompleted={(success: boolean) => {
                 setIsQuizCompleted(success);
                 if (success && lesson?.id) {
-                  handleLessonCompletion();
+                  // Call quiz course completion handler which will create progress
+                  // and check if this is the last lesson to trigger certificate generation
+                  handleQuizCourseCompletion();
                 }
               }}
               onNavigateToLesson={(targetLessonId: string) => {

@@ -11,11 +11,7 @@ import React, {
 
 import { toast } from "@/hooks/use-toast";
 import { usePopupChatbot } from "@/hooks/usePopupChatbot";
-import {
-  formatTime,
-  formatTimeMinutes,
-  useTimeTracking,
-} from "@/hooks/useTimeTracking";
+import { useTimeTracking } from "@/hooks/useTimeTracking";
 import {
   type Course,
   LessonType,
@@ -26,15 +22,11 @@ import { motion } from "framer-motion";
 import { BookOpen, Info, Loader2, Users } from "lucide-react";
 import { useSession } from "next-auth/react";
 
-import {
-  type CertificateData,
-  issueCertificate,
-} from "@/actions/certificateActions";
+import { issueCertificate } from "@/actions/certificateActions";
 import { getCourseById } from "@/actions/courseAction";
 import { getLessonById } from "@/actions/courseAction";
 import {
   checkEnrollmentStatus,
-  getEnrollmentByCourse,
   getEnrollmentByCourseAndType,
   markCourseAsCompleted,
 } from "@/actions/enrollmentActions";
@@ -47,7 +39,6 @@ import {
   type QuizStatus,
   completeUnlockRequirement,
   getQuizStatus,
-  unlockQuiz,
 } from "@/actions/quizAction";
 import {
   type GroupedSyllabusItem,
@@ -61,9 +52,7 @@ import useUserStore from "@/stores/useUserStore";
 // import { AttendanceManager } from "@/components/attendance";
 import CourseSidebar from "@/components/course/CourseSidebar";
 import QuizSection from "@/components/quiz/QuizSection";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 
 // Import extracted components
@@ -103,7 +92,6 @@ export default function ClassLearningPage() {
   const [error, setError] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isEnrolled, setIsEnrolled] = useState(false);
-  const [isVideoLoading, setIsVideoLoading] = useState(true);
   const [hasCertificate, setHasCertificate] = useState<boolean>(false);
   const [certificateId, setCertificateId] = useState<string | null>(null);
   const [isQuizActivelyTaking, setIsQuizActivelyTaking] = useState(false);
