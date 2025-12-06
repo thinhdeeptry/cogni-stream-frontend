@@ -143,7 +143,7 @@ export function AttendanceConfigModal({
             classSession: isLiveSession
               ? {
                   topic: sessionTopic,
-                  scheduledTime: new Date(),
+                  scheduledTime: new Date().toISOString(),
                 }
               : undefined,
           },
@@ -173,18 +173,21 @@ export function AttendanceConfigModal({
     try {
       setIsLoading(true);
 
+      const expiresAtDate = autoExpire
+        ? new Date(Date.now() + expirationMinutes * 60 * 1000).toISOString()
+        : customExpirationTime
+          ? new Date(customExpirationTime).toISOString()
+          : undefined;
+
       const requestData = {
         syllabusItemId,
-        expiresAt: autoExpire
-          ? new Date(Date.now() + expirationMinutes * 60 * 1000)
-          : customExpirationTime
-            ? new Date(customExpirationTime)
-            : undefined,
+        expiresAt: expiresAtDate,
+        autoExpire,
       };
 
       const result = await createAttendanceCode(requestData);
 
-      if (!result.success) {
+      if (!result.success || !result.data) {
         throw new Error(result.message || "Không thể tạo mã điểm danh");
       }
 
@@ -217,16 +220,19 @@ export function AttendanceConfigModal({
     try {
       setIsLoading(true);
 
-      const newExpirationTime = new Date(Date.now() + newMinutes * 60 * 1000);
+      const newExpirationTime = new Date(
+        Date.now() + newMinutes * 60 * 1000,
+      ).toISOString();
 
       // For now, create a new code since we don't have update API yet
       // TODO: Use update API when available
       const result = await createAttendanceCode({
         syllabusItemId,
         expiresAt: newExpirationTime,
+        autoExpire: true,
       });
 
-      if (!result.success) {
+      if (!result.success || !result.data) {
         throw new Error(result.message || "Không thể cập nhật thời hạn");
       }
 
@@ -308,7 +314,7 @@ export function AttendanceConfigModal({
     return code.expiresAt && new Date(code.expiresAt) < new Date();
   };
 
-  const formatTimeRemaining = (expiresAt: Date | null) => {
+  const formatTimeRemaining = (expiresAt: string | null) => {
     if (!expiresAt) return "Không giới hạn";
 
     const now = new Date();

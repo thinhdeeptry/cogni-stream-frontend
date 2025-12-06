@@ -4,10 +4,10 @@ export interface AttendanceCode {
   syllabusItemId: string;
   teacherId: string;
   isActive: boolean;
-  expiresAt: Date | null;
+  expiresAt: string | null;
   autoExpire: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface AttendanceRecord {
@@ -16,7 +16,7 @@ export interface AttendanceRecord {
   syllabusItemId: string;
   attendanceCodeId: string;
   status: AttendanceStatus;
-  attendedAt: Date;
+  attendedAt: string;
   isLate: boolean;
   student?: {
     id: string;
@@ -50,7 +50,7 @@ export interface AttendanceReport {
     itemType: string;
     classSession?: {
       topic: string;
-      scheduledTime: Date;
+      scheduledTime: string;
     };
   };
   codes: AttendanceCode[];
@@ -70,12 +70,12 @@ export interface SyllabusAttendanceInfo {
     order: number;
     itemType: string;
     attendanceEnabled: boolean;
-    attendanceStartTime: Date | null;
-    attendanceEndTime: Date | null;
+    attendanceStartTime: string | null;
+    attendanceEndTime: string | null;
     lateThresholdMinutes: number | null;
     classSession?: {
       topic: string;
-      scheduledTime: Date;
+      scheduledTime: string;
     };
   };
   userRole: "INSTRUCTOR" | "STUDENT";

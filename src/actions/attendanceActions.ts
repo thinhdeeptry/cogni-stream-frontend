@@ -17,14 +17,23 @@ const attendanceApi = await AxiosFactory.getApiInstance("attendance");
 
 export async function createAttendanceCode(data: {
   syllabusItemId: string;
-  expiresAt?: Date;
+  expiresAt?: string;
+  autoExpire?: boolean;
 }) {
   try {
-    const { data: result } = await attendanceApi.post("/attendance/codes", {
+    const payload: any = {
       syllabusItemId: data.syllabusItemId,
-      expiresAt: data.expiresAt?.toISOString(),
-      autoExpire: !!data.expiresAt,
-    });
+      autoExpire: data.autoExpire ?? true,
+    };
+
+    if (data.expiresAt) {
+      payload.expiresAt = new Date(data.expiresAt).toISOString();
+    }
+
+    const { data: result } = await attendanceApi.post(
+      "/attendance/codes",
+      payload,
+    );
 
     return {
       success: true,
@@ -41,7 +50,30 @@ export async function createAttendanceCode(data: {
 }
 
 // =============================================
-// WORKFLOW STEP 2: Đóng mã điểm danh (Giảng viên)
+// WORKFLOW STEP 2: Xóa mã điểm danh (Giảng viên)
+// =============================================
+
+export async function deleteAttendanceCode(codeId: string) {
+  try {
+    const { data: result } = await attendanceApi.delete(
+      `/attendance/codes/${codeId}`,
+    );
+
+    return {
+      success: true,
+      data: result.data,
+      message: result.message || "Xóa mã điểm danh thành công",
+    };
+  } catch (error: any) {
+    console.error("Error deleting attendance code:", error);
+    throw new Error(
+      error.response?.data?.message || "Không thể xóa mã điểm danh",
+    );
+  }
+}
+
+// =============================================
+// WORKFLOW STEP 2b: Đóng mã điểm danh (Giảng viên)
 // =============================================
 
 export async function deactivateAttendanceCode(syllabusItemId: string) {
