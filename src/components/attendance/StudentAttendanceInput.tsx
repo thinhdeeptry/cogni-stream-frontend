@@ -266,8 +266,8 @@ export function StudentAttendanceInput({
               <span className="text-red-600">{hasActiveCode.toString()}</span>
             </p>
             <p>✅ hasSubmitted: {hasSubmitted.toString()}</p>
-            <p>📝 currentCode: {currentAttendanceCode}</p>
-            <p>📄 syllabusItem: {currSyllabusItem}</p>
+            <p>📝 currentCode: {currentAttendanceCode.toString()}</p>
+            <p>📄 syllabusItem: {currSyllabusItem.toString()}</p>
           </div>
         </CardContent>
       </Card>
