@@ -243,7 +243,8 @@ export function StudentAttendanceInput({
           <AlertCircle className="h-12 w-12 mx-auto mb-4" />
           <h3 className="text-lg font-medium mb-2">
             Điểm danh chưa được kích hoạt, has code active{" "}
-            {hasActiveCode.toString()}, has submitted {hasSubmitted.toString()}
+            {hasActiveCode.toString()}, has submitted {hasSubmitted.toString()},
+            current code: {JSON.stringify(currentAttendanceCode)}
           </h3>
           <p>Buổi học này không yêu cầu điểm danh hoặc chưa có mã điểm danh</p>
         </CardContent>
