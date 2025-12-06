@@ -30,10 +30,14 @@ export async function createAttendanceCode(data: {
       payload.expiresAt = new Date(data.expiresAt).toISOString();
     }
 
+    console.log("🔑 [DEBUG] Creating attendance code with payload:", payload);
+
     const { data: result } = await attendanceApi.post(
       "/attendance/codes",
       payload,
     );
+
+    console.log("✅ [DEBUG] Create attendance code response:", result);
 
     return {
       success: true,
@@ -41,7 +45,9 @@ export async function createAttendanceCode(data: {
       message: result.message,
     };
   } catch (error: any) {
-    console.error("Error creating attendance code:", error);
+    console.error("❌ [DEBUG] Error creating attendance code:", error);
+    console.error("❌ [DEBUG] Error response:", error.response?.data);
+    console.error("❌ [DEBUG] Error status:", error.response?.status);
     return {
       success: false,
       message: error.response?.data?.message || "Lỗi tạo mã điểm danh",
