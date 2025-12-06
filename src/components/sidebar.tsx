@@ -131,13 +131,13 @@ const getMenuItems = (userRole: string) => {
       //   color: "text-gray-600",
       //   bgColor: "bg-amber-50",
       // },
-      // {
-      //   title: "Người dùng",
-      //   url: "/admin/users",
-      //   icon: Users,
-      //   color: "text-gray-600",
-      //   bgColor: "bg-indigo-50",
-      // },
+      {
+        title: "Người dùng",
+        url: "/admin/users",
+        icon: Users,
+        color: "text-gray-600",
+        bgColor: "bg-indigo-50",
+      },
       {
         title: "Xét duyệt GV",
         url: "/registrations",
