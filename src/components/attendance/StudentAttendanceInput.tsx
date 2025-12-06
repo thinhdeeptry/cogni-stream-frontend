@@ -98,34 +98,8 @@ export function StudentAttendanceInput({
       // Check attendance status using real API
       const result = await checkAttendanceStatus(syllabusItemId, enrollmentId);
       console.log("Attendance status result:", result);
-      if (result.success && result.data) {
-        const apiData = result.data;
 
-        // Map API data to expected format
-        const mappedData: SyllabusAttendanceInfo = {
-          syllabusItem: {
-            ...apiData.syllabusItem,
-            // Đảm bảo attendanceEnabled là true nếu có thể check in
-          },
-          userRole: "STUDENT",
-          userAttendanceRecord: apiData.attendanceRecord || undefined,
-        };
-
-        setAttendanceInfo(mappedData);
-        setHasSubmitted(!!apiData.attendanceRecord);
-        setCurrSyllabusItem(apiData.syllabusItem);
-
-        // Check if there's an active attendance code and store current code
-        setHasActiveCode(apiData.canCheckIn == true);
-        // Current code là code mới nhất trong attendanceCodes array
-        const currentCode = apiData.syllabusItem?.attendanceCodes?.[0] || null;
-        setCurrentAttendanceCode(currentCode);
-
-        // Sync with localStorage
-        if (apiData.attendanceRecord && typeof window !== "undefined") {
-          localStorage.setItem(`attendance_${syllabusItemId}`, "true");
-        }
-      } else {
+      if (!result.success || !result.data) {
         console.error("Failed to fetch attendance info:", result.message);
         // Set minimal fallback data
         setAttendanceInfo({
@@ -135,17 +109,47 @@ export function StudentAttendanceInput({
             order: 1,
             itemType: "LIVE_SESSION",
             attendanceEnabled: true,
-            attendanceStartTime: new Date(),
-            attendanceEndTime: new Date(Date.now() + 30 * 60 * 1000),
+            attendanceStartTime: new Date().toISOString(),
+            attendanceEndTime: new Date(
+              Date.now() + 30 * 60 * 1000,
+            ).toISOString(),
             lateThresholdMinutes: 10,
             classSession: {
               topic: sessionTopic,
-              scheduledTime: new Date(),
+              scheduledTime: new Date().toISOString(),
             },
           },
           userRole: "STUDENT",
           userAttendanceRecord: undefined,
         });
+        return;
+      }
+
+      const apiData = result.data;
+
+      // Map API data to expected format
+      const mappedData: SyllabusAttendanceInfo = {
+        syllabusItem: {
+          ...apiData.syllabusItem,
+          // Đảm bảo attendanceEnabled là true nếu có thể check in
+        },
+        userRole: "STUDENT",
+        userAttendanceRecord: apiData.attendanceRecord || undefined,
+      };
+
+      setAttendanceInfo(mappedData);
+      setHasSubmitted(!!apiData.attendanceRecord);
+      setCurrSyllabusItem(apiData.syllabusItem);
+
+      // Check if there's an active attendance code and store current code
+      setHasActiveCode(apiData.canCheckIn == true);
+      // Current code là code mới nhất trong attendanceCodes array
+      const currentCode = apiData.syllabusItem?.attendanceCodes?.[0] || null;
+      setCurrentAttendanceCode(currentCode);
+
+      // Sync with localStorage
+      if (apiData.attendanceRecord && typeof window !== "undefined") {
+        localStorage.setItem(`attendance_${syllabusItemId}`, "true");
       }
     } catch (error) {
       console.error("Error fetching attendance info:", error);
@@ -188,7 +192,7 @@ export function StudentAttendanceInput({
         code: attendanceCode.trim().toUpperCase(),
       });
 
-      if (!result.success) {
+      if (!result.success || !result.data) {
         throw new Error(result.message || "Điểm danh thất bại");
       }
 

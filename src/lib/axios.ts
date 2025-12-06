@@ -56,7 +56,7 @@ const paths: Record<ServiceName, string> = {
   certificates: "certificates",
   teachers: "teachers",
   "class-chat": "class-chat",
-  attendance: "attendance",
+  attendance: "",
 };
 
 class AxiosFactory {

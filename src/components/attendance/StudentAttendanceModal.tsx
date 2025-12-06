@@ -14,9 +14,9 @@ import {
 } from "lucide-react";
 
 import {
-  attendanceCheckIn,
-  getSyllabusItemAttendanceInfo,
-} from "@/actions/attendance";
+  checkAttendanceStatus,
+  submitAttendanceCode,
+} from "@/actions/attendanceActions";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -41,7 +41,7 @@ interface AttendanceRecord {
   syllabusItemId: string;
   attendanceCodeId: string;
   status: AttendanceStatus;
-  checkedInAt: Date;
+  checkedInAt: string;
   isLate: boolean;
   user?: {
     id: string;
@@ -62,12 +62,12 @@ interface SyllabusAttendanceInfo {
     order: number;
     itemType: string;
     attendanceEnabled: boolean;
-    attendanceStartTime: Date | null;
-    attendanceEndTime: Date | null;
+    attendanceStartTime: string | null;
+    attendanceEndTime: string | null;
     lateThresholdMinutes: number | null;
     classSession?: {
       topic: string;
-      scheduledTime: Date;
+      scheduledTime: string;
     };
   };
   userRole: "INSTRUCTOR" | "STUDENT";
@@ -100,8 +100,13 @@ export function StudentAttendanceModal({
   const fetchAttendanceInfo = async () => {
     setIsCheckingInfo(true);
     try {
-      const info = await getSyllabusItemAttendanceInfo(syllabusItem.id);
-      setAttendanceInfo(info as any);
+      const response = await checkAttendanceStatus(syllabusItem.id, "");
+      if (!response.success || !response.data) {
+        throw new Error(
+          response.message || "Không thể tải thông tin điểm danh",
+        );
+      }
+      setAttendanceInfo(response.data as any);
     } catch (error: any) {
       toast({
         title: "❌ Lỗi tải thông tin",
@@ -125,12 +130,19 @@ export function StudentAttendanceModal({
 
     setIsLoading(true);
     try {
-      const data: AttendanceCheckInRequest = {
+      const response = await submitAttendanceCode({
         code: attendanceCode.trim(),
         syllabusItemId: syllabusItem.id,
-      };
+        enrollmentId: "", // Backend doesn't need this
+      });
 
-      const record = await attendanceCheckIn(data);
+      if (!response.success || !response.data) {
+        throw new Error(
+          response.message || "Mã điểm danh không đúng hoặc đã hết hạn",
+        );
+      }
+
+      const record = response.data;
 
       // Update local state
       if (attendanceInfo) {

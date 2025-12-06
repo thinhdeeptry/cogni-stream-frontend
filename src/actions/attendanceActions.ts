@@ -17,14 +17,27 @@ const attendanceApi = await AxiosFactory.getApiInstance("attendance");
 
 export async function createAttendanceCode(data: {
   syllabusItemId: string;
-  expiresAt?: Date;
+  expiresAt?: string;
+  autoExpire?: boolean;
 }) {
   try {
-    const { data: result } = await attendanceApi.post("/attendance/codes", {
+    const payload: any = {
       syllabusItemId: data.syllabusItemId,
-      expiresAt: data.expiresAt?.toISOString(),
-      autoExpire: !!data.expiresAt,
-    });
+      autoExpire: data.autoExpire ?? true,
+    };
+
+    if (data.expiresAt) {
+      payload.expiresAt = new Date(data.expiresAt).toISOString();
+    }
+
+    console.log("🔑 [DEBUG] Creating attendance code with payload:", payload);
+
+    const { data: result } = await attendanceApi.post(
+      "/attendance/codes",
+      payload,
+    );
+
+    console.log("✅ [DEBUG] Create attendance code response:", result);
 
     return {
       success: true,
@@ -32,7 +45,9 @@ export async function createAttendanceCode(data: {
       message: result.message,
     };
   } catch (error: any) {
-    console.error("Error creating attendance code:", error);
+    console.error("❌ [DEBUG] Error creating attendance code:", error);
+    console.error("❌ [DEBUG] Error response:", error.response?.data);
+    console.error("❌ [DEBUG] Error status:", error.response?.status);
     return {
       success: false,
       message: error.response?.data?.message || "Lỗi tạo mã điểm danh",
@@ -41,7 +56,30 @@ export async function createAttendanceCode(data: {
 }
 
 // =============================================
-// WORKFLOW STEP 2: Đóng mã điểm danh (Giảng viên)
+// WORKFLOW STEP 2: Xóa mã điểm danh (Giảng viên)
+// =============================================
+
+export async function deleteAttendanceCode(codeId: string) {
+  try {
+    const { data: result } = await attendanceApi.delete(
+      `/attendance/codes/${codeId}`,
+    );
+
+    return {
+      success: true,
+      data: result.data,
+      message: result.message || "Xóa mã điểm danh thành công",
+    };
+  } catch (error: any) {
+    console.error("Error deleting attendance code:", error);
+    throw new Error(
+      error.response?.data?.message || "Không thể xóa mã điểm danh",
+    );
+  }
+}
+
+// =============================================
+// WORKFLOW STEP 2b: Đóng mã điểm danh (Giảng viên)
 // =============================================
 
 export async function deactivateAttendanceCode(syllabusItemId: string) {

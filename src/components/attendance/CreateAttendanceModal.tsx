@@ -10,7 +10,7 @@ import { Clock, Copy, Eye, QrCode, Trash2, Users } from "lucide-react";
 import {
   createAttendanceCode,
   deleteAttendanceCode,
-} from "@/actions/attendance";
+} from "@/actions/attendanceActions";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,10 +35,10 @@ interface AttendanceCode {
   syllabusItemId: string;
   teacherId: string;
   isActive: boolean;
-  expiresAt: Date | null;
+  expiresAt: string | null;
   autoExpire: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface CreateAttendanceCodeRequest {
@@ -69,21 +69,26 @@ export function CreateAttendanceModal({
   const handleCreateCode = async () => {
     setIsLoading(true);
     try {
-      const data: CreateAttendanceCodeRequest = {
+      const requestData: CreateAttendanceCodeRequest = {
         syllabusItemId: syllabusItem.id,
         autoExpire,
       };
 
       if (!autoExpire && customExpireTime) {
-        data.expiresAt = customExpireTime;
+        requestData.expiresAt = customExpireTime;
       }
 
-      const newCode = await createAttendanceCode(data);
-      onCodeCreated(newCode);
+      const response = await createAttendanceCode(requestData);
+
+      if (!response.success || !response.data) {
+        throw new Error(response.message || "Không thể tạo mã điểm danh");
+      }
+
+      onCodeCreated(response.data);
 
       toast({
         title: "✅ Tạo mã điểm danh thành công",
-        description: `Mã điểm danh: ${newCode.code}`,
+        description: `Mã điểm danh: ${response.data.code}`,
       });
 
       setIsOpen(false);
@@ -101,12 +106,17 @@ export function CreateAttendanceModal({
 
   const handleDeleteCode = async (codeId: string) => {
     try {
-      await deleteAttendanceCode(codeId);
+      const response = await deleteAttendanceCode(codeId);
+
+      if (!response.success) {
+        throw new Error(response.message || "Không thể xóa mã điểm danh");
+      }
+
       onCodeDeleted(codeId);
 
       toast({
         title: "✅ Xóa mã điểm danh thành công",
-        description: "Mã điểm danh đã được vô hiệu hóa",
+        description: response.message || "Mã điểm danh đã được vô hiệu hóa",
       });
     } catch (error: any) {
       toast({
@@ -125,7 +135,7 @@ export function CreateAttendanceModal({
     });
   };
 
-  const formatExpireTime = (date: Date | null) => {
+  const formatExpireTime = (date: string | null) => {
     if (!date) return "Không giới hạn";
     return format(new Date(date), "dd/MM/yyyy HH:mm", { locale: vi });
   };
