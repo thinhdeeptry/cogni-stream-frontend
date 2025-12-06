@@ -58,7 +58,7 @@ export function StudentAttendanceInput({
     useState<SyllabusAttendanceInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
+  const [currSyllabusItem, setCurrSyllabusItem] = useState<any | null>(null);
   const [hasSubmitted, setHasSubmitted] = useState(() => {
     // Check if already submitted in this session
     if (typeof window !== "undefined") {
@@ -94,10 +94,6 @@ export function StudentAttendanceInput({
           syllabusItem: {
             ...apiData.syllabusItem,
             // Đảm bảo attendanceEnabled là true nếu có thể check in
-            attendanceEnabled:
-              apiData.canCheckIn !== undefined
-                ? true
-                : apiData.syllabusItem.attendanceEnabled || false,
           },
           userRole: "STUDENT",
           userAttendanceRecord: apiData.attendanceRecord || undefined,
@@ -105,6 +101,7 @@ export function StudentAttendanceInput({
 
         setAttendanceInfo(mappedData);
         setHasSubmitted(!!apiData.attendanceRecord);
+        setCurrSyllabusItem(apiData.syllabusItem);
 
         // Check if there's an active attendance code and store current code
         setHasActiveCode(apiData.canCheckIn == true);
@@ -244,7 +241,8 @@ export function StudentAttendanceInput({
           <h3 className="text-lg font-medium mb-2">
             Điểm danh chưa được kích hoạt, has code active{" "}
             {hasActiveCode.toString()}, has submitted {hasSubmitted.toString()},
-            current code: {JSON.stringify(currentAttendanceCode)}
+            current code: {JSON.stringify(currentAttendanceCode)}, current
+            syllabus item: {JSON.stringify(currSyllabusItem)}
           </h3>
           <p>Buổi học này không yêu cầu điểm danh hoặc chưa có mã điểm danh</p>
         </CardContent>
