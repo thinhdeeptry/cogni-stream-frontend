@@ -12,21 +12,5 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { data: session, status } = useSession();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (status === "loading") return;
-
-    if (!session) {
-      router.push("/auth/login");
-      return;
-    }
-  }, [session, status, router]);
-
-  if (status === "loading") {
-    return <Loading isLoading={true} />;
-  }
-
   return <main className="flex-1 py-4 px-2 overflow-auto">{children}</main>;
 }
