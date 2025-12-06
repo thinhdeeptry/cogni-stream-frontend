@@ -247,7 +247,8 @@ export function StudentAttendanceInput({
       </Card>
     );
   }
-
+  console.log("Curr code:", currentAttendanceCode);
+  console.log("sysllabusItem:", currSyllabusItem);
   // Kiểm tra nếu không có thông tin hoặc không có mã nào cả (chưa kích hoạt)
   if (!hasActiveCode && !hasSubmitted) {
     return (
@@ -260,7 +261,7 @@ export function StudentAttendanceInput({
           <p className="mb-4">
             Buổi học này không yêu cầu điểm danh hoặc chưa có mã điểm danh
           </p>
-          <div className="text-xs text-gray-400 font-mono space-y-1 bg-gray-100 p-3 rounded">
+          {/* <div className="text-xs text-gray-400 font-mono space-y-1 bg-gray-100 p-3 rounded">
             <p>
               📍 syllabusItemId:{" "}
               <span className="text-blue-600">{syllabusItemId || "NULL"}</span>
@@ -272,7 +273,7 @@ export function StudentAttendanceInput({
             <p>✅ hasSubmitted: {hasSubmitted.toString()}</p>
             <p>📝 currentCode: {currentAttendanceCode.toString()}</p>
             <p>📄 syllabusItem: {currSyllabusItem.toString()}</p>
-          </div>
+          </div> */}
         </CardContent>
       </Card>
     );
