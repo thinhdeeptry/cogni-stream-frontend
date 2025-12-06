@@ -269,7 +269,7 @@ export function StudentAttendanceInput({
   }
 
   // Kiểm tra nếu không có thông tin hoặc không có mã nào cả (chưa kích hoạt)
-  if (!attendanceInfo || (!hasActiveCode && !hasSubmitted)) {
+  if (!hasActiveCode && !hasSubmitted) {
     return (
       <Card className={className}>
         <CardContent className="text-center py-12 text-gray-500">
