@@ -78,8 +78,20 @@ export function StudentAttendanceInput({
     try {
       setIsLoading(true);
 
+      console.log(
+        "🔍 [Debug] syllabusItemId:",
+        syllabusItemId,
+        "enrollmentId:",
+        enrollmentId,
+      );
+
       if (!enrollmentId) {
         console.error("No enrollmentId provided");
+        return;
+      }
+
+      if (!syllabusItemId) {
+        console.error("❌ No syllabusItemId provided!");
         return;
       }
 
@@ -239,12 +251,24 @@ export function StudentAttendanceInput({
         <CardContent className="text-center py-12 text-gray-500">
           <AlertCircle className="h-12 w-12 mx-auto mb-4" />
           <h3 className="text-lg font-medium mb-2">
-            Điểm danh chưa được kích hoạt, has code active{" "}
-            {hasActiveCode.toString()}, has submitted {hasSubmitted.toString()},
-            current code: {JSON.stringify(currentAttendanceCode)}, current
-            syllabus item: {JSON.stringify(currSyllabusItem)}
+            Điểm danh chưa được kích hoạt
           </h3>
-          <p>Buổi học này không yêu cầu điểm danh hoặc chưa có mã điểm danh</p>
+          <p className="mb-4">
+            Buổi học này không yêu cầu điểm danh hoặc chưa có mã điểm danh
+          </p>
+          <div className="text-xs text-gray-400 font-mono space-y-1 bg-gray-100 p-3 rounded">
+            <p>
+              📍 syllabusItemId:{" "}
+              <span className="text-blue-600">{syllabusItemId || "NULL"}</span>
+            </p>
+            <p>
+              🔑 hasActiveCode:{" "}
+              <span className="text-red-600">{hasActiveCode.toString()}</span>
+            </p>
+            <p>✅ hasSubmitted: {hasSubmitted.toString()}</p>
+            <p>📝 currentCode: {currentAttendanceCode ? "✓ EXISTS" : "NULL"}</p>
+            <p>📄 syllabusItem: {currSyllabusItem ? "✓ EXISTS" : "NULL"}</p>
+          </div>
         </CardContent>
       </Card>
     );
