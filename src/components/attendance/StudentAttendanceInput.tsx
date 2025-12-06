@@ -222,39 +222,6 @@ export function StudentAttendanceInput({
     }
   };
 
-  const getTimeRemaining = () => {
-    // Dùng expiresAt của attendance code thay vì attendanceEndTime của syllabus
-    if (!currentAttendanceCode?.expiresAt) return null;
-
-    const now = new Date();
-    const endTime = new Date(currentAttendanceCode.expiresAt);
-    const diffMs = endTime.getTime() - now.getTime();
-
-    if (diffMs <= 0) return "Đã hết hạn";
-
-    const diffMinutes = Math.floor(diffMs / (1000 * 60));
-    const diffHours = Math.floor(diffMinutes / 60);
-
-    if (diffHours > 0) {
-      return `${diffHours}h ${diffMinutes % 60}m`;
-    }
-    return `${diffMinutes}m`;
-  };
-
-  const isAttendanceActive = () => {
-    // Dùng expiresAt của attendance code thay vì attendanceEndTime của syllabus
-    console.log(
-      "Current attendance code for active check:",
-      currentAttendanceCode,
-    );
-    if (!currentAttendanceCode?.expiresAt) return false;
-    const now = new Date();
-    const endTime = new Date(currentAttendanceCode.expiresAt);
-    console.log("Attendance active check (code expiresAt):", now, endTime);
-    return now < endTime && currentAttendanceCode.isActive;
-  };
-  console.log(attendanceInfo, hasSubmitted, hasActiveCode);
-
   if (isLoading) {
     return (
       <Card className={className}>
@@ -275,7 +242,8 @@ export function StudentAttendanceInput({
         <CardContent className="text-center py-12 text-gray-500">
           <AlertCircle className="h-12 w-12 mx-auto mb-4" />
           <h3 className="text-lg font-medium mb-2">
-            Điểm danh chưa được kích hoạt
+            Điểm danh chưa được kích hoạt, has code active{" "}
+            {hasActiveCode.toString()}, has submitted {hasSubmitted.toString()}
           </h3>
           <p>Buổi học này không yêu cầu điểm danh hoặc chưa có mã điểm danh</p>
         </CardContent>
@@ -283,8 +251,7 @@ export function StudentAttendanceInput({
     );
   }
 
-  if (hasSubmitted && attendanceInfo?.userAttendanceRecord) {
-    const record = attendanceInfo.userAttendanceRecord;
+  if (hasSubmitted) {
     return (
       <Card className={className}>
         <CardHeader>
@@ -300,109 +267,89 @@ export function StudentAttendanceInput({
     );
   }
 
-  return (
-    <Card className={className}>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <QrCode className="h-6 w-6 text-blue-600" />
-          Điểm danh - {sessionTopic}
-        </CardTitle>
-        <CardDescription>
-          Nhập mã điểm danh mà giảng viên cung cấp
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Time remaining info */}
-        {/* {isAttendanceActive() && (
-          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <div className="flex items-center gap-2 text-blue-700">
-              <Timer className="h-4 w-4" />
-              <span className="text-sm font-medium">
-                Thời gian còn lại: {getTimeRemaining()}
-              </span>
-            </div>
-          </div>
-        )} */}
-
-        {/* Attendance input */}
-        {isAttendanceActive() ? (
-          hasActiveCode ? (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <label
-                  htmlFor="attendance-code"
-                  className="text-sm font-medium text-gray-700"
+  // Có mã active → hiển thị form nhập
+  if (hasActiveCode) {
+    return (
+      <Card className={className}>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <QrCode className="h-6 w-6 text-blue-600" />
+            Điểm danh - {sessionTopic}
+          </CardTitle>
+          <CardDescription>
+            Nhập mã điểm danh mà giảng viên cung cấp
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label
+                htmlFor="attendance-code"
+                className="text-sm font-medium text-gray-700"
+              >
+                Mã điểm danh
+              </label>
+              <div className="flex gap-2">
+                <Input
+                  id="attendance-code"
+                  type="text"
+                  placeholder="Nhập mã điểm danh (VD: ABC123)"
+                  value={attendanceCode}
+                  onChange={(e) =>
+                    setAttendanceCode(e.target.value.toUpperCase())
+                  }
+                  onKeyPress={handleKeyPress}
+                  disabled={isSubmitting}
+                  className="flex-1 font-mono text-lg text-center tracking-widest"
+                  maxLength={10}
+                />
+                <Button
+                  onClick={handleSubmitAttendance}
+                  disabled={isSubmitting || !attendanceCode.trim()}
+                  className="min-w-[100px]"
                 >
-                  Mã điểm danh
-                </label>
-                <div className="flex gap-2">
-                  <Input
-                    id="attendance-code"
-                    type="text"
-                    placeholder="Nhập mã điểm danh (VD: ABC123)"
-                    value={attendanceCode}
-                    onChange={(e) =>
-                      setAttendanceCode(e.target.value.toUpperCase())
-                    }
-                    onKeyPress={handleKeyPress}
-                    disabled={isSubmitting}
-                    className="flex-1 font-mono text-lg text-center tracking-widest"
-                    maxLength={10}
-                  />
-                  <Button
-                    onClick={handleSubmitAttendance}
-                    disabled={isSubmitting || !attendanceCode.trim()}
-                    className="min-w-[100px]"
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Đang xử lý...
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle className="h-4 w-4 mr-2" />
-                        Điểm danh
-                      </>
-                    )}
-                  </Button>
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Đang xử lý...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Điểm danh
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            {/* Error message */}
+            {errorMessage && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                <div className="flex items-center gap-2 text-red-700">
+                  <AlertCircle className="h-4 w-4" />
+                  <span className="text-sm font-medium">{errorMessage}</span>
                 </div>
               </div>
-
-              {/* Error message */}
-              {errorMessage && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                  <div className="flex items-center gap-2 text-red-700">
-                    <AlertCircle className="h-4 w-4" />
-                    <span className="text-sm font-medium">{errorMessage}</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-center">
-              <Clock className="h-8 w-8 mx-auto mb-2 text-yellow-500" />
-              <h4 className="font-medium text-yellow-800 mb-1">
-                Chưa có mã điểm danh
-              </h4>
-              <p className="text-sm text-yellow-600">
-                Giảng viên chưa tạo mã điểm danh cho buổi học này. Vui lòng chờ
-                giảng viên thông báo.
-              </p>
-            </div>
-          )
-        ) : (
-          <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-center">
-            <AlertCircle className="h-8 w-8 mx-auto mb-2 text-red-500" />
-            <h4 className="font-medium text-red-800 mb-1">
-              Hết thời gian điểm danh
-            </h4>
-            <p className="text-sm text-red-600">
-              Thời gian điểm danh đã kết thúc. Vui lòng liên hệ giảng viên nếu
-              cần hỗ trợ.
-            </p>
+            )}
           </div>
-        )}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Không có mã active (nhưng có thể đã có mã cũ hết hạn)
+  return (
+    <Card className={className}>
+      <CardContent className="text-center py-12">
+        <Clock className="h-12 w-12 mx-auto mb-4 text-yellow-500" />
+        <h3 className="text-lg font-medium mb-2 text-yellow-800">
+          Chưa có mã điểm danh
+        </h3>
+        <p className="text-gray-600">
+          Giảng viên chưa tạo mã điểm danh cho buổi học này. Vui lòng chờ giảng
+          viên thông báo.
+        </p>
       </CardContent>
     </Card>
   );
