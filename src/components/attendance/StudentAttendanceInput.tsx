@@ -107,7 +107,7 @@ export function StudentAttendanceInput({
         setHasSubmitted(!!apiData.attendanceRecord);
 
         // Check if there's an active attendance code and store current code
-        setHasActiveCode(apiData.canCheckIn || false);
+        setHasActiveCode(apiData.canCheckIn == true);
         // Current code là code mới nhất trong attendanceCodes array
         const currentCode = apiData.syllabusItem?.attendanceCodes?.[0] || null;
         setCurrentAttendanceCode(currentCode);
