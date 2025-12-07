@@ -46,6 +46,8 @@ import {
   submitQuizAttempt,
 } from "@/actions/quizAction";
 
+import { extractPlainTextFromBlockNote } from "@/utils/blocknote";
+
 import QuizSidebar from "@/components/quiz/quiz-sidebar";
 import {
   AlertDialog,
@@ -589,15 +591,7 @@ export default function QuizSection({
   };
 
   const renderHTMLContent = (htmlContent: string) => {
-    return (
-      <div
-        dangerouslySetInnerHTML={{ __html: htmlContent }}
-        className="prose prose-sm max-w-none prose-headings:mb-2 prose-p:mb-2 prose-ul:mb-2 prose-ol:mb-2 
-                   prose-img:rounded-lg prose-img:max-w-full prose-img:h-auto
-                   prose-strong:font-bold prose-em:italic
-                   [&>p]:leading-relaxed [&>ul]:pl-4 [&>ol]:pl-4"
-      />
-    );
+    return <div>{extractPlainTextFromBlockNote(htmlContent)}</div>;
   };
 
   const handlePrevPage = () => {
@@ -962,11 +956,7 @@ export default function QuizSection({
                                                     : "prose-gray [&>p]:text-gray-700 group-hover:[&>p]:text-gray-900",
                                                 )}
                                               >
-                                                <div
-                                                  dangerouslySetInnerHTML={{
-                                                    __html: answer.text,
-                                                  }}
-                                                />
+                                                {renderHTMLContent(answer.text)}
                                               </div>
                                             </div>
                                           </div>
@@ -1339,7 +1329,7 @@ export default function QuizSection({
       animate={{ opacity: 1, y: 0 }}
       className="space-y-6 -mt-10 mb-4"
     >
-      <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+      <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200  mt-10 pt-5">
         {/* <CardHeader>
           <CardTitle className="flex items-center gap-2 text-blue-900">
             <Play className="h-5 w-5 text-blue-600" />

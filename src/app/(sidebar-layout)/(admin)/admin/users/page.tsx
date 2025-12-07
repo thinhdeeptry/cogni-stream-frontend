@@ -248,7 +248,7 @@ function AddNewUserDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
+        <Button className="bg-orange-500">
           <Plus className="h-4 w-4 mr-2" />
           Thêm người dùng mới
         </Button>

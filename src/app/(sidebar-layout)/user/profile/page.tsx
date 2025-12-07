@@ -457,7 +457,10 @@ function ProfilePageContent() {
                         onOpenChange={setIsEditDialogOpen}
                       >
                         <DialogTrigger asChild>
-                          <Button variant="default" className="w-full">
+                          <Button
+                            variant="default"
+                            className="w-full bg-orange-500"
+                          >
                             Cập nhật thông tin
                           </Button>
                         </DialogTrigger>

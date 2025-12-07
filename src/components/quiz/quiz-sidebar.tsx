@@ -12,6 +12,8 @@ import {
   X,
 } from "lucide-react";
 
+import { extractPlainTextFromBlockNote } from "@/utils/blocknote";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -229,20 +231,15 @@ export default function QuizSidebar({
                             <div className="flex-1 min-w-0">
                               <div
                                 className={cn(
-                                  "text-xs truncate",
+                                  "text-xs truncate w-9/10",
                                   status === "answered" ||
-                                    status === "answered-flagged" ||
-                                    status === "flagged"
+                                    status === "answered-flagged"
                                     ? "text-black"
                                     : "",
                                 )}
-                                dangerouslySetInnerHTML={{
-                                  __html:
-                                    question.text
-                                      .replace(/<[^>]*>/g, "")
-                                      .substring(0, 50) + "...",
-                                }}
-                              />
+                              >
+                                {extractPlainTextFromBlockNote(question.text)}
+                              </div>
                               {question.isRequired && (
                                 <div className="flex items-center gap-1 mt-1">
                                   <AlertTriangle className="h-3 w-3 text-red-500" />
