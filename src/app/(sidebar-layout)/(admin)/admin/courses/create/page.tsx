@@ -468,7 +468,12 @@ export default function CreateCoursePage() {
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-4">
             <Link href="/admin/courses">
-              <Button variant="outline" size="icon" className="rounded-full">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="rounded-full"
+              >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
             </Link>
