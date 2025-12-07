@@ -250,34 +250,34 @@ export function StudentAttendanceInput({
   console.log("Curr code:", currentAttendanceCode);
   console.log("sysllabusItem:", currSyllabusItem);
   // Kiểm tra nếu không có thông tin hoặc không có mã nào cả (chưa kích hoạt)
-  if (!hasActiveCode && !hasSubmitted) {
-    return (
-      <Card className={className}>
-        <CardContent className="text-center py-12 text-gray-500">
-          <AlertCircle className="h-12 w-12 mx-auto mb-4" />
-          <h3 className="text-lg font-medium mb-2">
-            Điểm danh chưa được kích hoạt
-          </h3>
-          <p className="mb-4">
-            Buổi học này không yêu cầu điểm danh hoặc chưa có mã điểm danh
-          </p>
-          {/* <div className="text-xs text-gray-400 font-mono space-y-1 bg-gray-100 p-3 rounded">
-            <p>
-              📍 syllabusItemId:{" "}
-              <span className="text-blue-600">{syllabusItemId || "NULL"}</span>
-            </p>
-            <p>
-              🔑 hasActiveCode:{" "}
-              <span className="text-red-600">{hasActiveCode.toString()}</span>
-            </p>
-            <p>✅ hasSubmitted: {hasSubmitted.toString()}</p>
-            <p>📝 currentCode: {currentAttendanceCode.toString()}</p>
-            <p>📄 syllabusItem: {currSyllabusItem.toString()}</p>
-          </div> */}
-        </CardContent>
-      </Card>
-    );
-  }
+  // if (!hasActiveCode && !hasSubmitted) {
+  //   return (
+  //     <Card className={className}>
+  //       <CardContent className="text-center py-12 text-gray-500">
+  //         <AlertCircle className="h-12 w-12 mx-auto mb-4" />
+  //         <h3 className="text-lg font-medium mb-2">
+  //           Điểm danh chưa được kích hoạt
+  //         </h3>
+  //         <p className="mb-4">
+  //           Buổi học này không yêu cầu điểm danh hoặc chưa có mã điểm danh
+  //         </p>
+  //         {/* <div className="text-xs text-gray-400 font-mono space-y-1 bg-gray-100 p-3 rounded">
+  //           <p>
+  //             📍 syllabusItemId:{" "}
+  //             <span className="text-blue-600">{syllabusItemId || "NULL"}</span>
+  //           </p>
+  //           <p>
+  //             🔑 hasActiveCode:{" "}
+  //             <span className="text-red-600">{hasActiveCode.toString()}</span>
+  //           </p>
+  //           <p>✅ hasSubmitted: {hasSubmitted.toString()}</p>
+  //           <p>📝 currentCode: {currentAttendanceCode.toString()}</p>
+  //           <p>📄 syllabusItem: {currSyllabusItem.toString()}</p>
+  //         </div> */}
+  //       </CardContent>
+  //     </Card>
+  //   );
+  // }
 
   if (hasSubmitted) {
     return (
