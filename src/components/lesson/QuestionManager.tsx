@@ -1701,12 +1701,8 @@ export function QuestionManager({
                             <HelpCircle className="h-4 w-4 text-purple-600" />
                             Câu hỏi:
                           </h4>
-                          <div
-                            className="prose max-w-none text-slate-700"
-                            dangerouslySetInnerHTML={{
-                              __html: question.text || "",
-                            }}
-                          />
+                          <div />
+                          {extractPlainTextFromBlockNote(question.text)}
                         </div>
 
                         {/* Answers */}
@@ -1724,12 +1720,10 @@ export function QuestionManager({
                                   <h5 className="font-medium text-sm mb-2 text-green-800">
                                     Đáp án tham khảo:
                                   </h5>
-                                  <div
-                                    className="text-green-700"
-                                    dangerouslySetInnerHTML={{
-                                      __html: question.answers[0]?.text || "",
-                                    }}
-                                  />
+                                  <div className="text-green-700" />
+                                  {extractPlainTextFromBlockNote(
+                                    question.answers[0]?.text || "",
+                                  )}
                                 </div>
 
                                 {question.answers[0]?.acceptedAnswers &&
