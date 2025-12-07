@@ -56,7 +56,8 @@ export default function InstructorRegistrationsPage() {
     try {
       setLoading(true);
       const registrations = await getAllInstructorRegistrations();
-      setData(registrations.data); // Fix: use .data property
+      console.log("Fetched registrations:", registrations);
+      setData(registrations.data);
       setFilteredData(registrations.data);
     } catch (err) {
       console.error("Fetch error", err);
@@ -322,12 +323,12 @@ export default function InstructorRegistrationsPage() {
                         {item.curriculum_vitae_link ? (
                           <div className="flex items-center gap-1">
                             <span className="inline-block w-2 h-2 bg-green-500 rounded-full"></span>
-                            <p className="text-sm text-slate-700">Có CV</p>
+                            <p className="text-sm text-slate-700">Có</p>
                           </div>
                         ) : (
                           <div className="flex items-center gap-1">
                             <span className="inline-block w-2 h-2 bg-gray-300 rounded-full"></span>
-                            <p className="text-sm text-slate-500">Chưa có CV</p>
+                            <p className="text-sm text-slate-500">Chưa có</p>
                           </div>
                         )}
                         {item.qualifications.length > 0 && (
