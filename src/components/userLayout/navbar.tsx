@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import {
   useParams,
@@ -27,6 +28,8 @@ import { useSession } from "next-auth/react";
 import { getMyClasses } from "@/actions/enrollmentActions";
 
 import { useProgressStore } from "@/stores/useProgressStore";
+
+import { createGoogleDriveImageProps } from "@/utils/googleDriveUtils";
 
 import CourseProgress from "@/components/course/CourseProgress";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
@@ -354,7 +357,7 @@ export default function Navbar({
                     className="flex items-center gap-2 rounded-full"
                   >
                     <Avatar className="h-8 w-8 border cursor-pointer">
-                      <AvatarImage
+                      {/* <AvatarImage
                         src={image}
                         alt={userName}
                         onError={(e) => {
@@ -364,6 +367,19 @@ export default function Navbar({
                           target.onerror = null; // Prevent infinite error loop
                           target.src = "/default-avatar.png";
                         }}
+                      /> */}
+                      <Image
+                        {...createGoogleDriveImageProps(
+                          image || "/default-avatar.png",
+                        )}
+                        alt={userName}
+                        onError={(e) => {
+                          const target = e.currentTarget as HTMLImageElement;
+                          target.onerror = null;
+                          target.src = "/default-avatar.png";
+                        }}
+                        fill
+                        className="object-cover w-full h-full"
                       />
                       <AvatarFallback>{userName.charAt(0)}</AvatarFallback>
                     </Avatar>

@@ -6,6 +6,10 @@ import { toast } from "@/hooks/use-toast";
 import { authApi } from "@/lib/api/authApi";
 import { Upload, X } from "lucide-react";
 
+import { uploadUserAvatar } from "@/actions/courseAction";
+
+import useUserStore from "@/stores/useUserStore";
+
 import { Button } from "@/components/ui/button";
 
 interface AvatarUploadProps {
@@ -16,6 +20,7 @@ export function AvatarUpload({ onSuccess }: AvatarUploadProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { user } = useUserStore();
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -55,35 +60,44 @@ export function AvatarUpload({ onSuccess }: AvatarUploadProps) {
     setIsUploading(true);
 
     try {
-      // Create form data for upload
-      const formData = new FormData();
       const file = fileInputRef.current?.files?.[0];
       if (!file) return;
 
-      formData.append("file", file);
-      formData.append("bucket", "avatars");
-      const storageApiUrl =
-        process.env.NEXT_PUBLIC_STORAGE_API_URL ||
-        "https://be.cognistream.id.vn";
-      // Upload to storage service
-      const response = await fetch(`${storageApiUrl}/api/v1/storage/upload`, {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error("Không thể tải lên ảnh đại diện");
+      if (!user?.id) {
+        toast({
+          title: "Lỗi",
+          description: "Không tìm thấy thông tin người dùng",
+          variant: "destructive",
+        });
+        return;
       }
 
-      const data = await response.json();
-      const imageUrl = data.url;
+      // Upload to Google Drive using uploadUserAvatar action
+      const uploadResult = await uploadUserAvatar(file, user.id);
+
+      if (!uploadResult.success) {
+        throw new Error(
+          uploadResult.message || "Không thể tải lên ảnh đại diện",
+        );
+      }
+
+      // Get the webViewLink from upload result
+      const imageUrl = uploadResult.driveUrl || uploadResult.data?.webViewLink;
+
+      if (!imageUrl) {
+        throw new Error("Không nhận được URL ảnh từ server");
+      }
 
       // Update avatar in user profile
       const result = await authApi.updateAvatar(imageUrl);
 
-      // Trong hàm handleUpload sau khi cập nhật thành công
+      // Handle result
       if (result.error) {
-        // ... xử lý lỗi
+        toast({
+          title: "Đã xảy ra lỗi",
+          description: result.message || "Không thể cập nhật ảnh đại diện",
+          variant: "destructive",
+        });
       } else {
         toast({
           title: "Cập nhật ảnh đại diện thành công",
@@ -106,9 +120,13 @@ export function AvatarUpload({ onSuccess }: AvatarUploadProps) {
         }
       }
     } catch (error) {
+      console.error("Avatar upload error:", error);
       toast({
         title: "Đã xảy ra lỗi",
-        description: "Không thể tải lên ảnh đại diện. Vui lòng thử lại sau.",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Không thể tải lên ảnh đại diện. Vui lòng thử lại sau.",
         variant: "destructive",
       });
     } finally {

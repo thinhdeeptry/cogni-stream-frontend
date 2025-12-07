@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 
@@ -25,6 +26,8 @@ import { useSession } from "next-auth/react";
 import { getUserInstructorRegistration } from "@/actions/instructorRegistrationAction";
 
 import useUserStore from "@/stores/useUserStore";
+
+import { createGoogleDriveImageProps } from "@/utils/googleDriveUtils";
 
 import { AvatarUpload } from "@/components/auth/avatar-upload";
 import { ProfileUpdateForm } from "@/components/auth/profile-update-form";
@@ -255,7 +258,7 @@ function ProfilePageContent() {
           <CardHeader className="flex flex-col items-center text-center">
             <div className="relative mb-4">
               <Avatar className="h-24 w-24 border-4 border-white shadow-md">
-                <AvatarImage
+                {/* <AvatarImage
                   src={user.image || "/default-avatar.png"}
                   alt={user.name}
                   onError={(e) => {
@@ -263,6 +266,19 @@ function ProfilePageContent() {
                     target.onerror = null;
                     target.src = "/default-avatar.png";
                   }}
+                /> */}
+                <Image
+                  {...createGoogleDriveImageProps(
+                    user.image || "/default-avatar.png",
+                  )}
+                  alt={user.name}
+                  onError={(e) => {
+                    const target = e.currentTarget as HTMLImageElement;
+                    target.onerror = null;
+                    target.src = "/default-avatar.png";
+                  }}
+                  fill
+                  className="object-cover w-full h-full"
                 />
                 <AvatarFallback className="text-2xl">
                   {user.name?.charAt(0)}
