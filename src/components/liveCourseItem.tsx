@@ -148,9 +148,9 @@ export default function LiveCourseItem({
             <div className="flex items-center gap-2 mb-2">
               <div className="flex-shrink-0">
                 <Image
-                  src={
-                    course.instructor.user?.image || "/placeholder-avatar.jpg"
-                  }
+                  {...createGoogleDriveImageProps(
+                    course.instructor.user?.image || "/default-avatar.png",
+                  )}
                   alt="Instructor"
                   width={24}
                   height={24}
@@ -159,18 +159,17 @@ export default function LiveCourseItem({
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-gray-600 truncate">
-                  {course.instructor.headline || "Giảng viên"}
+                  {course.instructor.user?.name || "Giảng viên"}
                 </p>
-                {course.instructor.avgRating &&
-                  course.instructor.totalRatings && (
-                    <div className="flex items-center gap-1">
-                      <Star className="h-3 w-3 text-yellow-500 fill-current" />
-                      <span className="text-xs text-gray-600">
-                        {course.instructor.avgRating.toFixed(1)} (
-                        {course.instructor.totalRatings})
-                      </span>
-                    </div>
-                  )}
+                {
+                  <div className="flex items-center gap-1">
+                    <Star className="h-3 w-3 text-yellow-500 fill-current" />
+                    <span className="text-xs text-gray-600">
+                      {course?.instructor?.avgRating?.toFixed(1)} (
+                      {course?.instructor?.totalRatings})
+                    </span>
+                  </div>
+                }
               </div>
             </div>
           )}

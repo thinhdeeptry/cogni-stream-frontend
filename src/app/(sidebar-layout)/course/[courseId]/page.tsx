@@ -651,9 +651,9 @@ export default function CourseDetail() {
               <div className="flex flex-col md:flex-row items-start gap-4">
                 <div className="flex-shrink-0 md:mx-0">
                   <Image
-                    src={
-                      course.instructor.user?.image || "/placeholder-avatar.jpg"
-                    }
+                    {...createGoogleDriveImageProps(
+                      course.instructor.user?.image || "/default-avatar.png",
+                    )}
                     alt="Instructor"
                     width={80}
                     height={80}
@@ -676,32 +676,31 @@ export default function CourseDetail() {
                   )}
                 </div>
               </div>
-              {course.instructor.avgRating &&
-                course.instructor.totalRatings && (
-                  <div className="flex md:justify-start items-center gap-3 mt-4">
-                    <div className="flex items-center gap-1">
-                      <div className="flex">
-                        {[...Array(5)].map((_, i) => (
-                          <Star
-                            key={i}
-                            className={cn(
-                              "h-4 w-4",
-                              i < Math.floor(course.instructor!.avgRating!)
-                                ? "text-yellow-500 fill-current"
-                                : "text-gray-300",
-                            )}
-                          />
-                        ))}
-                      </div>
-                      <span className="text-sm font-medium text-gray-700">
-                        {course.instructor.avgRating.toFixed(1)}
-                      </span>
+              {
+                <div className="flex md:justify-start items-center gap-3 mt-4">
+                  <div className="flex items-center gap-1">
+                    <div className="flex">
+                      {[...Array(5)].map((_, i) => (
+                        <Star
+                          key={i}
+                          className={cn(
+                            "h-4 w-4",
+                            i < Math.floor(course.instructor!.avgRating!)
+                              ? "text-yellow-500 fill-current"
+                              : "text-gray-300",
+                          )}
+                        />
+                      ))}
                     </div>
-                    <span className="text-sm text-gray-500">
-                      ({course.instructor.totalRatings} đánh giá giảng viên)
+                    <span className="text-sm font-medium text-gray-700">
+                      {course?.instructor?.avgRating?.toFixed(1)}
                     </span>
                   </div>
-                )}
+                  <span className="text-sm text-gray-500">
+                    ({course.instructor.totalRatings} đánh giá giảng viên)
+                  </span>
+                </div>
+              }
             </div>
           )}
 

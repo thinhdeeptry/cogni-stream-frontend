@@ -38,9 +38,7 @@ export default function CourseItem({
     specialization?: string;
     avgRating?: number;
     totalRatings?: number;
-    user?: {
-      image?: string;
-    };
+    user?: any;
   };
   avgRating?: number;
 }) {
@@ -129,7 +127,9 @@ export default function CourseItem({
             <div className="flex items-center gap-2 mb-2">
               <div className="flex-shrink-0">
                 <Image
-                  src={instructor.user?.image || "/placeholder-avatar.jpg"}
+                  {...createGoogleDriveImageProps(
+                    instructor.user?.image || "/default-avatar.png",
+                  )}
                   alt="Instructor"
                   width={24}
                   height={24}
@@ -138,17 +138,15 @@ export default function CourseItem({
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-gray-600 truncate">
-                  {instructor.headline || "Giảng viên"}
+                  {instructor.user.name || "Giảng viên"}
                 </p>
-                {instructor.avgRating && instructor.totalRatings && (
-                  <div className="flex items-center gap-1">
-                    <Star className="h-3 w-3 text-yellow-500 fill-current" />
-                    <span className="text-xs text-gray-600">
-                      {instructor.avgRating.toFixed(1)} (
-                      {instructor.totalRatings})
-                    </span>
-                  </div>
-                )}
+                <div className="flex items-center gap-1">
+                  <Star className="h-3 w-3 text-yellow-500 fill-current" />
+                  <span className="text-xs text-gray-600">
+                    {(instructor.avgRating || 5.0).toFixed(1)} (
+                    {instructor.totalRatings || 0})
+                  </span>
+                </div>
               </div>
             </div>
           )}
