@@ -815,6 +815,26 @@ export default function CreateLessonPage({
                             onQuestionsChange={handleQuestionsChange}
                             mode="create"
                             initialQuestions={[]} // Start empty in create mode
+                            uploadFile={async (file: File) => {
+                              try {
+                                const result = await uploadCourseVideo(
+                                  file,
+                                  resolvedParams.courseId,
+                                );
+                                if (result.success) {
+                                  return result.driveUrl;
+                                } else {
+                                  throw new Error(result.message);
+                                }
+                              } catch (error) {
+                                toast({
+                                  title: "Lỗi",
+                                  description: "Không thể tải lên hình ảnh",
+                                  variant: "destructive",
+                                });
+                                throw error;
+                              }
+                            }}
                           />
                         </div>
                       )}

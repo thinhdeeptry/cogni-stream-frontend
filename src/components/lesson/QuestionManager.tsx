@@ -9,7 +9,10 @@ import {
   type Question,
   QuestionType,
 } from "@/types/assessment/types";
-import { Editor } from "@tinymce/tinymce-react";
+import "@blocknote/core/fonts/inter.css";
+import { BlockNoteView } from "@blocknote/mantine";
+import "@blocknote/mantine/style.css";
+import { useCreateBlockNote } from "@blocknote/react";
 import {
   AlertCircle,
   Brain,
@@ -29,6 +32,8 @@ import {
   getQuestions,
   updateQuestion,
 } from "@/actions/assessmentAction";
+
+import { extractPlainTextFromBlockNote } from "@/utils/blocknote";
 
 import {
   AlertDialog,
@@ -61,6 +66,50 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
+// Helper component for answer BlockNote editors
+interface AnswerBlockNoteEditorProps {
+  value: string;
+  onChange: (content: string) => void;
+  uploadFile?: (file: File) => Promise<string>;
+}
+
+function AnswerBlockNoteEditor({
+  value,
+  onChange,
+  uploadFile,
+}: AnswerBlockNoteEditorProps) {
+  const editor = useCreateBlockNote({ uploadFile });
+  const hasLoadedRef = useRef(false);
+
+  // Load initial content once
+  useEffect(() => {
+    if (value && editor && !hasLoadedRef.current) {
+      try {
+        const blocks = JSON.parse(value);
+        editor.replaceBlocks(editor.document, blocks);
+        hasLoadedRef.current = true;
+      } catch {
+        // If not JSON, clear editor
+        editor.replaceBlocks(editor.document, []);
+        hasLoadedRef.current = true;
+      }
+    }
+  }, [value, editor]);
+
+  return (
+    <BlockNoteView
+      editor={editor}
+      theme="light"
+      className="min-h-[150px] bg-white"
+      onChange={() => {
+        const blocks = editor.document;
+        const content = JSON.stringify(blocks);
+        onChange(content);
+      }}
+    />
+  );
+}
+
 // Types based on new backend structure
 interface QuestionManagerProps {
   lessonId?: string;
@@ -69,6 +118,7 @@ interface QuestionManagerProps {
   onQuestionsChange?: (questions: Question[]) => void;
   mode?: "edit" | "create"; // New mode prop to handle draft vs. edit mode
   initialQuestions?: Question[]; // Initial questions for create mode
+  uploadFile?: (file: File) => Promise<string>; // Image upload function for BlockNote
 }
 
 interface QuestionFormData {
@@ -85,6 +135,7 @@ export function QuestionManager({
   onQuestionsChange,
   mode = "edit",
   initialQuestions = [],
+  uploadFile,
 }: QuestionManagerProps) {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -110,36 +161,25 @@ export function QuestionManager({
     ],
   });
 
-  // Editor configuration
-  const editorConfig = {
-    height: 200,
-    menubar: false,
-    plugins: [
-      "advlist",
-      "autolink",
-      "lists",
-      "link",
-      "image",
-      "charmap",
-      "preview",
-      "anchor",
-      "searchreplace",
-      "visualblocks",
-      "code",
-      "fullscreen",
-      "insertdatetime",
-      "media",
-      "table",
-      "help",
-      "wordcount",
-    ],
-    toolbar:
-      "undo redo | blocks | bold italic forecolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | removeformat | help",
-    content_style: `
-      body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; }
-      .mce-content-body img { max-width: 100%; height: auto; }
-    `,
-  };
+  // Create BlockNote editor for question text
+  const questionEditor = useCreateBlockNote({
+    uploadFile: uploadFile,
+  });
+
+  // Load question text content into editor when editing
+  useEffect(() => {
+    if (formData.text && questionEditor) {
+      try {
+        // Try to parse as BlockNote JSON
+        const blocks = JSON.parse(formData.text);
+        questionEditor.replaceBlocks(questionEditor.document, blocks);
+      } catch {
+        // If not JSON (legacy HTML or plain text), clear the editor
+        // User will need to re-enter content
+        questionEditor.replaceBlocks(questionEditor.document, []);
+      }
+    }
+  }, [editingQuestion?.id]); // Only reload when switching to a different question
 
   const questionTypeOptions = [
     {
@@ -954,11 +994,13 @@ export function QuestionManager({
                 </Badge>
               </Label>
               <div className="border-2 border-purple-200 rounded-lg overflow-hidden">
-                <Editor
-                  apiKey={process.env.NEXT_PUBLIC_TINYMCE_API_KEY}
-                  init={editorConfig}
-                  value={formData.text}
-                  onEditorChange={(content) => {
+                <BlockNoteView
+                  editor={questionEditor}
+                  theme="light"
+                  className="min-h-[200px] bg-white"
+                  onChange={() => {
+                    const blocks = questionEditor.document;
+                    const content = JSON.stringify(blocks);
                     setFormData((prev) => ({
                       ...prev,
                       text: content,
@@ -1066,13 +1108,12 @@ export function QuestionManager({
                             Đáp án {String.fromCharCode(65 + index)}
                           </Label>
                           <div className="border border-slate-200 rounded-md overflow-hidden">
-                            <Editor
-                              apiKey={process.env.NEXT_PUBLIC_TINYMCE_API_KEY}
-                              init={{ ...editorConfig, height: 150 }}
+                            <AnswerBlockNoteEditor
                               value={answer.text}
-                              onEditorChange={(content) => {
-                                handleAnswerChange(index, "text", content);
-                              }}
+                              onChange={(content) =>
+                                handleAnswerChange(index, "text", content)
+                              }
+                              uploadFile={uploadFile}
                             />
                           </div>
                         </div>
@@ -1120,8 +1161,9 @@ export function QuestionManager({
                 <div className="mt-3 p-2 bg-blue-100 rounded text-sm">
                   <span className="font-medium">Đáp án đúng: </span>
                   <span className="text-blue-700">
-                    {formData.answers.find((a) => a.isCorrect)?.text ||
-                      "Chưa chọn đáp án đúng"}
+                    {extractPlainTextFromBlockNote(
+                      formData.answers.find((a) => a.isCorrect)?.text || "",
+                    )}
                   </span>
                 </div>
               </div>
@@ -1551,16 +1593,17 @@ export function QuestionManager({
                               >
                                 {getQuestionTypeLabel(question.type)}
                               </Badge>
-                              <div
-                                className="text-sm text-slate-700 line-clamp-2"
-                                dangerouslySetInnerHTML={{
-                                  __html:
-                                    question.text?.substring(0, 100) +
-                                      (question.text?.length > 100
-                                        ? "..."
-                                        : "") || "",
-                                }}
-                              />
+                              <div className="mt-2">
+                                <span className="font-medium">
+                                  Đáp án đúng:{" "}
+                                </span>
+                                <span className="text-blue-700">
+                                  {extractPlainTextFromBlockNote(
+                                    question.answers.find((a) => a.isCorrect)
+                                      ?.text || "",
+                                  )}
+                                </span>
+                              </div>
                             </div>
                           </div>
                           <div className="flex items-center space-x-2">
