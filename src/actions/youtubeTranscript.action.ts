@@ -1,12 +1,13 @@
 "use server";
 
-import { YoutubeTranscript } from "youtube-transcript";
+// Import thư viện InnerTube (mạnh mẽ hơn youtube-transcript)
+import { Innertube, UniversalCache, Utils } from "youtubei.js";
 
-// Updated interface for the response we'll send
+// --- Interfaces giữ nguyên như cũ ---
 interface TimestampedTranscriptItem {
   text: string;
   timestamp: string;
-  offset: number; // Start time in milliseconds
+  offset: number;
   duration: number;
 }
 
@@ -14,13 +15,26 @@ interface TranscriptResponse {
   transcript: string;
   timestampedTranscript: TimestampedTranscriptItem[];
   videoId: string;
-  source: "transcript" | "subtitles" | "captions"; // Track the source of content
+  source: "transcript" | "subtitles" | "captions";
 }
 
 interface ErrorResponse {
   error: string;
   details?: string;
   videoId?: string;
+}
+
+// Khởi tạo instance của Youtube Client (Singleton pattern để tránh tạo lại nhiều lần)
+let youtubeClient: Innertube | null = null;
+
+async function getYoutubeClient() {
+  if (!youtubeClient) {
+    youtubeClient = await Innertube.create({
+      cache: new UniversalCache(false),
+      generate_session_locally: true, // Giúp tránh bị chặn IP tốt hơn
+    });
+  }
+  return youtubeClient;
 }
 
 export async function getYoutubeTranscript(
@@ -30,183 +44,120 @@ export async function getYoutubeTranscript(
 
   try {
     if (!url) {
-      console.error("Missing YouTube URL parameter");
-      return {
-        error: "Missing YouTube URL parameter",
-        videoId: "",
-      };
+      return { error: "Missing YouTube URL parameter" };
     }
 
-    console.log(`Processing request for URL: ${url}`);
-
-    // Extract the YouTube video ID from the URL
+    // --- 1. Extract ID (Giữ nguyên logic của bạn hoặc dùng Utils của thư viện) ---
+    // Cách extract ID của bạn đã tốt, nhưng để chắc chắn mình clean lại 1 chút
     try {
-      // Handle different YouTube URL formats
-      if (url.includes("youtube.com/watch")) {
-        // Format: https://www.youtube.com/watch?v=VIDEO_ID
-        const urlObj = new URL(url);
-        videoId = urlObj.searchParams.get("v") || "";
-      } else if (url.includes("youtu.be/")) {
-        // Format: https://youtu.be/VIDEO_ID
+      if (url.includes("youtu.be")) {
         videoId = url.split("youtu.be/")[1]?.split("?")[0] || "";
-      } else if (url.includes("youtube.com/embed/")) {
-        // Format: https://www.youtube.com/embed/VIDEO_ID
-        videoId = url.split("youtube.com/embed/")[1]?.split("?")[0] || "";
+      } else if (url.includes("v=")) {
+        videoId = new URLSearchParams(url.split("?")[1]).get("v") || "";
+      } else if (url.includes("embed/")) {
+        videoId = url.split("embed/")[1]?.split("?")[0] || "";
       }
 
-      console.log(`Extracted YouTube video ID: ${videoId}`);
+      // Fallback nếu logic trên trượt
+      if (!videoId && url.length === 11) videoId = url;
+    } catch (e) {
+      console.error("Error parsing URL", e);
+    }
 
-      if (!videoId) {
-        console.warn(`Could not extract video ID from URL: ${url}`);
-        return {
-          error: "Invalid YouTube URL format",
-          videoId: "",
-        };
-      }
-    } catch (error) {
-      console.error(`Error extracting video ID from URL: ${url}`, error);
+    if (!videoId) {
+      return { error: "Invalid YouTube URL format", videoId: "" };
+    }
+
+    console.log(`Fetching transcript for Video ID: ${videoId}`);
+
+    // --- 2. Gọi Youtube API qua InnerTube ---
+    const youtube = await getYoutubeClient();
+
+    // Lấy thông tin video
+    const info = await youtube.getInfo(videoId);
+
+    // Lấy dữ liệu transcript
+    // getTranscript() của thư viện này tự động xử lý việc tìm caption
+    const transcriptData = await info.getTranscript();
+
+    if (
+      !transcriptData ||
+      transcriptData.transcript.content?.body?.initial_segments.length === 0
+    ) {
       return {
-        error: "Invalid URL format",
-        videoId: "",
-      };
-    }
-
-    // Try to fetch transcript/subtitles with multiple language options
-    let transcriptData;
-    let sourceType: "transcript" | "subtitles" | "captions" = "transcript";
-    const languagesToTry = ["vi", "en", "en-US", "en-GB", "auto"]; // Vietnamese first, then English variants, then auto-generated
-
-    // The youtube-transcript library can fetch:
-    // 1. Manual transcripts (uploaded by video creator)
-    // 2. Auto-generated captions (created by YouTube's AI)
-    // 3. Community-contributed subtitles (if available)
-    // We try multiple languages to maximize success rate
-
-    for (const lang of languagesToTry) {
-      try {
-        console.log(
-          `Attempting to fetch transcript for video ID: ${videoId} with language: ${lang}`,
-        );
-
-        if (lang === "auto") {
-          // Try without specifying language (auto-detect)
-          transcriptData = await YoutubeTranscript.fetchTranscript(videoId);
-          sourceType = "captions";
-        } else {
-          // Try with specific language
-          transcriptData = await YoutubeTranscript.fetchTranscript(videoId, {
-            lang: lang,
-          });
-          sourceType = lang === "vi" ? "subtitles" : "transcript";
-        }
-
-        if (transcriptData && transcriptData.length > 0) {
-          console.log(
-            `Successfully fetched ${sourceType} with ${transcriptData.length} items using language: ${lang}`,
-          );
-          break; // Found transcript, break out of loop
-        }
-      } catch (langError) {
-        console.log(
-          `Failed to fetch ${sourceType} with language ${lang}:`,
-          langError,
-        );
-        // Continue to next language
-      }
-    }
-
-    // If still no transcript data, try one more time with auto-generated captions
-    if (!transcriptData || transcriptData.length === 0) {
-      try {
-        console.log(
-          `Attempting to fetch auto-generated captions for video ID: ${videoId}`,
-        );
-        // Try to fetch auto-generated captions explicitly
-        transcriptData = await YoutubeTranscript.fetchTranscript(videoId, {
-          lang: "en",
-        });
-      } catch (autoError) {
-        console.log("Auto-generated captions also failed:", autoError);
-      }
-    }
-
-    if (!transcriptData || transcriptData.length === 0) {
-      console.warn(
-        `No transcript/subtitle data available for video ID: ${videoId}`,
-      );
-      return {
-        error: "No transcript or subtitles available",
-        details:
-          "The video does not have any transcript data or subtitles available in supported languages (Vietnamese, English).",
+        error: "No transcript available",
+        details: "Video does not have captions/subtitles.",
         videoId,
       };
     }
 
-    console.log(
-      `Successfully fetched transcript/subtitles with ${transcriptData.length} items`,
-    );
+    // --- 3. Xử lý dữ liệu trả về ---
+    // Thư viện trả về format hơi khác, cần map lại
+    const rawSegments =
+      transcriptData.transcript.content?.body?.initial_segments || [];
 
-    if (!transcriptData || transcriptData.length === 0) {
-      console.warn(
-        `No transcript/subtitle data available for video ID: ${videoId}`,
-      );
-      return {
-        error: "No transcript or subtitles available",
-        details:
-          "The video does not have any transcript data or subtitles available in supported languages (Vietnamese, English).",
-        videoId,
-      };
-    }
+    const timestampedTranscript: TimestampedTranscriptItem[] = rawSegments.map(
+      (segment: any) => {
+        const startMs = Number(segment.start_ms || 0);
+        const endMs = Number(segment.end_ms || 0);
 
-    console.log(
-      `Successfully fetched transcript/subtitles with ${transcriptData.length} items`,
-    );
+        // Format timestamp HH:MM:SS
+        const totalSeconds = Math.floor(startMs / 1000);
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
 
-    // Format the transcript data
-    const formattedTranscript = transcriptData
-      .map((item: any) => item.text)
-      .join(" ");
+        const timestamp =
+          hours > 0
+            ? `${hours}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
+            : `${minutes}:${seconds.toString().padStart(2, "0")}`;
 
-    const timestampedTranscript: TimestampedTranscriptItem[] =
-      transcriptData.map((item: any) => {
-        const offsetInSeconds =
-          item.offset ||
-          item.start ||
-          item.startTime ||
-          item.time ||
-          item.timeMs / 1000 ||
-          0;
-        const totalMinutes = Math.floor(offsetInSeconds / 60);
-        const remainingSeconds = Math.floor(offsetInSeconds % 60);
-
-        let timestamp = `${totalMinutes}:${remainingSeconds.toString().padStart(2, "0")}`;
-
-        if (totalMinutes >= 60) {
-          const hours = Math.floor(totalMinutes / 60);
-          const minutes = totalMinutes % 60;
-          timestamp = `${hours}:${minutes.toString().padStart(2, "0")}:${remainingSeconds.toString().padStart(2, "0")}`;
-        }
+        // Gom text từ các "runs" (Youtube chia nhỏ text)
+        const text =
+          segment.snippet?.text ||
+          segment.runs?.map((r: any) => r.text).join("") ||
+          "";
 
         return {
-          text: item.text,
-          timestamp,
-          offset: Math.round(offsetInSeconds * 1000),
-          duration: item.duration || 0,
+          text: text.trim(),
+          timestamp: timestamp,
+          offset: startMs,
+          duration: endMs - startMs,
         };
-      });
+      },
+    );
+
+    // Lọc bỏ các dòng trống
+    const validItems = timestampedTranscript.filter(
+      (item) => item.text.length > 0,
+    );
+
+    const fullText = validItems.map((item) => item.text).join(" ");
+
+    // Xác định ngôn ngữ (Optional detection)
+    // Mặc định thư viện này sẽ lấy ngôn ngữ của hệ thống hoặc ưu tiên tiếng Anh/Việt tùy config,
+    // nhưng nó trả về cái tốt nhất có thể.
 
     return {
-      transcript: formattedTranscript,
-      timestampedTranscript,
+      transcript: fullText,
+      timestampedTranscript: validItems,
       videoId,
-      source: sourceType,
+      source: "captions", // InnerTube thường lấy captions chuẩn
     };
-  } catch (error) {
-    console.error("Unexpected error in youtube-transcript action:", error);
+  } catch (error: any) {
+    console.error("Error fetching transcript:", error);
+
+    // Xử lý lỗi cụ thể
+    if (error.message?.includes("Video unavailable")) {
+      return { error: "Video is unavailable or private", videoId };
+    }
+    if (error.message?.includes("No transcript")) {
+      return { error: "No transcript found for this video", videoId };
+    }
+
     return {
       error: "Internal server error",
-      details:
-        error instanceof Error ? error.message : "An unexpected error occurred",
+      details: error.message,
       videoId,
     };
   }
