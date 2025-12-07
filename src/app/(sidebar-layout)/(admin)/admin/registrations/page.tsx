@@ -95,7 +95,7 @@ export default function InstructorRegistrationsPage() {
           currentFilters.status === "ALL" ? undefined : currentFilters.status,
         search: currentFilters.search,
       });
-
+      console.log("Fetched registrations:", response);
       setData(response.data);
       setPagination({
         page: response.meta.page,
