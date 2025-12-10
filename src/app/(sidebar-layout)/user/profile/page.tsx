@@ -14,6 +14,7 @@ import {
   CheckCircle,
   Clock,
   Edit,
+  History,
   LogOut,
   Mail,
   MapPin,
@@ -23,7 +24,7 @@ import {
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 
-import { getUserInstructorRegistration } from "@/actions/instructorRegistrationAction";
+import { getAllUserInstructorRegistrations } from "@/actions/instructorRegistrationAction";
 
 import useUserStore from "@/stores/useUserStore";
 
@@ -31,6 +32,7 @@ import { createGoogleDriveImageProps } from "@/utils/googleDriveUtils";
 
 import { AvatarUpload } from "@/components/auth/avatar-upload";
 import { ProfileUpdateForm } from "@/components/auth/profile-update-form";
+import { RejectedRegistrationsModal } from "@/components/instructor/RejectedRegistrationsModal";
 import InstructorInfo from "@/components/profile/InstructorInfo";
 import MyClassesList from "@/components/profile/MyClassesList";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -65,6 +67,10 @@ function ProfilePageContent() {
   const [activeTab, setActiveTab] = useState("profile");
   const [instructorRegistration, setInstructorRegistration] =
     useState<InstructorRegistration | null>(null);
+  const [allUserRegistrations, setAllUserRegistrations] = useState<
+    InstructorRegistration[]
+  >([]);
+  const [showRejectedModal, setShowRejectedModal] = useState(false);
 
   // Handle hydration
   useEffect(() => {
@@ -86,8 +92,32 @@ function ProfilePageContent() {
     const checkInstructorRegistration = async () => {
       if (user?.id && user?.role?.toLowerCase() === "student") {
         try {
-          const registration = await getUserInstructorRegistration(user.id);
-          setInstructorRegistration(registration);
+          const registrations = await getAllUserInstructorRegistrations(
+            user.id,
+          );
+
+          if (registrations.length === 0) {
+            setInstructorRegistration(null);
+            setAllUserRegistrations([]);
+            return;
+          }
+
+          // Lưu tất cả đơn của user
+          setAllUserRegistrations(registrations);
+
+          // Ưu tiên hiển thị đơn PENDING hoặc APPROVED
+          const pendingOrApproved = registrations.find(
+            (reg) =>
+              reg.status === RegistrationStatus.PENDING ||
+              reg.status === RegistrationStatus.APPROVED,
+          );
+
+          if (pendingOrApproved) {
+            setInstructorRegistration(pendingOrApproved);
+          } else {
+            // Nếu chỉ có đơn REJECTED
+            setInstructorRegistration(null);
+          }
         } catch (error) {
           console.error("Error checking instructor registration:", error);
         }
@@ -145,7 +175,7 @@ function ProfilePageContent() {
       return null;
     }
 
-    if (!instructorRegistration) {
+    if (!instructorRegistration && allUserRegistrations.length === 0) {
       // Chưa có đơn đăng ký - hiển thị nút đăng ký
       return (
         <div className="mt-2">
@@ -160,7 +190,35 @@ function ProfilePageContent() {
       );
     }
 
+    // Nếu chỉ có đơn bị từ chối, cho phép đăng ký lại
+    if (!instructorRegistration && allUserRegistrations.length > 0) {
+      return (
+        <div className="mt-2 space-y-2">
+          <Button
+            variant="outline"
+            className="w-full border-orange-500 text-orange-500 hover:bg-orange-50"
+            onClick={() => router.push("/instructor/apply")}
+          >
+            Đăng ký làm giảng viên
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full"
+            onClick={() => setShowRejectedModal(true)}
+          >
+            <History className="w-4 h-4 mr-2" />
+            Xem các đơn đăng ký của bạn
+          </Button>
+        </div>
+      );
+    }
+
     // Đã có đơn đăng ký - hiển thị trạng thái
+    if (!instructorRegistration) {
+      return null;
+    }
+
     const getStatusInfo = () => {
       switch (instructorRegistration.status) {
         case RegistrationStatus.PENDING:
@@ -193,7 +251,7 @@ function ProfilePageContent() {
     const statusInfo = getStatusInfo();
 
     return (
-      <div className="mt-2">
+      <div className="mt-2 space-y-2">
         <Button
           variant="outline"
           className={`w-full cursor-default ${statusInfo.className}`}
@@ -204,20 +262,16 @@ function ProfilePageContent() {
             {statusInfo.text}
           </div>
         </Button>
-        {instructorRegistration.status === RegistrationStatus.REJECTED &&
-          instructorRegistration.rejectionReason && (
-            <p className="text-xs text-red-600 mt-1 px-2">
-              Lý do: {instructorRegistration.rejectionReason}
-            </p>
-          )}
-        {instructorRegistration.status === RegistrationStatus.REJECTED && (
+
+        {allUserRegistrations.length > 0 && (
           <Button
             variant="outline"
             size="sm"
-            className="w-full mt-2 border-orange-500 text-orange-500 hover:bg-orange-50"
-            onClick={() => router.push("/instructor/apply")}
+            className="w-full"
+            onClick={() => setShowRejectedModal(true)}
           >
-            Đăng ký lại
+            <History className="w-4 h-4 mr-2" />
+            Xem các đơn đăng ký của bạn
           </Button>
         )}
       </div>
@@ -517,6 +571,13 @@ function ProfilePageContent() {
           </Tabs>
         </div>
       </div>
+
+      {/* Modal lịch sử đơn đăng ký */}
+      <RejectedRegistrationsModal
+        open={showRejectedModal}
+        onOpenChange={setShowRejectedModal}
+        registrations={allUserRegistrations}
+      />
     </div>
   );
 }

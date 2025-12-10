@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 
-import { InstructorRegistration } from "@/types/instructor/types";
+import {
+  InstructorRegistration,
+  RegistrationStatus,
+} from "@/types/instructor/types";
 
 import { getAllInstructorRegistrationsNoPagination } from "@/actions/instructorRegistrationAction";
 
@@ -11,6 +14,9 @@ export function useInstructorRegistrationStatus() {
   const [loading, setLoading] = useState(true);
   const [registration, setRegistration] =
     useState<InstructorRegistration | null>(null);
+  const [allUserRegistrations, setAllUserRegistrations] = useState<
+    InstructorRegistration[]
+  >([]);
   const [canApply, setCanApply] = useState(false);
 
   useEffect(() => {
@@ -30,18 +36,41 @@ export function useInstructorRegistrationStatus() {
           return;
         }
 
-        // Lấy tất cả đơn đăng ký và tìm đơn của user hiện tại
+        // Lấy tất cả đơn đăng ký của user hiện tại
         const allRegistrations =
           await getAllInstructorRegistrationsNoPagination();
-        const userRegistration = allRegistrations.find(
+        const userRegistrations = allRegistrations.filter(
           (reg) => reg.userId === user.id,
         );
 
-        if (userRegistration) {
-          setRegistration(userRegistration);
-          setCanApply(false); // Đã có đơn đăng ký rồi
+        // Lưu tất cả đơn của user
+        setAllUserRegistrations(userRegistrations);
+
+        if (userRegistrations.length === 0) {
+          setCanApply(true);
+          setLoading(false);
+          return;
+        }
+
+        // Ưu tiên hiển thị đơn PENDING hoặc APPROVED
+        const pendingOrApproved = userRegistrations.find(
+          (reg) =>
+            reg.status === RegistrationStatus.PENDING ||
+            reg.status === RegistrationStatus.APPROVED,
+        );
+
+        if (pendingOrApproved) {
+          setRegistration(pendingOrApproved);
+          setCanApply(false);
         } else {
-          setCanApply(true); // Chưa có đơn đăng ký, có thể apply
+          // Nếu chỉ có đơn REJECTED, hiển thị đơn mới nhất và cho phép apply
+          const sortedByDate = [...userRegistrations].sort(
+            (a, b) =>
+              new Date(b.submittedAt).getTime() -
+              new Date(a.submittedAt).getTime(),
+          );
+          setRegistration(sortedByDate[0]);
+          setCanApply(true);
         }
       } catch (error) {
         console.error("Error checking registration status:", error);
@@ -57,6 +86,7 @@ export function useInstructorRegistrationStatus() {
   return {
     loading,
     registration,
+    allUserRegistrations,
     canApply,
     isInstructor: user?.role === "INSTRUCTOR",
   };

@@ -106,6 +106,19 @@ export const getUserInstructorRegistration = async (
   }
 };
 
+// Lấy tất cả đơn đăng ký của một user
+export const getAllUserInstructorRegistrations = async (
+  userId: string,
+): Promise<InstructorRegistration[]> => {
+  try {
+    const allRegistrations = await getAllInstructorRegistrationsNoPagination();
+    return allRegistrations.filter((reg) => reg.userId === userId);
+  } catch (error) {
+    console.error("Error getting all user instructor registrations:", error);
+    return [];
+  }
+};
+
 // Tạo mới đăng ký giảng viên
 export const createInstructorRegistration = async (
   registrationData: Omit<

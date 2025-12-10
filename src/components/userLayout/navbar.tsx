@@ -76,34 +76,37 @@ export default function Navbar({
   const [isCurrentCourseEnrolled, setIsCurrentCourseEnrolled] = useState(false);
   const [myClasses, setMyClasses] = useState<any[]>([]);
   const [loadingClasses, setLoadingClasses] = useState(false);
+  const [hasLoadedClasses, setHasLoadedClasses] = useState(false);
 
-  // Fetch my classes
-  useEffect(() => {
-    const fetchMyClasses = async () => {
-      if (session?.user?.id && isLoggedIn) {
-        setLoadingClasses(true);
-        try {
-          const result = await getMyClasses(session.user.id);
-          if (result.success) {
-            // API trả về { data: { data: [...] } }, nên cần lấy result.data.data
-            const classesData = result.data?.data || result.data || [];
-            setMyClasses(
-              Array.isArray(classesData.data) ? classesData.data : [],
-            );
-          } else {
-            setMyClasses([]);
-          }
-        } catch (error) {
-          console.error("Error fetching my classes:", error);
+  // Fetch my classes function
+  const fetchMyClasses = async () => {
+    if (session?.user?.id && isLoggedIn) {
+      setLoadingClasses(true);
+      try {
+        const result = await getMyClasses(session.user.id);
+        if (result.success) {
+          // API trả về { data: { data: [...] } }, nên cần lấy result.data.data
+          const classesData = result.data?.data || result.data || [];
+          setMyClasses(Array.isArray(classesData.data) ? classesData.data : []);
+          setHasLoadedClasses(true);
+        } else {
           setMyClasses([]);
-        } finally {
-          setLoadingClasses(false);
         }
+      } catch (error) {
+        console.error("Error fetching my classes:", error);
+        setMyClasses([]);
+      } finally {
+        setLoadingClasses(false);
       }
-    };
+    }
+  };
 
-    fetchMyClasses();
-  }, [session?.user?.id, isLoggedIn]);
+  // Handle dropdown open - fetch classes if not loaded yet
+  const handleDropdownOpenChange = (open: boolean) => {
+    if (open && !hasLoadedClasses && !loadingClasses) {
+      fetchMyClasses();
+    }
+  };
 
   // Check if we're in a lesson page
   const isLessonPage =
@@ -264,7 +267,7 @@ export default function Navbar({
         <div className="flex items-center gap-4">
           {isLoggedIn ? (
             <>
-              <DropdownMenu>
+              <DropdownMenu onOpenChange={handleDropdownOpenChange}>
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="ghost"
