@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 import { useInstructorRegistrationStatus } from "@/hooks/useInstructorRegistrationStatus";
 import { RegistrationStatus } from "@/types/instructor/types";
@@ -10,6 +11,7 @@ import {
   CheckCircle,
   Clock,
   GraduationCap,
+  History,
   XCircle,
 } from "lucide-react";
 
@@ -18,10 +20,18 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
+import { RejectedRegistrationsModal } from "./RejectedRegistrationsModal";
+
 export function InstructorRegistrationCard() {
   const router = useRouter();
-  const { loading, registration, canApply, isInstructor } =
-    useInstructorRegistrationStatus();
+  const {
+    loading,
+    registration,
+    allUserRegistrations,
+    canApply,
+    isInstructor,
+  } = useInstructorRegistrationStatus();
+  const [showRejectedModal, setShowRejectedModal] = useState(false);
 
   if (loading) {
     return (
@@ -154,10 +164,20 @@ export function InstructorRegistrationCard() {
           {registration.status === RegistrationStatus.REJECTED && (
             <Button
               onClick={() => router.push("/instructor/apply")}
-              variant="outline"
-              className="w-full mt-4"
+              className="w-full mt-4 bg-orange-600 hover:bg-orange-700"
             >
               Đăng ký lại
+            </Button>
+          )}
+
+          {allUserRegistrations.length > 0 && (
+            <Button
+              onClick={() => setShowRejectedModal(true)}
+              variant="outline"
+              className="w-full mt-2"
+            >
+              <History className="w-4 h-4 mr-2" />
+              Xem các đơn đăng ký của bạn
             </Button>
           )}
         </CardContent>
@@ -167,43 +187,64 @@ export function InstructorRegistrationCard() {
 
   if (canApply) {
     return (
-      <Card className="border-orange-200 bg-orange-50">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-orange-700">
-            <GraduationCap className="h-5 w-5" />
-            Trở thành giảng viên
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-orange-600 mb-4">
-            Chia sẻ kiến thức và kinh nghiệm của bạn với hàng nghìn học viên
-            trên nền tảng.
-          </p>
+      <>
+        <Card className="border-orange-200 bg-orange-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-orange-700">
+              <GraduationCap className="h-5 w-5" />
+              Trở thành giảng viên
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-orange-600 mb-4">
+              Chia sẻ kiến thức và kinh nghiệm của bạn với hàng nghìn học viên
+              trên nền tảng.
+            </p>
 
-          <div className="mb-4 space-y-2 text-sm text-orange-700">
-            <div className="flex items-start gap-2">
-              <div className="w-2 h-2 bg-orange-500 rounded-full mt-1.5 flex-shrink-0"></div>
-              <span>Tạo và bán khóa học trực tuyến</span>
+            <div className="mb-4 space-y-2 text-sm text-orange-700">
+              <div className="flex items-start gap-2">
+                <div className="w-2 h-2 bg-orange-500 rounded-full mt-1.5 flex-shrink-0"></div>
+                <span>Tạo và bán khóa học trực tuyến</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <div className="w-2 h-2 bg-orange-500 rounded-full mt-1.5 flex-shrink-0"></div>
+                <span>Nhận hoa hồng từ học viên đăng ký</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <div className="w-2 h-2 bg-orange-500 rounded-full mt-1.5 flex-shrink-0"></div>
+                <span>Xây dựng thương hiệu cá nhân</span>
+              </div>
             </div>
-            <div className="flex items-start gap-2">
-              <div className="w-2 h-2 bg-orange-500 rounded-full mt-1.5 flex-shrink-0"></div>
-              <span>Nhận hoa hồng từ học viên đăng ký</span>
-            </div>
-            <div className="flex items-start gap-2">
-              <div className="w-2 h-2 bg-orange-500 rounded-full mt-1.5 flex-shrink-0"></div>
-              <span>Xây dựng thương hiệu cá nhân</span>
-            </div>
-          </div>
 
-          <Button
-            onClick={() => router.push("/instructor/apply")}
-            className="w-full bg-orange-600 hover:bg-orange-700"
-          >
-            Đăng ký ngay
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </Button>
-        </CardContent>
-      </Card>
+            <div className="space-y-2">
+              <Button
+                onClick={() => router.push("/instructor/apply")}
+                className="w-full bg-orange-600 hover:bg-orange-700"
+              >
+                Đăng ký ngay
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+
+              {allUserRegistrations.length > 0 && (
+                <Button
+                  onClick={() => setShowRejectedModal(true)}
+                  variant="outline"
+                  className="w-full"
+                >
+                  <History className="w-4 h-4 mr-2" />
+                  Xem các đơn đăng ký của bạn
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <RejectedRegistrationsModal
+          open={showRejectedModal}
+          onOpenChange={setShowRejectedModal}
+          registrations={allUserRegistrations}
+        />
+      </>
     );
   }
 
