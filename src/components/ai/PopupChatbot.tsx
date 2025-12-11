@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { cn } from "@/lib/utils";
@@ -9,11 +10,8 @@ import {
   Download,
   Maximize2,
   Minimize2,
-  RotateCcw,
   Send,
-  Smile,
   Trash2,
-  User,
   X,
 } from "lucide-react";
 
@@ -23,6 +21,7 @@ import {
   analyzeConversation,
   generateSmartSuggestions,
 } from "@/utils/conversationAnalyzer";
+import { createGoogleDriveImageProps } from "@/utils/googleDriveUtils";
 
 import { ConversationStats } from "@/components/ai/ConversationStats";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -35,11 +34,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { MarkdownRenderer } from "@/components/ui/markdown-renderer";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 
 interface PopupChatbotProps {
@@ -135,11 +129,11 @@ const MessageAvatar = ({
         transition={{ duration: 0.2 }}
       >
         <Avatar className="w-8 h-8">
-          <AvatarImage
-            src={
-              userImage ||
-              `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId || "user"}`
-            }
+          <Image
+            {...createGoogleDriveImageProps(userImage)}
+            alt={userId || "User"}
+            className="w-full h-full object-cover"
+            fill
           />
           <AvatarFallback>
             {(userId || "U").slice(0, 2).toUpperCase()}
@@ -1334,11 +1328,10 @@ export function PopupChatbot({
                   className="w-full flex gap-2 items-start"
                 >
                   <Avatar className="w-8 h-8 mt-1">
-                    <AvatarImage
-                      src={
-                        user?.image ||
-                        `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`
-                      }
+                    <Image
+                      {...createGoogleDriveImageProps(user?.image)}
+                      fill
+                      alt="User Avatar"
                     />
                     <AvatarFallback>
                       {userId.slice(0, 2).toUpperCase()}
