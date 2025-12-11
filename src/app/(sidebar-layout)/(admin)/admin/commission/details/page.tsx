@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import React, { useEffect, useState } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 
 import { toast } from "@/hooks/use-toast";
 import {
@@ -56,8 +56,8 @@ import { type DetailFormData, DetailModal } from "./components/DetailModal";
 // Hooks
 import { useCommissionPageData } from "./hooks/useCommissionPageData";
 
-// Main component
-export default function CommissionDetailsPage() {
+// Content component that uses useSearchParams
+function CommissionDetailsContent() {
   const searchParams = useSearchParams();
   const headerIdFromUrl = searchParams.get("headerId");
 
@@ -627,5 +627,23 @@ export default function CommissionDetailsPage() {
         onConfirm={handleDeleteDetail}
       />
     </div>
+  );
+}
+
+// Main component with Suspense boundary
+export default function CommissionDetailsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex justify-center items-center min-h-[400px]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto"></div>
+            <p className="mt-4 text-slate-500">Đang tải trang...</p>
+          </div>
+        </div>
+      }
+    >
+      <CommissionDetailsContent />
+    </Suspense>
   );
 }
